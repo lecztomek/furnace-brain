@@ -1,0 +1,270 @@
+/* Reset / baza */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #1f2933;
+  color: #f9fafb;
+  overflow: hidden; /* pod kiosk */
+}
+
+
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* GÓRNY PASEK */
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  /* było #1d2230 */
+  background: #253243;
+  border-bottom: 1px solid #3b4254;
+  font-size: 14px;
+}
+
+.app-title {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.app-subtitle {
+  font-size: 12px;
+  color: #d1d5db;
+}
+
+#clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* GŁÓWNY GRID */
+
+.layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 210px; /* szersza prawa kolumna */
+  gap: 8px;
+  padding: 8px 8px 4px;
+}
+
+/* DIAGRAM */
+
+.diagram-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* było #181d27 */
+  background: #293545;
+  border-radius: 12px;
+  border: 1px solid #3f4b5f;
+  padding: 8px;
+}
+
+.diagram {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Placeholder, możesz usunąć jak wstawisz SVG */
+.diagram.placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  border: 2px dashed #66708a;   /* jaśniejsza ramka */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e5e7eb;
+  font-size: 14px;
+  text-align: center;
+  padding: 12px;
+}
+
+/* MENU PO PRAWEJ */
+
+.side-menu {
+  display: flex;
+  flex-direction: column;
+  background: #293545;           /* jaśniejszy panel */
+  border-radius: 12px;
+  border: 1px solid #3f4b5f;
+  padding: 10px;
+  gap: 8px;
+}
+
+.menu-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 16px 12px;          /* trochę większe klawisze */
+  font-size: 16px;             /* większa czcionka */
+  font-weight: 700;            /* grubsza */
+  color: #111827;              /* ciemny tekst na jasnym tle */
+  background: #e5e7eb;         /* jasny przycisk - maksymalny kontrast */
+  text-align: left;
+  cursor: pointer;
+  text-transform: uppercase;   /* wszystko caps, równo */
+  letter-spacing: 0.08em;      /* większy odstęp między literami */
+  transition: background 0.15s ease, transform 0.05s ease,
+    box-shadow 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.menu-btn:hover {
+  background: #d1d5db;
+}
+
+.menu-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.menu-btn.active {
+  background: #3b82f6;
+  color: #f9fafb;
+  box-shadow: 0 0 0 1px #1d4ed8;
+}
+
+.menu-btn.danger {
+  background: #ef4444;
+  color: #fef2f2;
+}
+
+.menu-btn.danger:hover {
+  background: #b91c1c;
+}
+
+.menu-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.menu-label {
+  flex: 1;
+}
+
+.menu-spacer {
+  flex: 1;
+}
+
+/* STATUS BAR */
+
+.status-bar {
+  height: 28px;
+  padding: 4px 10px;
+  background: #253243;
+  border-top: 1px solid #3b4254;
+  font-size: 12px;
+  color: #e5e7eb;
+  display: flex;
+  align-items: center;
+}
+
+/* Małe ekrany / testy w przeglądarce */
+@media (max-width: 700px) {
+  .layout {
+    grid-template-columns: 1fr 180px;
+  }
+
+  .menu-btn {
+    font-size: 14px;
+    padding: 12px 8px;
+  }
+}
+
+.pump-running {
+  animation: rotor-spin 2.7s linear infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+@keyframes rotor-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.auger-running .auger-spiral {
+  animation: auger-move 1.2s linear infinite;
+}
+
+@keyframes auger-move {
+  from { transform: translateX(0px); }
+  to   { transform: translateX(60px); } /* = jeden okres zygzaka */
+}
+
+.fan-running {
+  animation: fan-spin 2.5s linear infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+@keyframes fan-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.temp-badge rect {
+  fill: black;       /* jasne tło */
+  stroke-width: 0;
+}
+
+.temp-badge text {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-size: 58px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  fill: #5bc0de;       
+}
+
+@keyframes redblinkArrow {
+0%, 100% {
+  stroke: #000000;
+  fill:   #000000;
+}
+50% {
+  stroke: #ff0000;
+  fill:   #ff0000;
+}
+}
+
+@keyframes blueblinkArrow {
+0%, 100% {
+  stroke: #000000;
+  fill:   #000000;
+}
+50% {
+  stroke: #0000ff;
+  fill:   #0000ff;
+}
+}
+
+.red-arrow {
+animation: redblinkArrow 5s infinite;
+}
+
+.blue-arrow {
+animation: blueblinkArrow 5s infinite;
+}
