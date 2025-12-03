@@ -9,11 +9,16 @@ modules:
     enabled: false
     critical: true
 
-  - id: pumps
-    path: backend.modules.pumps:PumpsModule
-    enabled: false
+  - id: pump_cwu
+    path: backend.modules.pump_cwu:CwuPumpModule
+    enabled: true
     critical: true
 
+  - id: pump_co
+    path: backend.modules.pump_co:CoPumpModule
+    enabled: true
+    critical: true
+    
   - id: mixer
     path: backend.modules.mixer:MixerModule
     enabled: false     # wyłączony, dopóki nie zaimplementujesz

@@ -1,0 +1,26 @@
+id: pump_co
+name: "Pompa CO"
+description: "Sterowanie pompą obiegu CO na podstawie temperatury kotła."
+groups:
+  - id: basic
+    label: "Podstawowe"
+fields:
+  - key: boiler_on_temp
+    label: "Temperatura załączenia pompy"
+    type: number
+    unit: "°C"
+    min: 30
+    max: 90
+    step: 1
+    default: 60
+    group: basic
+
+  - key: hysteresis
+    label: "Histereza wyłączenia"
+    type: number
+    unit: "°C"
+    min: 1
+    max: 20
+    step: 0.5
+    default: 5
+    group: basic
