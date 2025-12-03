@@ -1,0 +1,25 @@
+modules:
+  - id: blower
+    path: backend.modules.blower:BlowerModule
+    enabled: false
+    critical: true
+
+  - id: feeder
+    path: backend.modules.feeder:FeederModule
+    enabled: false
+    critical: true
+
+  - id: pumps
+    path: backend.modules.pumps:PumpsModule
+    enabled: false
+    critical: true
+
+  - id: mixer
+    path: backend.modules.mixer:MixerModule
+    enabled: false     # wyłączony, dopóki nie zaimplementujesz
+    critical: true
+
+  - id: history
+    path: backend.modules.history:HistoryModule
+    enabled: true
+    critical: false    # historia nie jest krytyczna dla bezpieczeństwa
