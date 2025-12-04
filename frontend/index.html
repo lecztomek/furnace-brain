@@ -8,15 +8,6 @@
   </head>
   <body>
     <div class="app">
-      <header class="top-bar">
-        <div class="top-bar-left">
-          <span class="app-title">Sterownik kotła</span>
-          <span class="app-subtitle">tryb AUTO</span>
-        </div>
-        <div class="top-bar-right">
-          <span id="clock">--:--</span>
-        </div>
-      </header>
       <main class="layout">
         <!-- LEWA / CENTRALNA CZĘŚĆ: TWÓJ SCHEMAT SVG -->
         <section class="diagram-wrapper">
@@ -236,44 +227,59 @@
           </div>
         </section>
         <!-- PRAWA KOLUMNA: MENU -->
-        <aside class="side-menu">
-          <button class="menu-btn" data-view="manual">
-          <span class="menu-icon">🏠</span>
-          <span class="menu-label">PANEL 1</span>
-          </button>
-          <button class="menu-btn" data-view="manual">
-          <span class="menu-icon">🛠️</span>
-          <span class="menu-label">TRYB RĘCZNY</span>
-          </button>
-          <button class="menu-btn" data-view="ignite">
-          <span class="menu-icon">🔥</span>
-          <span class="menu-label">ROZPALANIE</span>
-          </button>
-          <button class="menu-btn" data-view="ignite">
-          <span class="menu-icon">➕</span>
-          <span class="menu-label">DOŁÓŻ OPAŁ</span>
-          </button>
-          <div class="menu-spacer"></div>
-          <button class="menu-btn" data-view="settings">
-          <span class="menu-icon">⚙️</span>
-          <span class="menu-label">USTAWIENIA</span>
-          </button>
-          <button class="menu-btn active" data-view="history">
-          <span class="menu-icon">📊</span>
-          <span class="menu-label">HISTORIA</span>
-          </button>
-          <button class="menu-btn danger" data-view="emergency">
-          <span class="menu-icon">⚠️</span>
-          <span class="menu-label">STOP</span>
-          </button>
-        </aside>
+		<aside class="side-menu">
+		
+		  <!-- ZEGAR W MENU BOCZNYM -->
+		  <div class="side-clock">
+			<div id="side-clock-time" class="side-clock-time">--:--</div>
+		  </div>
+		  
+		  <a class="menu-btn active" data-view="panel" href="index.html">
+			<span class="menu-icon">🏠</span>
+			<span class="menu-label">PANEL 1</span>
+		  </a>
+
+		  <a class="menu-btn" data-view="manual" href="manual.html">
+			<span class="menu-icon">🛠️</span>
+			<span class="menu-label">TRYB RĘCZNY</span>
+		  </a>
+
+		  <a class="menu-btn" data-view="ignite" href="ignite.html">
+			<span class="menu-icon">🔥</span>
+			<span class="menu-label">ROZPALANIE</span>
+		  </a>
+
+		  <a class="menu-btn" data-view="add-fuel" href="add-fuel.html">
+			<span class="menu-icon">➕</span>
+			<span class="menu-label">DOŁÓŻ OPAŁ</span>
+		  </a>
+
+		  <div class="menu-spacer"></div>
+
+		  <a class="menu-btn" data-view="settings" href="settings.html">
+			<span class="menu-icon">⚙️</span>
+			<span class="menu-label">USTAWIENIA</span>
+		  </a>
+
+		  <a class="menu-btn" data-view="history" href="history.html">
+			<span class="menu-icon">📊</span>
+			<span class="menu-label">HISTORIA</span>
+		  </a>
+
+		  <a class="menu-btn danger" data-view="emergency" href="emergency.html">
+			<span class="menu-icon">⚠️</span>
+			<span class="menu-label">STOP</span>
+		  </a>
+		</aside>
+
       </main>
       <!-- Dół ekranu na komunikaty / status -->
       <footer class="status-bar">
-        <span id="status-text">System gotowy.</span>
+        <span id="status-text"></span>
       </footer>
     </div>
-	<script src="scripts/furnace-ui-utils.js"></script>
-	<script src="scripts/main.js"></script>
+	<script src="js/side-clock.js"></script>
+	<script src="js/furnace-ui-utils.js"></script>
+	<script src="js/panel-main.js"></script>
   </body>
 </html>
