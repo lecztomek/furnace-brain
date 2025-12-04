@@ -1,4 +1,4 @@
-# backend/api/http_api.py
+# backend/api/state_api.py
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -9,12 +9,11 @@ from ..core.kernel import Kernel
 from ..core.state import SystemState
 
 
-def create_api_router(kernel: Kernel) -> APIRouter:
+def create_state_router(kernel: Kernel) -> APIRouter:
     """
-    Tworzy router HTTP z endpointami dla GUI.
-    Kernel jest przekazywany jako zależność (closure) – nie używamy globali.
+    Router HTTP z endpointami stanu (/state, /state/raw).
     """
-    router = APIRouter()
+    router = APIRouter(tags=["state"])
 
     @router.get("/state")
     def get_state():
@@ -68,13 +67,5 @@ def create_api_router(kernel: Kernel) -> APIRouter:
         Surowy stan – bardziej do debugowania niż do GUI.
         """
         return asdict(kernel.state)
-
-    # Tu później dodasz:
-    # - /config/schema
-    # - /config/values
-    # - /history
-    # - /events
-    # - /emergency
-    # itd.
 
     return router
