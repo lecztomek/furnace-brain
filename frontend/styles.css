@@ -239,32 +239,42 @@ body {
   fill: #5bc0de;       
 }
 
-@keyframes redblinkArrow {
-0%, 100% {
+/* bazowy wygląd strzałek – czarne, bez migania */
+#cwu-arrow-hot polygon,
+#cwu-arrow-cold polygon,
+#co-arrow-hot polygon,
+#co-arrow-cold polygon {
   stroke: #000000;
-  fill:   #000000;
+  fill: #000000;
 }
-50% {
-  stroke: #ff0000;
-  fill:   #ff0000;
-}
+
+/* reszta jak miałeś */
+@keyframes redblinkArrow {
+  0%, 100% {
+    stroke: #000000;
+    fill:   #000000;
+  }
+  50% {
+    stroke: #ff0000;
+    fill:   #ff0000;
+  }
 }
 
 @keyframes blueblinkArrow {
-0%, 100% {
-  stroke: #000000;
-  fill:   #000000;
-}
-50% {
-  stroke: #0000ff;
-  fill:   #0000ff;
-}
+  0%, 100% {
+    stroke: #000000;
+    fill:   #000000;
+  }
+  50% {
+    stroke: #0000ff;
+    fill:   #0000ff;
+  }
 }
 
 .red-arrow {
-animation: redblinkArrow 5s infinite;
+  animation: redblinkArrow 5s infinite;
 }
 
 .blue-arrow {
-animation: blueblinkArrow 5s infinite;
+  animation: blueblinkArrow 5s infinite;
 }
