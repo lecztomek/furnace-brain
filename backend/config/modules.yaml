@@ -26,5 +26,5 @@ modules:
 
   - id: history
     path: backend.modules.history:HistoryModule
-    enabled: true
+    enabled: false
     critical: false    # historia nie jest krytyczna dla bezpieczeństwa

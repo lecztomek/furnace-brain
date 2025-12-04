@@ -1,16 +1,12 @@
 // js/settings-config.js
 
-// Główny endpoint API konfiguracji
-const CONFIG_API_BASE = "/config";
+// Backend FastAPI z prefiksem /api
+const CONFIG_API_BASE = "http://127.0.0.1:8000/api/config";
 
-// Stan aktualnych wartości per moduł
 const configState = {};
-// Cache schem per moduł
 const schemaCache = {};
-// Info o modułach (id -> {id, name, description})
 const modulesById = {};
 
-// Ustawianie komunikatu w stopce
 function setStatus(text, isError = false) {
   const el = document.getElementById("status-text");
   if (!el) return;
@@ -22,15 +18,12 @@ function setStatus(text, isError = false) {
   }
 }
 
-// Bezpieczne pobieranie JSON z obsługą błędów
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
   let payload = null;
   try {
     payload = await res.json();
-  } catch (e) {
-    // brak body albo nie-JSON
-  }
+  } catch (e) {}
 
   if (!res.ok) {
     const detail =
@@ -42,7 +35,6 @@ async function fetchJson(url, options = {}) {
   return payload;
 }
 
-// Inicjalizacja widoku po załadowaniu DOM
 document.addEventListener("DOMContentLoaded", () => {
   initConfigUI().catch((err) => {
     console.error(err);
@@ -53,15 +45,16 @@ document.addEventListener("DOMContentLoaded", () => {
 async function initConfigUI() {
   const tabsHeader = document.getElementById("config-tabs-header");
   const tabsBody = document.getElementById("config-tabs-body");
+  const configRoot = document.getElementById("config-root");
 
-  if (!tabsHeader || !tabsBody) {
+  if (!tabsHeader || !tabsBody || !configRoot) {
     console.warn("Brak elementów zakładek konfiguracji");
     return;
   }
 
   setStatus("Ładowanie modułów konfiguracji...");
 
-  // 1) pobierz listę modułów
+  // /api/config/modules → lista {id, name, description}
   const modules = await fetchJson(`${CONFIG_API_BASE}/modules`);
 
   if (!modules || modules.length === 0) {
@@ -70,40 +63,52 @@ async function initConfigUI() {
     return;
   }
 
-  // zapamiętaj info o modułach
   modules.forEach((m) => {
     modulesById[m.id] = m;
   });
 
-  // 2) wygeneruj taby + puste panele
+  // Taby
   modules.forEach((module, idx) => {
-    // przycisk taba
     const btn = document.createElement("button");
     btn.className = "config-tab-button";
     btn.type = "button";
-    btn.textContent = module.name || module.id;
+    btn.textContent = (module.name || module.id || "").toUpperCase();
     btn.dataset.moduleId = module.id;
-    if (idx === 0) {
-      btn.classList.add("active");
-    }
+    if (idx === 0) btn.classList.add("active");
     tabsHeader.appendChild(btn);
 
-    // panel
     const panel = document.createElement("div");
     panel.className = "config-tab-panel";
     panel.id = `config-tab-panel-${module.id}`;
-    if (idx === 0) {
-      panel.classList.add("active");
-    }
+    if (idx === 0) panel.classList.add("active");
     tabsBody.appendChild(panel);
 
-    // kliknięcie taba
     btn.addEventListener("click", () => {
       activateTab(module.id);
     });
   });
 
-  // 3) pobierz schema + values dla każdego modułu i wyrenderuj pola
+  // Globalny przycisk ZAPISZ na samym dole lewej części
+  const actions = document.createElement("div");
+  actions.className = "config-actions config-actions-global";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "config-btn config-btn-primary";
+  saveBtn.textContent = "ZAPISZ ZMIANY";
+
+  saveBtn.addEventListener("click", async () => {
+    const activeTab = document.querySelector(".config-tab-button.active");
+    if (!activeTab) return;
+    const moduleId = activeTab.dataset.moduleId;
+    if (!moduleId) return;
+    await saveModuleConfig(moduleId, saveBtn);
+  });
+
+  actions.appendChild(saveBtn);
+  configRoot.appendChild(actions);
+
+  // Załaduj schema + values dla każdego modułu
   for (const module of modules) {
     try {
       await loadModuleSchemaAndValues(module.id);
@@ -113,7 +118,9 @@ async function initConfigUI() {
         `config-tab-panel-${module.id}`
       );
       if (panel) {
-        panel.innerHTML = `<p style="color:#ff4b4b;">Błąd ładowania konfiguracji modułu: ${err.message}</p>`;
+        panel.innerHTML = `<p style="color:#ff4b4b;">Błąd ładowania konfiguracji modułu: ${escapeHtml(
+          err.message
+        )}</p>`;
       }
     }
   }
@@ -121,9 +128,7 @@ async function initConfigUI() {
   setStatus("Konfiguracja załadowana.");
 }
 
-// aktywacja zakładki
 function activateTab(moduleId) {
-  // przyciski
   document
     .querySelectorAll(".config-tab-button")
     .forEach((btn) => {
@@ -133,7 +138,6 @@ function activateTab(moduleId) {
       );
     });
 
-  // panele
   document
     .querySelectorAll(".config-tab-panel")
     .forEach((panel) => {
@@ -144,7 +148,6 @@ function activateTab(moduleId) {
     });
 }
 
-// pobranie schema + values i wyrenderowanie panelu
 async function loadModuleSchemaAndValues(moduleId) {
   const [schema, values] = await Promise.all([
     fetchJson(`${CONFIG_API_BASE}/schema/${moduleId}`),
@@ -157,101 +160,59 @@ async function loadModuleSchemaAndValues(moduleId) {
   renderModulePanel(moduleId, schema, values || {});
 }
 
-// główny renderer panelu modułu
 function renderModulePanel(moduleId, schema, values) {
   const panel = document.getElementById(`config-tab-panel-${moduleId}`);
   if (!panel) return;
 
-  const moduleInfo = modulesById[moduleId] || {};
-  const moduleTitle =
-    schema.title || moduleInfo.name || `Moduł ${moduleId}`;
-  const moduleDesc =
-    schema.description || moduleInfo.description || "";
-
   panel.innerHTML = "";
 
-  const header = document.createElement("div");
-  header.className = "config-module-header";
-  header.innerHTML = `
-    <h2 class="config-module-title">${escapeHtml(moduleTitle)}</h2>
-    ${
-      moduleDesc
-        ? `<p class="config-module-description">${escapeHtml(
-            moduleDesc
-          )}</p>`
-        : ""
-    }
-  `;
-  panel.appendChild(header);
-
+  // Bez nagłówka modułu – od razu lista pól
   const fieldsContainer = document.createElement("div");
   fieldsContainer.className = "config-fields";
   panel.appendChild(fieldsContainer);
 
-  const properties = schema.properties || {};
-  const keys = Object.keys(properties);
+  const fields = schema.fields || [];
 
-  if (keys.length === 0) {
+  if (!fields.length) {
     fieldsContainer.innerHTML =
       "<p>Brak zdefiniowanych pól konfiguracji w schemie.</p>";
   } else {
-    keys.forEach((key) => {
-      const def = properties[key] || {};
-      const fieldEl = renderField(
-        moduleId,
-        key,
-        def,
-        values[key]
-      );
-      if (fieldEl) {
-        fieldsContainer.appendChild(fieldEl);
-      }
+    // IGNORUJEMY GRUPY – po prostu lecimy po wszystkich fields
+    fields.forEach((fieldDef) => {
+      const key = fieldDef.key;
+      const rawValue = values[key];
+      const fieldEl = renderField(moduleId, key, fieldDef, rawValue);
+      if (fieldEl) fieldsContainer.appendChild(fieldEl);
     });
   }
 
-  // przyciski zapisu na dole
-  const actions = document.createElement("div");
-  actions.className = "config-actions";
-
-  const saveBtn = document.createElement("button");
-  saveBtn.type = "button";
-  saveBtn.className = "config-btn config-btn-primary";
-  saveBtn.textContent = "Zapisz zmiany";
-
-  saveBtn.addEventListener("click", async () => {
-    await saveModuleConfig(moduleId, saveBtn);
-  });
-
-  actions.appendChild(saveBtn);
-  panel.appendChild(actions);
+  // brak przycisku ZAPISZ tutaj – jest globalny
 }
 
-// utworzenie pojedynczego pola na podstawie definicji z schema
+/**
+ * Render jednego pola:
+ * LABEL : − WARTOŚĆ + ?
+ * długi opis pod spodem po kliknięciu „?”
+ */
 function renderField(moduleId, key, def, rawValue) {
-  const type = def.type;
-  const title = def.title || key;
+  const type = def.type; // "number" albo "text"
+  const title = (def.label || def.name || key || "").toUpperCase();
   const description = def.description || "";
-  const unit = def.unit || ""; // jeśli w schemie jest unit
-  const enumValues = def.enum || null;
+  const unit = def.unit || "";
+  const options = def.options || def.choices || null;
 
-  // ustal wartość początkową
   let value = rawValue;
   if (value === undefined || value === null) {
     if (def.default !== undefined) {
       value = def.default;
-    } else if (type === "integer" || type === "number") {
-      value =
-        def.minimum !== undefined ? def.minimum : 0;
-    } else if (type === "boolean") {
-      value = false;
-    } else if (type === "string" && enumValues && enumValues.length) {
-      value = enumValues[0];
+    } else if (type === "number") {
+      value = def.min !== undefined ? def.min : 0;
+    } else if (type === "text" && options && options.length) {
+      value = options[0];
     }
   }
 
-  if (!configState[moduleId]) {
-    configState[moduleId] = {};
-  }
+  if (!configState[moduleId]) configState[moduleId] = {};
   configState[moduleId][key] = value;
 
   const field = document.createElement("div");
@@ -259,29 +220,48 @@ function renderField(moduleId, key, def, rawValue) {
   field.dataset.moduleId = moduleId;
   field.dataset.key = key;
 
+  const mainRow = document.createElement("div");
+  mainRow.className = "config-field-main";
+  field.appendChild(mainRow);
+
   const label = document.createElement("div");
   label.className = "config-field-label";
   label.textContent = title;
-  field.appendChild(label);
+  mainRow.appendChild(label);
 
   const controls = document.createElement("div");
   controls.className = "config-field-controls";
+  mainRow.appendChild(controls);
 
   const valueEl = document.createElement("div");
   valueEl.className = "config-field-value";
 
-  // numery (integer/number) -> - [wartość] +
-  if (type === "integer" || type === "number") {
-    const min =
-      def.minimum !== undefined ? def.minimum : null;
-    const max =
-      def.maximum !== undefined ? def.maximum : null;
-    const step =
-      def.multipleOf !== undefined
-        ? def.multipleOf
-        : def.step !== undefined
-        ? def.step
-        : 1;
+  // długi opis – jeśli jest
+  let helpEl = null;
+  if (description) {
+    helpEl = document.createElement("div");
+    helpEl.className = "config-field-help";
+    helpEl.textContent = description;
+    field.appendChild(helpEl);
+  }
+
+  function appendHelpButtonIfNeeded() {
+    if (!helpEl) return;
+    const helpBtn = document.createElement("button");
+    helpBtn.type = "button";
+    helpBtn.className = "config-btn config-btn-help";
+    helpBtn.textContent = "?";
+    helpBtn.addEventListener("click", () => {
+      helpEl.classList.toggle("visible");
+    });
+    controls.appendChild(helpBtn);
+  }
+
+  // === NUMBER: − [val] + ===
+  if (type === "number") {
+    const min = def.min !== undefined ? def.min : null;
+    const max = def.max !== undefined ? def.max : null;
+    const step = def.step !== undefined ? Number(def.step) : 1;
 
     const minusBtn = document.createElement("button");
     minusBtn.type = "button";
@@ -294,19 +274,17 @@ function renderField(moduleId, key, def, rawValue) {
     plusBtn.textContent = "+";
 
     function renderNumber() {
-      const display =
-        unit && unit.trim().length
-          ? `${configState[moduleId][key]} ${unit}`
-          : `${configState[moduleId][key]}`;
+      const val = Number(configState[moduleId][key]);
+      const display = unit && unit.trim().length
+        ? `${val} ${unit}`
+        : `${val}`;
       valueEl.textContent = display;
     }
 
     minusBtn.addEventListener("click", () => {
       let current = Number(configState[moduleId][key]) || 0;
       current -= step;
-      if (min !== null && current < min) {
-        current = min;
-      }
+      if (min !== null && current < min) current = min;
       configState[moduleId][key] = current;
       renderNumber();
     });
@@ -314,9 +292,7 @@ function renderField(moduleId, key, def, rawValue) {
     plusBtn.addEventListener("click", () => {
       let current = Number(configState[moduleId][key]) || 0;
       current += step;
-      if (max !== null && current > max) {
-        current = max;
-      }
+      if (max !== null && current > max) current = max;
       configState[moduleId][key] = current;
       renderNumber();
     });
@@ -326,32 +302,13 @@ function renderField(moduleId, key, def, rawValue) {
     controls.appendChild(minusBtn);
     controls.appendChild(valueEl);
     controls.appendChild(plusBtn);
+    appendHelpButtonIfNeeded();
 
-    const help = document.createElement("div");
-    help.className = "config-field-help";
-    const rangeParts = [];
-    if (min !== null || max !== null) {
-      rangeParts.push(
-        `zakres: ${min !== null ? min : "−∞"} – ${
-          max !== null ? max : "+∞"
-        }${unit ? " " + unit : ""}`
-      );
-    }
-    if (step && step !== 1) {
-      rangeParts.push(`krok: ${step}`);
-    }
-    help.textContent =
-      description ||
-      (rangeParts.length ? rangeParts.join(", ") : "");
-    field.appendChild(controls);
-    if (help.textContent) {
-      field.appendChild(help);
-    }
     return field;
   }
 
-  // string + enum -> ◀ [wartość] ▶
-  if (type === "string" && Array.isArray(enumValues)) {
+  // === TEXT + OPTIONS: ◀ [val] ▶ ===
+  if (type === "text" && Array.isArray(options)) {
     const prevBtn = document.createElement("button");
     prevBtn.type = "button";
     prevBtn.className = "config-btn config-btn-icon";
@@ -362,100 +319,47 @@ function renderField(moduleId, key, def, rawValue) {
     nextBtn.className = "config-btn config-btn-icon";
     nextBtn.textContent = "▶";
 
-    function renderEnum() {
-      const val = configState[moduleId][key];
-      valueEl.textContent = val;
+    function renderText() {
+      const val = String(configState[moduleId][key] ?? "");
+      valueEl.textContent = val.toUpperCase();
     }
 
     prevBtn.addEventListener("click", () => {
-      const current = configState[moduleId][key];
-      let idx = enumValues.indexOf(current);
+      const current = String(configState[moduleId][key] ?? "");
+      let idx = options.indexOf(current);
       if (idx === -1) idx = 0;
-      idx = (idx - 1 + enumValues.length) % enumValues.length;
-      configState[moduleId][key] = enumValues[idx];
-      renderEnum();
+      idx = (idx - 1 + options.length) % options.length;
+      configState[moduleId][key] = options[idx];
+      renderText();
     });
 
     nextBtn.addEventListener("click", () => {
-      const current = configState[moduleId][key];
-      let idx = enumValues.indexOf(current);
+      const current = String(configState[moduleId][key] ?? "");
+      let idx = options.indexOf(current);
       if (idx === -1) idx = 0;
-      idx = (idx + 1) % enumValues.length;
-      configState[moduleId][key] = enumValues[idx];
-      renderEnum();
+      idx = (idx + 1) % options.length;
+      configState[moduleId][key] = options[idx];
+      renderText();
     });
 
-    renderEnum();
+    renderText();
 
     controls.appendChild(prevBtn);
     controls.appendChild(valueEl);
     controls.appendChild(nextBtn);
+    appendHelpButtonIfNeeded();
 
-    const help = document.createElement("div");
-    help.className = "config-field-help";
-    help.textContent =
-      description ||
-      `Możliwe wartości: ${enumValues.join(", ")}`;
-    field.appendChild(controls);
-    field.appendChild(help);
     return field;
   }
 
-  // boolean -> toggle ON/OFF
-  if (type === "boolean") {
-    const toggleBtn = document.createElement("button");
-    toggleBtn.type = "button";
-    toggleBtn.className = "config-toggle";
-
-    function renderBool() {
-      const val = !!configState[moduleId][key];
-      if (val) {
-        toggleBtn.textContent = "Włączone";
-        toggleBtn.classList.add("on");
-        toggleBtn.classList.remove("off");
-      } else {
-        toggleBtn.textContent = "Wyłączone";
-        toggleBtn.classList.add("off");
-        toggleBtn.classList.remove("on");
-      }
-    }
-
-    toggleBtn.addEventListener("click", () => {
-      configState[moduleId][key] = !configState[moduleId][key];
-      renderBool();
-    });
-
-    renderBool();
-    controls.appendChild(toggleBtn);
-
-    const help = document.createElement("div");
-    help.className = "config-field-help";
-    help.textContent = description || "";
-    field.appendChild(controls);
-    if (help.textContent) {
-      field.appendChild(help);
-    }
-    return field;
-  }
-
-  // typ nieobsługiwany – pokaż tylko aktualną wartość
-  valueEl.textContent = String(
-    configState[moduleId][key] ?? ""
-  );
+  // === Fallback – nieobsługiwany typ, sam podgląd ===
+  valueEl.textContent = String(configState[moduleId][key] ?? "");
   controls.appendChild(valueEl);
+  appendHelpButtonIfNeeded();
 
-  const help = document.createElement("div");
-  help.className = "config-field-help";
-  help.textContent =
-    description ||
-    `Typ pola "${type}" nieobsługiwany w edytorze – tylko podgląd.`;
-
-  field.appendChild(controls);
-  field.appendChild(help);
   return field;
 }
 
-// zapis konfiguracji modułu
 async function saveModuleConfig(moduleId, saveButtonEl) {
   try {
     saveButtonEl.disabled = true;
@@ -475,7 +379,6 @@ async function saveModuleConfig(moduleId, saveButtonEl) {
       }
     );
 
-    // API zwraca zwalidowane wartości – zapisujemy do stanu
     configState[moduleId] = { ...(saved || {}) };
 
     const moduleName =
@@ -486,7 +389,6 @@ async function saveModuleConfig(moduleId, saveButtonEl) {
       `Zapisano konfigurację modułu: ${moduleName}.`
     );
 
-    // Można odświeżyć panel, jeśli chcesz zaktualizować np. zaokrąglone wartości
     const schema = schemaCache[moduleId];
     if (schema) {
       renderModulePanel(moduleId, schema, saved || {});
@@ -502,7 +404,6 @@ async function saveModuleConfig(moduleId, saveButtonEl) {
   }
 }
 
-// prosta funkcja escapująca HTML
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str)

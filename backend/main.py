@@ -33,7 +33,8 @@ aux_runner = AuxRunner(kernel=kernel, modules=aux_modules)
 
 # --- CONFIG STORE ---
 
-config_store = ConfigStore(Path("config"))  # np. ./config/schemas, ./config/values
+BACKEND_ROOT = Path(__file__).resolve().parent
+config_store = ConfigStore(BACKEND_ROOT / "modules")
 
 
 # --- PĘTLE ---

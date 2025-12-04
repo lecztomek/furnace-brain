@@ -1,4 +1,3 @@
-# backend/core/config_store.py
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,57 +15,99 @@ class ModuleInfo:
 
 class ConfigStore:
     """
-    Przechowuje i waliduje konfiguracje modułów.
+    Przechowuje i waliduje konfiguracje modułów GUI.
 
-    Zakładana struktura:
-      config/
-        schemas/
-          pump_co.yaml
-          pump_cwu.yaml
-          ...
-        values/
-          pump_co.yaml
-          pump_cwu.yaml
-          ...
+    Zakładana struktura katalogów (TWOJA):
+
+      modules/
+        pomp_co/
+          schema.yaml
+          values.yaml
+        pomp_cwu/
+          schema.yaml
+          values.yaml
+        ...
+
+    Przykład schema.yaml:
+
+      id: pomp_co
+      name: "Pompa CO"
+      description: "Sterowanie pompą CO"
+      fields:
+        - key: target_temp
+          label: "Temperatura załączenia"
+          type: number
+          min: 30
+          max: 80
+          default: 50
+          unit: "°C"
+          step: 1
+
+        - key: mode
+          label: "Tryb"
+          type: text
+          options: ["AUTO", "ON", "OFF"]
+          default: "AUTO"
     """
 
     def __init__(self, base_dir: Path):
-        self.schemas_dir = base_dir / "schemas"
-        self.values_dir = base_dir / "values"
+      """
+      base_dir → katalog, w którym trzymasz moduły z configiem, np.
+        PROJECT_ROOT / "modules"
+      """
+      self.modules_root = base_dir
 
     # ---------- Ścieżki pomocnicze ----------
 
     def _schema_path(self, module_id: str) -> Path:
-        return self.schemas_dir / f"{module_id}.yaml"
+        # modules/<module_id>/schema.yaml
+        return self.modules_root / module_id / "schema.yaml"
 
     def _values_path(self, module_id: str) -> Path:
-        return self.values_dir / f"{module_id}.yaml"
+        # modules/<module_id>/values.yaml
+        return self.modules_root / module_id / "values.yaml"
 
     # ---------- API publiczne ----------
 
     def list_modules(self) -> List[ModuleInfo]:
         """
-        Szukamy wszystkich plików schema i wyciągamy id + name + description.
+        Lista modułów z configiem.
+        Szukamy katalogów w base_dir, które mają schema.yaml
+        i z niego bierzemy id, name, description.
         """
         modules: List[ModuleInfo] = []
-        if not self.schemas_dir.exists():
+
+        if not self.modules_root.exists():
             return modules
 
-        for path in self.schemas_dir.glob("*.yaml"):
-            with path.open("r", encoding="utf-8") as f:
+        for module_dir in self.modules_root.iterdir():
+            if not module_dir.is_dir():
+                continue
+
+            schema_path = module_dir / "schema.yaml"
+            if not schema_path.exists():
+                continue
+
+            with schema_path.open("r", encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
 
-            mid = data.get("id") or path.stem
+            mid = data.get("id") or module_dir.name
             name = data.get("name")
             description = data.get("description")
-            modules.append(ModuleInfo(id=mid, name=name, description=description))
+            modules.append(
+                ModuleInfo(
+                    id=mid,
+                    name=name,
+                    description=description,
+                )
+            )
 
         return modules
 
     def get_schema(self, module_id: str) -> Dict[str, Any]:
         path = self._schema_path(module_id)
         if not path.exists():
-            raise KeyError(f"Unknown module '{module_id}' (schema not found)")
+            raise KeyError(f"Unknown module '{module_id}' (schema not found: {path})")
         with path.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         return data
@@ -141,7 +182,9 @@ class ConfigStore:
             try:
                 num = float(value)
             except (TypeError, ValueError):
-                raise ValueError(f"Pole '{field['key']}' oczekuje liczby, dostało: {value!r}")
+                raise ValueError(
+                    f"Pole '{field['key']}' oczekuje liczby, dostało: {value!r}"
+                )
 
             min_v = field.get("min")
             max_v = field.get("max")
@@ -172,4 +215,6 @@ class ConfigStore:
             return str(value)
 
         else:
-            raise ValueError(f"Nieobsługiwany typ pola '{ftype}' dla '{field['key']}'")
+            raise ValueError(
+                f"Nieobsługiwany typ pola '{ftype}' dla '{field['key']}'"
+            )
