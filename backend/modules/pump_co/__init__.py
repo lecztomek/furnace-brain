@@ -48,19 +48,19 @@ class CoPumpModule(ModuleInterface):
 
     Dodatkowo:
     - trzyma przy sobie schema.yaml (opis pól konfiga),
-    - trzyma config.yaml (aktualne wartości),
+    - trzyma values.yaml (aktualne wartości),
     - udostępnia metody get_config_schema(), get_config_values(), set_config_values().
     """
 
     def __init__(self, base_path: Path | None = None, config: CoPumpConfig | None = None) -> None:
-        # Ścieżka do folderu modułu (tam leżą schema.yaml i config.yaml)
+        # Ścieżka do folderu modułu (tam leżą schema.yaml i values.yaml)
         if base_path is None:
             self._base_path = Path(__file__).resolve().parent
         else:
             self._base_path = base_path
 
         self._schema_path = self._base_path / "schema.yaml"
-        self._config_path = self._base_path / "config.yaml"
+        self._config_path = self._base_path / "values.yaml"
 
         # Konfiguracja runtime
         self._config = config or CoPumpConfig()
@@ -195,7 +195,7 @@ class CoPumpModule(ModuleInterface):
     def set_config_values(self, values: Dict[str, Any], persist: bool = True) -> None:
         """
         Aktualizuje konfigurację modułu na podstawie dict (np. z GUI).
-        Opcjonalnie zapisuje do config.yaml.
+        Opcjonalnie zapisuje do values.yaml.
         """
         if "boiler_on_temp" in values:
             self._config.boiler_on_temp = float(values["boiler_on_temp"])
@@ -205,11 +205,11 @@ class CoPumpModule(ModuleInterface):
         if persist:
             self._save_config_to_file()
 
-    # ---------- PLIK config.yaml ----------
+    # ---------- PLIK values.yaml ----------
 
     def _load_config_from_file(self) -> None:
         """
-        Ładuje config.yaml (jeśli istnieje) i nadpisuje domyślne wartości.
+        Ładuje values.yaml (jeśli istnieje) i nadpisuje domyślne wartości.
         """
         if not self._config_path.exists():
             return
@@ -224,7 +224,7 @@ class CoPumpModule(ModuleInterface):
 
     def _save_config_to_file(self) -> None:
         """
-        Zapisuje aktualną konfigurację do config.yaml.
+        Zapisuje aktualną konfigurację do values.yaml.
         """
         data = asdict(self._config)
         with self._config_path.open("w", encoding="utf-8") as f:

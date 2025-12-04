@@ -48,19 +48,19 @@ class CwuPumpModule(ModuleInterface):
 
     Dodatkowo:
     - trzyma przy sobie schema.yaml (opis pól konfiga),
-    - trzyma config.yaml (aktualne wartości),
+    - trzyma values.yaml (aktualne wartości),
     - udostępnia metody get_config_schema(), get_config_values(), set_config_values().
     """
 
     def __init__(self, base_path: Path | None = None, config: CwuPumpConfig | None = None) -> None:
-        # Ścieżka do folderu modułu (tam leżą schema.yaml i config.yaml)
+        # Ścieżka do folderu modułu (tam leżą schema.yaml i values.yaml)
         if base_path is None:
             self._base_path = Path(__file__).resolve().parent
         else:
             self._base_path = base_path
 
         self._schema_path = self._base_path / "schema.yaml"
-        self._config_path = self._base_path / "config.yaml"
+        self._config_path = self._base_path / "values.yaml"
 
         # Konfiguracja runtime (CwuPumpConfig)
         self._config = config or CwuPumpConfig()
@@ -196,7 +196,7 @@ class CwuPumpModule(ModuleInterface):
     def set_config_values(self, values: Dict[str, Any], persist: bool = True) -> None:
         """
         Aktualizuje konfigurację modułu na podstawie dict (np. z GUI).
-        Opcjonalnie zapisuje do config.yaml.
+        Opcjonalnie zapisuje do values.yaml.
         """
         if "boiler_on_temp" in values:
             self._config.boiler_on_temp = float(values["boiler_on_temp"])
@@ -206,11 +206,11 @@ class CwuPumpModule(ModuleInterface):
         if persist:
             self._save_config_to_file()
 
-    # ---------- PLIK config.yaml (ładowanie/zapis) ----------
+    # ---------- PLIK values.yaml (ładowanie/zapis) ----------
 
     def _load_config_from_file(self) -> None:
         """
-        Ładuje config.yaml (jeśli istnieje) i nadpisuje domyślne wartości.
+        Ładuje values.yaml (jeśli istnieje) i nadpisuje domyślne wartości.
         """
         if not self._config_path.exists():
             return
@@ -225,7 +225,7 @@ class CwuPumpModule(ModuleInterface):
 
     def _save_config_to_file(self) -> None:
         """
-        Zapisuje aktualną konfigurację do config.yaml.
+        Zapisuje aktualną konfigurację do values.yaml.
         (Na razie prosto; później możesz przenieść to do wspólnego systemu configów.)
         """
         data = asdict(self._config)
