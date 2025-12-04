@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sterownik kotła – Ustawienia</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <main class="layout">
+        <!-- LEWA / CENTRALNA CZĘŚĆ: USTAWIENIA W STYLU DIAGRAMU -->
+        <section class="diagram-wrapper">
+          <div class="diagram placeholder settings-container">
+            <div class="settings-inner">
+              <header class="main-header">
+                <h1>Ustawienia</h1>
+                <p class="main-subtitle">
+                  Wybierz moduł i zmień parametry przyciskami. Bez wpisywania z klawiatury.
+                </p>
+              </header>
+
+              <div id="config-root" class="config-root">
+                <div id="config-tabs-header" class="config-tabs-header">
+                  <!-- tu JS wstawi taby z modułami -->
+                </div>
+                <div id="config-tabs-body" class="config-tabs-body">
+                  <!-- tu JS wstawi panele dla modułów -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- PRAWA KOLUMNA: MENU (TAKA SAMA JAK NA index.html) -->
+        <aside class="side-menu">
+          <div class="side-clock">
+            <div id="side-clock-time" class="side-clock-time">--:--</div>
+          </div>
+
+          <a class="menu-btn" data-view="panel" href="index.html">
+            <span class="menu-icon">🏠</span>
+            <span class="menu-label">PANEL 1</span>
+          </a>
+
+          <a class="menu-btn" data-view="manual" href="manual.html">
+            <span class="menu-icon">🛠️</span>
+            <span class="menu-label">TRYB RĘCZNY</span>
+          </a>
+
+          <a class="menu-btn" data-view="ignite" href="ignite.html">
+            <span class="menu-icon">🔥</span>
+            <span class="menu-label">ROZPALANIE</span>
+          </a>
+
+          <a class="menu-btn" data-view="add-fuel" href="add-fuel.html">
+            <span class="menu-icon">➕</span>
+            <span class="menu-label">DOŁÓŻ OPAŁ</span>
+          </a>
+
+          <div class="menu-spacer"></div>
+
+          <a class="menu-btn active" data-view="settings" href="settings.html">
+            <span class="menu-icon">⚙️</span>
+            <span class="menu-label">USTAWIENIA</span>
+          </a>
+
+          <a class="menu-btn" data-view="history" href="history.html">
+            <span class="menu-icon">📊</span>
+            <span class="menu-label">HISTORIA</span>
+          </a>
+
+          <a class="menu-btn danger" data-view="emergency" href="emergency.html">
+            <span class="menu-icon">⚠️</span>
+            <span class="menu-label">STOP</span>
+          </a>
+        </aside>
+      </main>
+
+      <footer class="status-bar">
+        <span id="status-text"></span>
+      </footer>
+    </div>
+
+    <script src="js/side-clock.js"></script>
+    <script src="js/furnace-ui-utils.js"></script>
+    <script src="js/settings-config.js"></script>
+  </body>
+</html>
