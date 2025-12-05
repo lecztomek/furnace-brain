@@ -11,12 +11,12 @@ from ..core.state import SystemState
 
 def create_state_router(kernel: Kernel) -> APIRouter:
     """
-    Router HTTP z endpointami stanu (/state, /state/raw).
+    Router HTTP z endpointami stanu (/current).
     """
-    router = APIRouter(tags=["state"])
+    router = APIRouter(prefix="/state", tags=["state"])
 
-    @router.get("/state")
-    def get_state():
+    @router.get("/current")
+    def get_current():
         """
         Główny endpoint dla GUI – aktualny stan kotła, temperatury, wyjścia, statusy modułów.
         """
@@ -60,12 +60,5 @@ def create_state_router(kernel: Kernel) -> APIRouter:
                 for mid, status in s.modules.items()
             },
         }
-
-    @router.get("/state/raw")
-    def get_state_raw():
-        """
-        Surowy stan – bardziej do debugowania niż do GUI.
-        """
-        return asdict(kernel.state)
 
     return router
