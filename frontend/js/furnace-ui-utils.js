@@ -23,6 +23,7 @@
     },
     fuelKg: null,
     augerCorrectionSec: null,
+	mode: null,
   };
 
   // referencje do elementów z Twojego SVG
@@ -37,10 +38,18 @@
     cwuArrowCold: null,
     coArrowHot: null,
     coArrowCold: null,
+	
+	modeText: null, 
   };
 
   // --- FORMATERY / POMOCNICZE ---
 
+  function formatMode(mode) {
+    if (!mode) return "TRYB: --";
+    // ujednolicamy zapis – np. wielkie litery
+    return `TRYB: ${String(mode).toUpperCase()}`;
+  }
+  
   function formatTemp(v) {
     if (v == null) return "--°C";
     return `${Math.round(v)}°C`;
@@ -153,6 +162,7 @@ function setCoArrows(isOn) {
     els.cwuArrowCold = $("#cwu-arrow-cold");
     els.coArrowHot   = $("#co-arrow-hot");
     els.coArrowCold  = $("#co-arrow-cold");
+	els.modeText  = $("#mode-text");
 
     // Na starcie — strzałki bez migania (czarne)
     setCwuArrows(false);
@@ -229,6 +239,14 @@ function setCoArrows(isOn) {
 
   // --- TEMPERATURY / PARAMETRY ---
 
+  function setMode(mode) {
+    const el = els.modeText || $("#mode-text");
+    if (!el) return;
+
+    uiState.mode = mode ?? null;
+    el.textContent = formatMode(mode);
+  }
+  
   function setFurnaceTemp(valueC) {
     const text = $("#furnace-temp-text");
     if (!text) return;
@@ -335,6 +353,7 @@ function setCoArrows(isOn) {
     },
     ui: {
       setStatus,
+	  setMode,
     },
   };
 
@@ -363,5 +382,9 @@ function setCoArrows(isOn) {
 
   window.setPumpCoState = function (isOn) {
     setPumpState("co", isOn);
+  };
+  
+  window.setMode = function (mode) {
+    setMode(mode);
   };
 })();

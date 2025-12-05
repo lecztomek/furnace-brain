@@ -35,17 +35,18 @@ class Sensors:
     To zwraca warstwa sprzętowa (mock lub RPi).
     Dodawaj tu pola w miarę rozwoju projektu.
     """
-    boiler_temp: Optional[float] = None      # temp. kotła
-    return_temp: Optional[float] = None      # temp. powrotu
-    radiators_temp: Optional[float] = None   # temp. zasilania obiegu grzejników
-    cwu_temp: Optional[float] = None         # temp. zasobnika CWU
-    flue_gas_temp: Optional[float] = None    # temp. spalin
-    hopper_temp: Optional[float] = None      # temp. zasobnika / podajnika
-    outside_temp: Optional[float] = None     # temp. zewnętrzna
+    boiler_temp: Optional[float] = None        # temp. kotła
+    return_temp: Optional[float] = None        # temp. powrotu
+    radiators_temp: Optional[float] = None     # temp. zasilania obiegu grzejników
+    cwu_temp: Optional[float] = None           # temp. zasobnika CWU
+    flue_gas_temp: Optional[float] = None      # temp. spalin
+    hopper_temp: Optional[float] = None        # temp. zasobnika / podajnika
+    outside_temp: Optional[float] = None       # temp. zewnętrzna
+    mixer_temp: Optional[float] = None         # temp. za zaworem mieszającym / obiegu zmieszanego
 
     # wejścia cyfrowe itp. (krańcówki, STB, itp.) – dodasz jak będzie potrzeba
-    stb_triggered: Optional[bool] = None     # czy termostat bezpieczeństwa zadziałał
-    door_open: Optional[bool] = None         # np. drzwiczki kotła
+    stb_triggered: Optional[bool] = None       # czy termostat bezpieczeństwa zadziałał
+    door_open: Optional[bool] = None           # np. drzwiczki kotła
 
 
 @dataclass
@@ -71,6 +72,20 @@ class ModuleHealth(Enum):
     WARNING = auto()
     ERROR = auto()
     DISABLED = auto()
+
+
+class BoilerMode(Enum):
+    """
+    Tryb pracy kotła:
+    - IGNITION: rozpalanie
+    - WORK: praca
+    - OFF: wyłączony
+    - MANUAL: ręczne sterowanie
+    """
+    IGNITION = auto()
+    WORK = auto()
+    OFF = auto()
+    MANUAL = auto()
 
 
 @dataclass
@@ -100,8 +115,9 @@ class SystemState:
     # Aktualne wyjścia (po safety) – to, co naprawdę jest podawane na hardware:
     outputs: Outputs = field(default_factory=Outputs)
 
-    # Tryb pracy, itp. – na razie prosto, później możesz rozbić to na więcej pól.
-    mode: str = "AUTO"              # "AUTO", "MANUAL", "OFF", itp.
+    # Tryb pracy kotła:
+    mode: BoilerMode = BoilerMode.OFF
+
     alarm_active: bool = False
     alarm_message: Optional[str] = None
 

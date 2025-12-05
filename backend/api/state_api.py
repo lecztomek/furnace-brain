@@ -1,12 +1,21 @@
 # backend/api/state_api.py
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict  # nadal opcjonalne
 
 from fastapi import APIRouter
 
 from ..core.kernel import Kernel
-from ..core.state import SystemState
+from ..core.state import SystemState, BoilerMode
+
+
+# Mapowanie trybu pracy na ładny string do GUI
+MODE_DISPLAY = {
+    BoilerMode.IGNITION: "rozpalanie",
+    BoilerMode.WORK: "praca",
+    BoilerMode.OFF: "off",
+    BoilerMode.MANUAL: "ręczne",
+}
 
 
 def create_state_router(kernel: Kernel) -> APIRouter:
@@ -26,7 +35,10 @@ def create_state_router(kernel: Kernel) -> APIRouter:
 
         return {
             "ts": s.ts,
-            "mode": s.mode,
+            # surowa nazwa enuma (np. "OFF", "IGNITION", "WORK", "MANUAL")
+            "mode": s.mode.name,
+            # ładny string do wyświetlania w GUI (PL)
+            "mode_display": MODE_DISPLAY.get(s.mode, s.mode.name.lower()),
             "alarm_active": s.alarm_active,
             "alarm_message": s.alarm_message,
 
@@ -38,6 +50,7 @@ def create_state_router(kernel: Kernel) -> APIRouter:
                 "flue_gas_temp": sens.flue_gas_temp,
                 "hopper_temp": sens.hopper_temp,
                 "outside_temp": sens.outside_temp,
+                "mixer_temp": sens.mixer_temp,  # temp. za zaworem mieszającym
             },
             "outputs": {
                 "fan_power": out.fan_power,

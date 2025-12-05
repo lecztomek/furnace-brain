@@ -30,16 +30,17 @@ function updateUIFromState(state) {
   // --- temperatury ---
   // Czujniki z backendu:
   // boiler_temp, return_temp, radiators_temp, cwu_temp, flue_gas_temp,
-  // hopper_temp, outside_temp
+  // hopper_temp, outside_temp, mixer_temp
 
   // Zakładam takie mapowanie:
   // - kocioł = boiler_temp
   // - grzejniki = radiators_temp
-  // - mieszacz: jeśli nie masz osobnego czujnika, możesz użyć np. return_temp
+  // - mieszacz = mixer_temp (a jeśli brak, to fallback na return_temp)
   // - ślimak = hopper_temp (temperatura zasobnika)
   FurnaceUI.temps.setFurnace(sensors.boiler_temp);
   FurnaceUI.temps.setRadiators(sensors.radiators_temp);
-  FurnaceUI.temps.setMixer(sensors.return_temp);   // lub inny czujnik jeśli masz
+  const mixerTemp = sensors.mixer_temp != null ? sensors.mixer_temp : sensors.return_temp;
+  FurnaceUI.temps.setMixer(mixerTemp);
   FurnaceUI.temps.setAuger(sensors.hopper_temp);
 
   // --- wyjścia / pompy / dmuchawa / podajnik ---
@@ -59,13 +60,13 @@ function updateUIFromState(state) {
 
   // dmuchawa – zakładam, że 0–100%
   FurnaceUI.blower.setPower(outputs.fan_power || 0);
+  
+  const modeDisplay = state.mode_display || state.mode || "nieznany";
+  FurnaceUI.ui.setMode(modeDisplay);
 
   // --- status / tryb / alarm ---
   if (state.alarm_active) {
     FurnaceUI.ui.setStatus(`ALARM: ${state.alarm_message || "Nieznany błąd"}`);
-  } else {
-    // mode pewnie jest stringiem albo enumem – możesz sformatować ładniej, np.:
-    FurnaceUI.ui.setStatus(`Tryb: ${state.mode}`);
   }
 
   // --- paliwo i korekcja ---
