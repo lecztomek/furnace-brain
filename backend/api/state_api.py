@@ -62,6 +62,8 @@ def create_state_router(kernel: Kernel) -> APIRouter:
                 "mixer_close_on": out.mixer_close_on,
                 "alarm_buzzer_on": out.alarm_buzzer_on,
                 "alarm_relay_on": out.alarm_relay_on,
+                # NOWE: moc wyliczona przez PowerModule
+                "power_percent": out.power_percent,
             },
             "modules": {
                 mid: {
@@ -75,3 +77,4 @@ def create_state_router(kernel: Kernel) -> APIRouter:
         }
 
     return router
+

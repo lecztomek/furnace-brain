@@ -202,7 +202,7 @@ class PowerModule(ModuleInterface):
                 Event(
                     ts=now,
                     source=self.id,
-                    level=EventLevel.DEBUG,
+                    level=EventLevel.INFO,
                     type="POWER_LEVEL_CHANGED",
                     message=(
                         f"power: {prev_power:.1f}% → {self._power:.1f}% "

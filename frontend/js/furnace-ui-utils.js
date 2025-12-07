@@ -25,6 +25,7 @@
     fuelKg: null,
     augerCorrectionSec: null,
 	mode: null,
+	powerPercent: 0,
   };
 
   // referencje do elementów z Twojego SVG
@@ -298,6 +299,16 @@ function setCoArrows(isOn) {
     text.textContent = formatFuel(kg);
   }
   
+  function setPowerPercent(value) {
+    const el = $("#power-percent-text");
+    if (!el) return;
+
+    const num = clamp(Number(value) || 0, 0, 100);
+    uiState.powerPercent = num;
+    el.textContent = `${Math.round(num)}%`;
+  }
+
+  
 function setExhaustTemp(valueC) {
   const text = $("#exhaust-temp-text");  // <- ID tekstu od spalin w SVG
   uiState.temperatures.exhaust = valueC;
@@ -414,6 +425,9 @@ function setExhaustTemp(valueC) {
     ui: {
       setStatus,
 	  setMode,
+    },
+    power: {
+      setPercent: setPowerPercent,
     },
   };
 

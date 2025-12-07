@@ -116,6 +116,7 @@ class Kernel:
             mixer_close_on=base.mixer_close_on,
             alarm_buzzer_on=base.alarm_buzzer_on,
             alarm_relay_on=base.alarm_relay_on,
+            power_percent=base.power_percent,
         )
 
         # Dla prostoty: wartości z delta nadpisują base,
@@ -189,14 +190,19 @@ class Kernel:
                 all_events.extend(result.events)
 
             except Exception as exc:  # pylint: disable=broad-except
-                # Moduł się wywalił – oznaczamy błąd, ale NIE przerywamy całej pętli.
                 duration = time.time() - start
                 status.health = ModuleHealth.ERROR
                 status.last_error = f"{type(exc).__name__}: {exc}"
                 status.last_tick_duration = duration
                 status.last_updated = now
 
-                # wygeneruj event błędu modułu:
+                # 1) pełny traceback na konsolę
+                traceback.print_exc()
+
+                # 2) opcjonalnie przez logging
+                logger.exception("Module %s raised an exception", mid)
+
+                # 3) event dla UI / historii
                 all_events.append(
                     Event(
                         ts=now,

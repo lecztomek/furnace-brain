@@ -121,7 +121,7 @@ class SystemState:
     outputs: Outputs = field(default_factory=Outputs)
 
     # Tryb pracy kotła:
-    mode: BoilerMode = BoilerMode.OFF
+    mode: BoilerMode = BoilerMode.IGNITION
 
     # Globalny alarm:
     alarm_active: bool = False

@@ -64,6 +64,9 @@ function updateUIFromState(state) {
   
   const modeDisplay = state.mode_display || state.mode || "nieznany";
   FurnaceUI.ui.setMode(modeDisplay);
+  
+  const power = (outputs.power_percent != null) ? outputs.power_percent : 0;
+  FurnaceUI.power.setPercent(power);
 
   // --- status / tryb / alarm ---
   if (state.alarm_active) {

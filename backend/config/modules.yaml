@@ -11,12 +11,12 @@ modules:
 
   - id: blower
     path: backend.modules.blower:BlowerModule
-    enabled: false
+    enabled: true
     critical: true
 
   - id: feeder
     path: backend.modules.feeder:FeederModule
-    enabled: false
+    enabled: true
     critical: true
 
   - id: pump_cwu

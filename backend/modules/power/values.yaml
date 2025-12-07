@@ -5,5 +5,5 @@ kd: 0.0
 ki: 0.01
 kp: 2.0
 max_power: 100.0
-min_power: 0.0
+min_power: 15.0
 mode: 'off'

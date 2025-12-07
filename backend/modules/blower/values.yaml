@@ -1,0 +1,10 @@
+base_fan_percent: 45.0
+min_fan_percent: 0.0
+max_fan_percent: 100.0
+min_power_to_blow: 3.0
+ignition_fan_boost_percent: 20.0
+ignition_min_fan_percent: 25.0
+flue_control_enabled: true
+flue_opt_temp: 150.0
+flue_kp: 0.10
+flue_correction_max: 20.0
