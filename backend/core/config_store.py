@@ -51,11 +51,11 @@ class ConfigStore:
     """
 
     def __init__(self, base_dir: Path):
-      """
-      base_dir → katalog, w którym trzymasz moduły z configiem, np.
-        PROJECT_ROOT / "modules"
-      """
-      self.modules_root = base_dir
+        """
+        base_dir → katalog, w którym trzymasz moduły z configiem, np.
+          PROJECT_ROOT / "modules"
+        """
+        self.modules_root = base_dir
 
     # ---------- Ścieżki pomocnicze ----------
 
@@ -74,13 +74,16 @@ class ConfigStore:
         Lista modułów z configiem.
         Szukamy katalogów w base_dir, które mają schema.yaml
         i z niego bierzemy id, name, description.
+
+        Kolejność: alfabetyczna po nazwie katalogu (stabilna).
         """
         modules: List[ModuleInfo] = []
 
         if not self.modules_root.exists():
             return modules
 
-        for module_dir in self.modules_root.iterdir():
+        # KLUCZ: deterministyczna kolejność
+        for module_dir in sorted(self.modules_root.iterdir(), key=lambda p: p.name):
             if not module_dir.is_dir():
                 continue
 
@@ -214,7 +217,30 @@ class ConfigStore:
                 )
             return str(value)
 
+        elif ftype == "bool":
+            # prosta konwersja do bool:
+            # - już bool → zostaje
+            # - int/float → bool(value)
+            # - string → parsujemy kilka typowych wartości
+            if isinstance(value, bool):
+                return value
+
+            if isinstance(value, (int, float)):
+                return bool(value)
+
+            if isinstance(value, str):
+                v = value.strip().lower()
+                if v in ("1", "true", "yes", "on"):
+                    return True
+                if v in ("0", "false", "no", "off"):
+                    return False
+
+            raise ValueError(
+                f"Pole '{field['key']}' oczekuje wartości typu bool, dostało: {value!r}"
+            )
+
         else:
             raise ValueError(
                 f"Nieobsługiwany typ pola '{ftype}' dla '{field['key']}'"
             )
+

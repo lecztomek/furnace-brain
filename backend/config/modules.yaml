@@ -1,4 +1,14 @@
 modules:
+  - id: mode
+    path: backend.modules.mode:ModeModule
+    enabled: true
+    critical: true
+
+  - id: power
+    path: backend.modules.power:PowerModule
+    enabled: true
+    critical: true
+
   - id: blower
     path: backend.modules.blower:BlowerModule
     enabled: false

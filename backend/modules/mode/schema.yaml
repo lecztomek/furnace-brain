@@ -1,0 +1,33 @@
+id: mode
+name: "Tryby pracy kotła"
+description: "Logika trybów OFF / MANUAL / IGNITION / WORK i auto-przejścia IGNITION → WORK."
+groups:
+  - id: basic
+    label: "Podstawowe"
+
+fields:
+  - key: auto_switch_ignition_to_work
+    label: "Automatyczne przejście IGNITION → WORK"
+    type: bool
+    default: true
+    group: basic
+
+  - key: switch_temp
+    label: "Temperatura przejścia z IGNITION do WORK"
+    type: number
+    unit: "°C"
+    min: 30
+    max: 90
+    step: 1
+    default: 65
+    group: basic
+
+  - key: min_ignition_time_s
+    label: "Minimalny czas trybu IGNITION"
+    type: number
+    unit: "s"
+    min: 0
+    max: 3600
+    step: 30
+    default: 300
+    group: basic

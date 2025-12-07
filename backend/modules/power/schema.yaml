@@ -1,0 +1,96 @@
+id: power
+name: "Regulator mocy kotła"
+description: "Wyznaczanie mocy kotła (power %) z PID-a po temperaturze kotła."
+groups:
+  - id: basic
+    label: "Podstawowe"
+  - id: pid
+    label: "PID"
+
+fields:
+  - key: boiler_set_temp
+    label: "Zadana temperatura kotła"
+    type: number
+    unit: "°C"
+    min: 40
+    max: 90
+    step: 1
+    default: 65
+    group: basic
+
+  - key: min_power
+    label: "Minimalna moc"
+    type: number
+    unit: "%"
+    min: 0
+    max: 100
+    step: 1
+    default: 0
+    group: basic
+
+  - key: max_power
+    label: "Maksymalna moc"
+    type: number
+    unit: "%"
+    min: 0
+    max: 100
+    step: 1
+    default: 100
+    group: basic
+
+  - key: ignition_power_bonus_percent
+    label: "Bonus mocy w trybie rozpalania"
+    type: number
+    unit: "%"
+    min: 0
+    max: 200
+    step: 5
+    default: 30
+    group: basic
+
+  - key: ignition_bonus_margin_degC
+    label: "Zakres wygaszania bonusa (poniżej zadanej)"
+    type: number
+    unit: "°C"
+    min: 1
+    max: 30
+    step: 1
+    default: 10
+    group: basic
+
+  - key: mode
+    label: "Tryb (gdy brak boiler_mode)"
+    type: text
+    options: ["auto", "ignition", "off"]
+    default: "auto"
+    group: basic
+
+  - key: kp
+    label: "Kp (proporcjonalne)"
+    type: number
+    unit: ""
+    min: 0
+    max: 20
+    step: 0.1
+    default: 2.0
+    group: pid
+
+  - key: ki
+    label: "Ki (całkujące)"
+    type: number
+    unit: "1/s"
+    min: 0
+    max: 1
+    step: 0.01
+    default: 0.01
+    group: pid
+
+  - key: kd
+    label: "Kd (różniczkujące)"
+    type: number
+    unit: "s"
+    min: 0
+    max: 10
+    step: 0.1
+    default: 0.0
+    group: pid

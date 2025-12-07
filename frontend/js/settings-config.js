@@ -306,6 +306,44 @@ function renderField(moduleId, key, def, rawValue) {
 
     return field;
   }
+  
+  // === BOOL: suwak ON / OFF (przycisk .config-toggle) ===
+  if (type === "bool") {
+    // ustaw domyślnie wartość bool w stanie
+    configState[moduleId][key] = !!configState[moduleId][key];
+
+    const toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.className = "config-toggle";
+
+    function renderBool() {
+      const val = !!configState[moduleId][key];
+
+      // opcjonalne label_on / label_off z schemy (jak chcesz)
+      const labelOn = def.label_on || "ON";
+      const labelOff = def.label_off || "OFF";
+
+      toggleBtn.textContent = val ? labelOn : labelOff;
+
+      toggleBtn.classList.toggle("on", val);
+      toggleBtn.classList.toggle("off", !val);
+    }
+
+    toggleBtn.addEventListener("click", () => {
+      const current = !!configState[moduleId][key];
+      configState[moduleId][key] = !current;
+      renderBool();
+    });
+
+    renderBool();
+
+    controls.appendChild(toggleBtn);
+    appendHelpButtonIfNeeded();
+
+    return field;
+  }
+
+  
 
   // === TEXT + OPTIONS: ◀ [val] ▶ ===
   if (type === "text" && Array.isArray(options)) {

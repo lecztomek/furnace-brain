@@ -66,6 +66,10 @@ class Outputs:
     alarm_buzzer_on: bool = False # sygnał akustyczny alarmu
     alarm_relay_on: bool = False  # ew. przekaźnik alarmowy
 
+    # sygnał referencyjny mocy kotła [%], wyliczany przez PowerModule
+    # na podstawie temperatury kotła i trybu pracy; z tego korzystają feeder/blower.
+    power_percent: float = 0.0
+
 
 class ModuleHealth(Enum):
     OK = auto()
@@ -78,7 +82,7 @@ class BoilerMode(Enum):
     """
     Tryb pracy kotła:
     - IGNITION: rozpalanie
-    - WORK: praca
+    - WORK: praca automatyczna
     - OFF: wyłączony
     - MANUAL: ręczne sterowanie
     """
@@ -105,7 +109,8 @@ class ModuleStatus:
 class SystemState:
     """
     Globalny stan systemu – snapshot, który kernel przekazuje modułom
-    jako tylko-do-odczytu; służy też do serwowania /api/state do GUI.
+    jako strukturę współdzieloną; moduły mogą ją czytać, a wybrane
+    (np. ModeModule) mogą modyfikować niektóre pola (np. mode).
     """
     ts: float = field(default_factory=time.time)
 
@@ -118,6 +123,7 @@ class SystemState:
     # Tryb pracy kotła:
     mode: BoilerMode = BoilerMode.OFF
 
+    # Globalny alarm:
     alarm_active: bool = False
     alarm_message: Optional[str] = None
 
@@ -127,4 +133,5 @@ class SystemState:
     # Ostatnie wygenerowane eventy (np. z bieżącego ticka):
     recent_events: List[Event] = field(default_factory=list)
 
-    # Dodatkowe dane do /api/state możesz tu dopisywać w miarę potrzeb.
+    # Tu możesz dokładać kolejne pola, gdy GUI/API będzie czegoś potrzebować.
+

@@ -348,7 +348,7 @@ function setExhaustTemp(valueC) {
       const s = clamp((t - 30) / (50 - 30), 0, 1);
 
       // sterujemy bazową skalą całego płomienia
-      wrapper.setAttribute("transform", `scale(${s})`);
+      wrapper.setAttribute("transform", `translate(533,310) scale(${s})`);
     }
 
   // --- STATUS / ZEGAR ---
