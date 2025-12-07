@@ -42,6 +42,7 @@ function updateUIFromState(state) {
   const mixerTemp = sensors.mixer_temp != null ? sensors.mixer_temp : sensors.return_temp;
   FurnaceUI.temps.setMixer(mixerTemp);
   FurnaceUI.temps.setAuger(sensors.hopper_temp);
+  FurnaceUI.temps.setExhaust(sensors.flue_gas_temp);
 
   // --- wyjścia / pompy / dmuchawa / podajnik ---
   // outputs:

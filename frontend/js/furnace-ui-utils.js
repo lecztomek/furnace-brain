@@ -20,6 +20,7 @@
       radiators: null,
       mixer: null,
       auger: null,
+      exhaust: null,
     },
     fuelKg: null,
     augerCorrectionSec: null,
@@ -40,6 +41,8 @@
     coArrowCold: null,
 	
 	modeText: null, 
+	fireWrapper: null,
+	smokeGroup: null,
   };
 
   // --- FORMATERY / POMOCNICZE ---
@@ -163,6 +166,14 @@ function setCoArrows(isOn) {
     els.coArrowHot   = $("#co-arrow-hot");
     els.coArrowCold  = $("#co-arrow-cold");
 	els.modeText  = $("#mode-text");
+	els.fireWrapper  = $("#fire-wrapper"); 
+	
+      // DYM
+      els.smokeGroup   = $("#smoke");
+      if (els.smokeGroup) {
+        // na starcie dym wyłączony
+        els.smokeGroup.style.display = "none";
+      }
 
     // Na starcie — strzałki bez migania (czarne)
     setCwuArrows(false);
@@ -253,6 +264,8 @@ function setCoArrows(isOn) {
     uiState.temperatures.furnace = valueC;
     text.textContent = formatTemp(valueC);
     text.style.fill = tempColor(valueC);
+    
+    updateFireFromTemp(valueC);
   }
 
   function setRadiatorsTemp(valueC) {
@@ -284,6 +297,31 @@ function setCoArrows(isOn) {
     uiState.fuelKg = kg;
     text.textContent = formatFuel(kg);
   }
+  
+function setExhaustTemp(valueC) {
+  const text = $("#exhaust-temp-text");  // <- ID tekstu od spalin w SVG
+  uiState.temperatures.exhaust = valueC;
+
+  if (text) {
+    text.textContent = formatTemp(valueC);
+    text.style.fill = tempColor(valueC);
+  }
+
+  // sterowanie dymem
+  const smoke = els.smokeGroup || $("#smoke");
+  if (!smoke) return;
+
+  const t = Number(valueC);
+
+  // brak danych lub <= 80°C -> dym niewidoczny
+  if (!Number.isFinite(t) || t <= 80) {
+    smoke.style.display = "none";
+  } else {
+    // powyżej 80°C – dym leci (CSS już ma animację)
+    smoke.style.display = "";
+  }
+}
+
 
   function setAugerCorrection(seconds) {
     const text = $("#auger-correction-text");
@@ -291,6 +329,27 @@ function setCoArrows(isOn) {
     uiState.augerCorrectionSec = seconds;
     text.textContent = formatSeconds(seconds);
   }
+  
+    function updateFireFromTemp(valueC) {
+      const wrapper = els.fireWrapper || $("#fire-wrapper");
+      if (!wrapper) return;
+
+      const t = Number(valueC);
+
+      // brak danych / zimno – ognia nie ma
+      if (!Number.isFinite(t) || t < 30) {
+        wrapper.style.display = "none";     // całkowicie ukryty
+        return;
+      }
+
+      wrapper.style.display = "";           // pokaż ogień
+
+      // 30°C -> 0.0, 50°C -> 1.0 (liniowo)
+      const s = clamp((t - 30) / (50 - 30), 0, 1);
+
+      // sterujemy bazową skalą całego płomienia
+      wrapper.setAttribute("transform", `scale(${s})`);
+    }
 
   // --- STATUS / ZEGAR ---
 
@@ -344,6 +403,7 @@ function setCoArrows(isOn) {
       setRadiators: setRadiatorsTemp,
       setMixer: setMixerTemp,
       setAuger: setAugerTemp,
+      setExhaust: setExhaustTemp,
     },
     fuel: {
       setKg: setFuelInTank,
@@ -387,4 +447,8 @@ function setCoArrows(isOn) {
   window.setMode = function (mode) {
     setMode(mode);
   };
+  
+    window.setExhaustTemp = function (valueC) {
+      setExhaustTemp(valueC);
+    };
 })();
