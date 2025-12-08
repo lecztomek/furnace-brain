@@ -4,5 +4,5 @@ ignition_open_boiler_temp: 58.0
 ignition_recover_factor: 1.0
 max_pulse_s: 6.0
 min_pulse_s: 1.0
-ok_band_degC: 1.0
-target_temp: 45.0
+ok_band_degC: 0.5
+target_temp: 40.0

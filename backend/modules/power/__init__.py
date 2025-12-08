@@ -143,10 +143,12 @@ class PowerModule(ModuleInterface):
 
         prev_power = self._power
         prev_mode = self._last_effective_mode
-
-        # Reset PID przy zmianie trybu (żeby nie ciągnąć starej całki)
+            
         if prev_mode is not None and prev_mode != effective_mode:
-            self._reset_pid()
+            # NIE resetujemy przy ignition <-> auto
+            ignition_auto_set = {"ignition", "auto"}
+            if not ({prev_mode, effective_mode} <= ignition_auto_set):
+                self._reset_pid()
 
         # 2) Liczenie power w zależności od trybu
         if effective_mode == "off":
@@ -331,7 +333,7 @@ class PowerModule(ModuleInterface):
 
         if persist:
             self._save_config_to_file()
-			
+            
     def reload_config_from_file(self) -> None:
         """
         Publiczne API wymagane przez Kernel.
