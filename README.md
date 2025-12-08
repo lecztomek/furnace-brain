@@ -25,3 +25,5 @@ TODO
 - dokladnosc wyswietlania w ustawieniach float 0.01 
 - sortowanie modulow w ustawieniach
 - problem z zamykanie aplikacji
+- mixer osobno czasy w iginition i work oraz czasy miedzy korektami
+- dmuchawa cos nie respektuje temp spalin

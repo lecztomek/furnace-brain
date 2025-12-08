@@ -1,6 +1,6 @@
 id: feeder
 name: "Podajnik ślimakowy"
-description: "Sterowanie cyklami ślimaka na podstawie mocy kotła (power%)."
+description: "Sterowanie cyklami ślimaka na podstawie mocy kotła (power%). Stały czas podawania, a przerwa między podaniami automatycznie liczona z zadanej mocy i ograniczona min/max czasem."
 
 groups:
   - id: basic
@@ -16,6 +16,7 @@ fields:
     step: 1
     default: 10
     group: basic
+    description: "Czas faktycznego podawania paliwa w jednym cyklu (faza ON), niezależny od mocy kotła. Zbyt krótki czas daje częste, małe dawki, a zbyt długi – rzadkie, duże „strzały” paliwa."
 
   - key: feed_off_base_s
     label: "Czas przerwy przy 100% mocy"
@@ -26,6 +27,11 @@ fields:
     step: 1
     default: 64
     group: basic
+    description: >
+      Przerwa między podawaniami przy 100% mocy. Dla mocy P[%] sterownik
+      przelicza przerwę wg wzoru: off_time = feed_off_base_s * (100 / P),
+      a następnie ogranicza ją do zakresu [Minimalna przerwa OFF, Maksymalna przerwa OFF].
+      Np. przy 50% mocy przerwa wyjdzie około dwukrotnie dłuższa niż przy 100% mocy.
 
   - key: min_power_to_feed
     label: "Minimalna moc do podawania"
@@ -36,6 +42,7 @@ fields:
     step: 1
     default: 5
     group: basic
+    description: "Poniżej tej mocy kotła ślimak jest całkowicie wyłączony (brak cyklu ON/OFF). Pomaga uniknąć niepotrzebnego podawania przy bardzo małym zapotrzebowaniu na moc."
 
   - key: min_pause_s
     label: "Minimalna przerwa OFF"
@@ -46,6 +53,7 @@ fields:
     step: 1
     default: 10
     group: basic
+    description: "Najkrótsza dopuszczalna przerwa między podaniami paliwa. Zabezpiecza przed zbyt częstym załączaniem ślimaka przy wysokiej mocy lub nietypowych nastawach."
 
   - key: max_pause_s
     label: "Maksymalna przerwa OFF"
@@ -56,3 +64,4 @@ fields:
     step: 10
     default: 600
     group: basic
+    description: "Najdłuższa dopuszczalna przerwa między podaniami paliwa, niezależnie od wyliczeń z mocy. Zapobiega zbyt długim przerwom, które mogłyby wygasić palnik."

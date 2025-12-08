@@ -20,13 +20,13 @@ from backend.core.state import (
 
 # ---------- KONFIGURACJA RUNTIME ----------
 
-
 @dataclass
 class MixerConfig:
     """
     Konfiguracja modułu zaworu mieszającego.
 
-    target_temp           – docelowa temperatura za zaworem [°C]
+    target_temp           – docelowa temperatura w obiegu CO za zaworem [°C]
+                            (w naszym modelu: Sensors.radiators_temp)
     ok_band_degC          – odchylenie od zadanej, które uznajemy za OK (martwa strefa) [°C]
 
     min_pulse_s           – minimalny czas pojedynczego ruchu (OTWÓRZ/ZAMKNIJ) [s]
@@ -62,17 +62,20 @@ class MixerModule(ModuleInterface):
     """
     Moduł sterujący zaworem mieszającym.
 
+    Sterujemy na podstawie temperatury W OBIEGU CO (radiators_temp),
+    która jest „za zaworem”.
+
     - Start: zawór zakładamy jako ZAMKNIĘTY (0%) – znamy tylko ruch względny.
     - IGNITION:
         * dopóki T_kotła < ignition_open_boiler_temp → nie otwieramy zaworu,
-        * gdy T_kotła jest już „ciepły”:
-            - patrzymy na T_mix vs target_temp,
+        * gdy kocioł jest już „ciepły”:
+            - patrzymy na T_CO (radiators_temp) vs target_temp,
             - jeśli za zimno → próbujemy OTWORZYĆ, ALE:
                 + po każdym OTWÓRZ patrzymy, o ile spadło na kotle,
                 + jeśli > ignition_max_boiler_drop_degC → blokujemy dalsze
                   otwarcia, dopóki kocioł się częściowo nie odbije.
     - WORK:
-        * klasyczny regulator na T_mix z martwą strefą.
+        * klasyczny regulator na T_CO z martwą strefą.
     - OFF / MANUAL:
         * nie sterujemy zaworem.
     """
@@ -121,7 +124,8 @@ class MixerModule(ModuleInterface):
 
         mode_enum = system_state.mode
         boiler_temp = sensors.boiler_temp
-        mix_temp = sensors.mixer_temp
+        # Używamy temperatury w obiegu CO (radiators_temp) jako T za zaworem
+        rad_temp = sensors.radiators_temp
 
         prev_direction = self._movement_direction
         prev_mode = self._last_mode
@@ -157,17 +161,17 @@ class MixerModule(ModuleInterface):
                 self._stop_movement()
 
                 # Czy możemy wykonać nową korektę?
-                if self._can_adjust(now) and mix_temp is not None:
+                if self._can_adjust(now) and rad_temp is not None:
                     if effective_mode == "ignition":
                         direction = self._decide_direction_ignition(
-                            mix_temp=mix_temp,
+                            mix_temp=rad_temp,
                             boiler_temp=boiler_temp,
                         )
                     else:
-                        direction = self._decide_direction_work(mix_temp=mix_temp)
+                        direction = self._decide_direction_work(mix_temp=rad_temp)
 
                     if direction is not None:
-                        pulse_s = self._compute_pulse_duration(mix_temp=mix_temp)
+                        pulse_s = self._compute_pulse_duration(mix_temp=rad_temp)
 
                         # w IGNITION przy OTWÓRZ zapamiętujemy T_kotła na starcie impulsu
                         if effective_mode == "ignition" and direction == "open":
@@ -191,14 +195,14 @@ class MixerModule(ModuleInterface):
                                 message=(
                                     f"Zawór mieszający: {direction.upper()} "
                                     f"{pulse_s:.1f}s "
-                                    f"(T_mix={mix_temp:.1f}°C, "
+                                    f"(T_CO={rad_temp:.1f}°C, "
                                     f"zadana={self._config.target_temp:.1f}°C, "
                                     f"tryb={effective_mode})"
                                 ),
                                 data={
                                     "direction": direction,
                                     "pulse_s": pulse_s,
-                                    "mixer_temp": mix_temp,
+                                    "radiators_temp": rad_temp,
                                     "target_temp": self._config.target_temp,
                                     "mode": effective_mode,
                                     "boiler_temp": boiler_temp,
@@ -241,6 +245,9 @@ class MixerModule(ModuleInterface):
         return (now - self._last_action_ts) >= self._config.adjust_interval_s
 
     def _decide_direction_work(self, mix_temp: float) -> Optional[str]:
+        """
+        Tryb WORK – klasyczny regulator na T_CO (radiators_temp) z martwą strefą.
+        """
         t_set = self._config.target_temp
         band = self._config.ok_band_degC
 
@@ -256,18 +263,20 @@ class MixerModule(ModuleInterface):
         boiler_temp: Optional[float],
     ) -> Optional[str]:
         """
-        IGNITION:
-          - chronimy kocioł przed zbyt dużym spadkiem temp. po OTWÓRZ,
-          - dopóki kocioł nie „odbił”, blokujemy kolejne otwarcia.
+        TRYB IGNITION:
+
+        - chronimy kocioł przed zbyt dużym spadkiem temp. po OTWÓRZ,
+        - dopóki kocioł nie „odbił”, blokujemy kolejne otwarcia.
+        Sterowanie nadal oparte na T_CO (radiators_temp).
         """
         t_set = self._config.target_temp
         band = self._config.ok_band_degC
 
-        # Za gorąco za zaworem → ZAMKNIJ zawsze (tego nie blokujemy)
+        # Za gorąco w obiegu CO → ZAMKNIJ zawsze (tego nie blokujemy)
         if mix_temp > t_set + band:
             return "close"
 
-        # Za zimno za zaworem → rozważamy OTWÓRZ
+        # Za zimno w CO → rozważamy OTWÓRZ
         if mix_temp < t_set - band:
             if boiler_temp is None:
                 return None
@@ -314,6 +323,10 @@ class MixerModule(ModuleInterface):
             self._ign_last_open_drop_too_big = True
 
     def _compute_pulse_duration(self, mix_temp: float) -> float:
+        """
+        Wyznaczanie długości impulsu OTWÓRZ/ZAMKNIJ na podstawie błędu
+        temperatury CO względem zadanej (z martwą strefą).
+        """
         t_set = self._config.target_temp
         band = self._config.ok_band_degC
 
@@ -375,7 +388,7 @@ class MixerModule(ModuleInterface):
         Publiczne API wymagane przez Kernel.
         """
         self._load_config_from_file()
-			
+
     def _load_config_from_file(self) -> None:
         if not self._config_path.exists():
             return

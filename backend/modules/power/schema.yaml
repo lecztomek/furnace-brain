@@ -1,6 +1,7 @@
 id: power
 name: "Regulator mocy kotła"
-description: "Wyznaczanie mocy kotła (power %) z PID-a po temperaturze kotła."
+description: "Wyznaczanie mocy kotła (power %) z PID-a po temperaturze kotła, z dodatkowym bonusem mocy w trybie rozpalania (IGNITION)."
+
 groups:
   - id: basic
     label: "Podstawowe"
@@ -17,6 +18,7 @@ fields:
     step: 1
     default: 65
     group: basic
+    description: "Temperatura, do której regulator PID dąży sterując mocą kotła. Typowo równa zadanej temperaturze kotła w całym systemie."
 
   - key: min_power
     label: "Minimalna moc"
@@ -27,6 +29,7 @@ fields:
     step: 1
     default: 0
     group: basic
+    description: "Dolne ograniczenie wyliczonej mocy. Pozwala wymusić minimalny poziom mocy (np. żeby kocioł nie schodził poniżej pewnego progu w trybie pracy)."
 
   - key: max_power
     label: "Maksymalna moc"
@@ -37,6 +40,7 @@ fields:
     step: 1
     default: 100
     group: basic
+    description: "Górne ograniczenie wyliczonej mocy. Ustaw poniżej 100%, jeśli chcesz sztucznie „przydusić” kocioł, np. ze względu na instalację lub komin."
 
   - key: ignition_power_bonus_percent
     label: "Bonus mocy w trybie rozpalania"
@@ -47,6 +51,11 @@ fields:
     step: 5
     default: 30
     group: basic
+    description: >
+      Maksymalny procentowy bonus mocy w trybie IGNITION.
+      Gdy kocioł jest dużo poniżej zadanej, do mocy z PID-a dodawany jest mnożnik
+      (np. 30% → power ≈ base_power * 1.3). Bonus stopniowo wygasza się
+      w miarę zbliżania do zadanej temperatury.
 
   - key: ignition_bonus_margin_degC
     label: "Zakres wygaszania bonusa (poniżej zadanej)"
@@ -57,6 +66,10 @@ fields:
     step: 1
     default: 10
     group: basic
+    description: >
+      O ile stopni poniżej zadanej temperatury kotła zaczyna się wygaszanie
+      bonusa mocy w IGNITION. Poniżej Tzadana - margin bonus jest pełny,
+      przy Tzadana bonus spada do zera (płynne przejście między tymi punktami).
 
   - key: mode
     label: "Tryb (gdy brak boiler_mode)"
@@ -64,6 +77,10 @@ fields:
     options: ["auto", "ignition", "off"]
     default: "auto"
     group: basic
+    description: >
+      Lokalny tryb używany tylko awaryjnie, gdy SystemState.mode z jakiegoś powodu
+      jest nieznany. "auto" – zwykła praca na PID (jak WORK), "ignition" – praca
+      z bonusem mocy rozpalania, "off" – wyłączony (power = 0%).
 
   - key: kp
     label: "Kp (proporcjonalne)"
@@ -74,6 +91,7 @@ fields:
     step: 0.1
     default: 2.0
     group: pid
+    description: "Wzmocnienie części proporcjonalnej PID. Im większe Kp, tym mocniej regulator reaguje na aktualny błąd temperatury kotła."
 
   - key: ki
     label: "Ki (całkujące)"
@@ -84,6 +102,7 @@ fields:
     step: 0.01
     default: 0.01
     group: pid
+    description: "Wzmocnienie części całkującej PID (1/s). Odpowiada za „dobijanie” do zadanej i likwidację uchybu ustalonego, ale zbyt duże może powodować przeregulowania."
 
   - key: kd
     label: "Kd (różniczkujące)"
@@ -94,3 +113,4 @@ fields:
     step: 0.1
     default: 0.0
     group: pid
+    description: "Wzmocnienie części różniczkującej PID. Reaguje na szybkość zmian temperatury (pochodna błędu) i pomaga wyhamować przed przeregulowaniem. Najczęściej zostawiane na 0 lub niskich wartościach."

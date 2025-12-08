@@ -1,9 +1,11 @@
 id: pump_cwu
 name: "Pompa CWU"
-description: "Sterowanie pompą obiegu CWU na podstawie temperatury kotła."
+description: "Sterowanie pompą obiegu CWU na podstawie temperatury kotła z prostą histerezą załączenia/wyłączenia."
+
 groups:
   - id: basic
     label: "Podstawowe"
+
 fields:
   - key: boiler_on_temp
     label: "Temperatura załączenia pompy"
@@ -14,6 +16,10 @@ fields:
     step: 1
     default: 60
     group: basic
+    description: >
+      Temperatura kotła, przy której pompa CWU zostaje włączona.
+      Gdy T_kotła osiągnie lub przekroczy tę wartość, pompa przechodzi w stan ON
+      (w trybie automatycznym).
 
   - key: hysteresis
     label: "Histereza wyłączenia"
@@ -24,3 +30,8 @@ fields:
     step: 0.5
     default: 5
     group: basic
+    description: >
+      O ile stopni poniżej temperatury załączenia musi spaść T_kotła,
+      aby pompa CWU została wyłączona. Pompa wyłączy się przy
+      T_kotła <= (Temperatura załączenia pompy - histereza).
+      Zapobiega częstemu „klapaniu” pompy w okolicy progu.

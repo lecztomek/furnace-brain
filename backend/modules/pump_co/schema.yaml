@@ -1,6 +1,7 @@
 id: pump_co
 name: "Pompa CO"
-description: "Sterowanie pompą obiegu CO na podstawie temperatury kotła."
+description: "Sterowanie pompą obiegu CO na podstawie temperatury kotła z prostą histerezą załączenia/wyłączenia."
+
 groups:
   - id: basic
     label: "Podstawowe"
@@ -15,6 +16,10 @@ fields:
     step: 1
     default: 60
     group: basic
+    description: >
+      Temperatura kotła, przy której pompa CO zostaje włączona.
+      Gdy T_kotła osiągnie lub przekroczy tę wartość, pompa przechodzi w stan ON
+      (w trybie automatycznym).
 
   - key: hysteresis
     label: "Histereza wyłączenia"
@@ -25,6 +30,11 @@ fields:
     step: 0.5
     default: 5
     group: basic
+    description: >
+      O ile stopni poniżej temperatury załączenia musi spaść T_kotła,
+      aby pompa została wyłączona. Pompa wyłączy się przy
+      T_kotła <= (Temperatura załączenia pompy - histereza).
+      Zapobiega częstemu „klapaniu” pompy w okolicy progu.
 
   - key: mode
     label: "Tryb pracy"
@@ -32,3 +42,8 @@ fields:
     options: ["auto", "force_on", "off"]
     default: "auto"
     group: basic
+    description: >
+      Sposób sterowania pompą CO:
+      • auto – praca automatyczna wg temperatury kotła i histerezy,
+      • force_on – pompa wymuszona na stałe w stanie ON (niezależnie od temperatury),
+      • off – pompa wyłączona (OFF), niezależnie od temperatury.

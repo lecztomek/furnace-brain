@@ -1,6 +1,7 @@
 id: mode
 name: "Tryby pracy kotła"
-description: "Logika trybów OFF / MANUAL / IGNITION / WORK i auto-przejścia IGNITION → WORK."
+description: "Logika trybów OFF / MANUAL / IGNITION / WORK oraz automatycznego przejścia z rozpalania (IGNITION) do pracy (WORK) na podstawie czasu i temperatury kotła."
+
 groups:
   - id: basic
     label: "Podstawowe"
@@ -11,6 +12,12 @@ fields:
     type: bool
     default: true
     group: basic
+    label_on: "WŁĄCZONE"
+    label_off: "WYŁĄCZONE"
+    description: >
+      Czy kocioł ma sam przełączyć się z rozpalania (IGNITION) do trybu pracy (WORK),
+      gdy osiągnie zadaną temperaturę i minie minimalny czas rozpalania.
+      Po wyłączeniu przejście trzeba wykonać ręcznie w GUI/API.
 
   - key: switch_temp
     label: "Temperatura przejścia z IGNITION do WORK"
@@ -21,6 +28,10 @@ fields:
     step: 1
     default: 65
     group: basic
+    description: >
+      Temperatura kotła, przy której – przy włączonej funkcji auto – uznajemy,
+      że rozpalanie zakończyło się powodzeniem i można przejść na tryb pracy (WORK).
+      Najczęściej ustawiana równo z zadaną temperaturą kotła.
 
   - key: min_ignition_time_s
     label: "Minimalny czas trybu IGNITION"
@@ -31,3 +42,7 @@ fields:
     step: 30
     default: 300
     group: basic
+    description: >
+      Minimalny czas, jaki kocioł musi spędzić w trybie IGNITION, zanim
+      będzie można automatycznie przełączyć się na WORK. Chroni przed
+      zbyt szybkim przejściem do pracy przy chwilowych „pikach” temperatury.

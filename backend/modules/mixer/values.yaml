@@ -1,8 +1,8 @@
-adjust_interval_s: 60.0
+adjust_interval_s: 120.0
 ignition_max_boiler_drop_degC: 3.0
-ignition_open_boiler_temp: 55.0
-ignition_recover_factor: 0.5
+ignition_open_boiler_temp: 58.0
+ignition_recover_factor: 1.0
 max_pulse_s: 6.0
 min_pulse_s: 1.0
-ok_band_degC: 2.0
-target_temp: 36.0
+ok_band_degC: 1.0
+target_temp: 45.0

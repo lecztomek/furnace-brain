@@ -1,6 +1,6 @@
 id: blower
 name: "Dmuchawa"
-description: "Sterowanie dmuchawą metodą duty (PRACA/POSTÓJ) na podstawie mocy kotła i temperatury spalin."
+description: "Sterowanie dmuchawą metodą duty (PRACA/POSTÓJ) na podstawie mocy kotła i temperatury spalin. Użytkownik ustawia stałe obroty, a sterownik wylicza czas pracy i postoju w cyklu."
 
 groups:
   - id: basic
@@ -16,6 +16,7 @@ fields:
     step: 1
     default: 45
     group: basic
+    description: "Stałe obroty dmuchawy, gdy jest w fazie PRACA. Sterownik tylko włącza/wyłącza dmuchawę wg wyliczonego duty."
 
   - key: min_power_to_blow
     label: "Minimalna moc kotła do włączenia dmuchawy"
@@ -26,6 +27,7 @@ fields:
     step: 1
     default: 3
     group: basic
+    description: "Poniżej tej mocy kotła dmuchawa pozostaje całkowicie wyłączona. Zapobiega niepotrzebnemu dmuchaniu przy bardzo małym zapotrzebowaniu na moc."
 
   - key: flue_control_enabled
     label: "Regulacja duty wg temp. spalin"
@@ -34,6 +36,7 @@ fields:
     group: basic
     label_on: "WŁĄCZONA"
     label_off: "WYŁĄCZONA"
+    description: "Czy korygować duty dmuchawy na podstawie temperatury spalin. Po wyłączeniu duty zależy wyłącznie od mocy kotła."
 
   - key: flue_opt_temp
     label: "Docelowa temp. spalin (praca)"
@@ -44,6 +47,7 @@ fields:
     step: 5
     default: 150
     group: basic
+    description: "Docelowa temperatura spalin w trybie pracy (WORK). Dmuchawa będzie delikatnie zwiększać lub zmniejszać duty, aby zbliżać się do tej wartości."
 
   - key: flue_kp
     label: "Czułość korekty duty z Tspalin"
@@ -54,6 +58,7 @@ fields:
     step: 0.05
     default: 0.10
     group: basic
+    description: "Określa, jak mocno błąd temperatury spalin (różnica względem zadanego punktu) wpływa na zmianę duty. Im większa wartość, tym szybciej dmuchawa reaguje na odchyłki Tspalin."
 
   - key: flue_correction_max
     label: "Maksymalna korekta duty z Tspalin"
@@ -64,6 +69,7 @@ fields:
     step: 1
     default: 20
     group: basic
+    description: "Maksymalny zakres korekty duty wynikającej z temperatury spalin względem wartości bazowej z mocy kotła (w górę lub w dół). Ogranicza zbyt agresywne zmiany pracy dmuchawy."
 
   - key: cycle_time_s
     label: "Czas cyklu dmuchawy"
@@ -74,6 +80,7 @@ fields:
     step: 5
     default: 30
     group: basic
+    description: "Długość pełnego cyklu PRACA+POSTÓJ. Np. przy 30 s i 50% mocy dmuchawa pracuje ok. 15 s i 15 s stoi."
 
   - key: flue_ignition_max_temp
     label: "Maks. temp. spalin w rozpalaniu"
@@ -84,3 +91,4 @@ fields:
     step: 5
     default: 200
     group: basic
+    description: "Maksymalna dopuszczalna temperatura spalin w trybie rozpalania (IGNITION). Po jej przekroczeniu sterownik zmniejsza duty, aby nie przegrzewać kotła na starcie."
