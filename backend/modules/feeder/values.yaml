@@ -1,5 +1,5 @@
 feed_off_base_s: 60.0
 feed_on_base_s: 20.0
 max_pause_s: 600.0
-min_pause_s: 10.0
+min_pause_s: 11.0
 min_power_to_feed: 5.0

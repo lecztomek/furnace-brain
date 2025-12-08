@@ -18,6 +18,11 @@ modules:
     path: backend.modules.feeder:FeederModule
     enabled: true
     critical: true
+    
+  - id: mixer
+    path: backend.modules.mixer:MixerModule
+    enabled: true    
+    critical: true
 
   - id: pump_cwu
     path: backend.modules.pump_cwu:CwuPumpModule
@@ -27,11 +32,6 @@ modules:
   - id: pump_co
     path: backend.modules.pump_co:CoPumpModule
     enabled: true
-    critical: true
-    
-  - id: mixer
-    path: backend.modules.mixer:MixerModule
-    enabled: false    
     critical: true
 
   - id: history

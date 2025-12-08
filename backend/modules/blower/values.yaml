@@ -1,4 +1,4 @@
-base_fan_percent: 45.0
+base_fan_percent: 51.0
 cycle_time_s: 30.0
 flue_control_enabled: true
 flue_correction_max: 20.0

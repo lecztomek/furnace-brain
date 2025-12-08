@@ -7,6 +7,12 @@ const configState = {};
 const schemaCache = {};
 const modulesById = {};
 
+function roundTo2(num) {
+  const n = Number(num);
+  if (!isFinite(n)) return 0;
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
 function setStatus(text, isError = false) {
   const el = document.getElementById("status-text");
   if (!el) return;
@@ -212,8 +218,13 @@ function renderField(moduleId, key, def, rawValue) {
     }
   }
 
+  if (type === "number") {
+    value = roundTo2(value);
+  }
+
   if (!configState[moduleId]) configState[moduleId] = {};
   configState[moduleId][key] = value;
+
 
   const field = document.createElement("div");
   field.className = "config-field";
@@ -259,9 +270,9 @@ function renderField(moduleId, key, def, rawValue) {
 
   // === NUMBER: − [val] + ===
   if (type === "number") {
-    const min = def.min !== undefined ? def.min : null;
-    const max = def.max !== undefined ? def.max : null;
-    const step = def.step !== undefined ? Number(def.step) : 1;
+    const min = def.min !== undefined ? Number(def.min) : null;
+    const max = def.max !== undefined ? Number(def.max) : null;
+    const step = def.step !== undefined ? roundTo2(def.step) : 1;
 
     const minusBtn = document.createElement("button");
     minusBtn.type = "button";
@@ -274,7 +285,7 @@ function renderField(moduleId, key, def, rawValue) {
     plusBtn.textContent = "+";
 
     function renderNumber() {
-      const val = Number(configState[moduleId][key]);
+      const val = roundTo2(configState[moduleId][key]);
       const display = unit && unit.trim().length
         ? `${val} ${unit}`
         : `${val}`;
@@ -285,6 +296,8 @@ function renderField(moduleId, key, def, rawValue) {
       let current = Number(configState[moduleId][key]) || 0;
       current -= step;
       if (min !== null && current < min) current = min;
+      if (max !== null && current > max) current = max;
+      current = roundTo2(current);
       configState[moduleId][key] = current;
       renderNumber();
     });
@@ -292,7 +305,9 @@ function renderField(moduleId, key, def, rawValue) {
     plusBtn.addEventListener("click", () => {
       let current = Number(configState[moduleId][key]) || 0;
       current += step;
+      if (min !== null && current < min) current = min;
       if (max !== null && current > max) current = max;
+      current = roundTo2(current);
       configState[moduleId][key] = current;
       renderNumber();
     });

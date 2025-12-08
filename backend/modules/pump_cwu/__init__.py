@@ -205,6 +205,12 @@ class CwuPumpModule(ModuleInterface):
 
         if persist:
             self._save_config_to_file()
+			
+    def reload_config_from_file(self) -> None:
+        """
+        Publiczne API wymagane przez Kernel.
+        """
+        self._load_config_from_file()
 
     # ---------- PLIK values.yaml (ładowanie/zapis) ----------
 
