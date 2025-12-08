@@ -24,70 +24,72 @@ from backend.core.state import (
 @dataclass
 class BlowerConfig:
     """
-    Konfiguracja modułu dmuchawy.
+    Konfiguracja modułu dmuchawy w stylu Argo PID Boleckiego.
 
-    base_fan_percent          – nominalna moc dmuchawy [%] przy 100% power
-                                (odpowiednik "PWN dmuchawy" w sterownikach)
-    min_fan_percent           – minimalna moc PWM [%]
-    max_fan_percent           – maksymalna moc PWM [%]
+    Użytkownik ustawia STAŁE obroty dmuchawy (base_fan_percent),
+    a moduł z sygnału power [0–100%] wylicza duty (czas PRACA/POSTÓJ)
+    w cyklu o długości cycle_time_s.
 
-    min_power_to_blow         – poniżej tej mocy kotła [%] dmuchawa wyłączona
-                                (np. w podtrzymaniu, gdy power → 0%)
+    base_fan_percent      – stałe obroty dmuchawy, gdy jest WŁĄCZONA [%]
 
-    ignition_fan_boost_percent – dodatkowy boost dmuchawy w IGNITION [% bazowej]
-                                 (np. 20 → w ign zwiększamy bazę x1.2)
-    ignition_min_fan_percent   – minimalna moc dmuchawy w IGNITION (żeby nie
-                                 przydusić płomienia nawet przy małym power)
+    min_power_to_blow     – poniżej tej mocy dmuchawa całkowicie WYŁĄCZONA
 
-    flue_control_enabled      – czy używać temperatury spalin w trybie WORK
-    flue_opt_temp             – docelowa temperatura spalin [°C]
-    flue_kp                   – czułość korekcji dmuchawy na błąd spalin
-                                [ (°C różnicy) * flue_kp = % korekcji ]
-    flue_correction_max       – maksymalna korekta dmuchawy w górę / dół [%]
+    cycle_time_s          – czas pełnego cyklu dmuchawy [s]
+                             (np. 30 s: przy 50% power → 15 s ON, 15 s OFF)
+
+    Korekta z temperatury spalin:
+
+      flue_control_enabled    – czy w ogóle używać korekcji z Tspalin
+      flue_ignition_max_temp  – maksymalna Tspalin w IGNITION [°C]
+                                 (powyżej tej wartości zmniejszamy duty)
+      flue_opt_temp           – docelowa Tspalin w WORK [°C]
+      flue_kp                 – czułość korekty duty na błąd Tspalin
+                                 [ (°C różnicy) * flue_kp = % punktów duty ]
+      flue_correction_max     – maksymalna korekta duty w górę/dół [pkt %]
+
     """
 
-    base_fan_percent: float = 45.0  # to ustawiasz jak u Boleckiego "PWN 45"
-    min_fan_percent: float = 0.0
-    max_fan_percent: float = 100.0
+    base_fan_percent: float = 45.0
 
     min_power_to_blow: float = 3.0
 
-    ignition_fan_boost_percent: float = 20.0
-    ignition_min_fan_percent: float = 25.0
+    cycle_time_s: float = 30.0
 
     flue_control_enabled: bool = True
-    flue_opt_temp: float = 150.0
+    flue_ignition_max_temp: float = 200.0  # max Tspalin w IGNITION
+    flue_opt_temp: float = 150.0           # docelowa Tspalin w WORK
     flue_kp: float = 0.1
     flue_correction_max: float = 20.0
 
 
 class BlowerModule(ModuleInterface):
     """
-    Moduł sterujący dmuchawą na podstawie:
-    - power_percent (sygnał mocy z PowerModule),
-    - trybu kotła (IGNITION / WORK / OFF / MANUAL),
-    - temperatury spalin (w trybie WORK).
+    Moduł dmuchawy w stylu Argo PID Boleckiego:
 
-    Zasada:
+    - Użytkownik ustawia STAŁE obroty dmuchawy (base_fan_percent).
+    - Moduł z sygnału power [0–100%] liczy duty = czas PRACA / POSTÓJ
+      w cyklu długości cycle_time_s.
+    - Duty jest bazowo zależne TYLKO od power (duty_base = power/100),
+      a korekta z Tspalin delikatnie podbija/obcina duty.
 
-      base_fan = base_fan_percent * (power_percent / 100)
-
-      IGNITION:
-        - olewamy temperaturę spalin,
-        - dokładamy boost ignition_fan_boost_percent,
-        - pilnujemy ignition_min_fan_percent.
-
-      WORK:
-        - od base_fan odejmujemy/dodajemy delikatną korektę z flue_gas_temp:
-            error = flue_opt_temp - flue_gas_temp
-            corr = flue_kp * error  (ograniczony do ±flue_correction_max)
-            fan = base_fan + corr
-        - jeśli flue_gas_temp brak albo flue_control_disabled → fan = base_fan.
+    Mody:
 
       OFF / MANUAL:
-        fan = 0.
+        fan = 0
 
-    Wynik zapisujemy do Outputs.fan_power (int 0–100).
+      IGNITION:
+        - duty bazowo = power/100 (bez specjalnego boosta)
+        - jeśli flue_control_enabled:
+            jeśli Tspalin > flue_ignition_max_temp → zmniejszamy duty
+
+      WORK:
+        - duty bazowo = power/100
+        - jeśli flue_control_enabled:
+            dążymy do flue_opt_temp (korekta ± na duty)
+
+    Wynik zapisujemy do Outputs.fan_power (int 0–100):
+      - 0              – dmuchawa OFF (faza przerwy)
+      - base_fan_percent – dmuchawa ON (faza pracy)
     """
 
     def __init__(
@@ -109,6 +111,9 @@ class BlowerModule(ModuleInterface):
         self._fan_power: float = 0.0
         self._last_mode: Optional[str] = None
 
+        # stan cyklu duty
+        self._cycle_start: Optional[float] = None
+
     # --- ModuleInterface ---
 
     @property
@@ -125,7 +130,7 @@ class BlowerModule(ModuleInterface):
         outputs = Outputs()
 
         mode_enum = system_state.mode
-        power = system_state.outputs.power_percent  # 0–100
+        power = float(system_state.outputs.power_percent)  # 0–100
         flue_temp = sensors.flue_gas_temp
 
         prev_fan = self._fan_power
@@ -141,39 +146,77 @@ class BlowerModule(ModuleInterface):
         else:
             effective_mode = "off"
 
-        # 1) OFF / MANUAL lub bardzo mały power → dmuchawa wyłączona
+        # Inicjalizacja początku cyklu przy starcie lub zmianie trybu
+        if self._cycle_start is None or prev_mode != effective_mode:
+            self._cycle_start = now
+
+        # 1) OFF / MANUAL albo bardzo mały power → dmuchawa wyłączona
         if effective_mode == "off" or power <= self._config.min_power_to_blow:
             self._fan_power = 0.0
+            self._cycle_start = now
 
         else:
-            # 2) bazowa moc z power_percent
-            base_fan = self._config.base_fan_percent * (power / 100.0)
+            base_fan = self._config.base_fan_percent
 
-            fan = base_fan
+            # --- duty bazowe z power (niezależne od trybu) ---
+            duty = max(0.0, min(1.0, power / 100.0))  # 0..1
 
-            if effective_mode == "ignition":
-                # IGNITION: olewamy spaliny, lekko podbijamy powietrze,
-                # żeby łatwiej rozpalić, plus minimalny %.
-                boost_factor = 1.0 + (self._config.ignition_fan_boost_percent / 100.0)
-                fan = base_fan * boost_factor
-                fan = max(fan, self._config.ignition_min_fan_percent)
+            # --- korekta duty z temperatury spalin ---
+            if (
+                self._config.flue_control_enabled
+                and flue_temp is not None
+                and duty > 0.0
+            ):
+                corr_percent = 0.0  # korekta w punktach procentowych duty
 
-            elif effective_mode == "work":
-                # WORK: lekka korekta z temperatury spalin
-                fan = base_fan
-                if self._config.flue_control_enabled and flue_temp is not None:
-                    error = self._config.flue_opt_temp - flue_temp
-                    corr = self._config.flue_kp * error
-                    # nie przesadzamy z korektą
-                    max_corr = self._config.flue_correction_max
-                    if corr > max_corr:
-                        corr = max_corr
-                    elif corr < -max_corr:
-                        corr = -max_corr
-                    fan = fan + corr
+                if effective_mode == "ignition":
+                    # w IGNITION pilnujemy MAKSYMALNEJ Tspalin
+                    setpoint = self._config.flue_ignition_max_temp
+                    error = setpoint - flue_temp  # dodatni: za chłodno, ujemny: za gorąco
+                    if error < 0.0:
+                        # tylko jak za gorąco – zmniejszamy duty
+                        corr_percent = self._config.flue_kp * error  # będzie ujemne
+                    else:
+                        corr_percent = 0.0
+
+                elif effective_mode == "work":
+                    # w WORK dążymy do optymalnej Tspalin (w górę i w dół)
+                    setpoint = self._config.flue_opt_temp
+                    error = setpoint - flue_temp
+                    corr_percent = self._config.flue_kp * error
+
+                # ograniczamy korektę
+                max_corr = self._config.flue_correction_max
+                if corr_percent > max_corr:
+                    corr_percent = max_corr
+                elif corr_percent < -max_corr:
+                    corr_percent = -max_corr
+
+                duty += corr_percent / 100.0
+                duty = max(0.0, min(1.0, duty))
+
+            # --- przeliczamy duty na PRACA/POSTÓJ w cyklu ---
+            if duty <= 0.0:
+                fan = 0.0
+                self._cycle_start = now  # zaczynamy nowy cykl od zera
+            elif duty >= 0.999:
+                fan = base_fan  # pełna ciągła praca
+            else:
+                cycle_T = max(1.0, float(self._config.cycle_time_s))  # zabezpieczenie
+                if self._cycle_start is None:
+                    self._cycle_start = now
+                phase = (now - self._cycle_start) % cycle_T
+
+                on_time = duty * cycle_T
+
+                if phase < on_time:
+                    # faza PRACY dmuchawy
+                    fan = base_fan
+                else:
+                    # faza PRZERWY dmuchawy
+                    fan = 0.0
 
             # Ograniczenie do zakresu
-            fan = max(self._config.min_fan_percent, min(fan, self._config.max_fan_percent))
             self._fan_power = fan
 
         # Eventy – zmiana trybu dmuchawy
@@ -191,19 +234,22 @@ class BlowerModule(ModuleInterface):
 
         # Eventy – duża zmiana mocy
         if abs(self._fan_power - prev_fan) >= 5.0:
+            msg = (
+                f"dmuchawa: {prev_fan:.1f}% → {self._fan_power:.1f}% "
+                f"(power={power:.1f}%, "
+            )
+            if flue_temp is not None:
+                msg += f"Tspalin={flue_temp:.1f}°C)"
+            else:
+                msg += "brak Tspalin)"
+
             events.append(
                 Event(
                     ts=now,
                     source=self.id,
                     level=EventLevel.INFO,
                     type="BLOWER_POWER_CHANGED",
-                    message=(
-                        f"dmuchawa: {prev_fan:.1f}% → {self._fan_power:.1f}% "
-                        f"(power={power:.1f}%, Tspalin={flue_temp:.1f}°C)"
-                        if flue_temp is not None
-                        else f"dmuchawa: {prev_fan:.1f}% → {self._fan_power:.1f}% "
-                             f"(power={power:.1f}%, brak Tspalin)"
-                    ),
+                    message=msg,
                     data={
                         "prev_fan": prev_fan,
                         "fan": self._fan_power,
@@ -239,21 +285,17 @@ class BlowerModule(ModuleInterface):
     def set_config_values(self, values: Dict[str, Any], persist: bool = True) -> None:
         if "base_fan_percent" in values:
             self._config.base_fan_percent = float(values["base_fan_percent"])
-        if "min_fan_percent" in values:
-            self._config.min_fan_percent = float(values["min_fan_percent"])
-        if "max_fan_percent" in values:
-            self._config.max_fan_percent = float(values["max_fan_percent"])
 
         if "min_power_to_blow" in values:
             self._config.min_power_to_blow = float(values["min_power_to_blow"])
 
-        if "ignition_fan_boost_percent" in values:
-            self._config.ignition_fan_boost_percent = float(values["ignition_fan_boost_percent"])
-        if "ignition_min_fan_percent" in values:
-            self._config.ignition_min_fan_percent = float(values["ignition_min_fan_percent"])
+        if "cycle_time_s" in values:
+            self._config.cycle_time_s = float(values["cycle_time_s"])
 
         if "flue_control_enabled" in values:
             self._config.flue_control_enabled = bool(values["flue_control_enabled"])
+        if "flue_ignition_max_temp" in values:
+            self._config.flue_ignition_max_temp = float(values["flue_ignition_max_temp"])
         if "flue_opt_temp" in values:
             self._config.flue_opt_temp = float(values["flue_opt_temp"])
         if "flue_kp" in values:
@@ -273,21 +315,17 @@ class BlowerModule(ModuleInterface):
 
         if "base_fan_percent" in data:
             self._config.base_fan_percent = float(data["base_fan_percent"])
-        if "min_fan_percent" in data:
-            self._config.min_fan_percent = float(data["min_fan_percent"])
-        if "max_fan_percent" in data:
-            self._config.max_fan_percent = float(data["max_fan_percent"])
 
         if "min_power_to_blow" in data:
             self._config.min_power_to_blow = float(data["min_power_to_blow"])
 
-        if "ignition_fan_boost_percent" in data:
-            self._config.ignition_fan_boost_percent = float(data["ignition_fan_boost_percent"])
-        if "ignition_min_fan_percent" in data:
-            self._config.ignition_min_fan_percent = float(data["ignition_min_fan_percent"])
+        if "cycle_time_s" in data:
+            self._config.cycle_time_s = float(data["cycle_time_s"])
 
         if "flue_control_enabled" in data:
             self._config.flue_control_enabled = bool(data["flue_control_enabled"])
+        if "flue_ignition_max_temp" in data:
+            self._config.flue_ignition_max_temp = float(data["flue_ignition_max_temp"])
         if "flue_opt_temp" in data:
             self._config.flue_opt_temp = float(data["flue_opt_temp"])
         if "flue_kp" in data:

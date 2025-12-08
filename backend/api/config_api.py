@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Body
 from ..core.config_store import ConfigStore
 
 
-def create_config_router(config_store: ConfigStore) -> APIRouter:
+def create_config_router(config_store: ConfigStore, kernel: Kernel) -> APIRouter:
     """
     Router z endpointami:
       GET  /config/modules
@@ -64,11 +64,18 @@ def create_config_router(config_store: ConfigStore) -> APIRouter:
         Zapisuje nowe wartości konfiguracji dla modułu.
         """
         try:
+            # 1) walidacja + zapis values.yaml
             validated = config_store.set_values(module_id, values)
         except KeyError:
             raise HTTPException(status_code=404, detail=f"Unknown module '{module_id}'")
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
+
+        # 2) jeśli mamy kernela – powiadom moduł, żeby sam przeładował values.yaml
+        if kernel is not None:
+            kernel.reload_module_config_from_file(module_id)
+
+        # 3) zwracamy zwalidowane wartości
         return validated
 
     return router

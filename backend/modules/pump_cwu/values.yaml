@@ -1,2 +1,2 @@
-boiler_on_temp: 60.0
-hysteresis: 5.0
+boiler_on_temp: 36.0
+hysteresis: 2.0

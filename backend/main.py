@@ -92,7 +92,7 @@ def on_startup() -> None:
 # --- TU SKŁADASZ ROUTERY ---
 
 state_router = create_state_router(kernel=kernel)
-config_router = create_config_router(config_store=config_store)
+config_router = create_config_router(config_store=config_store, kernel=kernel)
 
 app.include_router(state_router, prefix="/api")
 app.include_router(config_router, prefix="/api")

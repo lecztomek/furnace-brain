@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Protocol, Tuple
 import time
+import logging
+
 
 from backend.core.state import (
     Event,
@@ -16,6 +18,7 @@ from backend.core.state import (
 )
 from backend.hw.interface import HardwareInterface
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class ModuleTickResult:
@@ -33,12 +36,16 @@ class ModuleInterface(Protocol):
     Kernel zakłada, że każdy moduł implementuje ten kontrakt.
     """
 
+    # ---------- IDENTYFIKACJA MODUŁU ----------
+
     @property
     def id(self) -> str:
         """
-        Unikalny identyfikator modułu, np. "blower", "feeder", "pumps".
+        Unikalny identyfikator modułu, np. "blower", "feeder", "pump_co".
         """
         ...
+
+    # ---------- GŁÓWNA LOGIKA (NAJWAŻNIEJSZE) ----------
 
     def tick(
         self,
@@ -48,19 +55,54 @@ class ModuleInterface(Protocol):
     ) -> ModuleTickResult:
         """
         Jeden krok logiki modułu.
-        - dt: ile sekund minęło od poprzedniego kroku kernela,
-        - sensors: snapshot odczytów z hardware,
-        - system_state: snapshot globalnego stanu (do odczytu).
 
-        Moduł nie powinien grzebać w system_state; zwraca:
+        - now: aktualny timestamp,
+        - sensors: snapshot odczytów z hardware,
+        - system_state: snapshot globalnego stanu (DO ODCZYTU).
+
+        Zwraca:
         - partial_outputs – tylko zmiany dotyczące własnych wyjść,
         - events – listę zdarzeń wygenerowanych w tym kroku,
         - status – swój zaktualizowany status (OK/WARNING/ERROR).
         """
         ...
 
-    # W przyszłości możesz dodać tu metody do konfiguracji:
-    # get_schema(), get_config(), set_config(...), itd.
+    # ---------- KONFIGURACJA (WSPÓLNY INTERFEJS DLA CONFIG/API) ----------
+
+    def get_config_schema(self) -> Dict[str, Any]:
+        """
+        Zwraca schemę konfiguracji modułu (np. z pliku schema.yaml) jako dict.
+
+        Jeśli moduł nie ma konfiguracji – może zwrócić {}.
+        """
+        ...
+
+    def get_config_values(self) -> Dict[str, Any]:
+        """
+        Zwraca aktualne wartości konfiguracji (runtime) jako dict
+        zgodny z get_config_schema()["fields"] / ConfigStore.
+
+        Jeśli moduł nie ma konfiguracji – może zwrócić {}.
+        """
+        ...
+
+    def set_config_values(self, values: Dict[str, Any], persist: bool = True) -> None:
+        """
+        Aktualizuje konfigurację modułu (runtime).
+
+        - values: mapa klucz -> wartość (już zwalidowane przez ConfigStore),
+        - persist=True  -> moduł sam zapisuje to do swojego values.yaml,
+        - persist=False -> tylko zmiana w pamięci (bez zapisu do pliku).
+        """
+        ...
+
+    def reload_config_from_file(self) -> None:
+        """
+        Przeładowuje konfigurację modułu z backendu (najczęściej z values.yaml),
+        nadpisując runtime’owy config.
+
+        Wołane przez Kernel po tym, jak ConfigStore zapisze nową wersję pliku.
+        """
 
 
 class Kernel:
@@ -151,6 +193,58 @@ class Kernel:
         #     preliminary_outputs.pump_co_on = True
         #     events.append(...)
         return preliminary_outputs, events
+		
+    def reload_module_config_from_file(self, module_id: str) -> None:
+        """
+        Informuje moduł, że ma sobie przeładować konfigurację z pliku values.yaml
+        przez wywołanie module.reload_config_from_file().
+
+        Dodatkowo generuje eventy:
+        - CONFIG_RELOADED            (INFO)    – reload OK,
+        - CONFIG_RELOAD_ERROR        (ERROR)   – wyjątek przy reloadzie,
+        - CONFIG_RELOAD_UNSUPPORTED  (WARNING) – moduł nie istnieje w kernelu.
+        """
+        now = time.time()
+        module = self._modules.get(module_id)
+
+        if module is None:
+            # Moduł o takim ID nie jest zarejestrowany w kernelu
+            ev = Event(
+                ts=now,
+                source="kernel",
+                level=EventLevel.WARNING,
+                type="CONFIG_RELOAD_UNSUPPORTED",
+                message=f"Module '{module_id}' not found in kernel – cannot reload config.",
+                data={"module": module_id},
+            )
+            self._state.recent_events.append(ev)
+            logger.warning("Config reload requested for unknown module '%s'", module_id)
+            return
+
+        try:
+            module.reload_config_from_file()  # type: ignore[call-arg]
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.exception("Error reloading config for module %s", module_id)
+            ev = Event(
+                ts=now,
+                source="kernel",
+                level=EventLevel.ERROR,
+                type="CONFIG_RELOAD_ERROR",
+                message=f"Error reloading config for module '{module_id}': {exc}",
+                data={"module": module_id, "error": str(exc)},
+            )
+            self._state.recent_events.append(ev)
+        else:
+            ev = Event(
+                ts=now,
+                source="kernel",
+                level=EventLevel.INFO,
+                type="CONFIG_RELOADED",
+                message=f"Config for module '{module_id}' reloaded from file.",
+                data={"module": module_id},
+            )
+            self._state.recent_events.append(ev)
+
 
     def step(self) -> None:
         """
