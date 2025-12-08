@@ -31,10 +31,10 @@ modules:
     
   - id: mixer
     path: backend.modules.mixer:MixerModule
-    enabled: false     # wyłączony, dopóki nie zaimplementujesz
+    enabled: false    
     critical: true
 
   - id: history
     path: backend.modules.history:HistoryModule
     enabled: false
-    critical: false    # historia nie jest krytyczna dla bezpieczeństwa
+    critical: false    

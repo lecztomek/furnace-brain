@@ -42,7 +42,7 @@
     coArrowCold: null,
 	
 	modeText: null, 
-	fireWrapper: null,
+	fireScale: null,
 	smokeGroup: null,
   };
 
@@ -167,7 +167,7 @@ function setCoArrows(isOn) {
     els.coArrowHot   = $("#co-arrow-hot");
     els.coArrowCold  = $("#co-arrow-cold");
 	els.modeText  = $("#mode-text");
-	els.fireWrapper  = $("#fire-wrapper"); 
+	els.fireScale = $("#fire-scale");
 	
       // DYM
       els.smokeGroup   = $("#smoke");
@@ -341,26 +341,31 @@ function setExhaustTemp(valueC) {
     text.textContent = formatSeconds(seconds);
   }
   
-    function updateFireFromTemp(valueC) {
-      const wrapper = els.fireWrapper || $("#fire-wrapper");
-      if (!wrapper) return;
+function updateFireFromTemp(valueC) {
+  const fireScale = els.fireScale || $("#fire-scale");
+  if (!fireScale) return;
 
-      const t = Number(valueC);
+  const t = Number(valueC);
 
-      // brak danych / zimno – ognia nie ma
-      if (!Number.isFinite(t) || t < 30) {
-        wrapper.style.display = "none";     // całkowicie ukryty
-        return;
-      }
+  // brak danych / zimno – ogień znika
+  if (!Number.isFinite(t) || t < 30) {
+    fireScale.style.display = "none";
+    return;
+  }
 
-      wrapper.style.display = "";           // pokaż ogień
+  fireScale.style.display = "";
 
-      // 30°C -> 0.0, 50°C -> 1.0 (liniowo)
-      const s = clamp((t - 30) / (50 - 30), 0, 1);
+  // 30°C -> 0, 50°C -> 1 (obcięte do [0,1])
+  let sRaw = (t - 30) / (50 - 30);
+  sRaw = clamp(sRaw, 0, 1);
 
-      // sterujemy bazową skalą całego płomienia
-      wrapper.setAttribute("transform", `translate(533,310) scale(${s})`);
-    }
+  // NIE pozwalamy zejść do zera – minimalny ogień np. 0.3
+  const s = 0.3 + 0.7 * sRaw;
+
+  // TU JUŻ TYLKO SKALA, BEZ TRANSLATE
+  fireScale.setAttribute("transform", `scale(${s})`);
+}
+
 
   // --- STATUS / ZEGAR ---
 

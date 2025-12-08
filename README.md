@@ -22,3 +22,4 @@ TODO
 - modul statystyk - zuzycie wegla, spalanie na godzine
 - blokada ui
 - ustawienia smart - korekcja ustawien -> za duzo sadzy, za duzo popiolu, za duza temp spalin
+- dokladnosc wyswietlania w ustawieniach float 0.01 
