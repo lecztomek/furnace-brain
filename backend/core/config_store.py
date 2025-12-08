@@ -14,48 +14,9 @@ class ModuleInfo:
 
 
 class ConfigStore:
-    """
-    Przechowuje i waliduje konfiguracje modułów GUI.
-
-    Zakładana struktura katalogów (TWOJA):
-
-      modules/
-        pomp_co/
-          schema.yaml
-          values.yaml
-        pomp_cwu/
-          schema.yaml
-          values.yaml
-        ...
-
-    Przykład schema.yaml:
-
-      id: pomp_co
-      name: "Pompa CO"
-      description: "Sterowanie pompą CO"
-      fields:
-        - key: target_temp
-          label: "Temperatura załączenia"
-          type: number
-          min: 30
-          max: 80
-          default: 50
-          unit: "°C"
-          step: 1
-
-        - key: mode
-          label: "Tryb"
-          type: text
-          options: ["AUTO", "ON", "OFF"]
-          default: "AUTO"
-    """
-
-    def __init__(self, base_dir: Path):
-        """
-        base_dir → katalog, w którym trzymasz moduły z configiem, np.
-          PROJECT_ROOT / "modules"
-        """
+    def __init__(self, base_dir: Path, module_ids_in_order: List[str]):
         self.modules_root = base_dir
+        self._module_ids_in_order = module_ids_in_order
 
     # ---------- Ścieżki pomocnicze ----------
 
@@ -70,33 +31,19 @@ class ConfigStore:
     # ---------- API publiczne ----------
 
     def list_modules(self) -> List[ModuleInfo]:
-        """
-        Lista modułów z configiem.
-        Szukamy katalogów w base_dir, które mają schema.yaml
-        i z niego bierzemy id, name, description.
-
-        Kolejność: alfabetyczna po nazwie katalogu (stabilna).
-        """
         modules: List[ModuleInfo] = []
 
-        if not self.modules_root.exists():
-            return modules
+        for mid in self._module_ids_in_order:
+            schema_path = self._schema_path(mid)
+            name = None
+            description = None
 
-        # KLUCZ: deterministyczna kolejność
-        for module_dir in sorted(self.modules_root.iterdir(), key=lambda p: p.name):
-            if not module_dir.is_dir():
-                continue
+            if schema_path.exists():
+                with schema_path.open("r", encoding="utf-8") as f:
+                    data = yaml.safe_load(f) or {}
+                name = data.get("name")
+                description = data.get("description")
 
-            schema_path = module_dir / "schema.yaml"
-            if not schema_path.exists():
-                continue
-
-            with schema_path.open("r", encoding="utf-8") as f:
-                data = yaml.safe_load(f) or {}
-
-            mid = data.get("id") or module_dir.name
-            name = data.get("name")
-            description = data.get("description")
             modules.append(
                 ModuleInfo(
                     id=mid,
@@ -106,7 +53,7 @@ class ConfigStore:
             )
 
         return modules
-
+	
     def get_schema(self, module_id: str) -> Dict[str, Any]:
         path = self._schema_path(module_id)
         if not path.exists():

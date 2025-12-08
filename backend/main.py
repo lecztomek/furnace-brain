@@ -44,9 +44,12 @@ aux_runner = AuxRunner(kernel=kernel, modules=aux_modules)
 
 # --- CONFIG STORE ---
 
+all_modules = critical_modules + aux_modules
 BACKEND_ROOT = Path(__file__).resolve().parent
-config_store = ConfigStore(BACKEND_ROOT / "modules")
-
+config_store = ConfigStore(
+        BACKEND_ROOT / "modules",
+        module_ids_in_order=[m.id for m in all_modules],
+    )
 
 # --- FLAGI STOPU + REFERENCJE DO WĄTKÓW ---
 

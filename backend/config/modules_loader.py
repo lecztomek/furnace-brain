@@ -21,6 +21,13 @@ class ModuleDescriptor:
     enabled: bool = True
     critical: bool = True
 
+	
+def load_module_descriptors() -> List[ModuleDescriptor]:
+    """
+    Publiczny helper: czyta modules.yaml i zwraca listę descriptorów
+    w KOLEJNOŚCI z pliku.
+    """
+    return _load_yaml_config(CONFIG_PATH)
 
 def _load_yaml_config(path: Path) -> List[ModuleDescriptor]:
     if not path.exists():
