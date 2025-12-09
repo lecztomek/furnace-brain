@@ -245,18 +245,19 @@ body {
 }
 
 .history-header {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  text-align: left;
 }
 
 .history-title {
-  font-size: 18px;
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-size: 24px;       /* większy, ale nie krzyczy */
   font-weight: 700;
-  margin-bottom: 2px;
-}
-
-.history-subtitle {
-  font-size: 12px;
-  color: #d1d5db;
+  letter-spacing: 0.02em;
+  text-transform: none;  /* bez CAPSLOCKA */
+  color: #f9fafb;
 }
 
 .history-toolbar {
@@ -374,3 +375,508 @@ body {
   }
 }
 
+/* ================== HISTORIA – WIDOK NA TABLET ================== */
+
+.history-view {
+  /* lewa część ma wypełniać całą wysokość */
+  align-items: stretch;
+  justify-content: stretch;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.history-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Nagłówek – duży, czytelny */
+.history-header {
+  margin-bottom: 4px;
+}
+
+.history-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.history-subtitle {
+  font-size: 14px;
+  color: #e5e7eb;
+  opacity: 0.85;
+}
+
+/* Pasek narzędzi – większe przyciski, więcej mięsa */
+.history-toolbar {
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.history-toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.history-group-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #9ca3af;
+}
+
+/* Przycisk zakresu – typowy „tablet button” */
+.history-range-btn {
+  border-radius: 9999px;
+  border: 1px solid #4b5563;
+  background: #111827;
+  color: #e5e7eb;
+  padding: 6px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.12s ease, border-color 0.12s ease,
+    transform 0.05s ease;
+  touch-action: manipulation;
+}
+
+.history-range-btn:hover {
+  background: #1f2937;
+  border-color: #6b7280;
+}
+
+.history-range-btn.active {
+  background: #3b82f6;
+  border-color: #1d4ed8;
+  color: #f9fafb;
+}
+
+/* Przełączniki serii – większe, da się trafić palcem */
+.history-series-group {
+  justify-content: flex-end;
+}
+
+.history-series-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  background: rgba(17, 24, 39, 0.9);
+  border-radius: 9999px;
+  padding: 5px 10px;
+  border: 1px solid rgba(75, 85, 99, 0.9);
+}
+
+.history-series-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.history-series-label {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Kontener na wykres – grube ramki, konkretny rozmiar */
+.history-chart-wrapper {
+  flex: 1 1 auto;
+  min-height: 260px;     /* na tablecie to już coś widać */
+  border-radius: 12px;
+  background: radial-gradient(circle at top, #1f2937 0, #020617 65%);
+  border: 1px solid #4b5563;
+  padding: 10px;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+}
+
+/* Canvas ma wypełniać cały kontener */
+#history-chart {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Na małych ekranach toolbar w kolumnie */
+@media (max-width: 700px) {
+  .history-toolbar-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .history-series-group {
+    justify-content: flex-start;
+  }
+}
+
+/* === Historia – checkboxy serii DUŻE na tablet === */
+
+.history-series-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;                /* większy tekst */
+  line-height: 1.2;
+  background: rgba(17, 24, 39, 0.95);
+  border-radius: 9999px;
+  padding: 6px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.9);
+}
+
+/* faktyczne powiększenie klikacza */
+.history-series-toggle input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  transform: scale(1.6);          /* KLUCZOWE */
+  transform-origin: center;
+  cursor: pointer;
+  accent-color: #3b82f6;          /* ładny niebieski w nowszych przeglądarkach */
+}
+
+/* tekst obok – większy, czytelny */
+.history-series-label {
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* === Historia – okrągłe, duże toggle serii w ładnych kapsułkach === */
+
+.history-series-group {
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* kapsuła wokół jednego przełącznika */
+.history-series-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.7);
+}
+
+/* ukrywamy defaultowy wygląd checkboxa i robimy własne kółko */
+.history-series-toggle input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  border: 2px solid #9ca3af;
+  background: #020617;
+  display: inline-block;
+  position: relative;
+  cursor: pointer;
+}
+
+/* „wypełnione” kółko, gdy zaznaczone */
+.history-series-toggle input[type="checkbox"]:checked {
+  border-color: #60a5fa;
+  background: #3b82f6;
+}
+
+/* mała kropka w środku przy zaznaczeniu */
+.history-series-toggle input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+}
+
+/* label obok – większy tekst, wycentrowany pionowo */
+.history-series-label {
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+/* === Historia – dolny pasek z seriami pod wykresem === */
+
+.history-inner {
+  gap: 12px;
+}
+
+.history-chart-wrapper {
+  flex: 1 1 auto;
+  min-height: 260px;
+}
+
+/* nowy pasek na dole */
+.history-series-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+}
+
+/* etykieta "Serie:" */
+.history-series-bar .history-group-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #9ca3af;
+}
+
+/* po prawej/z przodu idą kapsułki */
+.history-series-group {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+/* kapsułki + okrągłe kółko – to co już ustalaliśmy, zostawiamy: */
+
+.history-series-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background: rgba(17, 24, 39, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.7);
+}
+
+.history-series-toggle input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  border: 2px solid #9ca3af;
+  background: #020617;
+  display: inline-block;
+  position: relative;
+  cursor: pointer;
+}
+
+.history-series-toggle input[type="checkbox"]:checked {
+  border-color: #60a5fa;
+  background: #3b82f6;
+}
+
+.history-series-toggle input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+}
+
+.history-series-label {
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+/* na mniejszych szerokościach pasek może skoczyć w dwie linie */
+@media (max-width: 700px) {
+  .history-series-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .history-series-group {
+    justify-content: flex-start;
+  }
+}
+
+/* === Historia – DUŻE zakresy czasu na tablet === */
+
+/* Etykieta "Zakres:" – większa */
+.history-toolbar .history-group-label {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #e5e7eb;
+}
+
+/* Same przyciski zakresu – grube, wysokie, łatwe do kliknięcia */
+.history-range-btn {
+  border-radius: 9999px;
+  border: 2px solid #4b5563;
+  background: #0b1120;
+  color: #f9fafb;
+  padding: 10px 22px;        /* WYŻSZE i SZERSZE */
+  font-size: 16px;           /* większa czcionka */
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  transition: background 0.12s ease, border-color 0.12s ease,
+    transform 0.05s ease;
+  touch-action: manipulation;
+  min-width: 72px;           /* żeby 1h/6h/24h miały podobną szerokość */
+}
+
+.history-range-btn:hover {
+  background: #111827;
+  border-color: #6b7280;
+}
+
+.history-range-btn.active {
+  background: #3b82f6;
+  border-color: #1d4ed8;
+  color: #f9fafb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.6);
+}
+
+.history-range-btn:active {
+  transform: scale(0.97);
+}
+
+/* === Historia – przycisk ODŚWIEŻ po prawej od zakresów === */
+
+.history-refresh-group {
+  margin-left: auto;        /* dociąga refresh na prawo */
+}
+
+.history-refresh-btn {
+  border-radius: 9999px;
+  border: 2px solid #4b5563;
+  background: #020617;
+  color: #f9fafb;
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease,
+    transform 0.05s ease, box-shadow 0.12s ease;
+  touch-action: manipulation;
+}
+
+.history-refresh-btn:hover {
+  background: #111827;
+  border-color: #6b7280;
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.7);
+}
+
+.history-refresh-btn:active {
+  transform: scale(0.94);
+}
+
+.history-refresh-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #1d4ed8;
+}
+
+/* === Historia – ładna duża ikonka odświeżania === */
+
+.history-refresh-group {
+  margin-left: auto;          /* trzyma ikonkę po prawej */
+  display: flex;
+  align-items: center;
+}
+
+.history-refresh-btn {
+  border: none;
+  background: transparent;    /* żadnej ramki, żadnego kółka */
+  padding: 4px 6px;
+  cursor: pointer;
+  font-size: 30px;            /* DUŻA ikonka */
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #f9fafb;
+  transition: transform 0.08s ease, opacity 0.12s ease;
+}
+
+.history-refresh-btn:hover {
+  transform: scale(1.1);      /* lekkie powiększenie przy hover/ tap */
+  opacity: 0.9;
+}
+
+.history-refresh-btn:active {
+  transform: scale(0.95);
+}
+
+.history-refresh-btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* === Historia – ładna ikonka odświeżania (same strzałki) === */
+
+.history-refresh-group {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.history-refresh-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 6px;
+  cursor: pointer;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+}
+
+.history-refresh-icon {
+  width: 32px;
+  height: 32px;
+  stroke: #f9fafb;
+  stroke-width: 2;
+  fill: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.history-refresh-btn:hover .history-refresh-icon {
+  transform: scale(1.1) rotate(12deg);
+  opacity: 0.9;
+}
+
+.history-refresh-btn:active .history-refresh-icon {
+  transform: scale(0.95) rotate(-8deg);
+}
+
+.history-refresh-btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}

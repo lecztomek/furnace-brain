@@ -4,60 +4,86 @@
     <meta charset="UTF-8" />
     <title>Sterownik kotła – Historia</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Możesz użyć tego samego CSS co dla ustawień -->
     <link rel="stylesheet" href="styles-history.css" />
   </head>
   <body>
     <div class="app">
       <main class="layout">
-        <!-- LEWA / CENTRALNA CZĘŚĆ: WYKRES HISTORII -->
-        <section class="diagram-wrapper">
+        <!-- LEWA / CENTRALNA CZĘŚĆ: WIDOK HISTORII -->
+        <section class="diagram-wrapper history-view">
           <div class="diagram placeholder settings-container">
             <div class="settings-inner history-inner">
-              <div class="history-header">
-                <h1 class="history-title">Historia pracy kotła</h1>
-                <div class="history-subtitle">
-                  Podgląd wybranych parametrów w czasie
-                </div>
-              </div>
+              <!-- GÓRNY PASEK: ZAKRESY CZASU -->
+			<div class="history-toolbar">
+			  <div class="history-toolbar-row">
+				<div class="history-toolbar-group history-range-group">
+				  <span class="history-group-label">Zakres:</span>
+				  <button
+					class="history-range-btn"
+					data-range-hours="1"
+				  >
+					1 h
+				  </button>
+				  <button
+					class="history-range-btn active"
+					data-range-hours="6"
+				  >
+					6 h
+				  </button>
+				  <button
+					class="history-range-btn"
+					data-range-hours="24"
+				  >
+					24 h
+				  </button>
+				</div>
 
-              <!-- GÓRNY PASEK KONTROLEK (ZAKRES + SERIE) -->
-              <div class="history-toolbar">
-                <div class="history-toolbar-row">
-                  <div class="history-toolbar-group history-range-group">
-                    <span class="history-group-label">Zakres:</span>
-                    <button
-                      class="history-range-btn"
-                      data-range-hours="1"
-                    >
-                      1 h
-                    </button>
-                    <button
-                      class="history-range-btn active"
-                      data-range-hours="6"
-                    >
-                      6 h
-                    </button>
-                    <button
-                      class="history-range-btn"
-                      data-range-hours="24"
-                    >
-                      24 h
-                    </button>
-                  </div>
+				<div class="history-toolbar-group history-refresh-group">
+				  <button
+					type="button"
+					class="history-refresh-btn"
+					title="Odśwież dane historii"
+				  >
+					<svg
+					  class="history-refresh-icon"
+					  viewBox="0 0 24 24"
+					  aria-hidden="true"
+					>
+					  <!-- ładniejsza ikona w stylu heroicons -->
+					  <path
+						d="M4.5 4.5v5.25h5.25M19.5 19.5v-5.25h-5.25"
+						fill="none"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					  />
+					  <path
+						d="M5.636 18.364A8.25 8.25 0 0 0 19.5 12
+						   M18.364 5.636A8.25 8.25 0 0 0 4.5 12"
+						fill="none"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					  />
+					</svg>
+				  </button>
+				</div>
+			  </div>
+			</div>
 
-                  <div
-                    class="history-toolbar-group history-series-group"
-                    id="history-series-container"
-                  >
-                    <!-- checkboxy z seriami wstawi JS -->
-                  </div>
-                </div>
-              </div>
 
-              <!-- WYKRES -->
+              <!-- ŚRODEK: WYKRES -->
               <div class="history-chart-wrapper">
                 <canvas id="history-chart"></canvas>
+              </div>
+
+              <!-- DOLNY PASEK: SERIE DANYCH -->
+              <div class="history-series-bar">
+                <span class="history-group-label">Serie:</span>
+                <div
+                  class="history-series-group"
+                  id="history-series-container"
+                >
+                  <!-- checkboxy z seriami wstawi JS -->
+                </div>
               </div>
             </div>
           </div>

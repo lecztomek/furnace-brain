@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 def create_history_router(
     base_dir: Path,
-    log_dir: str = "history",
+    log_dir: str = "data",
     file_prefix: str = "boiler",
 ) -> APIRouter:
     """

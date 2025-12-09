@@ -153,29 +153,23 @@ class HistoryModule(ModuleInterface):
         ts = dt.datetime.fromtimestamp(now)
         ts_str = ts.isoformat(timespec="seconds")
 
-        # Odczyt wartości z sensors/system_state
-        temp_pieca = self._get_attr(sensors, "boiler_temp", "temp_boiler", "kociol_temp")
-        power = self._get_attr(sensors, "boiler_power", "power", "power_kw")
-        temp_grzejnikow = self._get_attr(
-            sensors,
-            "radiators_temp",
-            "temp_radiators",
-            "temp_co",
-            "co_temp",
-        )
-        temp_spalin = self._get_attr(
-            sensors,
-            "exhaust_temp",
-            "temp_exhaust",
-            "flue_temp",
-            "temp_spalin",
-        )
-        tryb_pracy = self._get_attr(
-            system_state,
-            "boiler_mode",
-            "mode",
-            "work_mode",
-        )
+        # --- Odczyt wartości z sensors/system_state ---
+
+        # temp. kotła
+        temp_pieca = sensors.boiler_temp
+
+        # moc kotła [%] – bierzemy z Outputs.power_percent
+        power = system_state.outputs.power_percent
+
+        # temp. grzejników / CO
+        temp_grzejnikow = sensors.radiators_temp
+
+        # temp. spalin – zgodnie z definicją Sensors
+        temp_spalin = sensors.flue_gas_temp
+
+        # tryb pracy – enum BoilerMode z SystemState.mode
+        mode = system_state.mode  # BoilerMode
+        tryb_pracy = mode.name if mode is not None else None  # np. "IGNITION"
 
         # Upewniamy się, że katalog istnieje
         self._log_dir.mkdir(parents=True, exist_ok=True)
@@ -213,6 +207,7 @@ class HistoryModule(ModuleInterface):
                     tryb_pracy if tryb_pracy is not None else "",
                 ]
             )
+
 
     # ---------- CONFIG (schema + values) ----------
 

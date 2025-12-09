@@ -1,14 +1,14 @@
 // js/history.js
 
 (function () {
-  const HISTORY_API_BASE = "/history"; // jeśli montujesz inaczej, zmień tutaj
+  const HISTORY_API_BASE = "http://127.0.0.1:8000/api/history";
 
   const DEFAULT_RANGE_HOURS = 6;
 
   // Mapowanie klucz -> ładna etykieta
   const FIELD_LABELS = {
     temp_pieca: "Temp. pieca",
-    power: "Moc",
+    power: "Moc [%]",
     temp_grzejnikow: "Temp. grzejników",
     temp_spalin: "Temp. spalin",
     tryb_pracy: "Tryb pracy",
@@ -16,11 +16,19 @@
 
   // Kolory serii – dla czytelności
   const FIELD_COLORS = {
-    temp_pieca: "#f97316", // pomarańcz
-    power: "#22c55e", // zielony
+    temp_pieca: "#f97316",      // pomarańcz
+    power: "#22c55e",           // zielony
     temp_grzejnikow: "#3b82f6", // niebieski
-    temp_spalin: "#ef4444", // czerwony
-    tryb_pracy: "#eab308", // żółty
+    temp_spalin: "#ef4444",     // czerwony
+    tryb_pracy: "#eab308",      // żółty
+  };
+
+  // Opisy wartości dla osi trybu
+  const MODE_TICKS = {
+    0: "OFF",
+    1: "IGN",
+    2: "WORK",
+    3: "MAN",
   };
 
   let historyChart = null;
@@ -31,9 +39,18 @@
     if (el) el.textContent = text || "";
   }
 
+  // ISO 8601 bez ms i bez strefy – lokalny czas (zgodny z backendem)
   function isoNoMs(date) {
-    // ISO bez milisekund (backend i tak powinien ogarnąć z ms, ale to ładniejsze)
-    return date.toISOString().split(".")[0] + "Z";
+    const pad = (n) => String(n).padStart(2, "0");
+
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hour = pad(date.getHours());
+    const minute = pad(date.getMinutes());
+    const second = pad(date.getSeconds());
+
+    return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
   }
 
   async function fetchFields() {
@@ -56,7 +73,13 @@
     const finalFields =
       withoutTimestamp.length > 0
         ? withoutTimestamp
-        : ["temp_pieca", "power", "temp_grzejnikow", "temp_spalin"];
+        : [
+            "temp_pieca",
+            "power",
+            "temp_grzejnikow",
+            "temp_spalin",
+            "tryb_pracy",
+          ];
 
     availableFields = finalFields;
 
@@ -69,7 +92,9 @@
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.value = field;
-      checkbox.checked = field !== "tryb_pracy"; // np. tryb pracy domyślnie off
+
+      // domyślnie: wszystkie oprócz trybu są włączone
+      checkbox.checked = field !== "tryb_pracy";
 
       const span = document.createElement("span");
       span.className = "history-series-label";
@@ -91,6 +116,13 @@
     return Array.from(checkboxes).map((cb) => cb.value);
   }
 
+  function getCurrentRangeHours() {
+    const activeBtn = document.querySelector(".history-range-btn.active");
+    return Number(
+      activeBtn?.getAttribute("data-range-hours") || DEFAULT_RANGE_HOURS
+    );
+  }
+
   async function fetchHistoryData(rangeHours) {
     const now = new Date();
     const to = isoNoMs(now);
@@ -103,11 +135,12 @@
     });
 
     // Zawsze wysyłamy jakieś pola (poza data_czas)
-    if (fields.length === 0 && availableFields.length > 0) {
-      availableFields.forEach((f) => params.append("fields", f));
-    } else {
-      fields.forEach((f) => params.append("fields", f));
-    }
+    const effectiveFields =
+      fields.length === 0 && availableFields.length > 0
+        ? availableFields
+        : fields;
+
+    effectiveFields.forEach((f) => params.append("fields", f));
 
     const url = `${HISTORY_API_BASE}/data?${params.toString()}`;
     const res = await fetch(url);
@@ -120,40 +153,65 @@
     return data.items || [];
   }
 
+  // mapowanie trybu pracy na liczbę
+  function mapModeToNumber(raw) {
+    if (raw === "" || raw === undefined || raw === null) return null;
+    const s = String(raw).toUpperCase();
+
+    // wspieramy zarówno "IGNITION", jak i "BoilerMode.IGNITION"
+    if (s.includes("OFF")) return 0;
+    if (s.includes("IGNITION")) return 1;
+    if (s.includes("WORK")) return 2;
+    if (s.includes("MANUAL")) return 3;
+
+    return null;
+  }
+
   function buildChartData(items) {
     if (!Array.isArray(items)) items = [];
 
     const labels = items.map((row) => {
       const ts = row.data_czas || "";
-      // godzina:minuta – ładniej na osi dla tabletu
-      const timePart = ts.split("T")[1] || ts;
+      const parts = ts.split("T");
+      const timePart = parts[1] || parts[0] || "";
       return timePart.substring(0, 5); // HH:MM
     });
 
     const fields = getSelectedFields();
-    const datasets = fields.map((field) => {
+    const datasets = [];
+
+    fields.forEach((field) => {
       const values = items.map((row) => {
         const raw = row[field];
+
+        if (field === "tryb_pracy") {
+          return mapModeToNumber(raw);
+        }
+
         if (raw === "" || raw === undefined || raw === null) return null;
 
         const n = Number(raw);
-        // tryb_pracy raczej kategoryczny, ale możemy zamienić na 0/1/2 itp.
-        if (Number.isNaN(n)) {
-          return null;
-        }
+        if (Number.isNaN(n)) return null;
         return n;
       });
 
-      return {
+      // jeśli cała seria to null -> nie dodajemy datasetu
+      const hasAnyValue = values.some((v) => v !== null);
+      if (!hasAnyValue) return;
+
+      const isMode = field === "tryb_pracy";
+
+      datasets.push({
         label: FIELD_LABELS[field] || field,
         data: values,
         borderColor: FIELD_COLORS[field] || undefined,
         backgroundColor: FIELD_COLORS[field] || undefined,
-        borderWidth: 2,
+        borderWidth: 3,
         radius: 0,
         spanGaps: true,
         tension: 0.2,
-      };
+        yAxisID: isMode ? "y_mode" : "y",
+      });
     });
 
     return { labels, datasets };
@@ -164,6 +222,10 @@
     if (!ctx) return;
 
     const { labels, datasets } = buildChartData(items);
+
+    // GLOBALNE ustawienia Chart.js – większe fonty na tablet
+    Chart.defaults.font.size = 14;
+    Chart.defaults.color = "#e5e7eb";
 
     if (historyChart) {
       historyChart.data.labels = labels;
@@ -190,6 +252,8 @@
             display: false, // legendę zastępują checkboxy
           },
           tooltip: {
+            bodyFont: { size: 14 },
+            titleFont: { size: 14, weight: "bold" },
             callbacks: {
               title: (items) => {
                 if (!items.length) return "";
@@ -205,23 +269,39 @@
             ticks: {
               maxRotation: 0,
               autoSkip: true,
-              autoSkipPadding: 8,
+              autoSkipPadding: 12,
               font: {
-                size: 10,
+                size: 14,
               },
             },
             grid: {
-              color: "rgba(75, 85, 99, 0.4)",
+              color: "rgba(55, 65, 81, 0.7)",
             },
           },
+          // oś dla temperatur i mocy
           y: {
+            position: "left",
             ticks: {
               font: {
-                size: 10,
+                size: 14,
               },
             },
             grid: {
-              color: "rgba(55, 65, 81, 0.5)",
+              color: "rgba(55, 65, 81, 0.7)",
+            },
+          },
+          // oś dla trybu pracy (0..3)
+          y_mode: {
+            position: "right",
+            min: -0.2,
+            max: 3.2,
+            ticks: {
+              stepSize: 1,
+              font: { size: 12 },
+              callback: (value) => MODE_TICKS[value] || "",
+            },
+            grid: {
+              drawOnChartArea: false, // nie rysujemy poziomych linii, tylko po lewej
             },
           },
         },
@@ -267,11 +347,17 @@
     const container = document.getElementById("history-series-container");
     if (!container) return;
     container.addEventListener("change", () => {
-      // pobieramy aktualny zakres z aktywnego przycisku
-      const activeBtn = document.querySelector(".history-range-btn.active");
-      const hours = Number(
-        activeBtn?.getAttribute("data-range-hours") || DEFAULT_RANGE_HOURS
-      );
+      const hours = getCurrentRangeHours();
+      reloadHistory(hours);
+    });
+  }
+
+  function initRefreshButton() {
+    const btn = document.querySelector(".history-refresh-btn");
+    if (!btn) return;
+
+    btn.addEventListener("click", () => {
+      const hours = getCurrentRangeHours();
       reloadHistory(hours);
     });
   }
@@ -280,6 +366,7 @@
     try {
       setStatus("Inicjalizacja widoku historii...");
       initRangeButtons();
+      initRefreshButton();
 
       const fields = await fetchFields();
       buildSeriesCheckboxes(fields);
