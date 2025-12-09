@@ -1,15 +1,12 @@
 # backend/api/state_api.py
 from __future__ import annotations
 
-from dataclasses import asdict  # nadal opcjonalne
-
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from ..core.kernel import Kernel
 from ..core.state import SystemState, BoilerMode
 
 
-# Mapowanie trybu pracy na ładny string do GUI
 MODE_DISPLAY = {
     BoilerMode.IGNITION: "rozpalanie",
     BoilerMode.WORK: "praca",
@@ -19,29 +16,19 @@ MODE_DISPLAY = {
 
 
 def create_state_router(kernel: Kernel) -> APIRouter:
-    """
-    Router HTTP z endpointami stanu (/current).
-    """
     router = APIRouter(prefix="/state", tags=["state"])
 
-    @router.get("/current")
-    def get_current():
-        """
-        Główny endpoint dla GUI – aktualny stan kotła, temperatury, wyjścia, statusy modułów.
-        """
+    def _serialize_state() -> dict:
         s: SystemState = kernel.state
         sens = s.sensors
         out = s.outputs
 
         return {
             "ts": s.ts,
-            # surowa nazwa enuma (np. "OFF", "IGNITION", "WORK", "MANUAL")
             "mode": s.mode.name,
-            # ładny string do wyświetlania w GUI (PL)
             "mode_display": MODE_DISPLAY.get(s.mode, s.mode.name.lower()),
             "alarm_active": s.alarm_active,
             "alarm_message": s.alarm_message,
-
             "sensors": {
                 "boiler_temp": sens.boiler_temp,
                 "return_temp": sens.return_temp,
@@ -50,7 +37,7 @@ def create_state_router(kernel: Kernel) -> APIRouter:
                 "flue_gas_temp": sens.flue_gas_temp,
                 "hopper_temp": sens.hopper_temp,
                 "outside_temp": sens.outside_temp,
-                "mixer_temp": sens.mixer_temp,  # temp. za zaworem mieszającym
+                "mixer_temp": sens.mixer_temp,
             },
             "outputs": {
                 "fan_power": out.fan_power,
@@ -62,7 +49,6 @@ def create_state_router(kernel: Kernel) -> APIRouter:
                 "mixer_close_on": out.mixer_close_on,
                 "alarm_buzzer_on": out.alarm_buzzer_on,
                 "alarm_relay_on": out.alarm_relay_on,
-                # NOWE: moc wyliczona przez PowerModule
                 "power_percent": out.power_percent,
             },
             "modules": {
@@ -76,5 +62,43 @@ def create_state_router(kernel: Kernel) -> APIRouter:
             },
         }
 
-    return router
+    @router.get("/current")
+    def get_current():
+        return _serialize_state()
 
+    @router.post("/mode/{mode_name}")
+    def set_mode(mode_name: str):
+        """
+        Zmiana trybu pracy kotła.
+
+        Oczekuje nazwy enuma:
+        - OFF
+        - IGNITION
+        - WORK
+        - MANUAL
+
+        Front woła np.:
+        POST /state/mode/IGNITION
+        POST /state/mode/WORK
+        POST /state/mode/OFF
+        """
+        # zamieniamy string na enum
+        try:
+            # pozwalamy na różne wielkości liter
+            enum_value = BoilerMode[mode_name.upper()]
+        except KeyError:
+            valid = [m.name for m in BoilerMode]
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "msg": f"Nieznany tryb '{mode_name}'. Dozwolone: {valid}",
+                    "allowed": valid,
+                },
+            )
+
+        s: SystemState = kernel.state
+        s.mode = enum_value
+
+        return _serialize_state()
+
+    return router

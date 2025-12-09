@@ -17,7 +17,6 @@ from backend.core.state import (
     SystemState,
 )
 
-
 # ---------- KONFIGURACJA RUNTIME ----------
 
 @dataclass

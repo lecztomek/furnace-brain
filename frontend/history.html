@@ -128,9 +128,14 @@
             <span class="menu-label">TRYB RĘCZNY</span>
           </a>
 
-          <a class="menu-btn" data-view="ignite" href="ignite.html">
+          <a class="menu-btn" data-view="ignite" href="#">
             <span class="menu-icon">🔥</span>
             <span class="menu-label">ROZPALANIE</span>
+          </a>
+
+          <a class="menu-btn" data-view="work" style="display: none" href="#">
+			<span class="menu-icon">🔥</span>
+			<span class="menu-label">PRACA</span>
           </a>
 
           <a class="menu-btn" data-view="add-fuel" href="add-fuel.html">
@@ -150,7 +155,7 @@
             <span class="menu-label">HISTORIA</span>
           </a>
 
-          <a class="menu-btn danger" data-view="emergency" href="emergency.html">
+          <a class="menu-btn danger" data-view="emergency" href="#">
             <span class="menu-icon">⚠️</span>
             <span class="menu-label">STOP</span>
           </a>
@@ -167,8 +172,8 @@
     <script src="js/furnace-ui-utils.js"></script>
 
     <!-- Chart.js z CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    <script src="js/chart.js"></script>
+    <script src="js/mode-control.js"></script>
     <!-- Nasz dedykowany JS do historii -->
     <script src="js/history.js"></script>
   </body>
