@@ -1,0 +1,129 @@
+id: power_ignition
+name: "Moc kotła – ROZPALANIE"
+description: "Wyznaczanie mocy kotła w trybie rozpalania na podstawie odległości od zadanej temperatury i tempa wzrostu temperatury (dT/dt)."
+
+groups:
+  - id: basic
+    label: "Podstawowe"
+  - id: delta
+    label: "Algorytm ΔT"
+  - id: rate
+    label: "Algorytm dT/dt"
+
+fields:
+  - key: boiler_set_temp
+    label: "Zadana temperatura kotła"
+    type: number
+    unit: "°C"
+    min: 40
+    max: 90
+    step: 1
+    default: 65
+    group: basic
+    description: "Temperatura, do której dążysz przy rozpalaniu (docelowa dla całego kotła)."
+
+  - key: min_power
+    label: "Minimalna moc (IGNITION)"
+    type: number
+    unit: "%"
+    min: 0
+    max: 100
+    step: 1
+    default: 0
+    group: basic
+    description: "Dolne ograniczenie mocy wyliczonej przez moduł rozpalania."
+
+  - key: max_power
+    label: "Maksymalna moc (IGNITION)"
+    type: number
+    unit: "%"
+    min: 0
+    max: 100
+    step: 1
+    default: 100
+    group: basic
+    description: "Górne ograniczenie mocy wyliczonej przez moduł rozpalania."
+
+  # --- ΔT ---
+
+  - key: ignition_high_power_percent
+    label: "Moc przy dużym ΔT"
+    type: number
+    unit: "%"
+    min: 0
+    max: 100
+    step: 1
+    default: 100
+    group: delta
+    description: >
+      Moc w trybie IGNITION, gdy kocioł jest wyraźnie poniżej zadanej temperatury
+      (różnica temperatur większa lub równa 'Pełna moc przy ΔT ≥'). Zwykle 80–100%.
+
+  - key: ignition_min_power_percent
+    label: "Minimalna moc (ΔT)"
+    type: number
+    unit: "%"
+    min: 0
+    max: 100
+    step: 1
+    default: 30
+    group: delta
+    description: >
+      Minimalna moc wynikająca z algorytmu ΔT. Przy małej różnicy do zadanej
+      (poniżej 'Minimalna moc przy ΔT ≤') moc schodzi do tej wartości.
+
+  - key: ignition_full_power_delta_degC
+    label: "Pełna moc przy ΔT ≥"
+    type: number
+    unit: "°C"
+    min: 1
+    max: 40
+    step: 1
+    default: 15
+    group: delta
+    description: >
+      Jeśli kocioł jest poniżej zadanej co najmniej o tyle stopni, moc z algorytmu ΔT
+      jest ustawiana na 'Moc przy dużym ΔT'.
+
+  - key: ignition_min_power_delta_degC
+    label: "Minimalna moc przy ΔT ≤"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 20
+    step: 0.5
+    default: 3
+    group: delta
+    description: >
+      Jeśli kocioł jest poniżej zadanej co najwyżej o tyle stopni, moc z algorytmu ΔT
+      jest ustawiana na 'Minimalna moc (ΔT)'. Pomiędzy tymi progami moc zmienia się liniowo.
+
+  # --- dT/dt ---
+
+  - key: ignition_target_rate_k_per_min
+    label: "Docelowy przyrost temperatury"
+    type: number
+    unit: "°C/min"
+    min: 0
+    max: 5
+    step: 0.1
+    default: 0.8
+    group: rate
+    description: >
+      Docelowe tempo wzrostu temperatury kotła w trybie rozpalania (w °C/min).
+      Jeśli tempo jest dużo poniżej tego zakresu, algorytm dT/dt będzie dążył
+      do wysokiej mocy; przy dużym tempie – do mniejszej.
+
+  - key: ignition_rate_band_k_per_min
+    label: "Pas tolerancji tempa nagrzewania"
+    type: number
+    unit: "°C/min"
+    min: 0
+    max: 2
+    step: 0.1
+    default: 0.3
+    group: rate
+    description: >
+      Szerokość pasma tolerancji wokół docelowego tempa nagrzewania. Dla tempa
+      poniżej (target - band) moc z dT/dt jest maksymalna, dla tempa powyżej
+      (target + band) minimalna. W środku moc zmienia się płynnie (liniowo).

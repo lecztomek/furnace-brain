@@ -1,0 +1,9 @@
+boiler_set_temp: 55.0
+ignition_full_power_delta_degC: 10.0
+ignition_high_power_percent: 100.0
+ignition_min_power_delta_degC: 3.0
+ignition_min_power_percent: 30.0
+ignition_rate_band_k_per_min: 0.3
+ignition_target_rate_k_per_min: 0.8
+max_power: 100.0
+min_power: 15.0

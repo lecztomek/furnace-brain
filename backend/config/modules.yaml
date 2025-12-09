@@ -4,8 +4,13 @@ modules:
     enabled: true
     critical: true
 
-  - id: power
-    path: backend.modules.power:PowerModule
+  - id: power_ignition
+    path: backend.modules.power_ignition:IgnitionPowerModule
+    enabled: true
+    critical: true
+    
+  - id: power_work
+    path: backend.modules.power_work:WorkPowerModule
     enabled: true
     critical: true
 

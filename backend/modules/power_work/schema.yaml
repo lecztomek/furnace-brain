@@ -1,0 +1,115 @@
+id: power_work
+name: "Mocy kotła – PRACA"
+description: "Wyznaczanie mocy kotła (power %) w trybie pracy na podstawie PID-a po temperaturze kotła, z oknem całki i korektą przegrzania."
+
+groups:
+  - id: basic
+    label: "Podstawowe"
+  - id: pid
+    label: "PID"
+
+fields:
+  - key: boiler_set_temp
+    label: "Zadana temperatura kotła"
+    type: number
+    unit: "°C"
+    min: 40
+    max: 90
+    step: 1
+    default: 65
+    group: basic
+    description: "Temperatura, do której regulator PID dąży sterując mocą kotła."
+
+  - key: min_power
+    label: "Minimalna moc"
+    type: number
+    unit: "%"
+    min: 0
+    max: 100
+    step: 1
+    default: 0
+    group: basic
+    description: "Dolne ograniczenie wyliczonej mocy w trybie pracy."
+
+  - key: max_power
+    label: "Maksymalna moc"
+    type: number
+    unit: "%"
+    min: 0
+    max: 100
+    step: 1
+    default: 100
+    group: basic
+    description: "Górne ograniczenie wyliczonej mocy. Ustaw poniżej 100%, jeśli chcesz sztucznie „przydusić” kocioł."
+
+  - key: kp
+    label: "Kp (proporcjonalne)"
+    type: number
+    unit: ""
+    min: 0
+    max: 20
+    step: 0.1
+    default: 2.0
+    group: pid
+    description: "Wzmocnienie części proporcjonalnej PID. Im większe Kp, tym mocniej regulator reaguje na aktualny błąd temperatury kotła."
+
+  - key: ki
+    label: "Ki (całkujące)"
+    type: number
+    unit: "1/s"
+    min: 0
+    max: 1
+    step: 0.001
+    default: 0.01
+    group: pid
+    description: "Wzmocnienie części całkującej PID (1/s). Odpowiada za „dobijanie” do zadanej i likwidację uchybu ustalonego."
+
+  - key: kd
+    label: "Kd (różniczkujące)"
+    type: number
+    unit: "s"
+    min: 0
+    max: 10
+    step: 0.1
+    default: 0.0
+    group: pid
+    description: "Wzmocnienie części różniczkującej PID. Reaguje na szybkość zmian temperatury i pomaga wyhamować przed przeregulowaniem."
+
+  - key: integral_window_s
+    label: "Okno czasowe całki"
+    type: number
+    unit: "s"
+    min: 10
+    max: 3600
+    step: 10
+    default: 300
+    group: pid
+    description: >
+      Efektywne okno czasowe dla części całkującej. Im mniejsza wartość,
+      tym szybciej regulator „zapomina” stare błędy i tym mniejszy windup.
+
+  - key: overtemp_start_degC
+    label: "Próg przegrzania (powyżej zadanej)"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 30
+    step: 0.5
+    default: 3
+    group: pid
+    description: >
+      O ile stopni powyżej zadanej temperatury kotła zaczyna się dodatkowa
+      korekta mocy przy przegrzaniu.
+
+  - key: overtemp_kp
+    label: "Siła korekty przy przegrzaniu"
+    type: number
+    unit: "pkt%/°C"
+    min: 0
+    max: 50
+    step: 1
+    default: 10
+    group: pid
+    description: >
+      Ile punktów procentowych mocy odjąć za każdy dodatkowy stopień Celsjusza
+      powyżej progu przegrzania.
