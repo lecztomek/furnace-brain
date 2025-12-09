@@ -43,8 +43,12 @@ class WorkPowerConfig:
       overtemp_kp            – ile punktów procentowych mocy odejmujemy
                                za każdy °C powyżej progu przegrzania.
 
-    Działa TYLKO gdy SystemState.mode == BoilerMode.WORK.
-    W innych trybach NIE ustawia outputs.power_percent.
+    Działa TYLKO gdy SystemState.mode == BoilerMode.WORK,
+    tzn. TYLKO wtedy ustawia outputs.power_percent.
+
+    W innych trybach:
+      - PID i całka dalej się liczą (na podstawie T_kotła),
+      - ale moduł NIE nadpisuje outputs.power_percent.
     """
 
     boiler_set_temp: float = 65.0
@@ -66,11 +70,14 @@ class WorkPowerModule(ModuleInterface):
     """
     Moduł wyliczający "power" (moc kotła) w % w trybie WORK (praca).
 
-    - Działa TYLKO gdy SystemState.mode == BoilerMode.WORK.
-    - W innych trybach NIE ustawia outputs.power_percent (zostawia to np.
-      modułowi ignition).
+    - PID i całka liczą się cały czas (jeśli jest T_kotła),
+      niezależnie od trybu.
+    - outputs.power_percent jest ustawiane TYLKO gdy
+      SystemState.mode == BoilerMode.WORK.
+    - W innych trybach moduł nie nadpisuje outputs.power_percent
+      (np. w IGNITION robi to osobny moduł).
 
-    Algorytm:
+    Algorytm w trybie WORK:
       - PID(T_set, T_boiler) z oknem całki integral_window_s,
       - korekta przy przegrzaniu (powyżej T_set + overtemp_start_degC),
       - ograniczenie min/max.
@@ -97,7 +104,7 @@ class WorkPowerModule(ModuleInterface):
         self._last_error: Optional[float] = None
         self._last_tick_ts: Optional[float] = None
 
-        # Stan mocy
+        # Stan mocy (ostatnia moc w TRYBIE WORK)
         self._power: float = 0.0
         self._last_in_work: bool = False
 
@@ -123,7 +130,7 @@ class WorkPowerModule(ModuleInterface):
         prev_power = self._power
         prev_in_work = self._last_in_work
 
-        # Zdarzenia trybu
+        # Zdarzenia zmiany trybu
         if prev_in_work != in_work:
             events.append(
                 Event(
@@ -135,31 +142,23 @@ class WorkPowerModule(ModuleInterface):
                     data={"in_work": in_work},
                 )
             )
-            if not in_work:
-                # przy wyjściu z WORK możesz opcjonalnie zresetować PID
-                self._reset_pid()
+            # Nie resetujemy PID przy wyjściu z WORK – całka ma się liczyć cały czas.
+            # self._reset_pid()
 
-        # Bumpless transfer: wejście w WORK – dopasuj całkę do bieżącej mocy
-        if (
-            not prev_in_work
-            and in_work
-            and boiler_temp is not None
-            and self._config.ki > 0.0
-        ):
-            error = self._config.boiler_set_temp - boiler_temp
-            p_term = self._config.kp * error
-            d_term = 0.0  # na starcie ignorujemy D
+        # --- PID LICZY SIĘ ZAWSZE (jeśli jest T_kotła) ---
 
-            # jako moc docelową bierzemy obecną moc z systemu
-            target_power = float(system_state.outputs.power_percent)  # type: ignore[attr-defined]
-            i_term = target_power - p_term - d_term
-            self._integral = i_term / self._config.ki
+        if boiler_temp is not None:
+            # Aktualizacja stanu PID (P/I/D, dt, okno całki)
+            base_power = self._pid_step(now, boiler_temp)
+        else:
+            # Brak pomiaru – użyj ostatniej znanej mocy z WORK jako "bazowej"
+            base_power = self._power
 
-            self._last_error = error
-            self._last_tick_ts = now
+        # --- Tryby inne niż WORK: nie nadpisujemy outputs.power_percent ---
 
         if not in_work:
             # W innych trybach ten moduł NIC nie robi z power_percent.
+            # Stan PID-a jest już zaktualizowany powyżej.
             self._last_in_work = in_work
 
             status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
@@ -169,17 +168,11 @@ class WorkPowerModule(ModuleInterface):
                 status=status,
             )
 
-        # --- Tryb WORK – PID + przegrzanie ---
-
-        if boiler_temp is not None:
-            base_power = self._pid_step(now, boiler_temp)
-        else:
-            # brak pomiaru – zostaw ostatnią moc
-            base_power = self._power
+        # --- Tryb WORK – PID + przegrzanie + ograniczenia ---
 
         power = base_power
 
-        # korekta przegrzania
+        # Korekta przegrzania
         if boiler_temp is not None:
             t_set = self._config.boiler_set_temp
             start = max(self._config.overtemp_start_degC, 0.0)
@@ -189,10 +182,11 @@ class WorkPowerModule(ModuleInterface):
                 penalty = over * max(self._config.overtemp_kp, 0.0)
                 power -= penalty
 
-        # ograniczenia
+        # Ograniczenia min/max
         power = max(self._config.min_power, min(power, self._config.max_power))
         self._power = power
 
+        # Logowanie większych zmian mocy
         if abs(self._power - prev_power) >= 5.0:
             events.append(
                 Event(
@@ -228,13 +222,21 @@ class WorkPowerModule(ModuleInterface):
     # ---------- LOGIKA POMOCNICZA ----------
 
     def _reset_pid(self) -> None:
+        """
+        Pomocniczy reset stanu PID – zostawiony na przyszłość (np. do ręcznego resetu).
+        Nie jest używany automatycznie przy zmianie trybu, żeby całka mogła
+        liczyć się nieprzerwanie także poza WORK.
+        """
         self._integral = 0.0
         self._last_error = None
         self._last_tick_ts = None
 
     def _pid_step(self, now: float, boiler_temp: float) -> float:
         """
-        Jeden krok PID-a w trybie WORK – z oknem całki integral_window_s.
+        Jeden krok PID-a – z oknem całki integral_window_s.
+
+        Wywoływany przy każdym ticku, gdy jest dostępna T_kotła,
+        niezależnie od trybu (WORK / IGNITION / inne).
         """
         error = self._config.boiler_set_temp - boiler_temp
 
@@ -245,6 +247,7 @@ class WorkPowerModule(ModuleInterface):
             if dt <= 0:
                 dt = None
 
+        # Część I z "oknem czasowym" – leaky integrator
         if dt is not None:
             window = max(self._config.integral_window_s, 1.0)
             decay = 1.0 - dt / window
