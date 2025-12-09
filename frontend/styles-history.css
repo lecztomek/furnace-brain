@@ -1,0 +1,376 @@
+/* Reset / baza */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #1f2933;
+  color: #f9fafb;
+  overflow: hidden; /* pod kiosk */
+}
+
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* GÓRNY PASEK */
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: #253243;
+  border-bottom: 1px solid #3b4254;
+  font-size: 14px;
+}
+
+.app-title {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.app-subtitle {
+  font-size: 12px;
+  color: #d1d5db;
+}
+
+#clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* GŁÓWNY GRID */
+
+.layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 210px; /* szersza prawa kolumna */
+  grid-template-rows: minmax(0, 1fr); /* <= wiersz ma się zmieścić w dostępnej wysokości */
+  gap: 8px;
+  padding: 8px 8px 4px;
+  min-height: 0; /* pozwala flexboxowi „spłaszczyć” do wysokości viewportu */
+}
+
+/* DIAGRAM */
+
+.diagram-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #293545;
+  border-radius: 12px;
+  border: 1px solid #3f4b5f;
+  padding: 8px;
+  height: 100%;     /* wypełnia cały wiersz grida */
+  min-height: 0;    /* nie wymusza powiększania w pionie */
+}
+
+.diagram svg {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
+
+/* Placeholder – lubiany styl :-) */
+.diagram.placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  border: 2px dashed #66708a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e5e7eb;
+  font-size: 14px;
+  text-align: center;
+  padding: 12px;
+}
+
+/* Wersja placeholdera używana dla ustawień */
+.diagram.placeholder.settings-container {
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 8px;
+}
+
+.settings-inner {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+/* MENU PO PRAWEJ */
+
+.side-menu {
+  display: flex;
+  flex-direction: column;
+  background: #293545;
+  border-radius: 12px;
+  border: 1px solid #3f4b5f;
+  padding: 10px;
+  gap: 8px;
+  height: 100%;      /* wypełnia wiersz grida */
+  min-height: 0;     /* nie wypycha layoutu */
+  overflow-y: auto;  /* jak będzie za wysokie – przewijane w środku */
+}
+
+.menu-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 16px 12px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  background: #e5e7eb;
+  text-align: left;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: background 0.15s ease, transform 0.05s ease,
+    box-shadow 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.menu-btn:hover {
+  background: #d1d5db;
+}
+
+.menu-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.menu-btn.active {
+  background: #3b82f6;
+  color: #f9fafb;
+  box-shadow: 0 0 0 1px #1d4ed8;
+}
+
+.menu-btn.danger {
+  background: #ef4444;
+  color: #fef2f2;
+}
+
+.menu-btn.danger:hover {
+  background: #b91c1c;
+}
+
+.menu-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.menu-label {
+  flex: 1;
+}
+
+.menu-spacer {
+  flex: 1;
+}
+
+/* STATUS BAR */
+
+.status-bar {
+  height: 28px;
+  padding: 4px 10px;
+  background: #253243;
+  border-top: 1px solid #3b4254;
+  font-size: 12px;
+  color: #e5e7eb;
+  display: flex;
+  align-items: center;
+}
+
+/* Małe ekrany / testy w przeglądarce */
+@media (max-width: 700px) {
+  .layout {
+    grid-template-columns: 1fr 180px;
+  }
+
+  .menu-btn {
+    font-size: 14px;
+    padding: 12px 8px;
+  }
+}
+
+/* ZEGAR BOCZNY */
+
+.side-clock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  margin: 10px 12px 16px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+}
+
+.side-clock-time {
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+/* ================== HISTORIA – WYKRES ================== */
+
+.history-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+}
+
+.history-header {
+  margin-bottom: 4px;
+}
+
+.history-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.history-subtitle {
+  font-size: 12px;
+  color: #d1d5db;
+}
+
+.history-toolbar {
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.history-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.history-toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.history-group-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #9ca3af;
+}
+
+.history-range-btn {
+  border-radius: 9999px;
+  border: 1px solid #4b5563;
+  background: #111827;
+  color: #e5e7eb;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.12s ease, border-color 0.12s ease,
+    transform 0.05s ease;
+}
+
+.history-range-btn:hover {
+  background: #1f2937;
+  border-color: #6b7280;
+}
+
+.history-range-btn.active {
+  background: #3b82f6;
+  border-color: #1d4ed8;
+  color: #f9fafb;
+}
+
+.history-series-group {
+  justify-content: flex-end;
+}
+
+.history-series-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  background: rgba(17, 24, 39, 0.7);
+  border-radius: 9999px;
+  padding: 3px 8px;
+  border: 1px solid rgba(75, 85, 99, 0.9);
+}
+
+.history-series-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.history-series-label {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Kontener na wykres */
+
+.history-chart-wrapper {
+  flex: 1;
+  min-height: 0;
+  margin-top: 4px;
+  border-radius: 10px;
+  background: radial-gradient(circle at top, #1f2937 0, #020617 65%);
+  border: 1px solid #4b5563;
+  padding: 8px;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+/* Canvas ma wypełniać kontener – wygodne na tablecie */
+#history-chart {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Małe ekrany – trochę ciaśniej w pasku narzędzi */
+@media (max-width: 700px) {
+  .history-toolbar-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .history-series-group {
+    justify-content: flex-start;
+  }
+}
+

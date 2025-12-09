@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sterownik kotła – Historia</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Możesz użyć tego samego CSS co dla ustawień -->
+    <link rel="stylesheet" href="styles-history.css" />
+  </head>
+  <body>
+    <div class="app">
+      <main class="layout">
+        <!-- LEWA / CENTRALNA CZĘŚĆ: WYKRES HISTORII -->
+        <section class="diagram-wrapper">
+          <div class="diagram placeholder settings-container">
+            <div class="settings-inner history-inner">
+              <div class="history-header">
+                <h1 class="history-title">Historia pracy kotła</h1>
+                <div class="history-subtitle">
+                  Podgląd wybranych parametrów w czasie
+                </div>
+              </div>
+
+              <!-- GÓRNY PASEK KONTROLEK (ZAKRES + SERIE) -->
+              <div class="history-toolbar">
+                <div class="history-toolbar-row">
+                  <div class="history-toolbar-group history-range-group">
+                    <span class="history-group-label">Zakres:</span>
+                    <button
+                      class="history-range-btn"
+                      data-range-hours="1"
+                    >
+                      1 h
+                    </button>
+                    <button
+                      class="history-range-btn active"
+                      data-range-hours="6"
+                    >
+                      6 h
+                    </button>
+                    <button
+                      class="history-range-btn"
+                      data-range-hours="24"
+                    >
+                      24 h
+                    </button>
+                  </div>
+
+                  <div
+                    class="history-toolbar-group history-series-group"
+                    id="history-series-container"
+                  >
+                    <!-- checkboxy z seriami wstawi JS -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- WYKRES -->
+              <div class="history-chart-wrapper">
+                <canvas id="history-chart"></canvas>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- PRAWA KOLUMNA: MENU -->
+        <aside class="side-menu">
+          <div class="side-clock">
+            <div id="side-clock-time" class="side-clock-time">--:--</div>
+          </div>
+
+          <a class="menu-btn" data-view="panel" href="index.html">
+            <span class="menu-icon">🏠</span>
+            <span class="menu-label">PANEL 1</span>
+          </a>
+
+          <a class="menu-btn" data-view="manual" href="manual.html">
+            <span class="menu-icon">🛠️</span>
+            <span class="menu-label">TRYB RĘCZNY</span>
+          </a>
+
+          <a class="menu-btn" data-view="ignite" href="ignite.html">
+            <span class="menu-icon">🔥</span>
+            <span class="menu-label">ROZPALANIE</span>
+          </a>
+
+          <a class="menu-btn" data-view="add-fuel" href="add-fuel.html">
+            <span class="menu-icon">➕</span>
+            <span class="menu-label">DOŁÓŻ OPAŁ</span>
+          </a>
+
+          <div class="menu-spacer"></div>
+
+          <a class="menu-btn" data-view="settings" href="settings.html">
+            <span class="menu-icon">⚙️</span>
+            <span class="menu-label">USTAWIENIA</span>
+          </a>
+
+          <a class="menu-btn active" data-view="history" href="history.html">
+            <span class="menu-icon">📊</span>
+            <span class="menu-label">HISTORIA</span>
+          </a>
+
+          <a class="menu-btn danger" data-view="emergency" href="emergency.html">
+            <span class="menu-icon">⚠️</span>
+            <span class="menu-label">STOP</span>
+          </a>
+        </aside>
+      </main>
+
+      <footer class="status-bar">
+        <span id="status-text"></span>
+      </footer>
+    </div>
+
+    <!-- Zegar boczny / wspólne utilsy -->
+    <script src="js/side-clock.js"></script>
+    <script src="js/furnace-ui-utils.js"></script>
+
+    <!-- Chart.js z CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Nasz dedykowany JS do historii -->
+    <script src="js/history.js"></script>
+  </body>
+</html>

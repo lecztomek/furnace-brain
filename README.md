@@ -30,5 +30,6 @@ ok- dmuchawa cos nie respektuje temp spalin
 - poprawki ui - dmucawa nie pokazuj procentow, slimak nie pokazuj korekty
 - uproszone menu ustawien -> temp pieca, temp grzejniki, temp przelaczanie rozpalanie-work,
  dmuchawa obroty, slimak bazowe nastawy
-- w scham popraw zakresy parametrow - przejdz przez wszystkie moduly
+- w schame popraw zakresy parametrow - przejdz przez wszystkie moduly
 - mixer algorytm rozpalania jesli daleko od zadanej na grzejnikach jesli blisko to algorytm standby - nie patrzy na ignition
+- popraw power work tak zeby pid licxzyl caly czas a uzywal dopiero w trybie work

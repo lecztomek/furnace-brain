@@ -14,6 +14,7 @@ from .config.modules_loader import load_modules_split
 
 from .api.state_api import create_state_router
 from .api.config_api import create_config_router
+from backend.api.history_api import create_history_router
 
 from .core.config_store import ConfigStore
 from .hw.mock import MockHardware as Hardware
