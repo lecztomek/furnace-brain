@@ -41,5 +41,5 @@ modules:
 
   - id: history
     path: backend.modules.history:HistoryModule
-    enabled: false
+    enabled: true
     critical: false    

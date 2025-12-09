@@ -1,0 +1,3 @@
+log_dir: "data"
+interval_sec: 30
+file_prefix: "boiler"

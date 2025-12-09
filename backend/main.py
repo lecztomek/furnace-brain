@@ -152,5 +152,14 @@ def on_shutdown() -> None:
 state_router = create_state_router(kernel=kernel)
 config_router = create_config_router(config_store=config_store, kernel=kernel)
 
+history_base_dir = Path(__file__).resolve().parent.parent / "modules" / "history"
+
+app.include_router(
+    create_history_router(
+        base_dir=history_base_dir,
+        log_dir="data",
+        file_prefix="boiler"
+    )
+)
 app.include_router(state_router, prefix="/api")
 app.include_router(config_router, prefix="/api")

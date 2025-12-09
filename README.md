@@ -18,8 +18,8 @@ ok- gui ogien poprawa locaklizacji
 - stop wylacza wszystko na off
 - modul logow
 ok- modul zaworu mieszajacego
-- modul historii 
-- modul statystyk - zuzycie wegla, spalanie na godzine
+- modul historii - work, temp grzejniki, temp piec, spaliny (co 30 sek)
+- modul statystyk - zuzycie wegla, spalanie na godzine, 
 - blokada ui
 - ustawienia smart - korekcja ustawien -> za duzo sadzy, za duzo popiolu, za duza temp spalin
 ok- dokladnosc wyswietlania w ustawieniach float 0.01 

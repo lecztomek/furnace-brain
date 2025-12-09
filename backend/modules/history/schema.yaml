@@ -1,0 +1,38 @@
+id: history
+name: "Historia"
+description: "Zapis parametrów pracy kotła do plików CSV (1 plik na godzinę)."
+
+groups:
+  - id: basic
+    label: "Podstawowe"
+
+fields:
+  - key: log_dir
+    label: "Katalog z historią"
+    type: text
+    default: "data"
+    group: basic
+    description: >
+      Katalog, w którym będą zapisywane pliki CSV z historią.
+      Jeśli podasz ścieżkę względną, będzie liczona względem katalogu modułu.
+
+  - key: interval_sec
+    label: "Okres logowania"
+    type: number
+    unit: "s"
+    min: 1
+    max: 3600
+    step: 1
+    default: 30
+    group: basic
+    description: >
+      Co ile sekund zapisywać nowy punkt danych do historii.
+
+  - key: file_prefix
+    label: "Prefiks plików CSV"
+    type: text
+    default: "boiler"
+    group: basic
+    description: >
+      Prefiks nazwy pliku CSV. Końcowa nazwa ma postać:
+      <prefiks>_YYYYMMDD_HH.csv (jeden plik na godzinę).
