@@ -10,20 +10,25 @@ python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 
 TODO
-- przeladowywanie ustawien po zapisie z gui
-- gui ogien poprawa locaklizacji
+ok- przeladowywanie ustawien po zapisie z gui
+ok- gui ogien poprawa locaklizacji
 - gui chowany pasek boczny
 - ustawienia zaawansowane i uproszczone
-- rozpalanie ustawia tryb rozpalania
+- rozpalanie ui ustawia tryb rozpalania, przejscie do work tez powinno gdzies byc
 - stop wylacza wszystko na off
 - modul logow
-- modul zaworu mieszajacego
+ok- modul zaworu mieszajacego
 - modul historii 
 - modul statystyk - zuzycie wegla, spalanie na godzine
 - blokada ui
 - ustawienia smart - korekcja ustawien -> za duzo sadzy, za duzo popiolu, za duza temp spalin
-- dokladnosc wyswietlania w ustawieniach float 0.01 
-- sortowanie modulow w ustawieniach
-- problem z zamykanie aplikacji
-- mixer osobno czasy w iginition i work oraz czasy miedzy korektami
-- dmuchawa cos nie respektuje temp spalin
+ok- dokladnosc wyswietlania w ustawieniach float 0.01 
+ok- sortowanie modulow w ustawieniach
+- problem z zamykaniem aplikacji
+ok- mixer osobno czasy w iginition i work oraz czasy miedzy korektami
+ok- dmuchawa cos nie respektuje temp spalin
+- poprawki ui - dmucawa nie pokazuj procentow, slimak nie pokazuj korekty
+- uproszone menu ustawien -> temp pieca, temp grzejniki, temp przelaczanie rozpalanie-work,
+ dmuchawa obroty, slimak bazowe nastawy
+- w scham popraw zakresy parametrow - przejdz przez wszystkie moduly
+- mixer algorytm rozpalania jesli daleko od zadanej na grzejnikach jesli blisko to algorytm standby - nie patrzy na ignition

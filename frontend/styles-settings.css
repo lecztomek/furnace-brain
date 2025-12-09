@@ -585,3 +585,102 @@ body {
 .config-actions-global {
   /* dodatkowe klasy jeśli coś będziesz chciał zmienić osobno */
 }
+
+/* element w gridzie, który ma trzymać wysokość */
+.diagram-wrapper {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  background: #293545;
+  border-radius: 12px;
+  border: 1px solid #3f4b5f;
+  padding: 8px;
+
+  /* KLUCZOWE */
+  min-height: 0;     /* pozwól wnętrzu się kurczyć */
+  overflow: hidden;  /* a nadmiar zawartości niech się scrolluje wewnątrz */
+}
+
+/* kontener na całą zawartość ustawień */
+.settings-inner {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+
+  /* KLUCZOWE */
+  min-height: 0;
+}
+
+/* root konfiguracji – kolumna: Taby + Body + Zapisz */
+.config-root {
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.12);
+  height: 100%;
+  box-sizing: border-box;
+
+  /* KLUCZOWE */
+  min-height: 0;
+}
+
+/* ciało zakładek – przewijane, nad przyciskiem ZAPISZ */
+.config-tabs-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0.3rem;
+  box-sizing: border-box;
+
+  min-height: 0;
+
+  /* KLUCZOWE – scrollbar po LEWEJ stronie */
+  direction: rtl;
+}
+
+/* zawartość panelu z powrotem w normalnym kierunku (żeby tekst nie był RTL) */
+.config-tab-panel {
+  display: none;
+  direction: ltr;  /* to dodaj */
+}
+
+.config-tab-panel.active {
+  display: block;
+}
+
+
+.layout {
+  min-height: 0;
+}
+
+/* SZEROKOŚĆ scrolla */
+.config-tabs-body::-webkit-scrollbar {
+  width: 14px;                /* szerszy – wygodniejszy na tablet */
+}
+
+/* TŁO toru scrolla */
+.config-tabs-body::-webkit-scrollbar-track {
+  background: transparent;    /* prawie niewidoczny */
+  margin: 4px 0;              /* lekki odstęp od góry/dołu */
+}
+
+/* KCIUK scrolla */
+.config-tabs-body::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.6);  /* szary, pół-transparentny */
+  border-radius: 999px;
+  border: 3px solid rgba(17, 24, 39, 0.8); /* obrys w kolorze tła – efekt „pływającej pastylki” */
+}
+
+/* pod dotknięciem / hover */
+.config-tabs-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(191, 219, 254, 0.8);  /* jaśniejszy, bardziej niebieskawy */
+}
+
+
+/* Firefox – kolory scrolla */
+.config-tabs-body {
+  scrollbar-width: thin;  /* cienki, ale nadal „tablet-friendly” */
+  scrollbar-color: rgba(148, 163, 184, 0.8) transparent;
+}
+

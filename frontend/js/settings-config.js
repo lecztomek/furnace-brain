@@ -7,10 +7,39 @@ const configState = {};
 const schemaCache = {};
 const modulesById = {};
 
-function roundTo2(num) {
+/**
+ * Zaokrąglanie do zadanej liczby miejsc po przecinku.
+ */
+function roundTo(num, decimals = 2) {
   const n = Number(num);
   if (!isFinite(n)) return 0;
-  return Math.round((n + Number.EPSILON) * 100) / 100;
+  const factor = Math.pow(10, decimals);
+  return Math.round((n + Number.EPSILON) * factor) / factor;
+}
+
+/**
+ * Wyznacz liczbę miejsc po przecinku dla pola typu number.
+ * - najpierw patrzymy na def.precision (jeśli jest),
+ * - potem na def.step (np. 0.001 → 3 miejsca),
+ * - na końcu fallback: 2 miejsca.
+ */
+function getNumberPrecision(def) {
+  if (!def) return 2;
+
+  if (typeof def.precision === "number") {
+    return Math.max(0, def.precision);
+  }
+
+  if (typeof def.step === "number") {
+    const s = String(def.step);
+    const dot = s.indexOf(".");
+    if (dot >= 0) {
+      return s.length - dot - 1; // "0.001" → 3
+    }
+    return 0; // np. step: 1 → 0 miejsc po przecinku
+  }
+
+  return 2;
 }
 
 function setStatus(text, isError = false) {
@@ -218,13 +247,14 @@ function renderField(moduleId, key, def, rawValue) {
     }
   }
 
+  // wstępne zaokrąglenie liczby zgodnie z precyzją
   if (type === "number") {
-    value = roundTo2(value);
+    const precision = getNumberPrecision(def);
+    value = roundTo(value, precision);
   }
 
   if (!configState[moduleId]) configState[moduleId] = {};
   configState[moduleId][key] = value;
-
 
   const field = document.createElement("div");
   field.className = "config-field";
@@ -270,9 +300,15 @@ function renderField(moduleId, key, def, rawValue) {
 
   // === NUMBER: − [val] + ===
   if (type === "number") {
+    const precision = getNumberPrecision(def);
     const min = def.min !== undefined ? Number(def.min) : null;
     const max = def.max !== undefined ? Number(def.max) : null;
-    const step = def.step !== undefined ? roundTo2(def.step) : 1;
+
+    // NIE zaokrąglamy step – używamy tak, jak w schemie
+    const step =
+      def.step !== undefined
+        ? Number(def.step)
+        : Math.pow(10, -precision);
 
     const minusBtn = document.createElement("button");
     minusBtn.type = "button";
@@ -285,11 +321,15 @@ function renderField(moduleId, key, def, rawValue) {
     plusBtn.textContent = "+";
 
     function renderNumber() {
-      const val = roundTo2(configState[moduleId][key]);
-      const display = unit && unit.trim().length
-        ? `${val} ${unit}`
-        : `${val}`;
-      valueEl.textContent = display;
+      let val = Number(configState[moduleId][key]) || 0;
+      val = roundTo(val, precision);
+      configState[moduleId][key] = val;
+
+      const text =
+        unit && unit.trim().length
+          ? `${val.toFixed(precision)} ${unit}`
+          : `${val.toFixed(precision)}`;
+      valueEl.textContent = text;
     }
 
     minusBtn.addEventListener("click", () => {
@@ -297,7 +337,7 @@ function renderField(moduleId, key, def, rawValue) {
       current -= step;
       if (min !== null && current < min) current = min;
       if (max !== null && current > max) current = max;
-      current = roundTo2(current);
+      current = roundTo(current, precision);
       configState[moduleId][key] = current;
       renderNumber();
     });
@@ -307,7 +347,7 @@ function renderField(moduleId, key, def, rawValue) {
       current += step;
       if (min !== null && current < min) current = min;
       if (max !== null && current > max) current = max;
-      current = roundTo2(current);
+      current = roundTo(current, precision);
       configState[moduleId][key] = current;
       renderNumber();
     });
@@ -321,7 +361,7 @@ function renderField(moduleId, key, def, rawValue) {
 
     return field;
   }
-  
+
   // === BOOL: suwak ON / OFF (przycisk .config-toggle) ===
   if (type === "bool") {
     // ustaw domyślnie wartość bool w stanie
@@ -357,8 +397,6 @@ function renderField(moduleId, key, def, rawValue) {
 
     return field;
   }
-
-  
 
   // === TEXT + OPTIONS: ◀ [val] ▶ ===
   if (type === "text" && Array.isArray(options)) {

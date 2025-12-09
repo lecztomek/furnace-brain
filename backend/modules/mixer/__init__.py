@@ -20,6 +20,7 @@ from backend.core.state import (
 
 # ---------- KONFIGURACJA RUNTIME ----------
 
+
 @dataclass
 class MixerConfig:
     """
@@ -33,16 +34,20 @@ class MixerConfig:
     max_pulse_s           – maksymalny czas pojedynczego ruchu [s]
     adjust_interval_s     – jak często NAJSZYBCIEJ wprowadzamy kolejną korektę [s]
 
-    ignition_open_boiler_temp      – od jakiej temperatury kotła [°C] w IGNITION
-                                     w ogóle pozwalamy otwierać zawór
+    ramp_error_factor     – mnożnik martwej strefy, przy którym uznajemy,
+                            że temperatura na grzejnikach jest „daleko od zadanej”
+                            i przechodzimy w tryb ramp (dogrzewanie z ochroną kotła).
 
-    ignition_max_boiler_drop_degC  – maksymalny dopuszczalny spadek temperatury kotła
-                                     po ostatnim OTWÓRZ [°C]. Jeśli spadek większy,
-                                     wstrzymujemy kolejne otwarcia do czasu „odbicia”.
-    ignition_recover_factor        – frakcja spadku, jaką kocioł musi odzyskać,
-                                     żeby znów pozwolić na OTWÓRZ (0..1).
-                                     Np. 0.5 → przy spadku 6°C czekamy, aż
-                                     odzyska 3°C.
+    boiler_min_temp_for_open   – od jakiej temperatury kotła [°C] w ogóle
+                                 pozwalamy OTWIERAĆ zawór w trybie „ramp”
+                                 (chroni kocioł na starcie).
+    boiler_max_drop_degC       – maksymalny dopuszczalny spadek temperatury kotła
+                                 po ostatnim OTWÓRZ [°C]. Jeśli spadek większy,
+                                 wstrzymujemy kolejne otwarcia do czasu „odbicia”.
+    boiler_recover_factor      – frakcja spadku, jaką kocioł musi odzyskać,
+                                 żeby znów pozwolić na OTWÓRZ (0..1).
+                                 Np. 0.5 → przy spadku 6°C czekamy, aż
+                                 odzyska 3°C.
     """
 
     target_temp: float = 40.0
@@ -52,10 +57,11 @@ class MixerConfig:
     max_pulse_s: float = 3.0
     adjust_interval_s: float = 10.0
 
-    ignition_open_boiler_temp: float = 55.0
+    ramp_error_factor: float = 2.0
 
-    ignition_max_boiler_drop_degC: float = 5.0
-    ignition_recover_factor: float = 0.5
+    boiler_min_temp_for_open: float = 55.0
+    boiler_max_drop_degC: float = 5.0
+    boiler_recover_factor: float = 0.5
 
 
 class MixerModule(ModuleInterface):
@@ -66,18 +72,22 @@ class MixerModule(ModuleInterface):
     która jest „za zaworem”.
 
     - Start: zawór zakładamy jako ZAMKNIĘTY (0%) – znamy tylko ruch względny.
-    - IGNITION:
-        * dopóki T_kotła < ignition_open_boiler_temp → nie otwieramy zaworu,
-        * gdy kocioł jest już „ciepły”:
-            - patrzymy na T_CO (radiators_temp) vs target_temp,
-            - jeśli za zimno → próbujemy OTWORZYĆ, ALE:
-                + po każdym OTWÓRZ patrzymy, o ile spadło na kotle,
-                + jeśli > ignition_max_boiler_drop_degC → blokujemy dalsze
-                  otwarcia, dopóki kocioł się częściowo nie odbije.
-    - WORK:
-        * klasyczny regulator na T_CO z martwą strefą.
     - OFF / MANUAL:
         * nie sterujemy zaworem.
+    - AUTO (dowolny tryb kotła poza OFF/MANUAL):
+        * logika mieszacza NIE patrzy na tryb kotła (IGNITION/WORK),
+          używa go tylko do stwierdzenia OFF/MANUAL,
+        * wewnętrznie ma dwa tryby pracy:
+            - "ramp":
+                + gdy temperatura na grzejnikach jest DALEKO od zadanej
+                  (błąd > ramp_error_factor × ok_band_degC),
+                + przy zbyt zimnych grzejnikach OTWIERA z ochroną kotła
+                  (boiler_min_temp_for_open, boiler_max_drop_degC,
+                  boiler_recover_factor),
+            - "stabilize":
+                + gdy jesteśmy BLISKO zadanej,
+                + klasyczny regulator na T_CO z martwą strefą, bez patrzenia
+                  na temperaturę kotła.
     """
 
     def __init__(
@@ -101,10 +111,11 @@ class MixerModule(ModuleInterface):
         self._movement_direction: Optional[str] = None  # "open" / "close" / None
         self._last_action_ts: Optional[float] = None
 
-        # IGNITION – śledzenie wpływu OTWÓRZ na kocioł
-        self._ign_last_open_start_boiler_temp: Optional[float] = None
-        self._ign_last_open_drop_too_big: bool = False
+        # Ochrona kotła – śledzenie wpływu OTWÓRZ na kocioł (tryb "ramp")
+        self._last_open_start_boiler_temp: Optional[float] = None
+        self._last_open_drop_too_big: bool = False
 
+        # Ostatni tryb logiki mieszacza ("off" / "ramp" / "stabilize") – tylko do eventów
         self._last_mode: Optional[str] = None
 
     # --- ModuleInterface ---
@@ -127,24 +138,37 @@ class MixerModule(ModuleInterface):
         # Używamy temperatury w obiegu CO (radiators_temp) jako T za zaworem
         rad_temp = sensors.radiators_temp
 
-        prev_direction = self._movement_direction
         prev_mode = self._last_mode
 
-        # Mapowanie trybu:
-        if mode_enum == BoilerMode.IGNITION:
-            effective_mode = "ignition"
-        elif mode_enum == BoilerMode.WORK:
-            effective_mode = "work"
-        elif mode_enum in (BoilerMode.OFF, BoilerMode.MANUAL):
+        # --- Wyznaczenie efektywnego trybu logiki mieszacza ---
+
+        if mode_enum in (BoilerMode.OFF, BoilerMode.MANUAL):
             effective_mode = "off"
         else:
-            effective_mode = "off"
+            # AUTO – decydujemy tylko po błędzie na grzejnikach
+            if rad_temp is None:
+                # brak danych – zachowuj się zachowawczo jak "stabilize"
+                effective_mode = "stabilize"
+            else:
+                t_set = self._config.target_temp
+                band = self._config.ok_band_degC
+                error = abs(t_set - rad_temp)
 
-        # 1) OFF / MANUAL – zawór nie ruszany
+                # próg "daleko od zadanej" – ramp_error_factor × martwa strefa
+                far_err = self._config.ramp_error_factor * band
+
+                if error > far_err:
+                    effective_mode = "ramp"
+                else:
+                    effective_mode = "stabilize"
+
+        # --- Główna logika ruchu zaworu ---
+
         if effective_mode == "off":
+            # OFF / MANUAL – zawór nie ruszany
             self._stop_movement()
         else:
-            # 2) jeśli trwa ruch – kontynuujemy impuls
+            # 1) jeśli trwa ruch – kontynuujemy impuls
             if self._movement_until_ts is not None and now < self._movement_until_ts:
                 if self._movement_direction == "open":
                     outputs.mixer_open_on = True
@@ -154,28 +178,29 @@ class MixerModule(ModuleInterface):
                     outputs.mixer_close_on = True
             else:
                 # Ruch się skończył – zatrzymujemy zawór
-                if self._movement_direction == "open" and effective_mode == "ignition":
-                    # tu możemy policzyć spadek na kotle po poprzednim OTWÓRZ
-                    self._update_ignition_boiler_drop(boiler_temp)
+                if self._movement_direction == "open":
+                    # po OTWÓRZ możemy policzyć spadek na kotle
+                    self._update_boiler_drop(boiler_temp)
 
                 self._stop_movement()
 
                 # Czy możemy wykonać nową korektę?
                 if self._can_adjust(now) and rad_temp is not None:
-                    if effective_mode == "ignition":
-                        direction = self._decide_direction_ignition(
+                    if effective_mode == "ramp":
+                        direction = self._decide_direction_ramp(
                             mix_temp=rad_temp,
                             boiler_temp=boiler_temp,
                         )
-                    else:
+                    else:  # "stabilize"
                         direction = self._decide_direction_work(mix_temp=rad_temp)
 
                     if direction is not None:
+                        # Długość impulsu zależna od błędu na grzejnikach
                         pulse_s = self._compute_pulse_duration(mix_temp=rad_temp)
 
-                        # w IGNITION przy OTWÓRZ zapamiętujemy T_kotła na starcie impulsu
-                        if effective_mode == "ignition" and direction == "open":
-                            self._ign_last_open_start_boiler_temp = boiler_temp
+                        # W trybie "ramp" przy OTWÓRZ zapamiętujemy T_kotła
+                        if effective_mode == "ramp" and direction == "open":
+                            self._last_open_start_boiler_temp = boiler_temp
 
                         self._start_movement(now, direction, pulse_s)
 
@@ -210,7 +235,7 @@ class MixerModule(ModuleInterface):
                             )
                         )
 
-        # Event zmiany trybu:
+        # Event zmiany trybu logiki mieszacza:
         if prev_mode != effective_mode:
             events.append(
                 Event(
@@ -246,7 +271,7 @@ class MixerModule(ModuleInterface):
 
     def _decide_direction_work(self, mix_temp: float) -> Optional[str]:
         """
-        Tryb WORK – klasyczny regulator na T_CO (radiators_temp) z martwą strefą.
+        Tryb "stabilize" – klasyczny regulator na T_CO (radiators_temp) z martwą strefą.
         """
         t_set = self._config.target_temp
         band = self._config.ok_band_degC
@@ -257,17 +282,19 @@ class MixerModule(ModuleInterface):
             return "close"
         return None
 
-    def _decide_direction_ignition(
+    def _decide_direction_ramp(
         self,
         mix_temp: float,
         boiler_temp: Optional[float],
     ) -> Optional[str]:
         """
-        TRYB IGNITION:
+        Tryb "ramp" – daleko od zadanej na grzejnikach.
 
-        - chronimy kocioł przed zbyt dużym spadkiem temp. po OTWÓRZ,
-        - dopóki kocioł nie „odbił”, blokujemy kolejne otwarcia.
-        Sterowanie nadal oparte na T_CO (radiators_temp).
+        - za gorąco w obiegu CO → ZAMKNIJ zawsze (bez patrzenia na kocioł),
+        - za zimno w CO → OTWÓRZ, ale:
+            * kocioł musi być powyżej boiler_min_temp_for_open,
+            * jeśli ostatnie OTWÓRZ spowodowało za duży spadek na kotle,
+              czekamy, aż kocioł się częściowo odbije (boiler_recover_factor).
         """
         t_set = self._config.target_temp
         band = self._config.ok_band_degC
@@ -281,25 +308,25 @@ class MixerModule(ModuleInterface):
             if boiler_temp is None:
                 return None
 
-            # 1) kocioł musi być powyżej progu dla ignition
-            if boiler_temp < self._config.ignition_open_boiler_temp:
+            # 1) kocioł musi być powyżej progu
+            if boiler_temp < self._config.boiler_min_temp_for_open:
                 return None
 
             # 2) jeśli ostatnie OTWÓRZ spowodowało za duży spadek,
             #    to czekamy, aż kocioł się częściowo odbije
-            if self._ign_last_open_drop_too_big and \
-               self._ign_last_open_start_boiler_temp is not None:
-                max_drop = self._config.ignition_max_boiler_drop_degC
-                recover_factor = self._config.ignition_recover_factor
+            if self._last_open_drop_too_big and \
+               self._last_open_start_boiler_temp is not None:
+                max_drop = self._config.boiler_max_drop_degC
+                recover_factor = self._config.boiler_recover_factor
                 allowed_drop = max_drop * (1.0 - recover_factor)
 
-                drop_now = self._ign_last_open_start_boiler_temp - boiler_temp
+                drop_now = self._last_open_start_boiler_temp - boiler_temp
                 if drop_now > allowed_drop:
                     # jeszcze za bardzo „przyduszony” – nie otwieraj
                     return None
                 else:
                     # kocioł się odbił wystarczająco – możemy znów otwierać
-                    self._ign_last_open_drop_too_big = False
+                    self._last_open_drop_too_big = False
 
             # wszystko OK → możemy OTWORZYĆ
             return "open"
@@ -307,20 +334,20 @@ class MixerModule(ModuleInterface):
         # w martwej strefie – nic nie rób
         return None
 
-    def _update_ignition_boiler_drop(self, boiler_temp: Optional[float]) -> None:
+    def _update_boiler_drop(self, boiler_temp: Optional[float]) -> None:
         """
-        Po zakończonym ruchu OTWÓRZ w IGNITION sprawdzamy,
+        Po zakończonym ruchu OTWÓRZ w trybie "ramp" sprawdzamy,
         o ile spadła temperatura kotła – jeśli za dużo, włączamy
-        blokadę kolejnych otwarć.
+        blokadę kolejnych otwarć (dopóki kocioł się nie odbije).
         """
         if boiler_temp is None:
             return
-        if self._ign_last_open_start_boiler_temp is None:
+        if self._last_open_start_boiler_temp is None:
             return
 
-        drop = self._ign_last_open_start_boiler_temp - boiler_temp
-        if drop > self._config.ignition_max_boiler_drop_degC:
-            self._ign_last_open_drop_too_big = True
+        drop = self._last_open_start_boiler_temp - boiler_temp
+        if drop > self._config.boiler_max_drop_degC:
+            self._last_open_drop_too_big = True
 
     def _compute_pulse_duration(self, mix_temp: float) -> float:
         """
@@ -372,13 +399,15 @@ class MixerModule(ModuleInterface):
         if "adjust_interval_s" in values:
             self._config.adjust_interval_s = float(values["adjust_interval_s"])
 
-        if "ignition_open_boiler_temp" in values:
-            self._config.ignition_open_boiler_temp = float(values["ignition_open_boiler_temp"])
+        if "ramp_error_factor" in values:
+            self._config.ramp_error_factor = float(values["ramp_error_factor"])
 
-        if "ignition_max_boiler_drop_degC" in values:
-            self._config.ignition_max_boiler_drop_degC = float(values["ignition_max_boiler_drop_degC"])
-        if "ignition_recover_factor" in values:
-            self._config.ignition_recover_factor = float(values["ignition_recover_factor"])
+        if "boiler_min_temp_for_open" in values:
+            self._config.boiler_min_temp_for_open = float(values["boiler_min_temp_for_open"])
+        if "boiler_max_drop_degC" in values:
+            self._config.boiler_max_drop_degC = float(values["boiler_max_drop_degC"])
+        if "boiler_recover_factor" in values:
+            self._config.boiler_recover_factor = float(values["boiler_recover_factor"])
 
         if persist:
             self._save_config_to_file()
@@ -402,9 +431,10 @@ class MixerModule(ModuleInterface):
             "min_pulse_s",
             "max_pulse_s",
             "adjust_interval_s",
-            "ignition_open_boiler_temp",
-            "ignition_max_boiler_drop_degC",
-            "ignition_recover_factor",
+            "ramp_error_factor",
+            "boiler_min_temp_for_open",
+            "boiler_max_drop_degC",
+            "boiler_recover_factor",
         ):
             if field in data:
                 setattr(self._config, field, float(data[field]))

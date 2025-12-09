@@ -1,9 +1,28 @@
-boiler_set_temp: 65.0
-ignition_bonus_margin_degC: 5.0
-ignition_power_bonus_percent: 30.0
+boiler_set_temp: 55.0
+
+# PID (WORK)
+kp: 2.5
+ki: 0.005
 kd: 0.0
-ki: 0.01
-kp: 2.0
-max_power: 100.0
+
+integral_window_s: 300.0      # ~5 minut historii całki
+overtemp_start_degC: 3.0      # zaczynamy ciąć powyżej 58°C
+overtemp_kp: 10.0             # każde +1°C ponad próg = -10 pkt% mocy
+
+# Ograniczenia globalne
 min_power: 15.0
-mode: 'off'
+max_power: 100.0
+
+# IGNITION – część ΔT
+ignition_high_power_percent: 100.0   # pełna moc przy ΔT >= 15°C
+ignition_min_power_percent: 30.0     # minimalna moc w IGNITION
+ignition_full_power_delta_degC: 15.0 # 55 - 15 = 40°C i niżej -> 100%
+ignition_min_power_delta_degC: 3.0   # od 52°C w górę -> 30%
+
+# IGNITION – część dT/dt (boost w górę)
+ignition_target_rate_k_per_min: 0.8              # chcemy ok. 0.8°C/min
+ignition_rate_band_k_per_min: 0.3                # pas tolerancji ±0.3
+ignition_rate_gain_percent_per_k_per_min: 10.0   # 1°C/min brak = +10 pkt %
+ignition_rate_max_boost_percent: 30.0            # max +30 pkt % ponad ΔT
+
+mode: "off"

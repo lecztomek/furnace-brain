@@ -5,8 +5,8 @@ description: "Sterowanie zaworem mieszającym na podstawie temperatury za zawore
 groups:
   - id: basic
     label: "Podstawowe"
-  - id: ignition
-    label: "Rozpalanie"
+  - id: boiler_protection
+    label: "Ochrona kotła"
 
 fields:
   - key: target_temp
@@ -64,29 +64,42 @@ fields:
     group: basic
     description: "Jak często NAJSZYBCIEJ możemy wykonać kolejny ruch zaworu. Zwiększ przy dużej bezwładności instalacji."
 
-  - key: ignition_open_boiler_temp
-    label: "Temp. kotła do startu otwierania (IGNITION)"
+  - key: ramp_error_factor
+    label: "Próg przejścia w tryb dogrzewania (ramp)"
+    type: number
+    unit: "× martwa strefa"
+    min: 1
+    max: 5
+    step: 0.5
+    default: 2
+    group: basic
+    description: >
+      Przy ilu szerokościach martwej strefy od zadanej uznajemy, że grzejniki są „daleko”
+      i przechodzimy w tryb ramp. Np. 2 oznacza przełączenie przy |T - zadana| > 2 × ok_band_degC.
+
+  - key: boiler_min_temp_for_open
+    label: "Minimalna temp. kotła do otwierania"
     type: number
     unit: "°C"
     min: 30
     max: 90
     step: 1
     default: 55
-    group: ignition
-    description: "Poniżej tej temperatury kotła zawór nie będzie otwierany w trybie rozpalania, aby nie wychłodzić kotła zbyt wcześnie."
+    group: boiler_protection
+    description: "Poniżej tej temperatury kotła zawór nie będzie otwierany w trybie dogrzewania (\"ramp\"), aby nie wychłodzić kotła zbyt wcześnie."
 
-  - key: ignition_max_boiler_drop_degC
-    label: "Maksymalny spadek kotła po otwarciu"
+  - key: boiler_max_drop_degC
+    label: "Maksymalny spadek temp. kotła po otwarciu"
     type: number
     unit: "°C"
     min: 1
     max: 20
     step: 0.5
     default: 5
-    group: ignition
-    description: "Jeśli po ruchu OTWÓRZ w IGNITION kocioł spadnie o więcej niż tyle stopni, kolejne otwarcia będą tymczasowo blokowane."
+    group: boiler_protection
+    description: "Jeśli po ruchu OTWÓRZ w trybie dogrzewania kocioł spadnie o więcej niż tyle stopni, kolejne otwarcia będą tymczasowo blokowane."
 
-  - key: ignition_recover_factor
+  - key: boiler_recover_factor
     label: "Wymagane odbicie kotła po spadku"
     type: number
     unit: ""
@@ -94,7 +107,7 @@ fields:
     max: 1.0
     step: 0.1
     default: 0.5
-    group: ignition
+    group: boiler_protection
     description: >
       Jaka część spadku temperatury kotła musi zostać odrobiona, aby znieść blokadę kolejnych otwarć.
       Np. przy 0.5 i spadku 6°C czekamy, aż kocioł podniesie się o 3°C.

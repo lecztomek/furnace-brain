@@ -26,33 +26,72 @@ class PowerConfig:
     """
     Konfiguracja modułu regulatora mocy kotła.
 
-    boiler_set_temp               – zadana temperatura kotła [°C]
-    kp, ki, kd                     – parametry PID (błąd w °C -> wynik w % mocy)
-    min_power, max_power           – ograniczenia mocy [%]
+    boiler_set_temp          – zadana temperatura kotła [°C]
 
-    ignition_power_bonus_percent   – maksymalny bonus mocy w trybie ignition [%]
-                                     (np. 30 -> przy dużym odchyleniu
-                                     power = base_power * 1.3)
-    ignition_bonus_margin_degC     – o ile °C poniżej zadanej zaczynamy
-                                     wygaszanie bonusa. Poniżej (T_set - margin)
-                                     bonus = pełny, przy T_set bonus = 0.
+    PID (tylko w trybie pracy / WORK):
+      kp, ki, kd             – parametry PID (błąd w °C -> wynik w % mocy)
+      integral_window_s      – efektywne "okno czasowe" całki [s].
+                               Im mniejsze, tym szybciej "zapominane"
+                               są stare błędy (mniejszy windup).
+      overtemp_start_degC    – o ile °C powyżej zadanej zaczynamy
+                               dodatkowe obniżanie mocy.
+      overtemp_kp            – ile punktów procentowych mocy odejmujemy
+                               za każdy °C powyżej progu przegrzania.
 
-    mode                           – lokalny tryb, używany TYLKO gdy z jakiegoś
-                                     powodu SystemState.mode jest nieznany.
-                                     "auto", "ignition", "off"
+    Ograniczenia:
+      min_power, max_power   – ograniczenia mocy [%]
+
+    IGNITION – osobny algorytm (hybryda):
+      1) z odległości od zadanej (ΔT):
+         ignition_high_power_percent      – moc przy dużym ΔT [%]
+         ignition_min_power_percent       – najmniejsza moc w IGNITION [%]
+         ignition_full_power_delta_degC   – od ilu °C poniżej zadanej
+                                            ma być pełna moc (high_power)
+         ignition_min_power_delta_degC    – do ilu °C poniżej zadanej
+                                            schodzimy z mocą do min_power
+                                            (poniżej tego progu trzymamy min_power)
+
+      2) z tempa wzrostu temperatury (dT/dt) – tylko jako BOOST w górę:
+         ignition_target_rate_k_per_min          – docelowy przyrost T [°C/min]
+         ignition_rate_band_k_per_min            – tolerancja wokół celu [°C/min]
+         ignition_rate_gain_percent_per_k_per_min– ile % mocy dodać za
+                                                   każdy 1°C/min brakujący
+                                                   do dolnej granicy pasma
+         ignition_rate_max_boost_percent         – maksymalny boost z dT/dt [%]
+
+      Moc IGNITION = max(moc_z_ΔT, moc_z_dTdt)
+
+    mode                     – lokalny tryb, używany TYLKO gdy z jakiegoś
+                               powodu SystemState.mode jest nieznany.
+                               "auto", "ignition", "off"
     """
 
     boiler_set_temp: float = 65.0
 
+    # PID (tylko dla WORK)
     kp: float = 2.0
     ki: float = 0.01
     kd: float = 0.0
 
+    integral_window_s: float = 300.0       # ~5 minut historii całki
+    overtemp_start_degC: float = 3.0       # od zadanej + 3°C zaczynamy ciąć
+    overtemp_kp: float = 10.0              # 10 pkt% mocy mniej za każdy °C przegrzania
+
+    # Ograniczenia globalne
     min_power: float = 0.0
     max_power: float = 100.0
 
-    ignition_power_bonus_percent: float = 30.0
-    ignition_bonus_margin_degC: float = 10.0
+    # IGNITION – część ΔT
+    ignition_high_power_percent: float = 100.0      # pełna moc przy dużym ΔT
+    ignition_min_power_percent: float = 30.0        # najmniejsza moc w IGNITION
+    ignition_full_power_delta_degC: float = 15.0    # ΔT >= 15°C -> high_power
+    ignition_min_power_delta_degC: float = 3.0      # ΔT <= 3°C  -> min_power
+
+    # IGNITION – część dT/dt (tylko boost w górę)
+    ignition_target_rate_k_per_min: float = 0.8          # docelowy przyrost [°C/min]
+    ignition_rate_band_k_per_min: float = 0.3            # tolerancja wokół celu [°C/min]
+    ignition_rate_gain_percent_per_k_per_min: float = 10.0  # %/ (°C/min)
+    ignition_rate_max_boost_percent: float = 30.0        # maksymalny boost [%]
 
     mode: str = "auto"  # fallback: "auto"/"ignition"/"off"
 
@@ -70,30 +109,14 @@ class PowerModule(ModuleInterface):
         power = 0% – PowerModule nie steruje mocą, w tym trybie zakładasz
         ręczne sterowanie innymi modułami (feeder/blower itp.).
 
-    - WORK:
-        base_power = PID(T_set, T_boiler)
-        power = base_power (w zakresie [min_power, max_power])
-
     - IGNITION:
-        też liczymy base_power = PID(...),
-        ale wprowadzamy dodatkowy mnożnik zależny od tego,
-        jak bardzo T_boiler jest poniżej zadanej:
+        OSOBNY ALGORYTM (BEZ PID), hybryda:
+        - bazowa moc z ΔT (odległość od zadanej),
+        - ewentualny dodatkowy boost z dT/dt, jeśli kocioł nagrzewa się zbyt wolno.
+        Końcowo: power_ign = max(power_delta, power_rate).
 
-            jeśli T_boiler <= T_set - margin:
-                k = 1.0   (pełny bonus)
-            jeśli T_boiler >= T_set:
-                k = 0.0   (brak bonusa)
-            inaczej:
-                k = (T_set - T_boiler) / margin   (wygładzone 1 → 0)
-
-            factor = 1 + k * (bonus_percent / 100)
-            power = base_power * factor
-
-        W praktyce:
-        - przy zimnym kotle w IGNITION moc jest "dopompowana",
-        - w miarę dojazdu do zadanej bonus się wygasza,
-        - po automatycznym przełączeniu ModeModule na WORK jedziemy
-          już na czystym PID-zie.
+    - WORK (auto):
+        PID z oknem całki + dodatkowe obniżanie mocy przy przegrzaniu.
     """
 
     def __init__(
@@ -112,7 +135,7 @@ class PowerModule(ModuleInterface):
         self._config = config or PowerConfig()
         self._load_config_from_file()
 
-        # Stan PID-a
+        # Stan PID-a (używany tylko w WORK)
         self._integral: float = 0.0
         self._last_error: Optional[float] = None
         self._last_tick_ts: Optional[float] = None
@@ -120,6 +143,11 @@ class PowerModule(ModuleInterface):
         # Stan mocy
         self._power: float = 0.0
         self._last_effective_mode: Optional[str] = None
+
+        # Stan dla algorytmu IGNITION opartego o dT/dt
+        self._ign_last_temp: Optional[float] = None
+        self._ign_last_ts: Optional[float] = None
+        self._ign_rate_ema: Optional[float] = None
 
     # --- ModuleInterface ---
 
@@ -143,47 +171,70 @@ class PowerModule(ModuleInterface):
 
         prev_power = self._power
         prev_mode = self._last_effective_mode
-            
+
+        # Reset PID-a tylko przy "dużych" zmianach trybu (np. AUTO <-> OFF)
         if prev_mode is not None and prev_mode != effective_mode:
-            # NIE resetujemy przy ignition <-> auto
             ignition_auto_set = {"ignition", "auto"}
             if not ({prev_mode, effective_mode} <= ignition_auto_set):
                 self._reset_pid()
+
+            # przy wejściu w IGNITION resetujemy historię dT/dt
+            if effective_mode == "ignition":
+                self._ign_last_ts = None
+                self._ign_last_temp = None
+                self._ign_rate_ema = None
+
+        # Bumpless transfer: przejście IGNITION -> AUTO (WORK)
+        if (
+            prev_mode == "ignition"
+            and effective_mode == "auto"
+            and boiler_temp is not None
+            and self._config.ki > 0.0
+        ):
+            # dopasuj całkę tak, aby PID startował z obecną mocą
+            error = self._config.boiler_set_temp - boiler_temp
+            p_term = self._config.kp * error
+            d_term = 0.0  # dla prostoty ignorujemy D przy starcie
+
+            target_power = self._power  # moc z algorytmu IGNITION
+            i_term = target_power - p_term - d_term
+            self._integral = i_term / self._config.ki
+
+            self._last_error = error
+            self._last_tick_ts = now
 
         # 2) Liczenie power w zależności od trybu
         if effective_mode == "off":
             self._power = 0.0
 
+        elif effective_mode == "ignition":
+            # OSOBNY ALGORYTM ROZPALANIA – hybryda ΔT + dT/dt
+            self._power = self._compute_ignition_power(now, boiler_temp)
+
         else:
+            # AUTO / WORK – tutaj działa PID
             if boiler_temp is not None:
                 base_power = self._pid_step(now, boiler_temp)
             else:
                 # brak pomiaru kotła – zostaw poprzednią moc
                 base_power = self._power
 
-            if effective_mode == "ignition" and boiler_temp is not None:
-                # Bonus z wygładzaniem w zależności od tego,
-                # o ile T_boiler jest poniżej zadanej
-                margin = max(self._config.ignition_bonus_margin_degC, 0.1)
+            power = base_power
+
+            # --- DODATKOWE OBNIŻANIE MOCY PRZY PRZEGRZANIU ---
+            if boiler_temp is not None:
                 t_set = self._config.boiler_set_temp
+                start = max(self._config.overtemp_start_degC, 0.0)
 
-                if boiler_temp <= t_set - margin:
-                    k = 1.0
-                elif boiler_temp >= t_set:
-                    k = 0.0
-                else:
-                    # liniowe przejście 1 -> 0 w przedziale (T_set - margin, T_set)
-                    k = (t_set - boiler_temp) / margin
-
-                bonus_factor = 1.0 + k * (self._config.ignition_power_bonus_percent / 100.0)
-                power = base_power * bonus_factor
-            else:
-                # auto/work
-                power = base_power
+                # zaczynamy ciąć powyżej T_set + start
+                if boiler_temp > t_set + start:
+                    over = boiler_temp - (t_set + start)  # tylko "nadmiar"
+                    penalty = over * max(self._config.overtemp_kp, 0.0)
+                    power -= penalty
 
             self._power = power
 
-        # 3) Ograniczenie do min/max
+        # 3) Ograniczenie do min/max (globalne)
         self._power = max(self._config.min_power, min(self._power, self._config.max_power))
 
         # 4) Eventy (opcjonalne – do debugowania / historii)
@@ -224,8 +275,6 @@ class PowerModule(ModuleInterface):
         self._last_effective_mode = effective_mode
 
         # 5) Wyjście
-        # UWAGA: upewnij się, że w Outputs masz dodane pole:
-        #   power_percent: float = 0.0
         outputs.power_percent = self._power  # type: ignore[attr-defined]
 
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
@@ -242,7 +291,7 @@ class PowerModule(ModuleInterface):
         """
         Mapuje SystemState.mode (Enum BoilerMode) na wewnętrzne stringi:
 
-        - "ignition"  – tryb rozpalania (PID + bonus)
+        - "ignition"  – tryb rozpalania (osobny algorytm)
         - "auto"      – normalna praca z PID (WORK)
         - "off"       – wyłączony / manual (power = 0)
         """
@@ -253,10 +302,9 @@ class PowerModule(ModuleInterface):
         if mode_enum == BoilerMode.WORK:
             return "auto"
         if mode_enum in (BoilerMode.OFF, BoilerMode.MANUAL):
-            # w OFF i MANUAL PowerModule nie powinien sterować mocą
             return "off"
 
-        # fallback (teoretycznie nie powinien się zdarzyć)
+        # fallback
         return self._config.mode.lower()
 
     def _reset_pid(self) -> None:
@@ -264,9 +312,133 @@ class PowerModule(ModuleInterface):
         self._last_error = None
         self._last_tick_ts = None
 
+    # --- IGNITION: HYBRYDA ΔT + dT/dt ---
+
+    def _compute_ignition_power(self, now: float, boiler_temp: Optional[float]) -> float:
+        """
+        Hybryda:
+
+          power_delta = funkcja liniowa ΔT (odległość od zadanej)
+          power_rate  = boost w górę na podstawie dT/dt (jeśli za wolno grzeje)
+
+          power_ign = max(power_delta, power_rate)
+        """
+
+        power_delta = self._ignition_power_from_delta(boiler_temp)
+        power_rate = self._ignition_power_from_rate(now, boiler_temp, power_delta)
+        return max(power_delta, power_rate)
+
+    def _ignition_power_from_delta(self, boiler_temp: Optional[float]) -> float:
+        """
+        Część bazowa: moc z ΔT = T_set - T_boiler.
+        """
+
+        high_p = self._config.ignition_high_power_percent
+        min_ign = self._config.ignition_min_power_percent
+        full_delta = max(self._config.ignition_full_power_delta_degC, 0.1)
+        min_delta = max(self._config.ignition_min_power_delta_degC, 0.0)
+
+        # brak pomiaru -> pełna moc ignition
+        if boiler_temp is None:
+            return high_p
+
+        t_set = self._config.boiler_set_temp
+        delta = t_set - boiler_temp  # dodatnie: poniżej zadanej
+
+        if delta >= full_delta:
+            power = high_p
+        elif delta <= min_delta:
+            power = min_ign
+        else:
+            # liniowa interpolacja: delta pełne -> high_p, delta minimalne -> min_ign
+            alpha = (delta - min_delta) / (full_delta - min_delta)  # 0..1
+            power = min_ign + alpha * (high_p - min_ign)
+
+        return power
+
+    def _ignition_power_from_rate(
+        self,
+        now: float,
+        boiler_temp: Optional[float],
+        base_power: float,
+    ) -> float:
+        """
+        Część dT/dt:
+
+        - liczymy tempo nagrzewania [°C/min] z prostą EMA (wygładzenie),
+        - jeśli tempo >= (target - band) -> grzeje wystarczająco szybko,
+          NIE zmieniamy mocy (zwracamy base_power),
+        - jeśli tempo < (target - band) -> za wolno:
+              deficit = (target - band) - rate
+              extra = deficit * gain  [pkt %]
+              extra <= ignition_rate_max_boost_percent
+          i zwracamy base_power + extra.
+
+        UWAGA: tutaj NIGDY nie zmniejszamy mocy, tylko ewentualnie dodajemy
+        boost w górę. Cięcie mocy robi część ΔT + potem PID w WORK.
+        """
+
+        if boiler_temp is None:
+            # bez sensu liczyć tempo, zostaw bazę
+            self._ign_last_ts = None
+            self._ign_last_temp = None
+            self._ign_rate_ema = None
+            return base_power
+
+        # brak historii -> inicjalizacja, jeszcze nie boostujemy
+        if self._ign_last_ts is None or self._ign_last_temp is None:
+            self._ign_last_ts = now
+            self._ign_last_temp = boiler_temp
+            self._ign_rate_ema = None
+            return base_power
+
+        dt = now - self._ign_last_ts
+        if dt <= 0:
+            dt = 1.0  # awaryjnie, żeby uniknąć dzielenia przez zero
+
+        inst_rate = (boiler_temp - self._ign_last_temp) / dt * 60.0  # °C/min
+
+        self._ign_last_ts = now
+        self._ign_last_temp = boiler_temp
+
+        # prosta EMA dla wygładzenia (tau ~ 30 s)
+        if self._ign_rate_ema is None:
+            rate = inst_rate
+        else:
+            tau = 30.0
+            alpha = max(0.0, min(1.0, dt / (tau + dt)))
+            rate = self._ign_rate_ema + alpha * (inst_rate - self._ign_rate_ema)
+
+        self._ign_rate_ema = rate
+
+        target = self._config.ignition_target_rate_k_per_min
+        band = self._config.ignition_rate_band_k_per_min
+        gain = self._config.ignition_rate_gain_percent_per_k_per_min
+        max_boost = self._config.ignition_rate_max_boost_percent
+
+        low = target - band  # poniżej tego -> za wolno
+
+        if rate >= low:
+            # nagrzewa się wystarczająco szybko – nie dodajemy boosta
+            return base_power
+
+        deficit = low - rate  # dodatnie, jeśli za wolno
+        extra = deficit * gain
+        if extra > max_boost:
+            extra = max_boost
+        if extra < 0.0:
+            extra = 0.0
+
+        return base_power + extra
+
+    # --- PID (WORK) ---
+
     def _pid_step(self, now: float, boiler_temp: float) -> float:
         """
-        Jeden krok PID-a: zwraca "surową" moc (base_power) bez bonusa ignition.
+        Jeden krok PID-a: zwraca "surową" moc (base_power) w trybie WORK.
+
+        Całka ma "okno czasowe" integral_window_s – stare błędy są stopniowo
+        wygaszane, co ogranicza windup.
         """
 
         error = self._config.boiler_set_temp - boiler_temp
@@ -279,8 +451,18 @@ class PowerModule(ModuleInterface):
                 dt = None
 
         if dt is not None:
+            # --- OKNO CZASOWE DLA CAŁKI ---
+            window = max(self._config.integral_window_s, 1.0)  # min 1 s
+            decay = 1.0 - dt / window
+            if decay < 0.0:
+                decay = 0.0
+            elif decay > 1.0:
+                decay = 1.0
+
+            self._integral *= decay
             self._integral += error * dt
 
+        # --- P, I, D ---
         p_term = self._config.kp * error
         i_term = self._config.ki * self._integral
 
@@ -318,22 +500,50 @@ class PowerModule(ModuleInterface):
         if "kd" in values:
             self._config.kd = float(values["kd"])
 
+        if "integral_window_s" in values:
+            self._config.integral_window_s = float(values["integral_window_s"])
+        if "overtemp_start_degC" in values:
+            self._config.overtemp_start_degC = float(values["overtemp_start_degC"])
+        if "overtemp_kp" in values:
+            self._config.overtemp_kp = float(values["overtemp_kp"])
+
         if "min_power" in values:
             self._config.min_power = float(values["min_power"])
         if "max_power" in values:
             self._config.max_power = float(values["max_power"])
 
-        if "ignition_power_bonus_percent" in values:
-            self._config.ignition_power_bonus_percent = float(values["ignition_power_bonus_percent"])
-        if "ignition_bonus_margin_degC" in values:
-            self._config.ignition_bonus_margin_degC = float(values["ignition_bonus_margin_degC"])
+        if "ignition_high_power_percent" in values:
+            self._config.ignition_high_power_percent = float(values["ignition_high_power_percent"])
+        if "ignition_min_power_percent" in values:
+            self._config.ignition_min_power_percent = float(values["ignition_min_power_percent"])
+        if "ignition_full_power_delta_degC" in values:
+            self._config.ignition_full_power_delta_degC = float(values["ignition_full_power_delta_degC"])
+        if "ignition_min_power_delta_degC" in values:
+            self._config.ignition_min_power_delta_degC = float(values["ignition_min_power_delta_degC"])
+
+        if "ignition_target_rate_k_per_min" in values:
+            self._config.ignition_target_rate_k_per_min = float(
+                values["ignition_target_rate_k_per_min"]
+            )
+        if "ignition_rate_band_k_per_min" in values:
+            self._config.ignition_rate_band_k_per_min = float(
+                values["ignition_rate_band_k_per_min"]
+            )
+        if "ignition_rate_gain_percent_per_k_per_min" in values:
+            self._config.ignition_rate_gain_percent_per_k_per_min = float(
+                values["ignition_rate_gain_percent_per_k_per_min"]
+            )
+        if "ignition_rate_max_boost_percent" in values:
+            self._config.ignition_rate_max_boost_percent = float(
+                values["ignition_rate_max_boost_percent"]
+            )
 
         if "mode" in values:
             self._config.mode = str(values["mode"])
 
         if persist:
             self._save_config_to_file()
-            
+
     def reload_config_from_file(self) -> None:
         """
         Publiczne API wymagane przez Kernel.
@@ -352,10 +562,19 @@ class PowerModule(ModuleInterface):
             "kp",
             "ki",
             "kd",
+            "integral_window_s",
+            "overtemp_start_degC",
+            "overtemp_kp",
             "min_power",
             "max_power",
-            "ignition_power_bonus_percent",
-            "ignition_bonus_margin_degC",
+            "ignition_high_power_percent",
+            "ignition_min_power_percent",
+            "ignition_full_power_delta_degC",
+            "ignition_min_power_delta_degC",
+            "ignition_target_rate_k_per_min",
+            "ignition_rate_band_k_per_min",
+            "ignition_rate_gain_percent_per_k_per_min",
+            "ignition_rate_max_boost_percent",
         ):
             if field in data:
                 setattr(self._config, field, float(data[field]))
@@ -367,4 +586,3 @@ class PowerModule(ModuleInterface):
         data = asdict(self._config)
         with self._config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, sort_keys=True, allow_unicode=True)
-
