@@ -127,3 +127,16 @@ fields:
       Szerokość pasma tolerancji wokół docelowego tempa nagrzewania. Dla tempa
       poniżej (target - band) moc z dT/dt jest maksymalna, dla tempa powyżej
       (target + band) minimalna. W środku moc zmienia się płynnie (liniowo).
+
+  - key: max_slew_rate_percent_per_min
+    label: "Maksymalna zmiana mocy"
+    type: number
+    unit: "pkt%/min"
+    min: 0
+    max: 50
+    step: 0.5
+    default: 5.0
+    group: basic
+    description: >
+      Maksymalna dopuszczalna zmiana mocy w trybie rozpalania (w punktach procentowych na minutę).
+      Np. 5 oznacza, że moc nie zmieni się szybciej niż o 5 pkt% w ciągu minuty.

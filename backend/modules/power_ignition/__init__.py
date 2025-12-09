@@ -30,6 +30,9 @@ class IgnitionPowerConfig:
 
     Ograniczenia:
       min_power, max_power   – ograniczenia mocy [%] (globalne dla tego modułu)
+      max_slew_rate_percent_per_min
+                             – maksymalna zmiana mocy [pkt%] na minutę
+                               (np. 5.0 -> max ~5%/min, ok. 0.083%/s)
 
     IGNITION – hybryda dwóch algorytmów:
 
@@ -51,17 +54,20 @@ class IgnitionPowerConfig:
       W trybie IGNITION liczymy:
         power_delta = f(ΔT)
         power_rate  = f(dT/dt)
-        power_ign   = max(power_delta, power_rate)
-
-      W innych trybach moduł NIE ustawia power_percent – zostawiasz to
-      innym modułom (np. WorkPowerModule).
+        raw_power   = max(power_delta, power_rate)
+        power_ign   = raw_power ograniczone:
+                      - do [min_power, max_power]
+                      - oraz tempem max_slew_rate_percent_per_min
     """
 
     boiler_set_temp: float = 65.0
 
     # ograniczenia dla mocy z tego modułu
-    min_power: float = 0.0
+    min_power: float = 10.0
     max_power: float = 100.0
+
+    # limit szybkości zmian mocy
+    max_slew_rate_percent_per_min: float = 5.0  # max zmiana 5 pkt% na minutę
 
     # część ΔT
     ignition_high_power_percent: float = 100.0      # pełna moc przy dużym ΔT
@@ -79,13 +85,15 @@ class IgnitionPowerModule(ModuleInterface):
     Moduł wyliczający "power" (moc kotła) w % w trybie IGNITION.
 
     - Działa TYLKO gdy SystemState.mode == BoilerMode.IGNITION.
-    - W innych trybach NIE ustawia outputs.power_percent (zwraca "puste" Outputs),
-      żeby inny moduł (np. WorkPowerModule) mógł sterować mocą.
+    - W innych trybach NIE ustawia outputs.power_percent.
 
     Algorytm:
       - liczymy moc z ΔT (odległość od zadanej),
       - liczymy moc z dT/dt (tempo nagrzewania, wygładzone EMA),
-      - bierzemy max(power_delta, power_rate).
+      - bierzemy raw_power = max(power_delta, power_rate),
+      - ograniczamy:
+          * do [min_power, max_power]
+          * tempem max_slew_rate_percent_per_min (max ~5 pkt%/min).
     """
 
     def __init__(
@@ -111,6 +119,9 @@ class IgnitionPowerModule(ModuleInterface):
         self._ign_last_temp: Optional[float] = None
         self._ign_last_ts: Optional[float] = None
         self._ign_rate_ema: Optional[float] = None
+
+        # stan dla limitu zmian mocy
+        self._last_power_ts: Optional[float] = None
 
     # --- ModuleInterface ---
 
@@ -147,15 +158,15 @@ class IgnitionPowerModule(ModuleInterface):
                 )
             )
 
-            # przy wejściu / wyjściu z IGNITION resetujemy stan dT/dt
+            # przy wejściu / wyjściu z IGNITION resetujemy stan dT/dt i limiter
             if in_ignition:
                 self._ign_last_ts = None
                 self._ign_last_temp = None
                 self._ign_rate_ema = None
+                self._last_power_ts = None
 
         if not in_ignition:
             # W innych trybach ten moduł NIC nie robi z power_percent.
-            # Zwracamy Outputs bez ustawiania power_percent.
             self._last_mode_ignition = in_ignition
 
             status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
@@ -165,17 +176,43 @@ class IgnitionPowerModule(ModuleInterface):
                 status=status,
             )
 
-        # --- Tryb IGNITION – liczymy moc ---
+        # --- Tryb IGNITION – liczymy moc "surową" ---
 
         power_delta = self._ignition_power_from_delta(boiler_temp)
         power_rate = self._ignition_power_from_rate(now, boiler_temp)
 
-        power = max(power_delta, power_rate)
+        raw_power = max(power_delta, power_rate)
 
         # globalne ograniczenia dla modułu
-        power = max(self._config.min_power, min(power, self._config.max_power))
+        raw_power = max(self._config.min_power, min(raw_power, self._config.max_power))
 
-        self._power = power
+        # --- OGRANICZENIE SZYBKOŚCI ZMIAN MOCY (SLEW RATE) ---
+
+        limited_power = raw_power
+
+        if self._last_power_ts is not None and prev_in_ignition:
+            dt = now - self._last_power_ts
+            if dt > 0:
+                max_slew_per_min = max(self._config.max_slew_rate_percent_per_min, 0.0)
+                max_delta = max_slew_per_min * dt / 60.0  # pkt% dozwolone w tym kroku
+
+                delta = raw_power - prev_power
+                if delta > max_delta:
+                    limited_power = prev_power + max_delta
+                elif delta < -max_delta:
+                    limited_power = prev_power - max_delta
+                else:
+                    limited_power = raw_power
+        else:
+            # pierwszy krok po wejściu w IGNITION – bez limitu,
+            # żeby kocioł mógł od razu wskoczyć na sensowną moc
+            limited_power = raw_power
+
+        # jeszcze raz upewniamy się, że w zakresie min/max
+        limited_power = max(self._config.min_power, min(limited_power, self._config.max_power))
+
+        self._power = limited_power
+        self._last_power_ts = now
 
         if abs(self._power - prev_power) >= 5.0:
             events.append(
@@ -197,6 +234,7 @@ class IgnitionPowerModule(ModuleInterface):
                         "boiler_set_temp": self._config.boiler_set_temp,
                         "power_delta": power_delta,
                         "power_rate": power_rate,
+                        "raw_power": raw_power,
                     },
                 )
             )
@@ -252,9 +290,8 @@ class IgnitionPowerModule(ModuleInterface):
         - jeśli rate >= (target + band)  -> bardzo szybko, zwracamy min_ign,
         - w środku: płynna interpolacja high_p -> min_ign.
 
-        UWAGA: ta funkcja ZAWSZE zwraca własną moc; później bierzemy
-        max(power_delta, power_rate), więc dT/dt nigdy nie obniża mocy
-        poniżej tego, co wynika z ΔT – tylko może "domagać się" większej.
+        Później bierzemy max(power_delta, power_rate), więc dT/dt nigdy
+        nie obniża mocy poniżej tego, co wynika z ΔT.
         """
 
         high_p = self._config.ignition_high_power_percent
@@ -336,19 +373,32 @@ class IgnitionPowerModule(ModuleInterface):
         if "max_power" in values:
             self._config.max_power = float(values["max_power"])
 
+        if "max_slew_rate_percent_per_min" in values:
+            self._config.max_slew_rate_percent_per_min = float(
+                values["max_slew_rate_percent_per_min"]
+            )
+
         if "ignition_high_power_percent" in values:
             self._config.ignition_high_power_percent = float(values["ignition_high_power_percent"])
         if "ignition_min_power_percent" in values:
             self._config.ignition_min_power_percent = float(values["ignition_min_power_percent"])
         if "ignition_full_power_delta_degC" in values:
-            self._config.ignition_full_power_delta_degC = float(values["ignition_full_power_delta_degC"])
+            self._config.ignition_full_power_delta_degC = float(
+                values["ignition_full_power_delta_degC"]
+            )
         if "ignition_min_power_delta_degC" in values:
-            self._config.ignition_min_power_delta_degC = float(values["ignition_min_power_delta_degC"])
+            self._config.ignition_min_power_delta_degC = float(
+                values["ignition_min_power_delta_degC"]
+            )
 
         if "ignition_target_rate_k_per_min" in values:
-            self._config.ignition_target_rate_k_per_min = float(values["ignition_target_rate_k_per_min"])
+            self._config.ignition_target_rate_k_per_min = float(
+                values["ignition_target_rate_k_per_min"]
+            )
         if "ignition_rate_band_k_per_min" in values:
-            self._config.ignition_rate_band_k_per_min = float(values["ignition_rate_band_k_per_min"])
+            self._config.ignition_rate_band_k_per_min = float(
+                values["ignition_rate_band_k_per_min"]
+            )
 
         if persist:
             self._save_config_to_file()
@@ -367,6 +417,7 @@ class IgnitionPowerModule(ModuleInterface):
             "boiler_set_temp",
             "min_power",
             "max_power",
+            "max_slew_rate_percent_per_min",
             "ignition_high_power_percent",
             "ignition_min_power_percent",
             "ignition_full_power_delta_degC",
