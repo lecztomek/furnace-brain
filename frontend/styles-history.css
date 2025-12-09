@@ -880,3 +880,220 @@ body {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
 }
+
+/* === Historia – nawigacja oknem czasu (◀ [od–do] ▶) === */
+
+.history-window-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  margin-right: 8px;
+}
+
+.history-window-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 4px;
+  cursor: pointer;
+  font-size: 24px;          /* duże strzałki pod palucha */
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #e5e7eb;
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+.history-window-btn:hover {
+  transform: scale(1.15);
+  opacity: 0.9;
+}
+
+.history-window-btn:active {
+  transform: scale(0.9);
+}
+
+.history-window-label {
+  font-size: 13px;
+  color: #e5e7eb;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .history-window-label {
+    font-size: 12px;
+  }
+}
+
+/* Refesh – sama ikonka strzałek, bez kwadratu */
+
+.history-refresh-group {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.history-refresh-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 6px;
+  cursor: pointer;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+}
+
+.history-refresh-icon {
+  width: 30px;
+  height: 30px;
+  stroke: #f9fafb;
+  stroke-width: 2;
+  fill: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.history-refresh-btn:hover .history-refresh-icon {
+  transform: scale(1.08) rotate(10deg);
+  opacity: 0.9;
+}
+
+.history-refresh-btn:active .history-refresh-icon {
+  transform: scale(0.95) rotate(-6deg);
+}
+
+.history-refresh-btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* === Historia – niebieskie strzałki w kółkach === */
+
+.history-window-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 12px;
+  margin-right: 8px;
+}
+
+.history-window-btn {
+  border-radius: 9999px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #3b82f6;
+  background: radial-gradient(circle at 30% 30%, #60a5fa, #1d4ed8);
+  color: #f9fafb;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.6);
+  transition: transform 0.08s ease, box-shadow 0.12s ease,
+    filter 0.12s ease;
+  touch-action: manipulation;
+}
+
+.history-window-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.8);
+  filter: brightness(1.05);
+}
+
+.history-window-btn:active {
+  transform: translateY(1px) scale(0.96);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.7);
+}
+
+.history-window-btn:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.history-window-label {
+  font-size: 13px;
+  color: #e5e7eb;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+@media (max-width: 700px) {
+  .history-window-label {
+    font-size: 12px;
+  }
+}
+
+/* === Historia – pasek zakresu czasu nad wykresem === */
+
+.history-window-bar {
+  margin: 6px 0 6px 0;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+
+/* duża, czytelna labelka: DD.MM HH:MM – DD.MM HH:MM */
+.history-window-label {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: #f9fafb;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .history-window-label {
+    font-size: 16px;
+  }
+}
+
+/* Strzałki – eleganckie, ciemne, bez jarmarcznego niebieskiego */
+.history-window-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  border: 1px solid rgba(148, 163, 184, 0.9);
+  background: rgba(15, 23, 42, 0.96); /* ciemny, spójny z resztą UI */
+  color: #e5e7eb;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: transform 0.08s ease, box-shadow 0.12s ease,
+    background 0.12s ease, border-color 0.12s ease;
+  touch-action: manipulation;
+}
+
+.history-window-btn:hover {
+  background: rgba(31, 41, 55, 0.98);
+  border-color: #9ca3af;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.85);
+  transform: translateY(-1px);
+}
+
+.history-window-btn:active {
+  transform: translateY(1px) scale(0.95);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.9);
+}
+
+.history-window-btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}

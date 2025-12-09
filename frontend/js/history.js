@@ -33,6 +33,8 @@
 
   let historyChart = null;
   let availableFields = [];
+  let currentFrom = null;  // Date
+  let currentTo = null;    // Date
 
   function setStatus(text) {
     const el = document.getElementById("status-text");
@@ -51,6 +53,61 @@
     const second = pad(date.getSeconds());
 
     return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+  }
+
+	function formatDateTimeLabel(date) {
+	  const pad = (n) => String(n).padStart(2, "0");
+	  const d = pad(date.getDate());
+	  const m = pad(date.getMonth() + 1);
+	  const h = pad(date.getHours());
+	  const min = pad(date.getMinutes());
+	  // bez roku – i tak się nie przewijamy na lata wstecz
+	  return `${d}.${m} ${h}:${min}`;
+	}
+
+
+  function updateWindowLabel() {
+    const labelEl = document.getElementById("history-window-label");
+    if (!labelEl) return;
+
+    if (!currentFrom || !currentTo) {
+      labelEl.textContent = "brak zakresu";
+      return;
+    }
+
+    const fromStr = formatDateTimeLabel(currentFrom);
+    const toStr = formatDateTimeLabel(currentTo);
+    labelEl.textContent = `${fromStr} – ${toStr}`;
+  }
+
+  function setInitialWindow(rangeHours) {
+    const now = new Date();
+    currentTo = now;
+    currentFrom = new Date(now.getTime() - rangeHours * 3600 * 1000);
+    updateWindowLabel();
+  }
+
+  function shiftWindow(direction) {
+    const hours = getCurrentRangeHours();
+    if (!currentFrom || !currentTo) {
+      setInitialWindow(hours);
+      return;
+    }
+    const deltaMs = direction * hours * 3600 * 1000;
+    let newFrom = new Date(currentFrom.getTime() + deltaMs);
+    let newTo = new Date(currentTo.getTime() + deltaMs);
+    const now = new Date();
+
+    // nie wychodzimy w przyszłość
+    if (newTo > now) {
+      const diff = newTo.getTime() - now.getTime();
+      newTo = now;
+      newFrom = new Date(newFrom.getTime() - diff);
+    }
+
+    currentFrom = newFrom;
+    currentTo = newTo;
+    updateWindowLabel();
   }
 
   async function fetchFields() {
@@ -123,10 +180,9 @@
     );
   }
 
-  async function fetchHistoryData(rangeHours) {
-    const now = new Date();
-    const to = isoNoMs(now);
-    const from = isoNoMs(new Date(now.getTime() - rangeHours * 3600 * 1000));
+  async function fetchHistoryData(fromDate, toDate) {
+    const from = isoNoMs(fromDate);
+    const to = isoNoMs(toDate);
 
     const fields = getSelectedFields();
     const params = new URLSearchParams({
@@ -309,15 +365,22 @@
     });
   }
 
-  async function reloadHistory(rangeHours) {
+  async function reloadHistoryWithCurrentWindow() {
     try {
+      if (!currentFrom || !currentTo) {
+        setInitialWindow(getCurrentRangeHours());
+      }
+      updateWindowLabel();
       setStatus("Ładowanie danych historii...");
-      const items = await fetchHistoryData(rangeHours);
+
+      const items = await fetchHistoryData(currentFrom, currentTo);
       if (!items.length) {
         setStatus("Brak danych w wybranym zakresie.");
       } else {
         setStatus(
-          `Załadowano ${items.length} punktów (zakres ${rangeHours} h).`
+          `Załadowano ${items.length} punktów (${formatDateTimeLabel(
+            currentFrom
+          )} – ${formatDateTimeLabel(currentTo)}).`
         );
       }
       renderChart(items);
@@ -338,7 +401,17 @@
         buttons.forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         const hours = Number(btn.getAttribute("data-range-hours") || "6");
-        reloadHistory(hours);
+
+        // zmieniamy szerokość okna, prawy koniec zostaje gdzie był (albo teraz)
+        const now = new Date();
+        if (!currentTo) {
+          currentTo = now;
+        }
+        currentFrom = new Date(
+          currentTo.getTime() - hours * 3600 * 1000
+        );
+        updateWindowLabel();
+        reloadHistoryWithCurrentWindow();
       });
     });
   }
@@ -347,8 +420,7 @@
     const container = document.getElementById("history-series-container");
     if (!container) return;
     container.addEventListener("change", () => {
-      const hours = getCurrentRangeHours();
-      reloadHistory(hours);
+      reloadHistoryWithCurrentWindow();
     });
   }
 
@@ -357,33 +429,49 @@
     if (!btn) return;
 
     btn.addEventListener("click", () => {
-      const hours = getCurrentRangeHours();
-      reloadHistory(hours);
+      // przy odświeżeniu trzymamy bieżący zakres (from/to)
+      reloadHistoryWithCurrentWindow();
     });
+  }
+
+  function initWindowButtons() {
+    const leftBtn = document.querySelector(
+      '.history-window-btn[data-dir="-1"]'
+    );
+    const rightBtn = document.querySelector(
+      '.history-window-btn[data-dir="1"]'
+    );
+
+    if (leftBtn) {
+      leftBtn.addEventListener("click", () => {
+        shiftWindow(-1);
+        reloadHistoryWithCurrentWindow();
+      });
+    }
+
+    if (rightBtn) {
+      rightBtn.addEventListener("click", () => {
+        shiftWindow(1);
+        reloadHistoryWithCurrentWindow();
+      });
+    }
   }
 
   async function initHistoryView() {
     try {
       setStatus("Inicjalizacja widoku historii...");
       initRangeButtons();
+      initWindowButtons();
       initRefreshButton();
 
       const fields = await fetchFields();
       buildSeriesCheckboxes(fields);
       initSeriesChangeHandler();
 
-      // Ustawiamy domyślnie zakres 6h
-      const defaultBtn = document.querySelector(
-        `.history-range-btn[data-range-hours="${DEFAULT_RANGE_HOURS}"]`
-      );
-      if (defaultBtn) {
-        document
-          .querySelectorAll(".history-range-btn")
-          .forEach((b) => b.classList.remove("active"));
-        defaultBtn.classList.add("active");
-      }
+      // Ustawiamy domyślnie zakres 6h (prawe okno = teraz)
+      setInitialWindow(DEFAULT_RANGE_HOURS);
 
-      await reloadHistory(DEFAULT_RANGE_HOURS);
+      await reloadHistoryWithCurrentWindow();
     } catch (err) {
       console.error(err);
       setStatus(

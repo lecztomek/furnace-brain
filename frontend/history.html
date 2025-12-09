@@ -37,7 +37,7 @@
 					24 h
 				  </button>
 				</div>
-
+	
 				<div class="history-toolbar-group history-refresh-group">
 				  <button
 					type="button"
@@ -69,7 +69,30 @@
 			  </div>
 			</div>
 
+			<div class="history-window-bar">
+			  <button
+				type="button"
+				class="history-window-btn"
+				data-dir="-1"
+				title="Przesuń zakres wstecz"
+			  >
+				◀
+			  </button>
 
+			  <span id="history-window-label" class="history-window-label">
+				--.-- --:-- – --.-- --:--
+			  </span>
+
+			  <button
+				type="button"
+				class="history-window-btn"
+				data-dir="1"
+				title="Przesuń zakres w przód"
+			  >
+				▶
+			  </button>
+			</div>
+			
               <!-- ŚRODEK: WYKRES -->
               <div class="history-chart-wrapper">
                 <canvas id="history-chart"></canvas>
