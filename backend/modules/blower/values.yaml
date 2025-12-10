@@ -1,7 +1,7 @@
 base_fan_percent: 45.0
 cycle_time_s: 30.0
-flue_control_enabled: true
-flue_correction_max: 30.0
+flue_control_enabled: false
+flue_correction_max: 20.0
 flue_ignition_max_temp: 200.0
 flue_kp: 0.3
 flue_opt_temp: 120.0
