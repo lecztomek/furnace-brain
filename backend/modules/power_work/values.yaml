@@ -1,8 +1,8 @@
 boiler_set_temp: 55.0
-integral_window_s: 300.0
+integral_window_s: 600.0
 kd: 0.0
-ki: 0.02
-kp: 8.0
+ki: 0.045
+kp: 10.0
 max_power: 100.0
 min_power: 15.0
 overtemp_kp: 10.0

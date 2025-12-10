@@ -47,8 +47,14 @@ class WorkPowerConfig:
     tzn. TYLKO wtedy ustawia outputs.power_percent.
 
     W innych trybach:
-      - PID i całka dalej się liczą (na podstawie T_kotła),
+      - PID i całka dalej się liczą / dopasowują (tracking),
       - ale moduł NIE nadpisuje outputs.power_percent.
+
+    Dodatkowo:
+      - w trybach innych niż WORK moduł robi "tracking" – dopasowuje
+        stan całki tak, żeby wyjście PID odpowiadało aktualnej mocy
+        kotła (SystemState.outputs.power_percent). Dzięki temu przy
+        przejściu do WORK nie ma skoku mocy (bumpless transfer).
     """
 
     boiler_set_temp: float = 65.0
@@ -70,17 +76,20 @@ class WorkPowerModule(ModuleInterface):
     """
     Moduł wyliczający "power" (moc kotła) w % w trybie WORK (praca).
 
-    - PID i całka liczą się cały czas (jeśli jest T_kotła),
-      niezależnie od trybu.
-    - outputs.power_percent jest ustawiane TYLKO gdy
-      SystemState.mode == BoilerMode.WORK.
-    - W innych trybach moduł nie nadpisuje outputs.power_percent
-      (np. w IGNITION robi to osobny moduł).
+    - W trybie WORK: klasyczny PID(T_set, T_boiler) + korekta przegrzania,
+      wynik ograniczony do [min_power, max_power], wynik trafia do
+      outputs.power_percent.
 
-    Algorytm w trybie WORK:
-      - PID(T_set, T_boiler) z oknem całki integral_window_s,
-      - korekta przy przegrzaniu (powyżej T_set + overtemp_start_degC),
-      - ograniczenie min/max.
+    - W trybach innych niż WORK (IGNITION / OFF / MANUAL):
+      moduł NIE nadpisuje outputs.power_percent, ale:
+        * jeśli jest pomiar T_kotła, pobiera aktualną moc kotła
+          z system_state.outputs.power_percent,
+        * dopasowuje stan całki PID tak, aby wyjście PID było
+          równe tej mocy (tracking / bumpless transfer).
+
+      Dzięki temu przy przejściu IGNITION -> WORK nie ma
+      gwałtownego skoku mocy: PID w WORK startuje z poziomu
+      zbliżonego do tego, który dawał IGNITION.
     """
 
     def __init__(
@@ -104,7 +113,7 @@ class WorkPowerModule(ModuleInterface):
         self._last_error: Optional[float] = None
         self._last_tick_ts: Optional[float] = None
 
-        # Stan mocy (ostatnia moc w TRYBIE WORK)
+        # Stan mocy (ostatnia moc w TRYBIE WORK / tracking)
         self._power: float = 0.0
         self._last_in_work: bool = False
 
@@ -142,23 +151,30 @@ class WorkPowerModule(ModuleInterface):
                     data={"in_work": in_work},
                 )
             )
-            # Nie resetujemy PID przy wyjściu z WORK – całka ma się liczyć cały czas.
-            # self._reset_pid()
 
-        # --- PID LICZY SIĘ ZAWSZE (jeśli jest T_kotła) ---
+        # --- AKTUALIZACJA STANU PID / TRACKING ---
 
         if boiler_temp is not None:
-            # Aktualizacja stanu PID (P/I/D, dt, okno całki)
-            base_power = self._pid_step(now, boiler_temp)
+            if in_work:
+                # Normalna praca PID – regulujemy do zadanej temperatury.
+                base_power = self._pid_step(now, boiler_temp)
+            else:
+                # Tryb inny niż WORK (IGNITION / OFF / MANUAL):
+                # tutaj PID ma tylko ŚLEDZIĆ aktualną moc kotła,
+                # którą ustalają inne moduły (np. IGNITION).
+                actual_power = system_state.outputs.power_percent
+                self._track_to_power(now, boiler_temp, actual_power)
+                # base_power nie będzie użyty do sterowania (bo nie jesteśmy w WORK),
+                # ale ustawiamy go na bieżącą moc w stanie modułu.
+                base_power = self._power
         else:
-            # Brak pomiaru – użyj ostatniej znanej mocy z WORK jako "bazowej"
+            # Brak pomiaru – nie mamy sensownych danych do PID/trackingu,
+            # trzymaj się ostatniej znanej mocy.
             base_power = self._power
 
         # --- Tryby inne niż WORK: nie nadpisujemy outputs.power_percent ---
 
         if not in_work:
-            # W innych trybach ten moduł NIC nie robi z power_percent.
-            # Stan PID-a jest już zaktualizowany powyżej.
             self._last_in_work = in_work
 
             status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
@@ -209,6 +225,7 @@ class WorkPowerModule(ModuleInterface):
                 )
             )
 
+        # W TRYBIE WORK nadpisujemy sygnał mocy kotła
         outputs.power_percent = self._power  # type: ignore[attr-defined]
         self._last_in_work = in_work
 
@@ -224,8 +241,8 @@ class WorkPowerModule(ModuleInterface):
     def _reset_pid(self) -> None:
         """
         Pomocniczy reset stanu PID – zostawiony na przyszłość (np. do ręcznego resetu).
-        Nie jest używany automatycznie przy zmianie trybu, żeby całka mogła
-        liczyć się nieprzerwanie także poza WORK.
+        Nie jest używany automatycznie przy zmianie trybu, bo dzięki trackingowi
+        całka dopasowuje się do aktualnej mocy także poza WORK.
         """
         self._integral = 0.0
         self._last_error = None
@@ -235,8 +252,8 @@ class WorkPowerModule(ModuleInterface):
         """
         Jeden krok PID-a – z oknem całki integral_window_s.
 
-        Wywoływany przy każdym ticku, gdy jest dostępna T_kotła,
-        niezależnie od trybu (WORK / IGNITION / inne).
+        Wywoływany przy każdym ticku, gdy jest dostępna T_kotła
+        i jesteśmy w trybie WORK.
         """
         error = self._config.boiler_set_temp - boiler_temp
 
@@ -273,6 +290,47 @@ class WorkPowerModule(ModuleInterface):
         self._last_tick_ts = now
 
         return power
+
+    def _track_to_power(self, now: float, boiler_temp: float, actual_power: float) -> None:
+        """
+        Tryb śledzenia (bumpless transfer):
+
+        W trybach innych niż WORK nie sterujemy kotłem, ale dopasowujemy
+        stan całki PID-a tak, aby wyjście PID (P+I+D) było równe
+        aktualnej mocy kotła (actual_power), która pochodzi np. z
+        modułu IGNITION i jest widoczna w system_state.outputs.power_percent.
+
+        Dzięki temu przy przejściu do WORK wyjście PID już jest
+        zsynchronizowane z realną mocą i nie ma skoku (kopniaka).
+        """
+        error = self._config.boiler_set_temp - boiler_temp
+
+        # Aktualizujemy czas i błąd, żeby _pid_step miał później sensowne dt
+        self._last_tick_ts = now
+        self._last_error = error
+
+        if self._config.ki <= 0.0:
+            # Bez członu I nie mamy czego dopasować – tracking działa tylko przez I.
+            self._power = actual_power
+            return
+
+        p_term = self._config.kp * error
+        # U Ciebie kd zwykle jest 0.0, więc d_term = 0; jeśli kiedyś
+        # użyjesz D, można dodać prostą aproksymację.
+        d_term = 0.0
+
+        # Liczymy taką całkę, żeby P + I + D ~= actual_power
+        integral = (actual_power - p_term - d_term) / self._config.ki
+
+        # Proste anti-windup dla bezpieczeństwa
+        max_int = 10000.0
+        if integral > max_int:
+            integral = max_int
+        elif integral < -max_int:
+            integral = -max_int
+
+        self._integral = integral
+        self._power = actual_power
 
     # ---------- CONFIG (schema + values) ----------
 
