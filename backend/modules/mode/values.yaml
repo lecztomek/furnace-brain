@@ -1,3 +1,3 @@
 auto_switch_ignition_to_work: true
 min_ignition_time_s: 300.0
-switch_temp: 57.0
+switch_temp: 56.0

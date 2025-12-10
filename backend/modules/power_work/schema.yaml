@@ -42,6 +42,20 @@ fields:
     group: basic
     description: "Górne ograniczenie wyliczonej mocy. Ustaw poniżej 100%, jeśli chcesz sztucznie „przydusić” kocioł."
 
+  - key: max_slew_rate_percent_per_min
+    label: "Maksymalna zmiana mocy na minutę"
+    type: number
+    unit: "pkt%/min"
+    min: 0
+    max: 100
+    step: 0.5
+    default: 0
+    group: basic
+    description: >
+      Maksymalna dopuszczalna zmiana mocy między kolejnymi krokami,
+      przeliczona na punkty procentowe na minutę. Wartość 0 wyłącza
+      ograniczenie (regulator może zmieniać moc dowolnie szybko).
+
   - key: kp
     label: "Kp (proporcjonalne)"
     type: number

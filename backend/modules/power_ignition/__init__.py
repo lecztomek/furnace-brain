@@ -60,7 +60,7 @@ class IgnitionPowerConfig:
                       - oraz tempem max_slew_rate_percent_per_min
     """
 
-    boiler_set_temp: float = 55.0
+    boiler_set_temp: float = 54.0
 
     # ograniczenia dla mocy z tego modułu
     min_power: float = 10.0

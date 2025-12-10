@@ -43,6 +43,11 @@ class WorkPowerConfig:
       overtemp_kp            – ile punktów procentowych mocy odejmujemy
                                za każdy °C powyżej progu przegrzania.
 
+    Ograniczenie szybkości zmian mocy:
+      max_slew_rate_percent_per_min
+                             – maksymalna zmiana mocy [pkt%] na minutę
+                               (0.0 wyłącza ograniczenie).
+
     Działa TYLKO gdy SystemState.mode == BoilerMode.WORK,
     tzn. TYLKO wtedy ustawia outputs.power_percent.
 
@@ -71,13 +76,17 @@ class WorkPowerConfig:
     overtemp_start_degC: float = 3.0
     overtemp_kp: float = 10.0
 
+    # nowy parametr – limiter szybkości zmian mocy w WORK
+    max_slew_rate_percent_per_min: float = 0.0  # 0.0 = wyłączony
+
 
 class WorkPowerModule(ModuleInterface):
     """
     Moduł wyliczający "power" (moc kotła) w % w trybie WORK (praca).
 
     - W trybie WORK: klasyczny PID(T_set, T_boiler) + korekta przegrzania,
-      wynik ograniczony do [min_power, max_power], wynik trafia do
+      wynik ograniczony do [min_power, max_power], dodatkowo ograniczony
+      tempem zmian (max_slew_rate_percent_per_min), wynik trafia do
       outputs.power_percent.
 
     - W trybach innych niż WORK (IGNITION / OFF / MANUAL):
@@ -117,6 +126,9 @@ class WorkPowerModule(ModuleInterface):
         self._power: float = 0.0
         self._last_in_work: bool = False
 
+        # Stan dla limitu zmian mocy (slew rate)
+        self._last_power_ts: Optional[float] = None
+
     # --- ModuleInterface ---
 
     @property
@@ -152,6 +164,11 @@ class WorkPowerModule(ModuleInterface):
                 )
             )
 
+        # Przy wejściu w WORK – pierwszy krok bez limitu slew rate,
+        # więc zerujemy znacznik czasu dla mocy.
+        if not prev_in_work and in_work:
+            self._last_power_ts = None
+
         # --- AKTUALIZACJA STANU PID / TRACKING ---
 
         if boiler_temp is not None:
@@ -184,7 +201,7 @@ class WorkPowerModule(ModuleInterface):
                 status=status,
             )
 
-        # --- Tryb WORK – PID + przegrzanie + ograniczenia ---
+        # --- Tryb WORK – PID + przegrzanie + ograniczenia + limiter zmian mocy ---
 
         power = base_power
 
@@ -200,7 +217,37 @@ class WorkPowerModule(ModuleInterface):
 
         # Ograniczenia min/max
         power = max(self._config.min_power, min(power, self._config.max_power))
-        self._power = power
+
+        # --- OGRANICZENIE SZYBKOŚCI ZMIANY MOCY (SLEW RATE) W TRYBIE WORK ---
+
+        limited_power = power
+        max_slew_per_min = max(self._config.max_slew_rate_percent_per_min, 0.0)
+
+        if (
+            max_slew_per_min > 0.0
+            and self._last_power_ts is not None
+            and prev_in_work
+        ):
+            dt = now - self._last_power_ts
+            if dt > 0:
+                max_delta = max_slew_per_min * dt / 60.0  # pkt% dozwolone w tym kroku
+                delta = power - prev_power
+
+                if delta > max_delta:
+                    limited_power = prev_power + max_delta
+                elif delta < -max_delta:
+                    limited_power = prev_power - max_delta
+                else:
+                    limited_power = power
+        else:
+            # Pierwszy krok po wejściu w WORK (albo limiter wyłączony) – bez ograniczenia.
+            limited_power = power
+
+        # Jeszcze raz upewniamy się, że w zakresie min/max
+        limited_power = max(self._config.min_power, min(limited_power, self._config.max_power))
+
+        self._power = limited_power
+        self._last_power_ts = now
 
         # Logowanie większych zmian mocy
         if abs(self._power - prev_power) >= 5.0:
@@ -367,6 +414,11 @@ class WorkPowerModule(ModuleInterface):
         if "overtemp_kp" in values:
             self._config.overtemp_kp = float(values["overtemp_kp"])
 
+        if "max_slew_rate_percent_per_min" in values:
+            self._config.max_slew_rate_percent_per_min = float(
+                values["max_slew_rate_percent_per_min"]
+            )
+
         if persist:
             self._save_config_to_file()
 
@@ -390,6 +442,7 @@ class WorkPowerModule(ModuleInterface):
             "max_power",
             "overtemp_start_degC",
             "overtemp_kp",
+            "max_slew_rate_percent_per_min",
         ):
             if field in data:
                 setattr(self._config, field, float(data[field]))

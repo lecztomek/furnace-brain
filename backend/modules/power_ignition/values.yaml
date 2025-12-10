@@ -1,4 +1,4 @@
-boiler_set_temp: 57.0
+boiler_set_temp: 56.0
 ignition_full_power_delta_degC: 6.0
 ignition_high_power_percent: 100.0
 ignition_min_power_delta_degC: 3.0
