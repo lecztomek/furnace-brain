@@ -15,6 +15,7 @@ from backend.core.state import (
     Outputs,
     Sensors,
     SystemState,
+	PartialOutputs
 )
 
 
@@ -62,7 +63,7 @@ class WorkPowerConfig:
         przejściu do WORK nie ma skoku mocy (bumpless transfer).
     """
 
-    boiler_set_temp: float = 65.0
+    boiler_set_temp: float = 55.0
 
     kp: float = 2.0
     ki: float = 0.01
@@ -142,7 +143,7 @@ class WorkPowerModule(ModuleInterface):
         system_state: SystemState,
     ) -> ModuleTickResult:
         events: List[Event] = []
-        outputs = Outputs()
+        outputs = PartialOutputs()
 
         boiler_temp = sensors.boiler_temp
         mode_enum = system_state.mode
@@ -176,18 +177,21 @@ class WorkPowerModule(ModuleInterface):
                 # Normalna praca PID – regulujemy do zadanej temperatury.
                 base_power = self._pid_step(now, boiler_temp)
             else:
-                # Tryb inny niż WORK (IGNITION / OFF / MANUAL):
-                # tutaj PID ma tylko ŚLEDZIĆ aktualną moc kotła,
-                # którą ustalają inne moduły (np. IGNITION).
-                actual_power = system_state.outputs.power_percent
-                self._track_to_power(now, boiler_temp, actual_power)
-                # base_power nie będzie użyty do sterowania (bo nie jesteśmy w WORK),
-                # ale ustawiamy go na bieżącą moc w stanie modułu.
+                # Poza WORK: NIE trackuj do outputs.power_percent w OFF/MANUAL,
+                # bo OFF zwykle ustawia power_percent=0 i to "zeruje" całkę.
+                if system_state.mode == BoilerMode.IGNITION:
+                    actual_power = system_state.outputs.power_percent
+                    self._track_to_power(now, boiler_temp, actual_power)
+                else:
+                    # OFF/MANUAL: tylko licz PID żeby stan się aktualizował, ale nic nie wymuszaj
+                    self._pid_step(now, boiler_temp)
+        
                 base_power = self._power
         else:
             # Brak pomiaru – nie mamy sensownych danych do PID/trackingu,
             # trzymaj się ostatniej znanej mocy.
             base_power = self._power
+
 
         # --- Tryby inne niż WORK: nie nadpisujemy outputs.power_percent ---
 

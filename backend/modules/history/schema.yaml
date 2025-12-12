@@ -10,6 +10,7 @@ fields:
   - key: log_dir
     label: "Katalog z historią"
     type: text
+    options: ["data"]
     default: "data"
     group: basic
     description: >
@@ -32,6 +33,7 @@ fields:
     label: "Prefiks plików CSV"
     type: text
     default: "boiler"
+    options: ["boiler"]
     group: basic
     description: >
       Prefiks nazwy pliku CSV. Końcowa nazwa ma postać:

@@ -1,0 +1,496 @@
+/* Reset / baza */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #1f2933;
+  color: #f9fafb;
+  overflow: hidden; /* pod kiosk */
+}
+
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* GÓRNY PASEK */
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: #253243;
+  border-bottom: 1px solid #3b4254;
+  font-size: 14px;
+}
+
+.app-title {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.app-subtitle {
+  font-size: 12px;
+  color: #d1d5db;
+}
+
+#clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* GŁÓWNY GRID */
+
+.layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 210px; /* szersza prawa kolumna */
+  gap: 8px;
+  padding: 8px 8px 4px;
+
+  min-height: 0;
+}
+
+/* DIAGRAM – LEWA CZĘŚĆ */
+
+.diagram-wrapper {
+  display: flex;
+  align-items: flex-start;     /* już NIE centrowane */
+  justify-content: flex-start; /* już NIE centrowane */
+  background: #293545;
+  border-radius: 12px;
+  border: 1px solid #3f4b5f;
+  padding: 8px;
+
+  /* KLUCZOWE */
+  min-height: 0;     /* pozwól wnętrzu się kurczyć */
+  overflow: hidden;  /* a nadmiar zawartości niech się scrolluje wewnątrz */
+}
+
+.diagram {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Placeholder – ramka */
+.diagram.placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  border: 2px dashed #66708a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e5e7eb;
+  font-size: 14px;
+  text-align: center;
+  padding: 12px;
+}
+
+/* Wersja kontenera używana dla manual: bez dashed, spójnie jak reszta */
+.diagram.settings-container,
+.diagram.placeholder.settings-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(0, 0, 0, 0.12);
+  padding: 8px;
+
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.settings-inner {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+
+  min-height: 0;
+  overflow-y: auto;
+  gap: 8px;
+  padding: 4px;
+}
+
+/* MENU PO PRAWEJ – BEZ ZMIAN */
+
+.side-menu {
+  display: flex;
+  flex-direction: column;
+  background: #293545;
+  border-radius: 12px;
+  border: 1px solid #3f4b5f;
+  padding: 10px;
+  gap: 8px;
+}
+
+.menu-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 16px 12px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  background: #e5e7eb;
+  text-align: left;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: background 0.15s ease, transform 0.05s ease,
+    box-shadow 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.menu-btn:hover {
+  background: #d1d5db;
+}
+
+.menu-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.menu-btn.active {
+  background: #3b82f6;
+  color: #f9fafb;
+  box-shadow: 0 0 0 1px #1d4ed8;
+}
+
+.menu-btn.danger {
+  background: #ef4444;
+  color: #fef2f2;
+}
+
+.menu-btn.danger:hover {
+  background: #b91c1c;
+}
+
+.menu-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.menu-label {
+  flex: 1;
+}
+
+.menu-spacer {
+  flex: 1;
+}
+
+/* STATUS BAR – BEZ ZMIAN */
+
+.status-bar {
+  height: 28px;
+  padding: 4px 10px;
+  background: #253243;
+  border-top: 1px solid #3b4254;
+  font-size: 12px;
+  color: #e5e7eb;
+  display: flex;
+  align-items: center;
+}
+
+/* status w stopce przy błędzie */
+.status-bar #status-text.status-error {
+  color: #ff4b4b;
+}
+
+/* Małe ekrany / testy w przeglądarce */
+@media (max-width: 700px) {
+  .layout {
+    grid-template-columns: 1fr 180px;
+  }
+
+  .menu-btn {
+    font-size: 14px;
+    padding: 12px 8px;
+  }
+}
+
+/* ZEGAR BOCZNY – BEZ ZMIAN */
+.side-clock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  margin: 10px 12px 16px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+}
+
+.side-clock-time {
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+/* =========================
+   TRYB RĘCZNY – typografia jak w Twoim config view
+   ========================= */
+
+.manual-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.manual-title {
+  font-size: 18px;          /* jak menu: czytelnie, bez przesady */
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.manual-mode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.manual-mode-label {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #d1d5db;
+}
+
+.manual-hint {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #d1d5db;
+  font-size: 12px; /* jak Twoje opisy */
+  line-height: 1.25;
+}
+
+/* Fieldset */
+#manual-controls {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+#manual-controls:disabled {
+  opacity: 0.45;
+}
+
+/* Nagłówek grupy */
+.manual-section {
+  font-size: 0.8rem;
+  font-weight: 700;
+  opacity: 0.9;
+  margin: 2px 0 4px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Lista jak config-fieldy: ciasno, linie oddzielające */
+.manual-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: rgba(0, 0, 0, 0.10);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.manual-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  padding: 14px 12px; /* duże, tablet */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.manual-row:last-child {
+  border-bottom: none;
+}
+
+.row-label {
+  font-size: 1rem;          /* 16px */
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* =========================
+   SWITCH – mniejsze (żeby pasowały do reszty UI)
+   ========================= */
+.switch {
+  display: inline-flex;
+  align-items: center;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch-ui {
+  width: 68px;
+  height: 38px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  position: relative;
+  cursor: pointer;
+}
+
+.switch-ui::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  border: 2px solid rgba(0, 0, 0, 0.20);
+  transition: transform 0.14s ease;
+}
+
+.switch input:checked + .switch-ui {
+  background: rgba(59, 130, 246, 0.88);
+  border-color: rgba(29, 78, 216, 0.85);
+}
+
+.switch input:checked + .switch-ui::after {
+  transform: translateX(30px);
+}
+
+.switch input:focus-visible + .switch-ui {
+  outline: 3px solid rgba(59, 130, 246, 0.55);
+  outline-offset: 2px;
+}
+
+/* =========================
+   SUWAK DMUCHAWY – spójny typograficznie
+   ========================= */
+.slider-group {
+  width: min(520px, 55vw);
+}
+
+.slider-group input[type="range"] {
+  width: 100%;
+  height: 40px; /* touch area */
+  background: transparent;
+  margin: 0;
+}
+
+.slider-group .value {
+  min-width: 70px;
+  text-align: right;
+  font-size: 1.2rem;  /* jak config-field-value */
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* track / thumb */
+.slider-group input[type="range"]::-webkit-slider-runnable-track {
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.slider-group input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  border: 2px solid rgba(0, 0, 0, 0.22);
+  margin-top: -11px;
+}
+
+.slider-group input[type="range"]::-moz-range-track {
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.slider-group input[type="range"]::-moz-range-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  border: 2px solid rgba(0, 0, 0, 0.22);
+}
+
+.slider-group input[type="range"]:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.55);
+  outline-offset: 2px;
+}
+
+/* Scrollbar (tablet) – jak u Ciebie, delikatny */
+.settings-inner::-webkit-scrollbar {
+  width: 14px;
+}
+
+.settings-inner::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.settings-inner::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.55);
+  border-radius: 999px;
+  border: 3px solid rgba(17, 24, 39, 0.65);
+}
+
+.settings-inner::-webkit-scrollbar-thumb:hover {
+  background: rgba(191, 219, 254, 0.75);
+}
+
+.settings-inner {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.8) transparent;
+}

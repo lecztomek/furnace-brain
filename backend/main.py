@@ -15,6 +15,7 @@ from .config.modules_loader import load_modules_split
 from .api.state_api import create_state_router
 from .api.config_api import create_config_router
 from backend.api.history_api import create_history_router
+from backend.api.manual_api import create_manual_router
 
 from .core.config_store import ConfigStore
 from .hw.mock import MockHardware as Hardware
@@ -151,6 +152,7 @@ def on_shutdown() -> None:
 # --- ROUTERY ---
 
 state_router = create_state_router(kernel=kernel)
+manual_router = create_manual_router(kernel=kernel)
 config_router = create_config_router(config_store=config_store, kernel=kernel)
 
 history_base_dir = Path(__file__).resolve().parent / "modules" / "history"
@@ -162,4 +164,5 @@ app.include_router(
         file_prefix="boiler"
     ), prefix="/api")
 app.include_router(state_router, prefix="/api")
+app.include_router(manual_router, prefix="/api")
 app.include_router(config_router, prefix="/api")

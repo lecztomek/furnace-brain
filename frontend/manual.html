@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sterownik kotła – Tryb ręczny</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles-manual.css" />
+  </head>
+  <body>
+    <div class="app">
+      <main class="layout">
+        <!-- LEWA / CENTRALNA CZĘŚĆ: TRYB RĘCZNY -->
+        <section class="diagram-wrapper">
+          <div class="diagram settings-container">
+            <div class="settings-inner">
+              <!-- 1) TRYB RĘCZNY + switch -->
+              <div class="manual-topbar">
+                <div class="manual-title">TRYB RĘCZNY</div>
+
+                <div class="manual-mode">
+                  <div class="manual-mode-label">AKTYWNY</div>
+                  <label class="switch">
+                    <input id="manual-mode-switch" type="checkbox" />
+                    <span class="switch-ui" aria-hidden="true"></span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- 2) opis/sekcja -->
+              <div id="manual-hint" class="manual-hint">
+                Wyjścia są <b>nieaktywne</b>, gdy tryb ręczny jest wyłączony.
+              </div>
+
+              <!-- 3+) WYJŚCIA -->
+              <fieldset id="manual-controls" disabled>
+                <div class="manual-list">
+                  <!-- dmuchawa -->
+                  <div class="manual-row">
+                    <div class="row-label">DMUCHAWA</div>
+
+                    <div class="row-right slider-group">
+                      <input
+                        id="fan-power-slider"
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value="0"
+                        aria-label="Moc dmuchawy 0-100%"
+                      />
+                      <div class="value">
+                        <span id="fan-power-value">0</span>%
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- ślimak -->
+                  <div class="manual-row">
+                    <div class="row-label">ŚLIMAK</div>
+                    <div class="row-right">
+                      <label class="switch">
+                        <input id="toggle-feeder" type="checkbox" />
+                        <span class="switch-ui" aria-hidden="true"></span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- pompa co -->
+                  <div class="manual-row">
+                    <div class="row-label">POMPA CO</div>
+                    <div class="row-right">
+                      <label class="switch">
+                        <input id="toggle-pump-co" type="checkbox" />
+                        <span class="switch-ui" aria-hidden="true"></span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- pompa cwu -->
+                  <div class="manual-row">
+                    <div class="row-label">POMPA CWU</div>
+                    <div class="row-right">
+                      <label class="switch">
+                        <input id="toggle-pump-cwu" type="checkbox" />
+                        <span class="switch-ui" aria-hidden="true"></span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- mieszacz otwórz -->
+                  <div class="manual-row">
+                    <div class="row-label">ZAWÓR MIESZAJĄCY – OTWÓRZ</div>
+                    <div class="row-right">
+                      <label class="switch">
+                        <input id="toggle-mixer-open" type="checkbox" />
+                        <span class="switch-ui" aria-hidden="true"></span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- mieszacz zamknij -->
+                  <div class="manual-row">
+                    <div class="row-label">ZAWÓR MIESZAJĄCY – ZAMKNIJ</div>
+                    <div class="row-right">
+                      <label class="switch">
+                        <input id="toggle-mixer-close" type="checkbox" />
+                        <span class="switch-ui" aria-hidden="true"></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+          </div>
+        </section>
+
+        <!-- PRAWA KOLUMNA: MENU (BEZ ZMIAN) -->
+        <aside class="side-menu">
+          <div class="side-clock">
+            <div id="side-clock-time" class="side-clock-time">--:--</div>
+          </div>
+
+          <a class="menu-btn" data-view="panel" href="index.html">
+            <span class="menu-icon">🏠</span>
+            <span class="menu-label">PANEL 1</span>
+          </a>
+
+          <a class="menu-btn active" data-view="manual" href="manual.html">
+            <span class="menu-icon">🛠️</span>
+            <span class="menu-label">TRYB RĘCZNY</span>
+          </a>
+
+          <a class="menu-btn" data-view="ignite" href="#">
+            <span class="menu-icon">🔥</span>
+            <span class="menu-label">ROZPALANIE</span>
+          </a>
+
+          <a class="menu-btn" data-view="work" style="display: none" href="#">
+            <span class="menu-icon">🔥</span>
+            <span class="menu-label">PRACA</span>
+          </a>
+
+          <a class="menu-btn" data-view="add-fuel" href="add-fuel.html">
+            <span class="menu-icon">➕</span>
+            <span class="menu-label">DOŁÓŻ OPAŁ</span>
+          </a>
+
+          <div class="menu-spacer"></div>
+
+          <a class="menu-btn" data-view="settings" href="settings.html">
+            <span class="menu-icon">⚙️</span>
+            <span class="menu-label">USTAWIENIA</span>
+          </a>
+
+          <a class="menu-btn" data-view="history" href="history.html">
+            <span class="menu-icon">📊</span>
+            <span class="menu-label">HISTORIA</span>
+          </a>
+
+          <a class="menu-btn danger" data-view="emergency" href="#">
+            <span class="menu-icon">⚠️</span>
+            <span class="menu-label">STOP</span>
+          </a>
+        </aside>
+      </main>
+
+      <footer class="status-bar">
+        <span id="status-text"></span>
+      </footer>
+    </div>
+
+    <script src="js/side-clock.js"></script>
+    <script src="js/manual.js"></script>
+    <script src="js/mode-control.js"></script>
+  </body>
+</html>

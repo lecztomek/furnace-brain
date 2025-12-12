@@ -15,6 +15,7 @@ from backend.core.state import (
     Outputs,
     Sensors,
     SystemState,
+	PartialOutputs
 )
 
 # ---------- KONFIGURACJA RUNTIME ----------
@@ -96,7 +97,7 @@ class HistoryModule(ModuleInterface):
         Co `interval_sec` sekund dopisujemy wiersz do odpowiedniego pliku CSV.
         """
         events: List[Event] = []
-        outputs = Outputs()  # niczego nie sterujemy, tylko logujemy
+        outputs = PartialOutputs()  # niczego nie sterujemy, tylko logujemy
 
         should_write = (
             self._last_write_ts is None

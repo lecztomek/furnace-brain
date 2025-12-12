@@ -13,7 +13,6 @@ class EventLevel(Enum):
     ERROR = auto()
     ALARM = auto()
 
-
 @dataclass
 class Event:
     """
@@ -105,6 +104,55 @@ class ModuleStatus:
     last_updated: float = field(default_factory=time.time)
 
 
+# ============================
+# NOWE: żądania ręczne (GUI -> ManualModule)
+# ============================
+
+@dataclass
+class ManualRequests:
+    """
+    Stan ręczny jako konkretne wartości (bez None).
+    Ten widok GUI pokazuje ZAWSZE i TYLKO te pola.
+    """
+    fan_power: int = 0
+
+    feeder_on: bool = False
+    pump_co_on: bool = False
+    pump_cwu_on: bool = False
+
+    mixer_open_on: bool = False
+    mixer_close_on: bool = False
+
+    last_update_ts: float = 0.0
+
+
+    def normalized_mixer(self) -> tuple[Optional[bool], Optional[bool]]:
+        """
+        Helper: jeśli ktoś ustawi oba True, zwróć bezpiecznie oba False.
+        (Możesz użyć w ManualModule.)
+        """
+        if self.mixer_open_on is True and self.mixer_close_on is True:
+            return False, False
+        return self.mixer_open_on, self.mixer_close_on
+
+@dataclass
+class PartialOutputs:
+    """
+    Cząstkowe wyjścia zwracane przez moduły.
+    None = nie ruszaj pola
+    wartość != None = ustaw pole (nawet jeśli to False/0)
+    """
+    fan_power: Optional[int] = None
+    feeder_on: Optional[bool] = None
+    pump_co_on: Optional[bool] = None
+    pump_cwu_on: Optional[bool] = None
+    pump_circ_on: Optional[bool] = None
+    mixer_open_on: Optional[bool] = None
+    mixer_close_on: Optional[bool] = None
+    alarm_buzzer_on: Optional[bool] = None
+    alarm_relay_on: Optional[bool] = None
+    power_percent: Optional[float] = None
+
 @dataclass
 class SystemState:
     """
@@ -123,6 +171,9 @@ class SystemState:
     # Tryb pracy kotła:
     mode: BoilerMode = BoilerMode.WORK
 
+    # NOWE: żądania ręczne z GUI (używane przez ManualModule)
+    manual: ManualRequests = field(default_factory=ManualRequests)
+
     # Globalny alarm:
     alarm_active: bool = False
     alarm_message: Optional[str] = None
@@ -134,4 +185,3 @@ class SystemState:
     recent_events: List[Event] = field(default_factory=list)
 
     # Tu możesz dokładać kolejne pola, gdy GUI/API będzie czegoś potrzebować.
-

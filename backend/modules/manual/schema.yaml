@@ -1,0 +1,9 @@
+id: manual
+name: "Tryb ręczny"
+description: "Sterowanie ręczne."
+
+groups:
+  - id: basic
+    label: "Podstawowe"
+
+fields:

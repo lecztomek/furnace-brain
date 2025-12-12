@@ -16,6 +16,7 @@ from backend.core.state import (
     Outputs,
     Sensors,
     SystemState,
+	PartialOutputs
 )
 
 
@@ -92,7 +93,7 @@ class ModeModule(ModuleInterface):
         system_state: SystemState,
     ) -> ModuleTickResult:
         events: List[Event] = []
-        outputs = Outputs()  # moduł nie steruje sprzętem
+        outputs = PartialOutputs()  # moduł nie steruje sprzętem
 
         current_mode = system_state.mode
         boiler_temp = sensors.boiler_temp

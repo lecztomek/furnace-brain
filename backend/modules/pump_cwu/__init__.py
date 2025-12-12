@@ -15,6 +15,7 @@ from backend.core.state import (
     Outputs,
     Sensors,
     SystemState,
+	PartialOutputs
 )
 
 
@@ -87,7 +88,7 @@ class CwuPumpModule(ModuleInterface):
         Jeden krok logiki pompy CWU.
         """
         events: List[Event] = []
-        outputs = Outputs()  # domyślnie nic nie zmieniamy
+        outputs = PartialOutputs()  # domyślnie nic nie zmieniamy
 
         boiler_temp = sensors.boiler_temp
         prev_pump_on = self._pump_on

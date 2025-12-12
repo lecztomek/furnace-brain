@@ -15,6 +15,7 @@ from backend.core.state import (
     Outputs,
     Sensors,
     SystemState,
+	PartialOutputs
 )
 
 
@@ -136,7 +137,7 @@ class IgnitionPowerModule(ModuleInterface):
         system_state: SystemState,
     ) -> ModuleTickResult:
         events: List[Event] = []
-        outputs = Outputs()
+        outputs = PartialOutputs()
 
         boiler_temp = sensors.boiler_temp
         mode_enum = system_state.mode

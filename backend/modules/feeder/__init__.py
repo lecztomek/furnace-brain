@@ -15,6 +15,7 @@ from backend.core.state import (
     Outputs,
     Sensors,
     SystemState,
+	PartialOutputs
 )
 
 
@@ -111,7 +112,7 @@ class FeederModule(ModuleInterface):
         system_state: SystemState,
     ) -> ModuleTickResult:
         events: List[Event] = []
-        outputs = Outputs()  # domyślnie nie zmieniamy nic poza feeder_on
+        outputs = PartialOutputs()  # domyślnie nie zmieniamy nic poza feeder_on
 
         mode = system_state.mode
         power = system_state.outputs.power_percent  # 0–100%

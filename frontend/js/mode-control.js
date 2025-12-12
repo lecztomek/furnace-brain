@@ -93,19 +93,10 @@ async function refreshMenuModeButtons(existingState) {
 
   const mode = state.mode; // "OFF", "IGNITION", "WORK", "MANUAL"...
 
-  if (mode === "WORK") {
-    // kocioł pracuje -> możemy zaproponować ROZPALANIE jako akcję (wg Twojej logiki)
-    if (igniteLink) igniteLink.style.display = "";
-    if (workLink) workLink.style.display = "none";
-  } else if (mode === "OFF" || mode === "IGNITION") {
-    // kocioł jest OFF lub w rozpalaniu -> pokaż przycisk "PRACA"
-    if (igniteLink) igniteLink.style.display = "none";
-    if (workLink) workLink.style.display = "";
-  } else {
-    // inne tryby (np. MANUAL) – chowamy oba do czasu ogarnięcia logiki
-    if (igniteLink) igniteLink.style.display = "none";
-    if (workLink) workLink.style.display = "none";
-  }
+  const showIgnite = mode === "WORK";
+  const showWork = mode !== "WORK";
+  if (igniteLink) igniteLink.style.display = showIgnite ? "" : "none";
+  if (workLink) workLink.style.display = showWork ? "" : "none";
 }
 
 /**

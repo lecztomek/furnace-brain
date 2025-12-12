@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Protocol, Tuple
+from typing import Any, Dict, List, Protocol, Tuple
 import time
 import logging
-
+import traceback
 
 from backend.core.state import (
     Event,
@@ -13,6 +13,7 @@ from backend.core.state import (
     ModuleHealth,
     ModuleStatus,
     Outputs,
+    PartialOutputs,
     Sensors,
     SystemState,
 )
@@ -20,32 +21,26 @@ from backend.hw.interface import HardwareInterface
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ModuleTickResult:
     """
     Wynik pojedynczego wywołania modułu w jednym kroku pętli.
     """
-    partial_outputs: Outputs           # tylko to, czym ten moduł REALNIE steruje
-    events: List[Event]               # logi / zdarzenia z modułu
-    status: ModuleStatus              # zaktualizowany status modułu
+    partial_outputs: PartialOutputs   # None = nie ruszaj, wartość = ustaw (nawet False/0)
+    events: List[Event]
+    status: ModuleStatus
 
 
 class ModuleInterface(Protocol):
     """
-    Wspólny interfejs dla wszystkich modułów logiki (dmuchawa, ślimak, pompy, mixer, historia...).
+    Wspólny interfejs dla wszystkich modułów logiki.
     Kernel zakłada, że każdy moduł implementuje ten kontrakt.
     """
 
-    # ---------- IDENTYFIKACJA MODUŁU ----------
-
     @property
     def id(self) -> str:
-        """
-        Unikalny identyfikator modułu, np. "blower", "feeder", "pump_co".
-        """
         ...
-
-    # ---------- GŁÓWNA LOGIKA (NAJWAŻNIEJSZE) ----------
 
     def tick(
         self,
@@ -53,56 +48,19 @@ class ModuleInterface(Protocol):
         sensors: Sensors,
         system_state: SystemState,
     ) -> ModuleTickResult:
-        """
-        Jeden krok logiki modułu.
-
-        - now: aktualny timestamp,
-        - sensors: snapshot odczytów z hardware,
-        - system_state: snapshot globalnego stanu (DO ODCZYTU).
-
-        Zwraca:
-        - partial_outputs – tylko zmiany dotyczące własnych wyjść,
-        - events – listę zdarzeń wygenerowanych w tym kroku,
-        - status – swój zaktualizowany status (OK/WARNING/ERROR).
-        """
         ...
 
-    # ---------- KONFIGURACJA (WSPÓLNY INTERFEJS DLA CONFIG/API) ----------
-
     def get_config_schema(self) -> Dict[str, Any]:
-        """
-        Zwraca schemę konfiguracji modułu (np. z pliku schema.yaml) jako dict.
-
-        Jeśli moduł nie ma konfiguracji – może zwrócić {}.
-        """
         ...
 
     def get_config_values(self) -> Dict[str, Any]:
-        """
-        Zwraca aktualne wartości konfiguracji (runtime) jako dict
-        zgodny z get_config_schema()["fields"] / ConfigStore.
-
-        Jeśli moduł nie ma konfiguracji – może zwrócić {}.
-        """
         ...
 
     def set_config_values(self, values: Dict[str, Any], persist: bool = True) -> None:
-        """
-        Aktualizuje konfigurację modułu (runtime).
-
-        - values: mapa klucz -> wartość (już zwalidowane przez ConfigStore),
-        - persist=True  -> moduł sam zapisuje to do swojego values.yaml,
-        - persist=False -> tylko zmiana w pamięci (bez zapisu do pliku).
-        """
         ...
 
     def reload_config_from_file(self) -> None:
-        """
-        Przeładowuje konfigurację modułu z backendu (najczęściej z values.yaml),
-        nadpisując runtime’owy config.
-
-        Wołane przez Kernel po tym, jak ConfigStore zapisze nową wersję pliku.
-        """
+        ...
 
 
 class Kernel:
@@ -110,10 +68,10 @@ class Kernel:
     Główny “mózg” sterownika.
     - trzyma SystemState,
     - odpala w pętli wszystkie moduły,
-    - zbiera ich outputs,
-    - przepuszcza wszystko przez safety,
-    - wysyła finalne wyjścia do warstwy sprzętowej,
-    - zbiera eventy dla modułu historii / API.
+    - zbiera ich partial outputs,
+    - przepuszcza przez safety,
+    - wysyła finalne wyjścia do hardware,
+    - zbiera eventy dla historii / API.
     """
 
     def __init__(
@@ -123,30 +81,28 @@ class Kernel:
         safety_module: ModuleInterface | None = None,
     ) -> None:
         self._hardware = hardware
+        # zachowuje kolejność listy `modules` (dict zachowuje insertion order)
         self._modules: Dict[str, ModuleInterface] = {m.id: m for m in modules}
         self._safety_module = safety_module
 
         self._state = SystemState()
         self._last_tick_ts: float = time.time()
 
-        # Zainicjuj ModuleStatus dla wszystkich modułów:
         for mid in self._modules:
             self._state.modules[mid] = ModuleStatus(id=mid)
 
         if safety_module is not None and safety_module.id not in self._modules:
-            # safety też traktujemy jak moduł, jeśli chcemy w statusach
             self._state.modules[safety_module.id] = ModuleStatus(id=safety_module.id)
 
     @property
     def state(self) -> SystemState:
-        """Aktualny snapshot SystemState (np. dla API)."""
         return self._state
 
-    def _merge_outputs(self, base: Outputs, delta: Outputs) -> Outputs:
+    def _merge_outputs(self, base: Outputs, delta: PartialOutputs) -> Outputs:
         """
-        Scala outputs z modułów.
-        Na razie strategia jest prosta (“ostatni wygrywa”),
-        ale później możesz dodać bardziej zaawansowany arbiter.
+        Uniwersalny merge:
+        - delta.<pole> == None  -> nie ruszaj pola (zostaje z base)
+        - delta.<pole> != None  -> ustaw pole (nawet jeśli False/0)
         """
         merged = Outputs(
             fan_power=base.fan_power,
@@ -161,11 +117,9 @@ class Kernel:
             power_percent=base.power_percent,
         )
 
-        # Dla prostoty: wartości z delta nadpisują base,
-        # ale możesz później zrobić bardziej inteligentną logikę.
         for field_name in merged.__dataclass_fields__.keys():
             new_value = getattr(delta, field_name)
-            if new_value != getattr(Outputs(), field_name):  # różne od domyślnego?
+            if new_value is not None:
                 setattr(merged, field_name, new_value)
 
         return merged
@@ -177,38 +131,15 @@ class Kernel:
         events: List[Event],
     ) -> Tuple[Outputs, List[Event]]:
         """
-        Ostatnia linia obrony – tutaj możesz zaimplementować:
-        - reakcję na przegrzanie,
-        - STB,
-        - tryb “fail-safe”.
-
-        Na razie tylko placeholder, który nic nie zmienia.
-        Jeśli kiedyś safety będzie osobnym modułem, można go wołać tutaj.
+        Ostatnia linia obrony – placeholder (na razie nic nie zmienia).
         """
-        # TODO: tu dodasz logikę safety.
-        # Przykład (pojęciowo):
-        # if sensors.boiler_temp is not None and sensors.boiler_temp > 90.0:
-        #     preliminary_outputs.fan_power = 0
-        #     preliminary_outputs.feeder_on = False
-        #     preliminary_outputs.pump_co_on = True
-        #     events.append(...)
         return preliminary_outputs, events
-		
-    def reload_module_config_from_file(self, module_id: str) -> None:
-        """
-        Informuje moduł, że ma sobie przeładować konfigurację z pliku values.yaml
-        przez wywołanie module.reload_config_from_file().
 
-        Dodatkowo generuje eventy:
-        - CONFIG_RELOADED            (INFO)    – reload OK,
-        - CONFIG_RELOAD_ERROR        (ERROR)   – wyjątek przy reloadzie,
-        - CONFIG_RELOAD_UNSUPPORTED  (WARNING) – moduł nie istnieje w kernelu.
-        """
+    def reload_module_config_from_file(self, module_id: str) -> None:
         now = time.time()
         module = self._modules.get(module_id)
 
         if module is None:
-            # Moduł o takim ID nie jest zarejestrowany w kernelu
             ev = Event(
                 ts=now,
                 source="kernel",
@@ -245,23 +176,24 @@ class Kernel:
             )
             self._state.recent_events.append(ev)
 
-
     def step(self) -> None:
         """
         Jeden krok pętli sterującej.
-        Wywołujesz go cyklicznie (np. z zewnętrznej pętli while True w main.py).
         """
         now = time.time()
         self._last_tick_ts = now
 
-        # 1. Odczyt czujników ze sprzętu:
+        # 1) Odczyt czujników
         sensors = self._hardware.read_sensors()
         self._state.sensors = sensors
         self._state.ts = now
 
-        # 2. Wywołanie modułów:
+        # 2) Tick modułów
         all_events: List[Event] = []
-        combined_outputs = Outputs()  # zaczynamy od "pustych" wyjść
+
+        # KLUCZ: startujemy od poprzednich outputs (persist),
+        # bo PartialOutputs(None) oznacza "nie ruszaj".
+        combined_outputs: Outputs = self._state.outputs
 
         for mid, module in self._modules.items():
             start = time.time()
@@ -271,16 +203,12 @@ class Kernel:
                 result = module.tick(now=now, sensors=sensors, system_state=self._state)
                 duration = time.time() - start
 
-                # zaktualizuj status modułu:
                 status.health = ModuleHealth.OK
                 status.last_error = None
                 status.last_tick_duration = duration
                 status.last_updated = now
 
-                # scal outputs:
                 combined_outputs = self._merge_outputs(combined_outputs, result.partial_outputs)
-
-                # dołącz eventy:
                 all_events.extend(result.events)
 
             except Exception as exc:  # pylint: disable=broad-except
@@ -290,13 +218,9 @@ class Kernel:
                 status.last_tick_duration = duration
                 status.last_updated = now
 
-                # 1) pełny traceback na konsolę
                 traceback.print_exc()
-
-                # 2) opcjonalnie przez logging
                 logger.exception("Module %s raised an exception", mid)
 
-                # 3) event dla UI / historii
                 all_events.append(
                     Event(
                         ts=now,
@@ -308,24 +232,23 @@ class Kernel:
                     )
                 )
 
-            # zapisz status z powrotem do SystemState:
             self._state.modules[mid] = status
 
-        # 3. Safety / arbiter globalny:
+        # 3) Safety
         final_outputs, all_events = self._apply_safety(
             sensors=sensors,
             preliminary_outputs=combined_outputs,
             events=all_events,
         )
 
-        # 4. Zastosuj wyjścia na sprzęcie:
+        # 4) Apply + snapshot
         self._hardware.apply_outputs(final_outputs)
         self._state.outputs = final_outputs
 
-        # 5. Zapisz eventy w stanie – moduł historii może je potem odebrać:
+        # 5) Eventy
         self._state.recent_events = all_events
 
-        # 6. Ustaw globalny alarm_active, jeśli były eventy typu ALARM:
+        # 6) Alarm
         self._state.alarm_active = any(e.level == EventLevel.ALARM for e in all_events)
         self._state.alarm_message = next(
             (e.message for e in all_events if e.level == EventLevel.ALARM),

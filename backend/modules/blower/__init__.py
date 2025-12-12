@@ -15,6 +15,7 @@ from backend.core.state import (
     Outputs,
     Sensors,
     SystemState,
+	PartialOutputs
 )
 
 
@@ -127,7 +128,7 @@ class BlowerModule(ModuleInterface):
         system_state: SystemState,
     ) -> ModuleTickResult:
         events: List[Event] = []
-        outputs = Outputs()
+        outputs = PartialOutputs()
 
         mode_enum = system_state.mode
         power = float(system_state.outputs.power_percent)  # 0–100

@@ -15,6 +15,7 @@ from backend.core.state import (
     Outputs,
     Sensors,
     SystemState,
+	PartialOutputs
 )
 
 
@@ -131,7 +132,7 @@ class MixerModule(ModuleInterface):
         system_state: SystemState,
     ) -> ModuleTickResult:
         events: List[Event] = []
-        outputs = Outputs()
+        outputs = PartialOutputs()
 
         mode_enum = system_state.mode
         boiler_temp = sensors.boiler_temp
