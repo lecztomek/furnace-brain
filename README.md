@@ -28,10 +28,12 @@ ok- sortowanie modulow w ustawieniach
 - problem z zamykaniem aplikacji
 ok- mixer osobno czasy w iginition i work oraz czasy miedzy korektami
 ok- dmuchawa cos nie respektuje temp spalin
-- poprawki ui - dmucawa nie pokazuj procentow, slimak nie pokazuj korekty
+ok- poprawki ui - dmucawa nie pokazuj procentow, slimak nie pokazuj korekty
 - uproszone menu ustawien -> temp pieca, temp grzejniki, temp przelaczanie rozpalanie-work,
  dmuchawa obroty, slimak bazowe nastawy
 - w schame popraw zakresy parametrow - przejdz przez wszystkie moduly
 ok- mixer algorytm rozpalania jesli daleko od zadanej na grzejnikach jesli blisko to algorytm standby - nie patrzy na ignition
 ok- popraw power work tak zeby pid licxzyl caly czas a uzywal dopiero w trybie work
 - pompa cwu nie reaguje na stop - powinna miec takie tryby jak pompa co
+- zmiana czasu
+przyspieszone testy
