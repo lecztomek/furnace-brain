@@ -33,11 +33,6 @@ class ModuleTickResult:
 
 
 class ModuleInterface(Protocol):
-    """
-    Wspólny interfejs dla wszystkich modułów logiki.
-    Kernel zakłada, że każdy moduł implementuje ten kontrakt.
-    """
-
     @property
     def id(self) -> str:
         ...
@@ -64,16 +59,6 @@ class ModuleInterface(Protocol):
 
 
 class Kernel:
-    """
-    Główny “mózg” sterownika.
-    - trzyma SystemState,
-    - odpala w pętli wszystkie moduły,
-    - zbiera ich partial outputs,
-    - przepuszcza przez safety,
-    - wysyła finalne wyjścia do hardware,
-    - zbiera eventy dla historii / API.
-    """
-
     def __init__(
         self,
         hardware: HardwareInterface,
@@ -81,7 +66,6 @@ class Kernel:
         safety_module: ModuleInterface | None = None,
     ) -> None:
         self._hardware = hardware
-        # zachowuje kolejność listy `modules` (dict zachowuje insertion order)
         self._modules: Dict[str, ModuleInterface] = {m.id: m for m in modules}
         self._safety_module = safety_module
 
@@ -98,26 +82,34 @@ class Kernel:
     def state(self) -> SystemState:
         return self._state
 
-    def _merge_outputs(self, base: Outputs, delta: PartialOutputs) -> Outputs:
-        """
-        Uniwersalny merge:
-        - delta.<pole> == None  -> nie ruszaj pola (zostaje z base)
-        - delta.<pole> != None  -> ustaw pole (nawet jeśli False/0)
-        """
-        merged = Outputs(
-            fan_power=base.fan_power,
-            feeder_on=base.feeder_on,
-            pump_co_on=base.pump_co_on,
-            pump_cwu_on=base.pump_cwu_on,
-            pump_circ_on=base.pump_circ_on,
-            mixer_open_on=base.mixer_open_on,
-            mixer_close_on=base.mixer_close_on,
-            alarm_buzzer_on=base.alarm_buzzer_on,
-            alarm_relay_on=base.alarm_relay_on,
-            power_percent=base.power_percent,
+    def _copy_outputs(self, src: Outputs) -> Outputs:
+        # ważne: nie używamy referencji do self._state.outputs
+        return Outputs(
+            fan_power=src.fan_power,
+            feeder_on=src.feeder_on,
+            pump_co_on=src.pump_co_on,
+            pump_cwu_on=src.pump_cwu_on,
+            pump_circ_on=src.pump_circ_on,
+            mixer_open_on=src.mixer_open_on,
+            mixer_close_on=src.mixer_close_on,
+            alarm_buzzer_on=src.alarm_buzzer_on,
+            alarm_relay_on=src.alarm_relay_on,
+            power_percent=src.power_percent,
         )
 
-        for field_name in merged.__dataclass_fields__.keys():
+    def _merge_outputs(self, base: Outputs, delta: PartialOutputs) -> Outputs:
+        """
+        Merge:
+        - iterujemy po polach PartialOutputs
+        - None => nie ruszaj
+        - wartość => ustaw (nawet False/0)
+
+        UWAGA: zakładamy, że nazwy pól PartialOutputs są podzbiorem pól Outputs.
+        """
+        merged = self._copy_outputs(base)
+
+        # tylko pola, które moduł może ustawić
+        for field_name in delta.__dataclass_fields__.keys():
             new_value = getattr(delta, field_name)
             if new_value is not None:
                 setattr(merged, field_name, new_value)
@@ -130,9 +122,7 @@ class Kernel:
         preliminary_outputs: Outputs,
         events: List[Event],
     ) -> Tuple[Outputs, List[Event]]:
-        """
-        Ostatnia linia obrony – placeholder (na razie nic nie zmienia).
-        """
+        # placeholder
         return preliminary_outputs, events
 
     def reload_module_config_from_file(self, module_id: str) -> None:
@@ -154,7 +144,7 @@ class Kernel:
 
         try:
             module.reload_config_from_file()  # type: ignore[call-arg]
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception as exc:
             logger.exception("Error reloading config for module %s", module_id)
             ev = Event(
                 ts=now,
@@ -177,23 +167,17 @@ class Kernel:
             self._state.recent_events.append(ev)
 
     def step(self) -> None:
-        """
-        Jeden krok pętli sterującej.
-        """
         now = time.time()
         self._last_tick_ts = now
 
-        # 1) Odczyt czujników
         sensors = self._hardware.read_sensors()
         self._state.sensors = sensors
         self._state.ts = now
 
-        # 2) Tick modułów
         all_events: List[Event] = []
 
-        # KLUCZ: startujemy od poprzednich outputs (persist),
-        # bo PartialOutputs(None) oznacza "nie ruszaj".
-        combined_outputs: Outputs = self._state.outputs
+        # start od poprzedniego stanu (persist) – ale kopiujemy
+        combined_outputs: Outputs = self._copy_outputs(self._state.outputs)
 
         for mid, module in self._modules.items():
             start = time.time()
@@ -203,6 +187,13 @@ class Kernel:
                 result = module.tick(now=now, sensors=sensors, system_state=self._state)
                 duration = time.time() - start
 
+                # STRICT: partial_outputs MUSI być PartialOutputs
+                if not isinstance(result.partial_outputs, PartialOutputs):
+                    raise TypeError(
+                        f"{mid}.tick() returned partial_outputs of type "
+                        f"{type(result.partial_outputs).__name__}, expected PartialOutputs"
+                    )
+
                 status.health = ModuleHealth.OK
                 status.last_error = None
                 status.last_tick_duration = duration
@@ -211,7 +202,7 @@ class Kernel:
                 combined_outputs = self._merge_outputs(combined_outputs, result.partial_outputs)
                 all_events.extend(result.events)
 
-            except Exception as exc:  # pylint: disable=broad-except
+            except Exception as exc:
                 duration = time.time() - start
                 status.health = ModuleHealth.ERROR
                 status.last_error = f"{type(exc).__name__}: {exc}"
@@ -234,23 +225,19 @@ class Kernel:
 
             self._state.modules[mid] = status
 
-        # 3) Safety
         final_outputs, all_events = self._apply_safety(
             sensors=sensors,
             preliminary_outputs=combined_outputs,
             events=all_events,
         )
 
-        # 4) Apply + snapshot
         self._hardware.apply_outputs(final_outputs)
         self._state.outputs = final_outputs
-
-        # 5) Eventy
         self._state.recent_events = all_events
 
-        # 6) Alarm
         self._state.alarm_active = any(e.level == EventLevel.ALARM for e in all_events)
         self._state.alarm_message = next(
             (e.message for e in all_events if e.level == EventLevel.ALARM),
             None,
         )
+
