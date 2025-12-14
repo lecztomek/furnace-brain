@@ -2,3 +2,5 @@ __pycache__
 
 backend/.venv/
 /backend/modules/history/data/*.csv
+
+.venv/

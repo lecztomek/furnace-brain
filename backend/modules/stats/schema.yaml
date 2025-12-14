@@ -1,0 +1,43 @@
+id: stats
+name: "Statystyki spalania"
+description: >
+  Liczy spalanie (kg/h) i moc (kW) na podstawie pracy ślimaka (outputs.feeder_on).
+  Dane są agregowane hierarchicznie: 5m -> 1h -> 24h -> 7d, aby ograniczyć pamięć.
+
+groups:
+  - id: basic
+    label: "Podstawowe"
+
+fields:
+  - key: enabled
+    label: "Włącz moduł"
+    type: bool
+    default: true
+    group: basic
+    label_on: "WŁĄCZONE"
+    label_off: "WYŁĄCZONE"
+    description: "Globalne włączenie/wyłączenie statystyk."
+
+  - key: feeder_kg_per_hour
+    label: "Wydajność ślimaka"
+    type: number
+    unit: "kg/h"
+    min: 0
+    max: 100
+    step: 0.1
+    default: 10
+    group: basic
+    description: >
+      Ile kg węgla poda ślimak w 1 godzinę, jeśli feeder_on=True przez całą godzinę.
+
+  - key: calorific_mj_per_kg
+    label: "Kaloryczność"
+    type: number
+    unit: "MJ/kg"
+    min: 0
+    max: 40
+    step: 0.5
+    default: 0
+    group: basic
+    description: >
+      Jeśli > 0, moduł policzy moc (kW). 0 = nie licz mocy.

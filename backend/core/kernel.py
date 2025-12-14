@@ -21,7 +21,6 @@ from backend.hw.interface import HardwareInterface
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class ModuleTickResult:
     """

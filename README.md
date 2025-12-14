@@ -36,4 +36,6 @@ ok- mixer algorytm rozpalania jesli daleko od zadanej na grzejnikach jesli blisk
 ok- popraw power work tak zeby pid licxzyl caly czas a uzywal dopiero w trybie work
 - pompa cwu nie reaguje na stop - powinna miec takie tryby jak pompa co
 - zmiana czasu
-przyspieszone testy
+- przyspieszone testy
+- modul wygaszania, tryb wygaszania pieca, 
+

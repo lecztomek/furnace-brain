@@ -183,5 +183,7 @@ class SystemState:
 
     # Ostatnie wygenerowane eventy (np. z bieżącego ticka):
     recent_events: List[Event] = field(default_factory=list)
+    
+    runtime: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     # Tu możesz dokładać kolejne pola, gdy GUI/API będzie czegoś potrzebować.

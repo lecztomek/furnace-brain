@@ -684,3 +684,6 @@ body {
   scrollbar-color: rgba(148, 163, 184, 0.8) transparent;
 }
 
+.menu-btn {
+  text-decoration: none;
+}

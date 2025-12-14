@@ -16,6 +16,7 @@ from .api.state_api import create_state_router
 from .api.config_api import create_config_router
 from backend.api.history_api import create_history_router
 from backend.api.manual_api import create_manual_router
+from backend.api.stats_api import create_stats_router
 
 from .core.config_store import ConfigStore
 from .hw.mock import MockHardware as Hardware
@@ -156,6 +157,9 @@ manual_router = create_manual_router(kernel=kernel)
 config_router = create_config_router(config_store=config_store, kernel=kernel)
 
 history_base_dir = Path(__file__).resolve().parent / "modules" / "history"
+
+stats_router = create_stats_router(get_state=lambda: kernel.state, module_id="stats")
+app.include_router(stats_router, prefix="/api")
 
 app.include_router(
     create_history_router(

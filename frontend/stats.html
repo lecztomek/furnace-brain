@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sterownik kotła – Statystyki</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles-stats.css" />
+  </head>
+  <body>
+    <div class="app">
+      <main class="layout">
+        <!-- LEWA / CENTRALNA CZĘŚĆ: STATYSTYKI -->
+        <section class="diagram-wrapper">
+          <div class="diagram placeholder stats-container">
+            <div class="stats-inner">
+              <div class="stats-topbar">
+                <div class="pill">
+                  <span class="pill-label">Status:</span>
+                  <span id="stats-status" class="pill-value">--</span>
+                </div>
+                <div class="pill">
+                  <span class="pill-label">Ostatni timestamp:</span>
+                  <span id="stats-ts" class="pill-value">--</span>
+                </div>
+
+                <div class="history-toolbar-group history-refresh-group">
+                  <button
+                    type="button"
+                    id="stats-refresh-btn"
+                    class="history-refresh-btn"
+                    title="Odśwież statystyki"
+                  >
+                    <svg
+                      class="history-refresh-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4.5 4.5v5.25h5.25M19.5 19.5v-5.25h-5.25"
+                        fill="none"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M5.636 18.364A8.25 8.25 0 0 0 19.5 12
+                           M18.364 5.636A8.25 8.25 0 0 0 4.5 12"
+                        fill="none"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="stats-grid">
+                <!-- SPALANIE -->
+                <section class="panel">
+                  <div class="panel-header">
+                    <div class="panel-title">SPALANIE</div>
+                    <div class="panel-unit">kg/h</div>
+                  </div>
+
+                  <div class="cards">
+                    <div class="card">
+                      <div class="card-label">5 MIN</div>
+                      <div class="card-value" id="burn_kgph_5m">--</div>
+                      <div class="card-foot" id="coal_kg_5m">--</div>
+                    </div>
+                    <div class="card">
+                      <div class="card-label">1 GODZ</div>
+                      <div class="card-value" id="burn_kgph_1h">--</div>
+                      <div class="card-foot" id="coal_kg_1h">--</div>
+                    </div>
+                    <div class="card">
+                      <div class="card-label">4 GODZ</div>
+                      <div class="card-value" id="burn_kgph_4h">--</div>
+                      <div class="card-foot" id="coal_kg_4h">--</div>
+                    </div>
+                    <div class="card">
+                      <div class="card-label">24 GODZ</div>
+                      <div class="card-value" id="burn_kgph_24h">--</div>
+                      <div class="card-foot" id="coal_kg_24h">--</div>
+                    </div>
+                    <div class="card">
+                      <div class="card-label">7 DNI</div>
+                      <div class="card-value" id="burn_kgph_7d">--</div>
+                      <div class="card-foot" id="coal_kg_7d">--</div>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- MOC -->
+                <section class="panel">
+                  <div class="panel-header">
+                    <div class="panel-title">MOC</div>
+                    <div class="panel-unit">kW</div>
+                  </div>
+
+                  <div class="cards">
+                    <div class="card">
+                      <div class="card-label">5 MIN</div>
+                      <div class="card-value" id="power_kw_5m">--</div>
+                      <div class="card-foot" id="energy_kwh_5m">--</div>
+                    </div>
+                    <div class="card">
+                      <div class="card-label">1 GODZ</div>
+                      <div class="card-value" id="power_kw_1h">--</div>
+                      <div class="card-foot" id="energy_kwh_1h">--</div>
+                    </div>
+                    <div class="card">
+                      <div class="card-label">4 GODZ</div>
+                      <div class="card-value" id="power_kw_4h">--</div>
+                      <div class="card-foot" id="energy_kwh_4h">--</div>
+                    </div>
+                    <div class="card">
+                      <div class="card-label">24 GODZ</div>
+                      <div class="card-value" id="power_kw_24h">--</div>
+                      <div class="card-foot" id="energy_kwh_24h">--</div>
+                    </div>
+                    <div class="card">
+                      <div class="card-label">7 DNI</div>
+                      <div class="card-value" id="power_kw_7d">--</div>
+                      <div class="card-foot" id="energy_kwh_7d">--</div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- PRAWA KOLUMNA: MENU (BEZ ZMIAN) -->
+        <aside class="side-menu">
+          <div class="side-clock">
+            <div id="side-clock-time" class="side-clock-time">--:--</div>
+          </div>
+
+          <a class="menu-btn" data-view="panel" href="index.html">
+            <span class="menu-icon">🏠</span>
+            <span class="menu-label">PANEL 1</span>
+          </a>
+
+          <a class="menu-btn" data-view="manual" href="manual.html">
+            <span class="menu-icon">🛠️</span>
+            <span class="menu-label">TRYB RĘCZNY</span>
+          </a>
+
+          <a class="menu-btn" data-view="ignite" href="#">
+            <span class="menu-icon">🔥</span>
+            <span class="menu-label">ROZPALANIE</span>
+          </a>
+
+          <a class="menu-btn" data-view="work" style="display: none" href="#">
+            <span class="menu-icon">🔥</span>
+            <span class="menu-label">PRACA</span>
+          </a>
+
+          <a class="menu-btn" data-view="add-fuel" href="add-fuel.html" style="display: none;">
+            <span class="menu-icon">➕</span>
+            <span class="menu-label">DOŁÓŻ OPAŁ</span>
+          </a>
+
+          <div class="menu-spacer"></div>
+
+          <a class="menu-btn" data-view="settings" href="settings.html">
+            <span class="menu-icon">⚙️</span>
+            <span class="menu-label">USTAWIENIA</span>
+          </a>
+
+          <a class="menu-btn active" data-view="stats" href="stats.html">
+            <span class="menu-icon">📊</span>
+            <span class="menu-label">STATYSTYKI</span>
+          </a>
+
+          <a class="menu-btn" data-view="history" href="history.html">
+            <span class="menu-icon">📊</span>
+            <span class="menu-label">HISTORIA</span>
+          </a>
+
+          <a class="menu-btn danger" data-view="emergency" href="#">
+            <span class="menu-icon">⚠️</span>
+            <span class="menu-label">STOP</span>
+          </a>
+        </aside>
+      </main>
+
+      <footer class="status-bar">
+        <span id="status-text"></span>
+      </footer>
+    </div>
+
+    <script src="js/side-clock.js"></script>
+    <script src="js/furnace-ui-utils.js"></script>
+    <script src="js/stats.js"></script>
+    <script src="js/mode-control.js"></script>
+  </body>
+</html>
+

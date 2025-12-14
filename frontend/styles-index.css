@@ -336,3 +336,7 @@ body {
   font-size: 32px; /* ten sam rozmiar co dla temperatur */
   text-anchor: middle;           /* środek prostokąta (x=210) */
 }
+
+.menu-btn {
+  text-decoration: none;
+}

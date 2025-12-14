@@ -1,0 +1,6 @@
+boiler_hysteresis: 5.0
+boiler_trip_temp: 90.0
+enabled: true
+hopper_hysteresis: 5.0
+hopper_purge_minutes: 5.0
+hopper_trip_temp: 70.0
