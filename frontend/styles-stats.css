@@ -418,7 +418,7 @@ body {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(6px);
+  backdrop-filter: none;
 }
 
 .side-clock-time {
@@ -535,3 +535,5 @@ body {
   letter-spacing: 0.14em;
 }
 
+body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
+.temp-badge text { font-family: inherit; }
