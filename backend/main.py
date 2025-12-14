@@ -33,7 +33,6 @@ logging.getLogger("backend.hw.mock.mixer").setLevel(logging.DEBUG)
 # --- INICJALIZACJA SPRZĘTU I MODUŁÓW ---
 
 hardware = Hardware()
-
 critical_modules, aux_modules = load_modules_split()
 
 kernel = Kernel(
