@@ -798,3 +798,109 @@ body {
 
 body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
 .temp-badge text { font-family: inherit; }
+
+
+:root { --menu-w: 320px; }
+
+/* checkbox niewidoczny */
+.nav-toggle{
+  position: fixed;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* burger na wierzchu */
+.burger-btn{
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 1200;
+
+  width: 64px;
+  height: 56px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 34px;
+  font-weight: 900;
+  cursor: pointer;
+
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #fff;
+  backdrop-filter: blur(6px);
+}
+
+/* overlay (klik = zamknięcie) */
+.menu-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 1000;
+  display: none;
+}
+
+/* menu jako panel ponad treścią */
+.side-menu{
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  bottom: 60px;          /* żeby nie przykryć status-bara */
+  width: var(--menu-w);
+
+  z-index: 1100;         /* wyżej niż overlay i SVG */
+  transform: translateX(calc(100% + 24px));
+  transition: transform 0.18s ease;
+}
+
+/* stan otwarty */
+#nav-toggle:checked ~ .app .side-menu{
+  transform: translateX(0);
+}
+#nav-toggle:checked ~ .menu-overlay{
+  display: block;
+}
+
+/* opcjonalnie: na małych ekranach menu pełną szerokość */
+@media (max-width: 520px){
+  :root{ --menu-w: calc(100vw - 24px); }
+}
+
+/* FINAL: layout zawsze 1 kolumna (menu jest overlay) */
+.layout{
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 8px 4px;
+  min-height: 0;
+}
+
+:root{
+  --burger-w: 64px;
+  --burger-h: 56px;
+  --burger-gap: 12px;
+}
+
+/* top-bar robi się “kontenerem” dla burgera i ma na niego miejsce */
+.top-bar{
+  position: relative;
+  min-height: calc(var(--burger-h) + var(--burger-gap));
+  padding-left: calc(12px + var(--burger-w) + 12px); /* miejsce na burger + odstęp */
+}
+
+/* burger już NIE jest fixed — siedzi w top-bar */
+.burger-btn{
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+
+  width: var(--burger-w);
+  height: var(--burger-h);
+  z-index: 1200;
+}
+

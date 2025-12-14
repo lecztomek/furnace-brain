@@ -7,7 +7,9 @@
     <link rel="stylesheet" href="styles-manual.css" />
   </head>
   <body>
-    <div class="app">
+      <input id="nav-toggle" class="nav-toggle" type="checkbox" />
+      <div class="app">
+      <label for="nav-toggle" class="burger-btn" aria-label="Menu">☰</label>
       <main class="layout">
         <!-- LEWA / CENTRALNA CZĘŚĆ: TRYB RĘCZNY -->
         <section class="diagram-wrapper">
@@ -175,7 +177,7 @@
         <span id="status-text"></span>
       </footer>
     </div>
-
+    <label for="nav-toggle" class="menu-overlay" aria-label="Zamknij menu"></label>
     <script src="js/side-clock.js"></script>
     <script src="js/manual.js"></script>
     <script src="js/mode-control.js"></script>
