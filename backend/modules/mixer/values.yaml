@@ -1,4 +1,4 @@
-adjust_interval_s: 30.0
+adjust_interval_s: 60.0
 boiler_max_drop_degC: 2.0
 boiler_min_temp_for_open: 48.0
 boiler_recover_factor: 1.0

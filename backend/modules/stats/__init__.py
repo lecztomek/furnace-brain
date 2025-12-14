@@ -1,9 +1,11 @@
+# backend/modules/stats/__init__.py
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from collections import deque
+from datetime import datetime
 
 import yaml  # pip install pyyaml
 
@@ -17,48 +19,61 @@ from backend.core.state import (
     PartialOutputs,
 )
 
+SECONDS_5M = 300.0
+MJ_TO_KWH = 1.0 / 3.6  # 1 kWh = 3.6 MJ
+
 
 # ---------- KONFIGURACJA RUNTIME ----------
 
 @dataclass
 class StatsConfig:
+    """
+    enabled             – włącza/wyłącza liczenie
+    feeder_kg_per_hour  – ile kg/h podaje ślimak gdy feeder_on == True
+    calorific_mj_per_kg – MJ/kg (jeśli 0 -> nie liczymy mocy/energii)
+    """
     enabled: bool = True
-
-    # Ile kg węgla podaje ślimak w 1h, gdy feeder_on=True przez całą godzinę.
     feeder_kg_per_hour: float = 10.0
-
-    # Kaloryczność paliwa [MJ/kg]. Jeśli 0 -> moc = None.
     calorific_mj_per_kg: float = 0.0
+
+
+# ---------- STRUKTURY WEWNĘTRZNE ----------
+
+@dataclass
+class _Bucket:
+    seconds: float = 0.0
+    coal_kg: float = 0.0
+    energy_kwh: float = 0.0
+
+
+@dataclass
+class _Agg:
+    seconds: float
+    coal_kg: float
+    energy_kwh: float
+
+    burn_kgph_avg: float
+    burn_kgph_min: float
+    burn_kgph_max: float
+
+    power_kw_avg: float
+    power_kw_min: float
+    power_kw_max: float
 
 
 # ---------- MODUŁ ----------
 
 class StatsModule(ModuleInterface):
     """
-    stats:
-    - bazuje na system_state.outputs.feeder_on (czyli w praktyce na pracy modułu ślimaka)
-    - integruje masę paliwa w czasie i zapisuje do bucketów:
-        5-min -> 1h -> 24h -> 7d
-    - trzyma stałe ring-buffery, bez wycieku pamięci.
+    Moduł statystyk spalania i mocy.
 
-    Statystyki:
-      spalanie (kg/h) i moc (kW) dla:
-        - 5m  (ostatni zakończony bucket 5-min)
-        - 1h  (ostatnia zakończona godzina)
-        - 4h  (ostatnie 4 zakończone godziny)
-        - 24h (ostatnia zakończona doba)
-        - 7d  (ostatnie 7 zakończonych dób)
-
-    Uwaga: okna są "bucketowe" (wyrównane do czasu epoki),
-    a nie idealnie kroczące — zgodnie z Twoim wymaganiem hierarchii i mniejszej ilości danych.
+    - liczy spalone kg na podstawie feeder_on (integracja po czasie)
+    - agreguje w hierarchii: 5m -> 1h -> 24h -> 7d
+    - 4h liczone "w locie" z ostatnich 4 bucketów 1h
+    - publikuje wyniki w system_state.runtime["stats"] (płaska struktura)
     """
 
-    # stałe rozmiary bucketów
-    BUCKET_5M_S = 300
-    BUCKET_1H_S = 3600
-    BUCKET_24H_S = 86400
-
-    def __init__(self, base_path: Path | None = None, config: StatsConfig | None = None) -> None:
+    def __init__(self, base_path: Optional[Path] = None, config: Optional[StatsConfig] = None) -> None:
         self._base_path = base_path or Path(__file__).resolve().parent
         self._schema_path = self._base_path / "schema.yaml"
         self._config_path = self._base_path / "values.yaml"
@@ -66,323 +81,238 @@ class StatsModule(ModuleInterface):
         self._config = config or StatsConfig()
         self._load_config_from_file()
 
-        # ring buffers: (bucket_start_ts, mass_kg, energy_kwh)
-        # 5m: trzymamy ~2h, żeby pewnie składać godziny nawet przy opóźnieniach ticków
-        self._b5: Deque[Tuple[int, float, float]] = deque(maxlen=24)     # 24 * 5m = 2h
-        self._b1h: Deque[Tuple[int, float, float]] = deque(maxlen=30)    # ~30h
-        self._b24h: Deque[Tuple[int, float, float]] = deque(maxlen=8)    # ~8 dni
-
+        # czas
         self._last_ts: Optional[float] = None
 
-        # żeby nie tworzyć duplikatów bucketów
-        self._last_closed_5m_start: Optional[int] = None
-        self._last_closed_1h_start: Optional[int] = None
-        self._last_closed_24h_start: Optional[int] = None
+        # aktualny bucket 5m
+        self._bucket_start_ts: Optional[float] = None
+        self._cur = _Bucket()
 
-        # cache pod GUI/API
-        self._last_stats: Dict[str, Any] = {}
+        # historia (stałe rozmiary -> brak wycieku)
+        self._b5m: deque[_Agg] = deque(maxlen=12)   # 12 * 5m = 1h
+        self._b1h: deque[_Agg] = deque(maxlen=24)   # 24 * 1h = 24h
+        self._b24h: deque[_Agg] = deque(maxlen=7)   # 7 * 24h = 7d
 
-        # opcjonalnie: eventy o problemach konfiga (rate limit)
-        self._bad_cfg_last_event_ts: float = 0.0
+    # --- ModuleInterface ---
 
     @property
     def id(self) -> str:
         return "stats"
 
-    def get_runtime_stats(self) -> Dict[str, Any]:
-        return dict(self._last_stats)
-
     def tick(self, now: float, sensors: Sensors, system_state: SystemState) -> ModuleTickResult:
         events: List[Event] = []
-        outputs = PartialOutputs()
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
 
+        # init runtime slot
+        if not hasattr(system_state, "runtime"):
+            # jeśli runtime istnieje u Ciebie w state, to ten blok nigdy nie zadziała
+            # ale zostawiamy defensywnie bez "fallbacków" w logice liczenia.
+            system_state.runtime = {}
+
         if not self._config.enabled:
-            self._last_ts = now
-            self._b5.clear()
-            self._b1h.clear()
-            self._b24h.clear()
-            self._last_stats = {"enabled": False}
-            return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
+            self._publish(now, system_state, enabled=False)
+            return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
-        # podstawowe sanity-check configu
-        if self._config.feeder_kg_per_hour < 0:
-            self._config.feeder_kg_per_hour = 0.0
-            if now - self._bad_cfg_last_event_ts >= 60.0:
-                self._bad_cfg_last_event_ts = now
-                events.append(
-                    Event(
-                        ts=now,
-                        source=self.id,
-                        level=EventLevel.WARNING,
-                        type="STATS_BAD_CONFIG",
-                        message="feeder_kg_per_hour < 0; skorygowano do 0.",
-                        data={},
-                    )
-                )
-
+        # pierwszy tick - inicjalizacja czasu
         if self._last_ts is None:
             self._last_ts = now
-            self._recompute_stats_cache(now)
-            return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
+            self._bucket_start_ts = now
+            self._cur = _Bucket()
+            self._publish(now, system_state, enabled=True)
+            return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
-        dt = now - self._last_ts
-        if dt <= 0:
-            self._recompute_stats_cache(now)
-            return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
+        dt_total = now - self._last_ts
+        if dt_total <= 0:
+            self._last_ts = now
+            self._publish(now, system_state, enabled=True)
+            return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
+        # stan ślimaka bierzemy z outputs (to ma być "realne" sterowanie)
         feeder_on = bool(system_state.outputs.feeder_on)
 
-        kg_per_h = float(self._config.feeder_kg_per_hour)
-        kg_per_s = kg_per_h / 3600.0
+        t = self._last_ts
 
-        mj_per_kg = max(0.0, float(self._config.calorific_mj_per_kg))
-        kwh_per_kg = (mj_per_kg / 3.6) if mj_per_kg > 0 else 0.0
+        # integracja po czasie z podziałem na granice 5-minutowych bucketów
+        while t < now:
+            if self._bucket_start_ts is None:
+                self._bucket_start_ts = t
 
-        mass_kg = (kg_per_s * dt) if feeder_on else 0.0
-        energy_kwh = (mass_kg * kwh_per_kg) if kwh_per_kg > 0 else 0.0
+            bucket_end = self._bucket_start_ts + SECONDS_5M
+            step = min(now - t, bucket_end - t)  # ile sekund należy do aktualnego bucketa
 
-        # rozkładamy integral na buckety 5-min
-        self._accumulate_into_buckets(
-            t0=self._last_ts,
-            t1=now,
-            bucket_s=self.BUCKET_5M_S,
-            total_mass=mass_kg,
-            total_energy=energy_kwh,
-            target=self._b5,
-        )
+            # zawsze zliczamy sekundy
+            self._cur.seconds += step
 
-        # domykamy i roll-upujemy (5m -> 1h -> 24h)
-        self._rollup(now)
+            # zliczamy kg tylko gdy feeder_on
+            if feeder_on and self._config.feeder_kg_per_hour > 0:
+                kg = self._config.feeder_kg_per_hour * (step / 3600.0)
+                self._cur.coal_kg += kg
+
+                # energia/moc tylko jeśli podana kaloryczność
+                if self._config.calorific_mj_per_kg > 0:
+                    kwh_per_kg = self._config.calorific_mj_per_kg * MJ_TO_KWH
+                    self._cur.energy_kwh += kg * kwh_per_kg
+
+            t += step
+
+            # domykamy bucket jeśli doszliśmy do jego końca
+            if t >= bucket_end - 1e-9:
+                self._finalize_5m_bucket()
+                self._bucket_start_ts = bucket_end
+                self._cur = _Bucket()
 
         self._last_ts = now
 
-        # cache statystyk
-        self._recompute_stats_cache(now)
-        system_state.runtime[self.id] = dict(self._last_stats)
+        # publikacja snapshotu
+        self._publish(now, system_state, enabled=True)
 
-        return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
+        return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
-    # ---------- BUCKETING + ROLLUP ----------
+    # ---------- LICZENIE / AGREGACJE ----------
 
-    def _accumulate_into_buckets(
-        self,
-        t0: float,
-        t1: float,
-        bucket_s: int,
-        total_mass: float,
-        total_energy: float,
-        target: Deque[Tuple[int, float, float]],
-    ) -> None:
-        """
-        Rozkłada (total_mass, total_energy) proporcjonalnie po bucketach o długości bucket_s
-        pomiędzy t0..t1. Wpisy do target są sumowane po bucket_start.
-        """
-        total_dt = t1 - t0
-        if total_dt <= 0:
-            return
+    def _rate_kgph(self, seconds: float, coal_kg: float) -> float:
+        if seconds <= 0:
+            return 0.0
+        return (coal_kg * 3600.0) / seconds
 
-        cur = t0
-        while cur < t1:
-            b_start = int(cur // bucket_s) * bucket_s
-            b_end = b_start + bucket_s
-            seg_end = min(t1, b_end)
-            seg_dt = seg_end - cur
+    def _rate_kw(self, seconds: float, energy_kwh: float) -> float:
+        if seconds <= 0:
+            return 0.0
+        return (energy_kwh * 3600.0) / seconds
 
-            frac = seg_dt / total_dt
-            seg_mass = total_mass * frac
-            seg_energy = total_energy * frac
+    def _finalize_5m_bucket(self) -> None:
+        s = self._cur.seconds
+        kg = self._cur.coal_kg
+        en = self._cur.energy_kwh
 
-            self._add_or_sum(target, b_start, seg_mass, seg_energy)
-            cur = seg_end
+        burn = self._rate_kgph(s, kg)
+        power = self._rate_kw(s, en)
 
-    def _add_or_sum(self, target: Deque[Tuple[int, float, float]], b_start: int, mass: float, energy: float) -> None:
-        if not target:
-            target.append((b_start, mass, energy))
-            return
+        a5 = _Agg(
+            seconds=s,
+            coal_kg=kg,
+            energy_kwh=en,
+            burn_kgph_avg=burn,
+            burn_kgph_min=burn,
+            burn_kgph_max=burn,
+            power_kw_avg=power,
+            power_kw_min=power,
+            power_kw_max=power,
+        )
+        self._b5m.append(a5)
 
-        last_start, last_m, last_e = target[-1]
-        if last_start == b_start:
-            target[-1] = (last_start, last_m + mass, last_e + energy)
-            return
+        # 1h = 12 * 5m
+        if len(self._b5m) == 12:
+            a1 = self._aggregate_from_children(list(self._b5m))
+            self._b1h.append(a1)
 
-        # jeśli b_start jest "w środku" (rzadkie przy normalnym ticku), dopisz nowy
-        target.append((b_start, mass, energy))
+            # 24h = 24 * 1h
+            if len(self._b1h) == 24:
+                a24 = self._aggregate_from_children(list(self._b1h))
+                self._b24h.append(a24)
 
-    def _rollup(self, now: float) -> None:
-        """
-        - tworzy godzinne buckety z 12 szt. 5-min, ale tylko gdy domknęliśmy godzinę,
-        - tworzy dobowe buckety z 24 szt. 1h, ale tylko gdy domknęliśmy dobę.
-        """
-        # 1) roll-up 5m -> 1h
-        # sprawdzamy ostatni DOMKNIĘTY 5m bucket (tzn. jego start < aktualny start)
-        current_5m_start = int(now // self.BUCKET_5M_S) * self.BUCKET_5M_S
-        last_closed_5m_start = current_5m_start - self.BUCKET_5M_S
+    def _aggregate_from_children(self, children: List[_Agg]) -> _Agg:
+        sec = sum(c.seconds for c in children)
+        kg = sum(c.coal_kg for c in children)
+        en = sum(c.energy_kwh for c in children)
 
-        if self._last_closed_5m_start is None or last_closed_5m_start > self._last_closed_5m_start:
-            self._last_closed_5m_start = last_closed_5m_start
+        burn_avg = self._rate_kgph(sec, kg)
+        power_avg = self._rate_kw(sec, en)
 
-            # jeśli domknięty 5m bucket kończy godzinę (np. 12-ty w godzinie),
-            # to (last_closed_5m_start + 300) % 3600 == 0
-            if ((last_closed_5m_start + self.BUCKET_5M_S) % self.BUCKET_1H_S) == 0:
-                hour_end = last_closed_5m_start + self.BUCKET_5M_S
-                hour_start = hour_end - self.BUCKET_1H_S
-                hour = self._sum_exact_sequence(self._b5, hour_start, self.BUCKET_5M_S, 12)
-                if hour is not None:
-                    mass, energy = hour
-                    # unikaj duplikatów
-                    if self._last_closed_1h_start is None or hour_start > self._last_closed_1h_start:
-                        self._last_closed_1h_start = hour_start
-                        self._add_or_sum(self._b1h, hour_start, mass, energy)
+        burn_min = min((c.burn_kgph_min for c in children), default=0.0)
+        burn_max = max((c.burn_kgph_max for c in children), default=0.0)
 
-                        # 2) roll-up 1h -> 24h (doba domknięta?)
-                        # jeśli hour_end kończy dobę: hour_end % 86400 == 0
-                        if (hour_end % self.BUCKET_24H_S) == 0:
-                            day_end = hour_end
-                            day_start = day_end - self.BUCKET_24H_S
-                            day = self._sum_exact_sequence(self._b1h, day_start, self.BUCKET_1H_S, 24)
-                            if day is not None:
-                                d_mass, d_energy = day
-                                if self._last_closed_24h_start is None or day_start > self._last_closed_24h_start:
-                                    self._last_closed_24h_start = day_start
-                                    self._add_or_sum(self._b24h, day_start, d_mass, d_energy)
+        power_min = min((c.power_kw_min for c in children), default=0.0)
+        power_max = max((c.power_kw_max for c in children), default=0.0)
 
-    def _sum_exact_sequence(
-        self,
-        source: Deque[Tuple[int, float, float]],
-        start_ts: int,
-        step_s: int,
-        count: int,
-    ) -> Optional[Tuple[float, float]]:
-        """
-        Sumuje dokładnie sekwencję bucketów: start_ts, start_ts+step, ... (count szt)
-        Zwraca None jeśli brakuje któregokolwiek elementu.
-        """
-        # mało danych -> prosta mapa w locie
-        mp: Dict[int, Tuple[float, float]] = {ts: (m, e) for ts, m, e in source}
-        mass = 0.0
-        energy = 0.0
-        for i in range(count):
-            ts = start_ts + i * step_s
-            if ts not in mp:
-                return None
-            m, e = mp[ts]
-            mass += m
-            energy += e
-        return mass, energy
+        return _Agg(
+            seconds=sec,
+            coal_kg=kg,
+            energy_kwh=en,
+            burn_kgph_avg=burn_avg,
+            burn_kgph_min=burn_min,
+            burn_kgph_max=burn_max,
+            power_kw_avg=power_avg,
+            power_kw_min=power_min,
+            power_kw_max=power_max,
+        )
 
-    # ---------- STATYSTYKI (cache) ----------
-
-    def _latest_bucket(self, source: Deque[Tuple[int, float, float]]) -> Optional[Tuple[int, float, float]]:
-        if not source:
+    def _window_4h(self) -> Optional[_Agg]:
+        if len(self._b1h) < 4:
             return None
-        return source[-1]
+        return self._aggregate_from_children(list(self._b1h)[-4:])
 
-    def _sum_last_n(self, source: Deque[Tuple[int, float, float]], n: int) -> Optional[Tuple[float, float]]:
-        if len(source) < n:
+    def _window_7d(self) -> Optional[_Agg]:
+        if len(self._b24h) < 7:
             return None
-        mass = 0.0
-        energy = 0.0
-        for ts, m, e in list(source)[-n:]:
-            mass += m
-            energy += e
-        return mass, energy
+        # _b24h ma maxlen=7, więc jak len==7 to agregujemy wszystko
+        return self._aggregate_from_children(list(self._b24h))
 
-    def _recompute_stats_cache(self, now: float) -> None:
-        mj_per_kg = max(0.0, float(self._config.calorific_mj_per_kg))
+    # ---------- PUBLIKACJA DO runtime ----------
 
-        def to_kw(energy_kwh: float, hours: float) -> Optional[float]:
-            if mj_per_kg <= 0:
-                return None
-            if hours <= 0:
-                return None
-            return energy_kwh / hours
+    def _publish(self, now: float, system_state: SystemState, enabled: bool) -> None:
+        ts_iso = datetime.fromtimestamp(now).isoformat(timespec="seconds")
 
-        # --- 5m ---
-        b5 = self._latest_bucket(self._b5)
-        if b5 is None:
-            mass_5m = None
-            energy_5m = None
-        else:
-            _, mass_5m, energy_5m = b5
+        # 5m: bierzemy ostatni ZAMKNIĘTY bucket (stabilne) – a jeśli brak, to aktualny (jeśli coś nazbierał)
+        a5: Optional[_Agg] = self._b5m[-1] if len(self._b5m) >= 1 else None
+        if a5 is None and self._cur.seconds > 0:
+            burn = self._rate_kgph(self._cur.seconds, self._cur.coal_kg)
+            power = self._rate_kw(self._cur.seconds, self._cur.energy_kwh)
+            a5 = _Agg(
+                seconds=self._cur.seconds,
+                coal_kg=self._cur.coal_kg,
+                energy_kwh=self._cur.energy_kwh,
+                burn_kgph_avg=burn, burn_kgph_min=burn, burn_kgph_max=burn,
+                power_kw_avg=power, power_kw_min=power, power_kw_max=power,
+            )
 
-        # --- 1h (ostatnia pełna godzina) ---
-        b1h = self._latest_bucket(self._b1h)
-        if b1h is None:
-            mass_1h = None
-            energy_1h = None
-        else:
-            _, mass_1h, energy_1h = b1h
+        a1: Optional[_Agg] = self._b1h[-1] if len(self._b1h) >= 1 else None
+        a4: Optional[_Agg] = self._window_4h()
+        a24: Optional[_Agg] = self._b24h[-1] if len(self._b24h) >= 1 else None
+        a7: Optional[_Agg] = self._window_7d()
 
-        # --- 4h (4 pełne godziny) ---
-        sum4 = self._sum_last_n(self._b1h, 4)
-        if sum4 is None:
-            mass_4h = None
-            energy_4h = None
-        else:
-            mass_4h, energy_4h = sum4
+        def pack(prefix: str, a: Optional[_Agg], out: Dict[str, Any]) -> None:
+            if a is None:
+                out[f"burn_kgph_{prefix}"] = None
+                out[f"burn_kgph_min_{prefix}"] = None
+                out[f"burn_kgph_max_{prefix}"] = None
+                out[f"coal_kg_{prefix}"] = None
+                out[f"power_kw_{prefix}"] = None
+                out[f"power_kw_min_{prefix}"] = None
+                out[f"power_kw_max_{prefix}"] = None
+                out[f"energy_kwh_{prefix}"] = None
+                out[f"seconds_{prefix}"] = None
+                return
 
-        # --- 24h (ostatnia pełna doba) ---
-        b24 = self._latest_bucket(self._b24h)
-        if b24 is None:
-            mass_24h = None
-            energy_24h = None
-        else:
-            _, mass_24h, energy_24h = b24
+            out[f"burn_kgph_{prefix}"] = a.burn_kgph_avg
+            out[f"burn_kgph_min_{prefix}"] = a.burn_kgph_min
+            out[f"burn_kgph_max_{prefix}"] = a.burn_kgph_max
 
-        # --- 7d (7 pełnych dób) ---
-        sum7 = self._sum_last_n(self._b24h, 7)
-        if sum7 is None:
-            mass_7d = None
-            energy_7d = None
-        else:
-            mass_7d, energy_7d = sum7
+            out[f"coal_kg_{prefix}"] = a.coal_kg
 
-        # spalanie (kg/h) i moc (kW)
-        def rate_kgph(mass: Optional[float], hours: float) -> Optional[float]:
-            if mass is None:
-                return None
-            if hours <= 0:
-                return None
-            return mass / hours
+            out[f"power_kw_{prefix}"] = a.power_kw_avg
+            out[f"power_kw_min_{prefix}"] = a.power_kw_min
+            out[f"power_kw_max_{prefix}"] = a.power_kw_max
 
-        self._last_stats = {
-            "enabled": True,
+            out[f"energy_kwh_{prefix}"] = a.energy_kwh
+            out[f"seconds_{prefix}"] = a.seconds
+
+        payload: Dict[str, Any] = {
+            "enabled": bool(enabled),
+            "ts_unix": float(now),
+            "ts_iso": ts_iso,
             "feeder_kg_per_hour": float(self._config.feeder_kg_per_hour),
             "calorific_mj_per_kg": float(self._config.calorific_mj_per_kg),
-
-            "burn_kgph_5m": rate_kgph(mass_5m, 5.0 / 60.0),
-            "burn_kgph_1h": rate_kgph(mass_1h, 1.0),
-            "burn_kgph_4h": rate_kgph(mass_4h, 4.0),
-            "burn_kgph_24h": rate_kgph(mass_24h, 24.0),
-            "burn_kgph_7d": rate_kgph(mass_7d, 7.0 * 24.0),
-
-            "power_kw_5m": to_kw(energy_5m, 5.0 / 60.0) if energy_5m is not None else None,
-            "power_kw_1h": to_kw(energy_1h, 1.0) if energy_1h is not None else None,
-            "power_kw_4h": to_kw(energy_4h, 4.0) if energy_4h is not None else None,
-            "power_kw_24h": to_kw(energy_24h, 24.0) if energy_24h is not None else None,
-            "power_kw_7d": to_kw(energy_7d, 7.0 * 24.0) if energy_7d is not None else None,
-
-            # dodatkowo: sumy masy/energii (mogą się przydać w GUI)
-            "coal_kg_5m": mass_5m,
-            "coal_kg_1h": mass_1h,
-            "coal_kg_4h": mass_4h,
-            "coal_kg_24h": mass_24h,
-            "coal_kg_7d": mass_7d,
-
-            "energy_kwh_5m": energy_5m,
-            "energy_kwh_1h": energy_1h,
-            "energy_kwh_4h": energy_4h,
-            "energy_kwh_24h": energy_24h,
-            "energy_kwh_7d": energy_7d,
-
-            # info o dostępności okien (żeby GUI wiedziało czy już "nabiło")
-            "available_5m": mass_5m is not None,
-            "available_1h": mass_1h is not None,
-            "available_4h": mass_4h is not None,
-            "available_24h": mass_24h is not None,
-            "available_7d": mass_7d is not None,
         }
+
+        pack("5m", a5, payload)
+        pack("1h", a1, payload)
+        pack("4h", a4, payload)
+        pack("24h", a24, payload)
+        pack("7d", a7, payload)
+
+        # publikacja do runtime
+        system_state.runtime["stats"] = payload
 
     # ---------- CONFIG (schema + values) ----------
 
@@ -423,6 +353,6 @@ class StatsModule(ModuleInterface):
             self._config.calorific_mj_per_kg = float(data["calorific_mj_per_kg"])
 
     def _save_config_to_file(self) -> None:
-        data = asdict(self._config)
         with self._config_path.open("w", encoding="utf-8") as f:
-            yaml.safe_dump(data, f, sort_keys=True, allow_unicode=True)
+            yaml.safe_dump(asdict(self._config), f, sort_keys=True, allow_unicode=True)
+

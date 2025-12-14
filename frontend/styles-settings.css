@@ -687,3 +687,112 @@ body {
 .menu-btn {
   text-decoration: none;
 }
+
+/* POSZERZ PRAWA KOLUMNE */
+.layout {
+  grid-template-columns: 1fr 320px; /* było 210px */
+}
+
+/* MENU: 2 kolumny kafelków */
+.side-menu {
+  padding: 12px;
+  gap: 12px; /* większy oddech */
+}
+
+/* Wrapper na przyciski */
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+
+/* Kafelki: bardziej kwadratowe, większe */
+.menu-btn {
+  border-radius: 14px;
+  padding: 14px 10px;
+  min-height: 110px;
+
+  display: flex;
+  flex-direction: column;          /* ikona nad etykietą */
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+
+  font-size: 14px;                 /* label */
+  letter-spacing: 0.10em;
+}
+
+/* Większe ikony */
+.menu-icon {
+  font-size: 38px;
+  line-height: 1;
+}
+
+/* Label trochę większy i bardziej czytelny */
+.menu-label {
+  font-weight: 800;
+}
+
+/* Przycisk na całą szerokość (np. STOP) */
+.menu-btn.wide {
+  grid-column: 1 / -1;
+  min-height: 90px;
+  flex-direction: row;             /* dla STOP wygodniej poziomo */
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+}
+
+/* Zegar może zostać jak jest, ale można powiększyć: */
+.side-clock-time {
+  font-size: 2.0rem;
+  font-weight: 700;
+}
+
+/* większy zegar */
+.side-clock {
+  padding: 16px 14px;
+  margin: 12px 10px 16px 10px;
+}
+
+.side-clock-time {
+  font-size: clamp(2.2rem, 4.5vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: 0.10em;
+}
+
+/* STOP zawsze na samym dole */
+.side-menu {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-grid {
+  /* grid niech będzie "z góry", a stop wypchnie się na dół */
+  margin-bottom: 12px;
+}
+
+.bottom-stop {
+  margin-top: auto;          /* <- to robi "na sam dół" */
+  width: 100%;
+  min-height: 110px;
+  border-radius: 16px;
+
+  /* wygląda jak mocny przycisk, bardziej poziomy */
+  flex-direction: row;
+  justify-content: center;
+  gap: 14px;
+}
+
+.bottom-stop .menu-icon {
+  font-size: 44px;
+}
+
+.bottom-stop .menu-label {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
