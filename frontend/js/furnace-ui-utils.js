@@ -6,7 +6,6 @@
 
   const $ = (sel, root = document) => root.querySelector(sel);
 
-  // --- STAN (opcjonalnie, jak chcesz tego używać z zewnątrz) ---
   const uiState = {
     pumps: { cwu: false, co: false },
     augerOn: false,
@@ -24,7 +23,6 @@
     powerPercent: 0,
   };
 
-  // referencje do elementów z Twojego SVG
   const els = {
     pumpCwuRotor: null,
     pumpCoRotor: null,
@@ -57,7 +55,7 @@
     augerCorrectionText: null,
   };
 
-  // --- FORMATERY / POMOCNICZE ---
+  let refsReady = false;
 
   function formatMode(mode) {
     if (!mode) return "TRYB: --";
@@ -91,15 +89,14 @@
     return "#e74c3c";
   }
 
-  // --- STRZAŁKI CWU / CO ---
-  // animujemy <polygon> wewnątrz grup, bo CSS jest zdefiniowany na polygonach
+  // --- STRZAŁKI CWU / CO (bez zmian) ---
 
   function setArrowGroupActive(arrowEls, isOn) {
     arrowEls.forEach((groupEl) => {
       if (!groupEl) return;
 
       const poly = groupEl.querySelector("polygon") || groupEl;
-      const color = groupEl.dataset.color; // "red" / "blue"
+      const color = groupEl.dataset.color;
 
       if (isOn) {
         poly.style.animation = "";
@@ -130,25 +127,33 @@
     setArrowGroupActive([els.coArrowHot, els.coArrowCold], isOn);
   }
 
-  // --- INICJALIZACJA REFERENCJI DO SVG ---
+  // --- INIT REFS ---
 
   function initSvgRefs() {
     const pumpCwu = $("#pump-cwu");
     const pumpCo = $("#pump-co");
 
     if (pumpCwu) {
+      // najpewniej: <g id="rotor"> ... </g> wewnątrz #pump-cwu
       els.pumpCwuRotor =
-        pumpCwu.querySelector(".pump-running") || pumpCwu.querySelector("g");
+        pumpCwu.querySelector('g[id="rotor"]') ||
+        pumpCwu.querySelector(".pump-running") ||
+        pumpCwu.querySelector("g");
     }
 
     if (pumpCo) {
       els.pumpCoRotor =
-        pumpCo.querySelector(".pump-running") || pumpCo.querySelector("g");
+        pumpCo.querySelector('g[id="rotor"]') ||
+        pumpCo.querySelector(".pump-running") ||
+        pumpCo.querySelector("g");
     }
 
     const auger = $("#auger");
     if (auger) {
-      els.augerScrew = auger.querySelector(".auger-running") || $("#auger-screw");
+      els.augerScrew =
+        auger.querySelector('g[id="auger-screw"]') ||
+        auger.querySelector(".auger-running") ||
+        $("#auger-screw");
     }
 
     els.fanRotor = $("#fan-rotor");
@@ -161,13 +166,11 @@
 
     els.modeText = $("#mode-text");
 
-    // Ogień (skalowanie) – zachowaj bazowy transform z SVG (np. translate)
     els.fireScale = $("#fire-scale");
     if (els.fireScale) {
       els.fireBaseTransform = els.fireScale.getAttribute("transform") || "";
     }
 
-    // Dym – jak go nie ma w DOM, to i tak nic się nie stanie
     els.smokeGroup = $("#smoke");
 
     els.furnaceTempText = $("#furnace-temp-text");
@@ -185,17 +188,28 @@
     // Na starcie — strzałki bez migania (czarne)
     setCwuArrows(false);
     setCoArrows(false);
+
+    refsReady = true;
+  }
+
+  function ensureSvgRefs() {
+    if (!refsReady) initSvgRefs();
   }
 
   // --- POMPY ---
 
   function setPumpState(pumpId, isOn) {
+    ensureSvgRefs();
+
     const on = !!isOn;
-    if (uiState.pumps[pumpId] === on) return; // early-return
     uiState.pumps[pumpId] = on;
 
     const rotor =
-      pumpId === "cwu" ? els.pumpCwuRotor : pumpId === "co" ? els.pumpCoRotor : null;
+      pumpId === "cwu"
+        ? els.pumpCwuRotor
+        : pumpId === "co"
+          ? els.pumpCoRotor
+          : null;
 
     if (rotor) rotor.classList.toggle("pump-running", on);
 
@@ -212,8 +226,9 @@
   // --- ŚLIMAK / PODAJNIK ---
 
   function setAugerStateInternal(isOn) {
+    ensureSvgRefs();
+
     const on = !!isOn;
-    if (uiState.augerOn === on) return; // early-return
     uiState.augerOn = on;
 
     if (els.augerScrew) els.augerScrew.classList.toggle("auger-running", on);
@@ -228,13 +243,16 @@
   // --- DMUCHAWA ---
 
   function setFanStateInternal(isOn) {
+    ensureSvgRefs();
+
     const on = !!isOn;
     if (els.fanRotor) els.fanRotor.classList.toggle("fan-running", on);
   }
 
   function setBlowerPower(power) {
+    ensureSvgRefs();
+
     const val = clamp(Number(power) || 0, 0, 100);
-    if (uiState.blowerPower === val) return; // early-return
     uiState.blowerPower = val;
 
     if (els.blowerPowerText) els.blowerPowerText.textContent = `${val}%`;
@@ -245,15 +263,17 @@
   // --- TEMPERATURY / PARAMETRY ---
 
   function setMode(mode) {
+    ensureSvgRefs();
+
     const m = mode ?? null;
-    if (uiState.mode === m) return; // early-return
     uiState.mode = m;
 
     if (els.modeText) els.modeText.textContent = formatMode(m);
   }
 
   function setFurnaceTemp(valueC) {
-    if (uiState.temperatures.furnace === valueC) return;
+    ensureSvgRefs();
+
     uiState.temperatures.furnace = valueC;
 
     const text = els.furnaceTempText;
@@ -266,7 +286,8 @@
   }
 
   function setRadiatorsTemp(valueC) {
-    if (uiState.temperatures.radiators === valueC) return;
+    ensureSvgRefs();
+
     uiState.temperatures.radiators = valueC;
 
     const text = els.radiatorsTempText;
@@ -277,7 +298,8 @@
   }
 
   function setMixerTemp(valueC) {
-    if (uiState.temperatures.mixer === valueC) return;
+    ensureSvgRefs();
+
     uiState.temperatures.mixer = valueC;
 
     const text = els.mixerTempText;
@@ -288,19 +310,17 @@
   }
 
   function setAugerTemp(valueC) {
-    if (uiState.temperatures.auger === valueC) return;
+    ensureSvgRefs();
+
     uiState.temperatures.auger = valueC;
 
     const text = els.augerTempText;
-    if (text) {
-      text.textContent = formatTemp(valueC);
-      // jak chcesz kolor też tu:
-      // text.style.fill = tempColor(valueC);
-    }
+    if (text) text.textContent = formatTemp(valueC);
   }
 
   function setExhaustTemp(valueC) {
-    if (uiState.temperatures.exhaust === valueC) return;
+    ensureSvgRefs();
+
     uiState.temperatures.exhaust = valueC;
 
     const text = els.exhaustTempText;
@@ -309,7 +329,7 @@
       text.style.fill = tempColor(valueC);
     }
 
-    // Dym – jeśli element istnieje i chcesz nim sterować, zostawiam jak było
+    // jak nie masz dymu w DOM to i tak nic nie zrobi
     const smoke = els.smokeGroup;
     if (!smoke) return;
 
@@ -318,39 +338,39 @@
   }
 
   function setFuelInTank(kg) {
-    if (uiState.fuelKg === kg) return;
-    uiState.fuelKg = kg;
+    ensureSvgRefs();
 
-    const text = els.fuelInTankText;
-    if (text) text.textContent = formatFuel(kg);
+    uiState.fuelKg = kg;
+    if (els.fuelInTankText) els.fuelInTankText.textContent = formatFuel(kg);
   }
 
   function setAugerCorrection(seconds) {
-    if (uiState.augerCorrectionSec === seconds) return;
-    uiState.augerCorrectionSec = seconds;
+    ensureSvgRefs();
 
-    const text = els.augerCorrectionText;
-    if (text) text.textContent = formatSeconds(seconds);
+    uiState.augerCorrectionSec = seconds;
+    if (els.augerCorrectionText)
+      els.augerCorrectionText.textContent = formatSeconds(seconds);
   }
 
   function setPowerPercent(value) {
+    ensureSvgRefs();
+
     const num = clamp(Number(value) || 0, 0, 100);
-    if (uiState.powerPercent === num) return;
     uiState.powerPercent = num;
 
-    const el = els.powerPercentText;
-    if (el) el.textContent = `${Math.round(num)}%`;
+    if (els.powerPercentText)
+      els.powerPercentText.textContent = `${Math.round(num)}%`;
   }
 
-  // 🔥 ogień: skala zależna od temp kotła
-  // WAŻNE: nie nadpisujemy translate z SVG — zachowujemy bazowy transform i podmieniamy tylko scale()
+  // 🔥 Ogień: tylko skala, ale zachowaj bazowy transform z SVG
   function updateFireFromTemp(valueC) {
+    ensureSvgRefs();
+
     const fireScale = els.fireScale;
     if (!fireScale) return;
 
     const t = Number(valueC);
 
-    // brak danych / zimno – ogień znika (jak miałeś)
     if (!Number.isFinite(t) || t < 30) {
       fireScale.style.display = "none";
       return;
@@ -358,33 +378,28 @@
 
     fireScale.style.display = "";
 
-    // 30°C -> 0, 50°C -> 1
     let sRaw = (t - 30) / (50 - 30);
     sRaw = clamp(sRaw, 0, 1);
-
-    // minimalny ogień
     const s = 0.3 + 0.7 * sRaw;
 
-    // baza = to co było w SVG (np. translate)
     const base = (els.fireBaseTransform || "").trim();
-
-    // usuń stare scale(...) z bazy (na wypadek, gdyby było)
     const baseNoScale = base.replace(/scale\([^)]*\)/g, "").trim();
 
-    const newTransform = (baseNoScale ? baseNoScale + " " : "") + `scale(${s})`;
+    const newTransform =
+      (baseNoScale ? baseNoScale + " " : "") + `scale(${s})`;
+
     fireScale.setAttribute("transform", newTransform);
   }
 
   // --- STATUS / ZEGAR ---
 
   function setStatus(text) {
-    const el = els.statusText;
-    if (!el) return;
-    if (el.textContent === text) return;
-    el.textContent = text;
+    ensureSvgRefs();
+    if (els.statusText) els.statusText.textContent = text;
   }
 
   function startClock() {
+    ensureSvgRefs();
     const el = els.clockText;
     if (!el) return;
 
@@ -398,8 +413,6 @@
     update();
     setInterval(update, 30 * 1000);
   }
-
-  // --- INIT ---
 
   document.addEventListener("DOMContentLoaded", () => {
     initSvgRefs();
@@ -426,32 +439,25 @@
     power: { setPercent: setPowerPercent },
   };
 
-  // --- FUNKCJE KOMPATYBILNE ZE STARYM KODEM ---
-
+  // kompatybilność
   window.setFanState = function (isOn) {
     setFanStateInternal(isOn);
   };
-
   window.setPower = function (power) {
     setBlowerPower(power);
   };
-
   window.setAugerState = function (isOn) {
     setAugerStateInternal(isOn);
   };
-
   window.setPumpCwuState = function (isOn) {
     setPumpState("cwu", isOn);
   };
-
   window.setPumpCoState = function (isOn) {
     setPumpState("co", isOn);
   };
-
   window.setMode = function (mode) {
     setMode(mode);
   };
-
   window.setExhaustTemp = function (valueC) {
     setExhaustTemp(valueC);
   };

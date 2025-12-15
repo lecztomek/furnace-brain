@@ -1,92 +1,122 @@
 // main.js
-
 const STATE_API_BASE = "http://127.0.0.1:8000/api/state";
 
+let timer = null;
+let inFlight = false;
+let controller = null;
+
+// cache poprzedniego stanu (do porównywania i ograniczania DOM update)
+let prev = {
+  temps: {},
+  outputs: {},
+  mode: null,
+  power: null,
+  alarm: null,
+};
+
+// prosta funkcja: aktualizuj tylko jeśli wartość się zmieniła
+function setIfChanged(bucket, key, value, setter) {
+  if (bucket[key] !== value) {
+    bucket[key] = value;
+    setter(value);
+  }
+}
+
 async function fetchState() {
+  if (inFlight) return;              // 1) nie nakładamy requestów
+  inFlight = true;
+
+  // anuluj poprzedni (na wszelki wypadek)
+  if (controller) controller.abort();
+  controller = new AbortController();
+
   try {
-    // jeśli FastAPI ma prefix /api, to:
     const response = await fetch(`${STATE_API_BASE}/current`, {
-      headers: {
-        "Accept": "application/json",
-      },
+      headers: { "Accept": "application/json" },
+      signal: controller.signal,
+      cache: "no-store",
     });
 
-    if (!response.ok) {
-      throw new Error(`Błąd HTTP: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
     updateUIFromState(data);
   } catch (err) {
-    console.error("Nie udało się pobrać stanu kotła:", err);
-    FurnaceUI.ui.setStatus("Błąd komunikacji z serwerem");
+    // AbortError jest normalny przy pauzowaniu / przełączaniu tabów
+    if (err?.name !== "AbortError") {
+      console.error("Nie udało się pobrać stanu kotła:", err);
+      FurnaceUI.ui.setStatus("Błąd komunikacji z serwerem");
+    }
+  } finally {
+    inFlight = false;
   }
 }
 
 function updateUIFromState(state) {
-  const sensors = state.sensors;
-  const outputs = state.outputs;
+  const sensors = state.sensors || {};
+  const outputs = state.outputs || {};
 
-  // --- temperatury ---
-  // Czujniki z backendu:
-  // boiler_temp, return_temp, radiators_temp, cwu_temp, flue_gas_temp,
-  // hopper_temp, outside_temp, mixer_temp
+  // --- temperatury (zaokrąglij, żeby nie trzepać DOM od 0.01°C) ---
+  const round1 = (v) => (v == null ? null : Math.round(v * 10) / 10);
 
-  // Zakładam takie mapowanie:
-  // - kocioł = boiler_temp
-  // - grzejniki = radiators_temp
-  // - mieszacz = mixer_temp (a jeśli brak, to fallback na return_temp)
-  // - ślimak = hopper_temp (temperatura zasobnika)
-  FurnaceUI.temps.setFurnace(sensors.boiler_temp);
-  FurnaceUI.temps.setRadiators(sensors.radiators_temp);
+  setIfChanged(prev.temps, "boiler",   round1(sensors.boiler_temp),     FurnaceUI.temps.setFurnace);
+  setIfChanged(prev.temps, "rads",     round1(sensors.radiators_temp),  FurnaceUI.temps.setRadiators);
+
   const mixerTemp = sensors.mixer_temp != null ? sensors.mixer_temp : sensors.return_temp;
-  FurnaceUI.temps.setMixer(mixerTemp);
-  FurnaceUI.temps.setAuger(sensors.hopper_temp);
-  FurnaceUI.temps.setExhaust(sensors.flue_gas_temp);
+  setIfChanged(prev.temps, "mixer",    round1(mixerTemp),               FurnaceUI.temps.setMixer);
 
-  // --- wyjścia / pompy / dmuchawa / podajnik ---
-  // outputs:
-  // fan_power, feeder_on, pump_co_on, pump_cwu_on, pump_circ_on,
-  // mixer_open_on, mixer_close_on, alarm_buzzer_on, alarm_relay_on
+  setIfChanged(prev.temps, "auger",    round1(sensors.hopper_temp),     FurnaceUI.temps.setAuger);
+  setIfChanged(prev.temps, "exhaust",  round1(sensors.flue_gas_temp),   FurnaceUI.temps.setExhaust);
 
-  // pompy CO i CWU
-  FurnaceUI.pumps.set("co",  !!outputs.pump_co_on);
-  FurnaceUI.pumps.set("cwu", !!outputs.pump_cwu_on);
+  // --- wyjścia ---
+  setIfChanged(prev.outputs, "pump_co",  !!outputs.pump_co_on,  (v) => FurnaceUI.pumps.set("co", v));
+  setIfChanged(prev.outputs, "pump_cwu", !!outputs.pump_cwu_on, (v) => FurnaceUI.pumps.set("cwu", v));
 
-  // jeśli masz też pompę cyrkulacji w UI, możesz ją tu dopiąć
-  // FurnaceUI.pumps.set("cyrkulacja", !!outputs.pump_circ_on);
+  setIfChanged(prev.outputs, "feeder",   !!outputs.feeder_on,   FurnaceUI.auger.set);
 
-  // ślimak (podajnik)
-  FurnaceUI.auger.set(!!outputs.feeder_on);
+  // fan_power: normalizuj do int, żeby nie zmieniać co chwilę o ułamki
+  const fan = outputs.fan_power == null ? 0 : Math.round(outputs.fan_power);
+  setIfChanged(prev.outputs, "fan", fan, FurnaceUI.blower.setPower);
 
-  // dmuchawa – zakładam, że 0–100%
-  FurnaceUI.blower.setPower(outputs.fan_power || 0);
-  
   const modeDisplay = state.mode_display || state.mode || "nieznany";
-  FurnaceUI.ui.setMode(modeDisplay);
-  
-  const power = (outputs.power_percent != null) ? outputs.power_percent : 0;
-  FurnaceUI.power.setPercent(power);
+  setIfChanged(prev, "mode", modeDisplay, FurnaceUI.ui.setMode);
 
-  // --- status / tryb / alarm ---
-  if (state.alarm_active) {
-    FurnaceUI.ui.setStatus(`ALARM: ${state.alarm_message || "Nieznany błąd"}`);
+  const power = (outputs.power_percent != null) ? Math.round(outputs.power_percent) : 0;
+  setIfChanged(prev, "power", power, FurnaceUI.power.setPercent);
+
+  // --- alarm/status tylko jeśli się zmieniło ---
+  const alarmText = state.alarm_active
+    ? `ALARM: ${state.alarm_message || "Nieznany błąd"}`
+    : null;
+
+  if (prev.alarm !== alarmText) {
+    prev.alarm = alarmText;
+    if (alarmText) FurnaceUI.ui.setStatus(alarmText);
   }
-
-  // --- paliwo i korekcja ---
-  // Tego API na razie nie masz w backendzie, więc:
-  // - możesz tu zostawić wartości „dummy”
-  // - albo po prostu to usunąć, dopóki backend tego nie wystawia
-
-  // Przykład: tymczasowe wartości lub ostatnio znane z localStorage
-  // FurnaceUI.fuel.setKg(130);
-  // FurnaceUI.corrections.setAugerSeconds(6);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  // pierwszy strzał do backendu
-  fetchState();
+// 2) zamiast setInterval -> bezpieczny “łańcuch” setTimeout
+function startPolling(ms = 5000) {
+  stopPolling();
+  const loop = async () => {
+    await fetchState();
+    timer = setTimeout(loop, ms);
+  };
+  loop();
+}
 
-  // opcjonalne odświeżanie co 5s
-  setInterval(fetchState, 5000);
+function stopPolling() {
+  if (timer) { clearTimeout(timer); timer = null; }
+  if (controller) controller.abort();
+}
+
+document.addEventListener("visibilitychange", () => {
+  // 3) pauza gdy niewidoczne (na RPi to duża ulga)
+  if (document.hidden) stopPolling();
+  else startPolling(5000);
 });
+
+document.addEventListener("DOMContentLoaded", () => {
+  startPolling(5000);
+});
+

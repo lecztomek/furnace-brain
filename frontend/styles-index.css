@@ -201,10 +201,9 @@ body {
   align-items: center;
 }
 
-  .menu-btn {
-    font-size: 14px;
-    padding: 12px 8px;
-  }
+.menu-btn {
+  font-size: 14px;
+  padding: 12px 8px;
 }
 
 /* ANIMACJE (jak miałeś) */
