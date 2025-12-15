@@ -211,7 +211,7 @@
   }
 
   // ---------- ANIMACJE “KROKOWE” ----------
-  const ANIM_MS = 200;
+  const ANIM_MS = 500;
   let animTimer = null;
   let animStep = 0;
 
