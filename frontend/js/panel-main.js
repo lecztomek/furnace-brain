@@ -145,6 +145,27 @@ document.addEventListener("visibilitychange", () => {
   else startPolling(5000);
 });
 
+
+function forceAllOnAtStart() {
+  // UI na start: wszystko ON (optymistycznie)
+  prev.outputs.pump_co  = true;
+  prev.outputs.pump_cwu = true;
+  prev.outputs.feeder   = true;
+  prev.outputs.fan      = 100;
+
+  prev.power = 100;
+  prev.mode  = "START";
+
+  FurnaceUI.pumps.set("co", true);
+  FurnaceUI.pumps.set("cwu", true);
+  FurnaceUI.auger.set(true);
+  FurnaceUI.blower.setPower(100);
+  FurnaceUI.power.setPercent(100);
+  FurnaceUI.ui.setMode("START");
+  FurnaceUI.ui.setStatus(`START: pompy/ślimak/dmuchawa ON • ${fmtTime()}`);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  forceAllOnAtStart(); 
   startPolling(5000);
 });
