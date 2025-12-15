@@ -209,7 +209,6 @@ body {
 /* ANIMACJE (jak miałeś) */
 
 .pump-running {
-  display: none;
   animation: rotor-spin 2.7s linear infinite;
   transform-origin: center;
   transform-box: fill-box;
@@ -221,7 +220,6 @@ body {
 }
 
 .auger-running .auger-spiral {
-  display: none;
   animation: auger-move 1.2s linear infinite;
 }
 
@@ -231,7 +229,6 @@ body {
 }
 
 .fan-running {
-  display: none;
   animation: fan-spin 2.5s linear infinite;
   transform-origin: center;
   transform-box: fill-box;
