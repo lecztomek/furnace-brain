@@ -52,7 +52,25 @@ async function fetchState() {
   }
 }
 
+let raf = null;
+let queued = null;
+
 function updateUIFromState(state) {
+  // jeśli state jest obiektem, który potem mutujesz gdzie indziej:
+  // queued = structuredClone(state); // albo {...state} jeśli płytko wystarczy
+  queued = state;
+
+  if (raf) return;
+
+  raf = requestAnimationFrame(() => {
+    raf = null;
+    if (!queued) return;
+    applyState(queued);
+    queued = null;
+  });
+}
+
+function applyState(state) {
   const sensors = state.sensors || {};
   const outputs = state.outputs || {};
 
