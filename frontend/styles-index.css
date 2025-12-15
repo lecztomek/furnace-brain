@@ -549,4 +549,6 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
   z-index: 1200;
 }
 
-
+.burger-btn{
+  backdrop-filter: none; /* zamiast blur(6px) */
+}
