@@ -203,19 +203,6 @@
     setCwuArrows(false);
     setCoArrows(false);
 
-    // szybki debug – od razu zobaczysz, co jest null
-    console.log("[FurnaceUI] refs:",
-      {
-        pumpCwu: !!pumpCwu,
-        pumpCwuRotor: !!els.pumpCwuRotor,
-        pumpCo: !!pumpCo,
-        pumpCoRotor: !!els.pumpCoRotor,
-        fanRotor: !!els.fanRotor,
-        augerSpiral: !!els.augerSpiral,
-        blowerPowerText: !!els.blowerPowerText,
-      }
-    );
-
     refsReady = true;
   }
 
