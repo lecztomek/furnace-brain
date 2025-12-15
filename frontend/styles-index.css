@@ -289,10 +289,12 @@ body {
 }
 
 .red-arrow {
+  display: none;
   animation: redblinkArrow 5s infinite;
 }
 
 .blue-arrow {
+  display: none;
   animation: blueblinkArrow 5s infinite;
 }
 
