@@ -113,8 +113,10 @@ function applyState(state) {
   }
 }
 
-// 2) zamiast setInterval -> bezpieczny “łańcuch” setTimeout
 function startPolling(ms = 5000) {
+  if (window.__pollerRunning) return;  
+  window.__pollerRunning = true;
+
   stopPolling();
   const loop = async () => {
     await fetchState();
@@ -126,6 +128,7 @@ function startPolling(ms = 5000) {
 function stopPolling() {
   if (timer) { clearTimeout(timer); timer = null; }
   if (controller) controller.abort();
+  window.__pollerRunning = false;      
 }
 
 document.addEventListener("visibilitychange", () => {
