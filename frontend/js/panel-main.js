@@ -137,4 +137,3 @@ document.addEventListener("visibilitychange", () => {
 document.addEventListener("DOMContentLoaded", () => {
   startPolling(5000);
 });
-
