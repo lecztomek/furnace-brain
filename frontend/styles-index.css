@@ -206,39 +206,6 @@ body {
   padding: 12px 8px;
 }
 
-/* ANIMACJE (jak miałeś) */
-
-.pump-running {
-  animation: rotor-spin 2.7s linear infinite;
-  transform-origin: center;
-  transform-box: fill-box;
-}
-
-@keyframes rotor-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-.auger-running .auger-spiral {
-  animation: auger-move 1.2s linear infinite;
-}
-
-@keyframes auger-move {
-  from { transform: translateX(0px); }
-  to   { transform: translateX(60px); }
-}
-
-.fan-running {
-  animation: fan-spin 2.5s linear infinite;
-  transform-origin: center;
-  transform-box: fill-box;
-}
-
-@keyframes fan-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
 .temp-badge rect {
   fill: black;
   stroke-width: 0;
