@@ -22,17 +22,19 @@
   };
 
   const els = {
-    pumpCwuRotor: null,
-    pumpCoRotor: null,
-    augerScrew: null,
-    augerSpiral: null,
-    fanRotor: null,
+    // (animacje usunięte) — zostawiamy tylko tekst/pola i strzałki
     blowerPowerText: null,
 
     cwuArrowHot: null,
     cwuArrowCold: null,
     coArrowHot: null,
     coArrowCold: null,
+
+    // kropki statusu
+    augerStatusDot: null,
+    pumpCoStatusDot: null,
+    pumpCwuStatusDot: null,
+    blowerStatusDot: null,
 
     modeText: null,
 
@@ -84,7 +86,26 @@
     return "#e74c3c";
   }
 
-  // ---------- STRZAŁKI ----------
+  // ---------- STATUS DOTS ----------
+  const DOT_ON_FILL = "#2ecc71";
+  const DOT_ON_STROKE = "#1b6f3a";
+  const DOT_OFF_FILL = "#e74c3c";
+  const DOT_OFF_STROKE = "#7a1f17";
+
+  function setStatusDot(dotEl, isOn) {
+    if (!dotEl) return;
+    dotEl.setAttribute("fill", isOn ? DOT_ON_FILL : DOT_OFF_FILL);
+    dotEl.setAttribute("stroke", isOn ? DOT_ON_STROKE : DOT_OFF_STROKE);
+  }
+
+  function syncStatusDots() {
+    setStatusDot(els.augerStatusDot, uiState.augerOn);
+    setStatusDot(els.pumpCoStatusDot, uiState.pumps.co);
+    setStatusDot(els.pumpCwuStatusDot, uiState.pumps.cwu);
+    setStatusDot(els.blowerStatusDot, uiState.blowerPower > 0);
+  }
+
+  // ---------- STRZAŁKI (bez animacji) ----------
   function setArrowGroupActive(arrowEls, isOn) {
     arrowEls.forEach((groupEl) => {
       if (!groupEl) return;
@@ -92,26 +113,27 @@
       const poly = groupEl.querySelector("polygon") || groupEl;
       const color = groupEl.dataset.color;
 
-      if (isOn) {
-        poly.style.animation = "";
-        poly.style.fill = "";
-        poly.style.stroke = "";
+      // WAŻNE: zero animacji, tylko statyczny kolor
+      poly.style.animation = "none";
 
+      if (isOn) {
         if (color === "red") {
-          poly.classList.add("red-arrow");
-          poly.classList.remove("blue-arrow");
+          poly.style.fill = "#e74c3c";
+          poly.style.stroke = "#e74c3c";
         } else if (color === "blue") {
-          poly.classList.add("blue-arrow");
-          poly.classList.remove("red-arrow");
+          poly.style.fill = "#3fa9f5";
+          poly.style.stroke = "#3fa9f5";
+        } else {
+          poly.style.fill = "#000";
+          poly.style.stroke = "#000";
         }
       } else {
-        poly.classList.remove("red-arrow", "blue-arrow");
-        poly.style.animation = "none";
         poly.style.fill = "#000";
         poly.style.stroke = "#000";
       }
     });
   }
+
   function setCwuArrows(isOn) {
     setArrowGroupActive([els.cwuArrowHot, els.cwuArrowCold], isOn);
   }
@@ -119,65 +141,22 @@
     setArrowGroupActive([els.coArrowHot, els.coArrowCold], isOn);
   }
 
-  // ---------- POMOCNICZE: znajdź “rotor” i obracaj po bbox ----------
-  function findRotorLike(rootEl) {
-    if (!rootEl) return null;
-
-    // kolejność: najpewniejsze selektory -> coraz bardziej ogólne
-    return (
-      rootEl.querySelector(".rotor") ||
-      rootEl.querySelector('g[id*="rotor" i]') ||
-      rootEl.querySelector('[data-rotor="1"]') ||
-      rootEl.querySelector("g") || // last resort: pierwsza grupa
-      null
-    );
-  }
-
-  function rotateAboutSelf(el, deg) {
-    if (!el) return;
-    // getBBox działa dla elementów SVG w DOM
-    const bb = el.getBBox();
-    const cx = bb.x + bb.width / 2;
-    const cy = bb.y + bb.height / 2;
-    el.setAttribute("transform", `rotate(${deg} ${cx} ${cy})`);
-  }
-
   // ---------- INIT REFS ----------
   function initSvgRefs() {
-    const pumpCwu = $("#pump-cwu");
-    const pumpCo = $("#pump-co");
-
-    els.pumpCwuRotor = findRotorLike(pumpCwu);
-    els.pumpCoRotor = findRotorLike(pumpCo);
-
-    const auger = $("#auger");
-    if (auger) {
-      els.augerScrew =
-        auger.querySelector("#auger-screw") ||
-        auger.querySelector('g[id="auger-screw"]') ||
-        $("#auger-screw");
-
-      els.augerSpiral = auger.querySelector(".auger-spiral");
-    }
-
-    // DMUCHAWA: spróbuj kilka popularnych id (bo często się rozjeżdżają po edycji SVG)
-    els.fanRotor =
-      $("#fan-rotor") ||
-      $("#blower-rotor") ||
-      $("#fanRotor") ||
-      $("#blowerRotor") ||
-      $("#fan")?.querySelector(".rotor") ||
-      $("#blower")?.querySelector(".rotor") ||
-      null;
-
-    // UWAGA: u Ciebie było "#blower-pwn-text" (pwn) – często to literówka.
-    // Zostawiamy oba, żeby zadziałało niezależnie jak jest w SVG.
+    // tekst mocy dmuchawy
     els.blowerPowerText = $("#blower-pwm-text") || $("#blower-pwn-text");
 
+    // strzałki
     els.cwuArrowHot = $("#cwu-arrow-hot");
     els.cwuArrowCold = $("#cwu-arrow-cold");
     els.coArrowHot = $("#co-arrow-hot");
     els.coArrowCold = $("#co-arrow-cold");
+
+    // kropki statusu (zgodnie z Twoim HTML: <g id="...-status"><circle .../></g>)
+    els.augerStatusDot = $("#auger-status circle");
+    els.pumpCoStatusDot = $("#pump-co-status circle");
+    els.pumpCwuStatusDot = $("#pump-cwu-status circle");
+    els.blowerStatusDot = $("#blower-status circle");
 
     els.modeText = $("#mode-text");
 
@@ -191,7 +170,7 @@
     els.furnaceTempText = $("#furnace-temp-text");
     els.radiatorsTempText = $("#radiators-temp-text");
     els.mixerTempText = $("#mixer-temp-text");
-    els.augerTempText = $("#auger-temp-text") || $("#auger-temp--text"); // obsłuż oba warianty
+    els.augerTempText = $("#auger-temp-text") || $("#auger-temp--text");
     els.exhaustTempText = $("#exhaust-temp-text");
     els.statusText = $("#status-text");
     els.clockText = $("#clock");
@@ -200,75 +179,16 @@
     els.fuelInTankText = $("#fuel-in-tank-text");
     els.augerCorrectionText = $("#auger-correction-text");
 
+    // stan początkowy UI
     setCwuArrows(false);
     setCoArrows(false);
+    syncStatusDots();
 
     refsReady = true;
   }
 
   function ensureSvgRefs() {
     if (!refsReady) initSvgRefs();
-  }
-
-  // ---------- ANIMACJE “KROKOWE” ----------
-  const ANIM_MS = 500;
-  let animTimer = null;
-  let animStep = 0;
-
-  const ROT_STEPS = [0, 10, 20, 30, 40, 50, 60, 70, 80];
-  const AUGER_STEPS = [0, 15, 30, 45];
-
-  function anyAnimActive() {
-    return (
-      !!uiState.augerOn ||
-      !!uiState.pumps.cwu ||
-      !!uiState.pumps.co ||
-      uiState.blowerPower > 0
-    );
-  }
-
-  function animTick() {
-    ensureSvgRefs();
-    animStep = (animStep + 1) % ROT_STEPS.length;
-    const a = ROT_STEPS[animStep];
-
-    // POMPY – obrót “własny” (bbox)
-    if (uiState.pumps.cwu && els.pumpCwuRotor) rotateAboutSelf(els.pumpCwuRotor, a);
-    else if (els.pumpCwuRotor) rotateAboutSelf(els.pumpCwuRotor, 0);
-
-    if (uiState.pumps.co && els.pumpCoRotor) rotateAboutSelf(els.pumpCoRotor, a);
-    else if (els.pumpCoRotor) rotateAboutSelf(els.pumpCoRotor, 0);
-
-    // DMUCHAWA – obrót “własny” (bbox)
-    if (uiState.blowerPower > 0 && els.fanRotor) rotateAboutSelf(els.fanRotor, a);
-    else if (els.fanRotor) rotateAboutSelf(els.fanRotor, 0);
-
-    // ŚLIMAK – przesuw
-    if (uiState.augerOn && els.augerSpiral) {
-      const x = AUGER_STEPS[animStep];
-      els.augerSpiral.setAttribute("transform", `translate(${x} 0)`);
-    } else if (els.augerSpiral) {
-      els.augerSpiral.setAttribute("transform", `translate(0 0)`);
-    }
-  }
-
-  function updateAnimTicker() {
-    const on = anyAnimActive();
-
-    if (on && !animTimer) {
-      animStep = 0;
-      animTick();
-      animTimer = setInterval(animTick, ANIM_MS);
-    } else if (!on && animTimer) {
-      clearInterval(animTimer);
-      animTimer = null;
-      animStep = 0;
-
-      if (els.pumpCwuRotor) rotateAboutSelf(els.pumpCwuRotor, 0);
-      if (els.pumpCoRotor) rotateAboutSelf(els.pumpCoRotor, 0);
-      if (els.fanRotor) rotateAboutSelf(els.fanRotor, 0);
-      if (els.augerSpiral) els.augerSpiral.setAttribute("transform", `translate(0 0)`);
-    }
   }
 
   // ---------- POMPY ----------
@@ -280,7 +200,7 @@
     if (pumpId === "cwu") setCwuArrows(on);
     else if (pumpId === "co") setCoArrows(on);
 
-    updateAnimTicker();
+    syncStatusDots();
   }
 
   function togglePump(pumpId) {
@@ -293,7 +213,7 @@
   function setAugerStateInternal(isOn) {
     ensureSvgRefs();
     uiState.augerOn = !!isOn;
-    updateAnimTicker();
+    syncStatusDots();
   }
 
   function toggleAuger() {
@@ -309,7 +229,7 @@
     uiState.blowerPower = val;
 
     if (els.blowerPowerText) els.blowerPowerText.textContent = `${val}%`;
-    updateAnimTicker();
+    syncStatusDots();
   }
 
   // ---------- TEMPERATURY / PARAMETRY ----------
@@ -453,9 +373,10 @@
 
   // kompatybilność
   window.setFanState = function (isOn) {
-    // zostawione dla zgodności – prawdziwy ruch idzie od blowerPower
+    // zgodność — realnie sterujemy przez blowerPower
     uiState.blowerPower = isOn ? Math.max(uiState.blowerPower, 1) : 0;
-    updateAnimTicker();
+    ensureSvgRefs();
+    syncStatusDots();
   };
   window.setPower = function (power) {
     setBlowerPower(power);
