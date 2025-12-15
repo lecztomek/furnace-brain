@@ -22,13 +22,19 @@ function setIfChanged(bucket, key, value, setter) {
   }
 }
 
+function fmtTime(d = new Date()) {
+  // 12:34:56 (lokalny czas przeglądarki)
+  return d.toLocaleTimeString("pl-PL", { hour12: false });
+}
+
 async function fetchState() {
-  if (inFlight) return;              // 1) nie nakładamy requestów
+  if (inFlight) return;
   inFlight = true;
 
-  // anuluj poprzedni (na wszelki wypadek)
   if (controller) controller.abort();
   controller = new AbortController();
+
+  const stamp = () => ` • ostatni polling: ${fmtTime()}`;
 
   try {
     const response = await fetch(`${STATE_API_BASE}/current`, {
@@ -41,11 +47,13 @@ async function fetchState() {
 
     const data = await response.json();
     updateUIFromState(data);
+
+    // status na sukces (jeśli chcesz, możesz to usunąć żeby nie spamowało)
+    FurnaceUI.ui.setStatus(`OK${stamp()}`);
   } catch (err) {
-    // AbortError jest normalny przy pauzowaniu / przełączaniu tabów
     if (err?.name !== "AbortError") {
       console.error("Nie udało się pobrać stanu kotła:", err);
-      FurnaceUI.ui.setStatus("Błąd komunikacji z serwerem");
+      FurnaceUI.ui.setStatus(`Błąd komunikacji z serwerem${stamp()}`);
     }
   } finally {
     inFlight = false;
