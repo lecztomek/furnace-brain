@@ -19,9 +19,12 @@ from backend.api.manual_api import create_manual_router
 from backend.api.stats_api import create_stats_router
 
 from .core.config_store import ConfigStore
-from .hw.mock import MockHardware as Hardware
+
 
 import logging
+
+from .hw.mock import MockHardware as Hardware
+#from .hw.rpi_hw import RpiHardware, HardwareConfig, Ds18b20Config, Max6675Config, PinConfig
 
 logging.basicConfig(
     level=logging.INFO,  # bazowy poziom
@@ -32,6 +35,28 @@ logging.getLogger("backend.hw.mock.mixer").setLevel(logging.DEBUG)
 
 # --- INICJALIZACJA SPRZĘTU I MODUŁÓW ---
 
+#cfg = HardwareConfig(
+#    ds18b20=Ds18b20Config(
+#        rom_to_field={
+#            "28-00000aaaaaaa": "boiler_temp",
+#            "28-00000bbbbbbb": "cwu_temp",
+#            "28-00000ccccccc": "radiators_temp",
+#            "28-00000ddddddd": "return_temp",
+#            "28-00000eeeeeee": "hopper_temp",
+#        }
+#    ),
+#    max6675=Max6675Config(spi_bus=0, spi_dev=0),
+#    pins=PinConfig(
+#        feeder_pin=17,
+#        pump_co_pin=27,
+#        pump_cwu_pin=22,
+#        fan_pwm_pin=18,
+#        fan_pwm_freq_hz=200,
+#    ),
+#    fan_inverted=False,
+#)
+
+#hardware = RpiHardware(cfg)
 hardware = Hardware()
 critical_modules, aux_modules = load_modules_split()
 
