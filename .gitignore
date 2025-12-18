@@ -4,4 +4,4 @@ backend/.venv/
 /backend/modules/history/data/*.csv
 
 .venv/
-/backend/modules/eventlog/data*.csv
+/backend/modules/eventlog/data/*.csv

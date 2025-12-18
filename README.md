@@ -39,3 +39,4 @@ ok- popraw power work tak zeby pid licxzyl caly czas a uzywal dopiero w trybie w
 - przyspieszone testy
 - modul wygaszania, tryb wygaszania pieca, 
 - tryy rozpalania - jak daleko grzejniki od zadanej to najpierw zamykjaj zawor
+- modul bezpieczentwa - przegrzanie slimaka, pieca, brak odczytu temperatury
