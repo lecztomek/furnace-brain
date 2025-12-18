@@ -39,7 +39,7 @@ class MixerConfig:
     boiler_max_drop_degC: float = 5.0
     boiler_recover_factor: float = 0.5
 
-    preclose_on_ignition_enabled: bool = False
+    preclose_on_ignition_enabled: bool = True
     preclose_full_close_time_s: float = 120.0
 
 
@@ -64,6 +64,7 @@ class MixerModule(ModuleInterface):
         self._movement_until_ts: Optional[float] = None
         self._movement_direction: Optional[str] = None  # "open" / "close" / None
         self._last_action_ts: Optional[float] = None
+        self._movement_start_ts: Optional[float] = None  # do czasu trwania ruchu
 
         # Ochrona kotła – śledzenie wpływu OTWÓRZ na kocioł (tryb "ramp")
         self._last_open_start_boiler_temp: Optional[float] = None
@@ -174,6 +175,29 @@ class MixerModule(ModuleInterface):
                     ts=now,
                     source=self.id,
                     level=EventLevel.INFO,
+                    type="MIXER_MOVE",
+                    message=(
+                        f"Zawór mieszający: START CLOSE {close_s:.1f}s "
+                        f"(T_CO={rad_temp:.1f}°C, zadana={self._config.target_temp:.1f}°C, "
+                        f"tryb=ignition_preclose)"
+                    ),
+                    data={
+                        "action": "start",
+                        "direction": "close",
+                        "pulse_s": close_s,
+                        "radiators_temp": rad_temp,
+                        "target_temp": self._config.target_temp,
+                        "mode": "ignition_preclose",
+                        "boiler_temp": boiler_temp,
+                    },
+                )
+            )
+
+            events.append(
+                Event(
+                    ts=now,
+                    source=self.id,
+                    level=EventLevel.INFO,
                     type="MIXER_PRECLOSE_ON_IGNITION",
                     message=(
                         f"Zawór mieszający: pełne ZAMKNIĘCIE {close_s:.1f}s "
@@ -236,6 +260,32 @@ class MixerModule(ModuleInterface):
             if self._movement_until_ts is not None and now < self._movement_until_ts:
                 outputs.mixer_close_on = True
             else:
+                finished_dir = self._movement_direction
+
+                # Event STOP z czasem trwania ruchu (ignition_preclose)
+                if finished_dir in ("open", "close") and self._movement_start_ts is not None:
+                    end_ts = self._movement_until_ts if self._movement_until_ts is not None else now
+                    actual_end = min(now, end_ts)
+                    duration_s = max(0.0, actual_end - self._movement_start_ts)
+                    events.append(
+                        Event(
+                            ts=now,
+                            source=self.id,
+                            level=EventLevel.INFO,
+                            type="MIXER_MOVE",
+                            message=f"Zawór mieszający: STOP {finished_dir.upper()} po {duration_s:.1f}s",
+                            data={
+                                "action": "stop",
+                                "direction": finished_dir,
+                                "duration_s": duration_s,
+                                "radiators_temp": rad_temp,
+                                "target_temp": self._config.target_temp,
+                                "mode": effective_mode,
+                                "boiler_temp": boiler_temp,
+                            },
+                        )
+                    )
+
                 self._stop_movement()
                 self._force_full_close = False
         else:
@@ -246,6 +296,30 @@ class MixerModule(ModuleInterface):
                     outputs.mixer_close_on = True
             else:
                 finished_dir = self._movement_direction
+
+                # Event STOP z czasem trwania ruchu (normalne OPEN/CLOSE)
+                if finished_dir in ("open", "close") and self._movement_start_ts is not None:
+                    end_ts = self._movement_until_ts if self._movement_until_ts is not None else now
+                    actual_end = min(now, end_ts)
+                    duration_s = max(0.0, actual_end - self._movement_start_ts)
+                    events.append(
+                        Event(
+                            ts=now,
+                            source=self.id,
+                            level=EventLevel.INFO,
+                            type="MIXER_MOVE",
+                            message=f"Zawór mieszający: STOP {finished_dir.upper()} po {duration_s:.1f}s",
+                            data={
+                                "action": "stop",
+                                "direction": finished_dir,
+                                "duration_s": duration_s,
+                                "radiators_temp": rad_temp,
+                                "target_temp": self._config.target_temp,
+                                "mode": effective_mode,
+                                "boiler_temp": boiler_temp,
+                            },
+                        )
+                    )
 
                 if finished_dir == "open":
                     self._update_boiler_drop(boiler_temp)
@@ -286,6 +360,7 @@ class MixerModule(ModuleInterface):
                                     f"tryb={effective_mode})"
                                 ),
                                 data={
+                                    "action": "start",
                                     "direction": direction,
                                     "pulse_s": pulse_s,
                                     "radiators_temp": rad_temp,
@@ -379,6 +454,7 @@ class MixerModule(ModuleInterface):
     def _stop_movement(self) -> None:
         self._movement_until_ts = None
         self._movement_direction = None
+        self._movement_start_ts = None
 
     def _can_adjust(self, now: float) -> bool:
         if self._last_action_ts is None:
@@ -457,6 +533,7 @@ class MixerModule(ModuleInterface):
 
     def _start_movement(self, now: float, direction: str, pulse_s: float) -> None:
         self._movement_direction = direction
+        self._movement_start_ts = now
         self._movement_until_ts = now + pulse_s
         self._last_action_ts = now
 
