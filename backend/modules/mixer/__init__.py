@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 # ---------- KONFIGURACJA RUNTIME ----------
 
-
 @dataclass
 class MixerConfig:
     target_temp: float = 40.0

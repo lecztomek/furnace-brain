@@ -48,6 +48,11 @@ modules:
     path: backend.modules.overheat:OverheatModule
     enabled: true
     critical: true
+    
+  - id: safety
+    path: backend.modules.safety:SafetyModule
+    enabled: true
+    critical: true
 
   - id: history
     path: backend.modules.history:HistoryModule

@@ -38,5 +38,7 @@ ok- popraw power work tak zeby pid licxzyl caly czas a uzywal dopiero w trybie w
 - zmiana czasu
 - przyspieszone testy
 - modul wygaszania, tryb wygaszania pieca, 
-- tryy rozpalania - jak daleko grzejniki od zadanej to najpierw zamykjaj zawor
-- modul bezpieczentwa - przegrzanie slimaka, pieca, brak odczytu temperatury
+ok- tryy rozpalania - jak daleko grzejniki od zadanej to najpierw zamykjaj zawor
+ok- modul bezpieczentwa - przegrzanie slimaka, pieca, brak odczytu temperatury  !!!
+- poprawic event logi !!!
+- testy automatyczne do kazdego modulu osobno ?

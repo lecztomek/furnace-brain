@@ -1,0 +1,49 @@
+id: safety
+name: "Safety"
+description: >
+  Moduł bezpieczeństwa reagujący na brak odczytów (None):
+  - boiler_temp None: feeder OFF, (opcjonalnie) fan OFF, pompy CO+CWU ON
+  - radiators_temp None: blokada ruchu mieszacza
+  - hopper_temp None: brak wymuszeń (tylko event)
+  - flue_gas_temp None: brak wymuszeń (tylko event)
+
+groups:
+  - id: basic
+    label: "Podstawowe"
+  - id: boiler
+    label: "Brak boiler_temp"
+
+fields:
+  - key: enabled
+    label: "Włącz moduł"
+    type: bool
+    default: true
+    group: basic
+    label_on: "WŁĄCZONE"
+    label_off: "WYŁĄCZONE"
+    description: "Globalne włączenie/wyłączenie modułu safety."
+
+  - key: repeat_warning_s
+    label: "Powtarzaj ostrzeżenia co"
+    type: number
+    unit: "s"
+    min: 5
+    max: 600
+    step: 5
+    default: 60
+    group: basic
+    description: "Co ile sekund generować event 'wciąż brak odczytu'."
+
+  - key: boiler_missing_force_fan_off
+    label: "Brak boiler_temp: dmuchawa OFF"
+    type: bool
+    default: true
+    group: boiler
+    description: "Wymusza fan_power=0, gdy brak boiler_temp."
+
+  - key: boiler_missing_force_pumps_on
+    label: "Brak boiler_temp: pompy ON"
+    type: bool
+    default: true
+    group: boiler
+    description: "Wymusza pump_co_on i pump_cwu_on na True, gdy brak boiler_temp."

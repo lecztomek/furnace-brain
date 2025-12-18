@@ -1,0 +1,4 @@
+enabled: true
+repeat_warning_s: 60.0
+boiler_missing_force_fan_off: true
+boiler_missing_force_pumps_on: true
