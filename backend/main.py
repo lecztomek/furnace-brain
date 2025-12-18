@@ -17,6 +17,7 @@ from .api.config_api import create_config_router
 from backend.api.history_api import create_history_router
 from backend.api.manual_api import create_manual_router
 from backend.api.stats_api import create_stats_router
+from backend.api.logs_api import create_logs_router
 
 from .core.config_store import ConfigStore
 
@@ -181,9 +182,13 @@ manual_router = create_manual_router(kernel=kernel)
 config_router = create_config_router(config_store=config_store, kernel=kernel)
 
 history_base_dir = Path(__file__).resolve().parent / "modules" / "history"
+eventlog_base_dir = Path(__file__).resolve().parent / "modules" / "eventlog"
 
 stats_router = create_stats_router(get_state=lambda: kernel.state, module_id="stats")
 app.include_router(stats_router, prefix="/api")
+
+app.include_router(
+    create_logs_router(base_dir=eventlog_base_dir, log_dir="data", file_prefix="events"), prefix="/api")
 
 app.include_router(
     create_history_router(

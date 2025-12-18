@@ -75,24 +75,20 @@
                     </select>
                   </label>
 
-                  <label class="logs-filter">
-                    <span class="logs-filter-label">Szukaj</span>
-                    <input
-                      id="logs-search"
-                      class="logs-input"
-                      type="search"
-                      placeholder="np. podajnik, zapłon, temp..."
-                      autocomplete="off"
-                    />
-                  </label>
+					<label class="logs-filter">
+					  <span class="logs-filter-label">Źródło</span>
+					  <select id="logs-source" class="logs-select">
+						<option value="">Wszystkie</option>
+						<!-- opcje uzupełni JS automatycznie z /api/logs/meta albo wyliczy z danych -->
+					  </select>
+					</label>
 
                   <label class="logs-filter">
                     <span class="logs-filter-label">Limit</span>
                     <select id="logs-limit" class="logs-select">
+                      <option value="25" selected>25</option>					
                       <option value="50">50</option>
-                      <option value="100" selected>100</option>
-                      <option value="200">200</option>
-                      <option value="500">500</option>
+                      <option value="100">100</option>
                     </select>
                   </label>
 
@@ -210,7 +206,6 @@
 
     <script src="js/side-clock.js"></script>
     <script src="js/mode-control.js"></script>
-
     <!-- nowy skrypt od logów -->
     <script src="js/logs.js"></script>
   </body>

@@ -58,3 +58,8 @@ modules:
     path: backend.modules.stats:StatsModule
     enabled: true
     critical: false    
+    
+  - id: eventlog
+    path: backend.modules.eventlog:EventLogModule
+    enabled: true
+    critical: false    

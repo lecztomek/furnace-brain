@@ -1,0 +1,36 @@
+id: eventlog
+name: "Logi zdarzeń"
+description: "Zapis eventów (SystemState.recent_events) do plików CSV."
+
+groups:
+  - id: basic
+    label: "Podstawowe"
+
+fields:
+  - key: log_dir
+    label: "Katalog na logi"
+    type: text
+    default: "data"
+    options: ["data"]
+    group: basic
+    description: >
+      Katalog, w którym będą zapisywane pliki CSV.
+      Ścieżka względna liczona względem katalogu modułu.
+
+  - key: file_prefix
+    label: "Prefiks plików"
+    type: text
+    default: "events"
+    options: ["events"]
+    group: basic
+    description: >
+      Prefiks nazwy pliku CSV, np. events_YYYYMMDD_HH.csv
+
+  - key: rotate
+    label: "Rotacja plików"
+    type: text
+    options: ["hour", "day"]
+    default: "hour"
+    group: basic
+    description: >
+      hour = jeden plik na godzinę, day = jeden plik na dzień.
