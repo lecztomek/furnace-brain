@@ -111,3 +111,27 @@ fields:
     description: >
       Jaka część spadku temperatury kotła musi zostać odrobiona, aby znieść blokadę kolejnych otwarć.
       Np. przy 0.5 i spadku 6°C czekamy, aż kocioł podniesie się o 3°C.
+      
+  - key: preclose_on_ignition_enabled
+    label: "Pre-close przy wejściu w rozpalanie"
+    type: bool
+    label_on: "WŁĄCZONA"
+    label_off: "WYŁĄCZONA"
+    default: true
+    group: boiler_protection
+    description: >
+      Jeśli wchodzimy w rozpalanie (IGNITION) i temperatura na grzejnikach jest
+      daleko od zadanej (warunek jak dla ramp), to przed rampowaniem wykonujemy
+      pełne domknięcie zaworu przez określony czas, aby startować ramp od 0%.
+
+  - key: preclose_full_close_time_s
+    label: "Czas pełnego zamknięcia zaworu (pre-close)"
+    type: number
+    unit: "s"
+    min: 1
+    max: 600
+    step: 1
+    default: 120
+    group: boiler_protection
+    description: "Ile sekund trwa pełne domknięcie zaworu od w pełni otwartego do w pełni zamkniętego."
+

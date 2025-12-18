@@ -15,9 +15,8 @@ from backend.core.state import (
     Outputs,
     Sensors,
     SystemState,
-	PartialOutputs
+    PartialOutputs,
 )
-
 
 # ---------- KONFIGURACJA RUNTIME ----------
 
@@ -49,6 +48,10 @@ class MixerConfig:
                                  żeby znów pozwolić na OTWÓRZ (0..1).
                                  Np. 0.5 → przy spadku 6°C czekamy, aż
                                  odzyska 3°C.
+
+    preclose_on_ignition_enabled – czy przy wejściu w IGNITION wykonywać pre-close
+                                  (pełne domknięcie) przed rampowaniem.
+    preclose_full_close_time_s   – czas pełnego domknięcia zaworu (od 100% do 0%) [s]
     """
 
     target_temp: float = 40.0
@@ -63,6 +66,9 @@ class MixerConfig:
     boiler_min_temp_for_open: float = 55.0
     boiler_max_drop_degC: float = 5.0
     boiler_recover_factor: float = 0.5
+
+    preclose_on_ignition_enabled: bool = True
+    preclose_full_close_time_s: float = 120.0
 
 
 class MixerModule(ModuleInterface):
@@ -89,6 +95,13 @@ class MixerModule(ModuleInterface):
                 + gdy jesteśmy BLISKO zadanej,
                 + klasyczny regulator na T_CO z martwą strefą, bez patrzenia
                   na temperaturę kotła.
+
+    DODATEK:
+    - Opcjonalny "pre-close" przy przejściu do IGNITION:
+        Jeśli wchodzimy w rozpalanie i T_CO jest daleko od zadanej (czyli i tak
+        weszlibyśmy w "ramp"), to przed rampowaniem wykonujemy pełne domknięcie
+        zaworu przez preclose_full_close_time_s, aby startować ramp z pewnego
+        punktu (0%).
     """
 
     def __init__(
@@ -116,8 +129,15 @@ class MixerModule(ModuleInterface):
         self._last_open_start_boiler_temp: Optional[float] = None
         self._last_open_drop_too_big: bool = False
 
-        # Ostatni tryb logiki mieszacza ("off" / "ramp" / "stabilize") – tylko do eventów
+        # Ostatni tryb logiki mieszacza ("off" / "ramp" / "stabilize" / "ignition_preclose")
         self._last_mode: Optional[str] = None
+
+        # Do wykrywania przejść trybów kotła
+        self._prev_boiler_mode: Optional[BoilerMode] = None
+
+        # Jednorazowy pre-close na wejściu w IGNITION
+        self._ignition_preclose_done: bool = False
+        self._force_full_close: bool = False
 
     # --- ModuleInterface ---
 
@@ -141,33 +161,114 @@ class MixerModule(ModuleInterface):
 
         prev_mode = self._last_mode
 
-        # --- Wyznaczenie efektywnego trybu logiki mieszacza ---
+        # --- Wykrycie wejścia/wyjścia z IGNITION ---
+        entering_ignition = (
+            mode_enum == BoilerMode.IGNITION
+            and self._prev_boiler_mode != BoilerMode.IGNITION
+        )
+        leaving_ignition = (
+            mode_enum != BoilerMode.IGNITION
+            and self._prev_boiler_mode == BoilerMode.IGNITION
+        )
 
-        if mode_enum in (BoilerMode.OFF, BoilerMode.MANUAL):
-            effective_mode = "off"
+        if leaving_ignition:
+            # nowa sesja rozpalania w przyszłości -> znów wolno zrobić preclose
+            self._ignition_preclose_done = False
+            self._force_full_close = False
+
+        # --- Pre-close przed rampowaniem na wejściu w IGNITION (opcjonalny bajer) ---
+        if (
+            entering_ignition
+            and self._config.preclose_on_ignition_enabled
+            and not self._ignition_preclose_done
+            and self._is_far_from_setpoint(rad_temp)
+        ):
+            self._ignition_preclose_done = True
+            self._force_full_close = True
+
+            # utnij ewentualny bieżący impuls i rozpocznij pełne domknięcie
+            self._stop_movement()
+            close_s = float(self._config.preclose_full_close_time_s)
+            self._start_movement(now, "close", close_s)
+
+            outputs.mixer_open_on = False
+            outputs.mixer_close_on = True
+
+            events.append(
+                Event(
+                    ts=now,
+                    source=self.id,
+                    level=EventLevel.INFO,
+                    type="MIXER_PRECLOSE_ON_IGNITION",
+                    message=(
+                        f"Zawór mieszający: pełne ZAMKNIĘCIE {close_s:.1f}s "
+                        f"przed rampowaniem (wejście w IGNITION, "
+                        f"T_CO={rad_temp:.1f}°C, zadana={self._config.target_temp:.1f}°C)"
+                    ),
+                    data={
+                        "pulse_s": close_s,
+                        "radiators_temp": rad_temp,
+                        "target_temp": self._config.target_temp,
+                        "mode": "ignition_preclose",
+                        "boiler_temp": boiler_temp,
+                    },
+                )
+            )
+
+            # Event zmiany trybu logiki mieszacza:
+            if prev_mode != "ignition_preclose":
+                events.append(
+                    Event(
+                        ts=now,
+                        source=self.id,
+                        level=EventLevel.INFO,
+                        type="MIXER_MODE_CHANGED",
+                        message=f"Zawór mieszający: tryb '{prev_mode}' → 'ignition_preclose'",
+                        data={"prev_mode": prev_mode, "mode": "ignition_preclose"},
+                    )
+                )
+
+            self._last_mode = "ignition_preclose"
+            self._prev_boiler_mode = mode_enum
+
+            status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
+            return ModuleTickResult(
+                partial_outputs=outputs,
+                events=events,
+                status=status,
+            )
+
+        # ---------- WYZNACZENIE TRYBU LOGIKI MIESZACZA ----------
+
+        if self._force_full_close:
+            effective_mode = "ignition_preclose"
         else:
-            # AUTO – decydujemy tylko po błędzie na grzejnikach
-            if rad_temp is None:
-                # brak danych – zachowuj się zachowawczo jak "stabilize"
-                effective_mode = "stabilize"
+            if mode_enum in (BoilerMode.OFF, BoilerMode.MANUAL):
+                effective_mode = "off"
             else:
-                t_set = self._config.target_temp
-                band = self._config.ok_band_degC
-                error = abs(t_set - rad_temp)
-
-                # próg "daleko od zadanej" – ramp_error_factor × martwa strefa
-                far_err = self._config.ramp_error_factor * band
-
-                if error > far_err:
-                    effective_mode = "ramp"
-                else:
+                # AUTO – decydujemy tylko po błędzie na grzejnikach
+                if rad_temp is None:
+                    # brak danych – zachowuj się zachowawczo jak "stabilize"
                     effective_mode = "stabilize"
+                else:
+                    t_set = self._config.target_temp
+                    band = self._config.ok_band_degC
+                    error = abs(t_set - rad_temp)
 
-        # --- Główna logika ruchu zaworu ---
+                    # próg "daleko od zadanej" – ramp_error_factor × martwa strefa
+                    far_err = self._config.ramp_error_factor * band
+
+                    if error > far_err:
+                        effective_mode = "ramp"
+                    else:
+                        effective_mode = "stabilize"
+
+        # ---------- GŁÓWNA LOGIKA RUCHU ZAWORU ----------
 
         if effective_mode == "off":
             # OFF / MANUAL – zawór nie ruszany
             self._stop_movement()
+            self._force_full_close = False
         else:
             # 1) jeśli trwa ruch – kontynuujemy impuls
             if self._movement_until_ts is not None and now < self._movement_until_ts:
@@ -179,21 +280,29 @@ class MixerModule(ModuleInterface):
                     outputs.mixer_close_on = True
             else:
                 # Ruch się skończył – zatrzymujemy zawór
-                if self._movement_direction == "open":
+                finished_dir = self._movement_direction
+
+                if finished_dir == "open":
                     # po OTWÓRZ możemy policzyć spadek na kotle
                     self._update_boiler_drop(boiler_temp)
 
                 self._stop_movement()
 
+                # Jeśli skończyliśmy pre-close, zdejmij flagę i pozwól wejść w ramp/stabilize
+                if self._force_full_close and finished_dir == "close":
+                    self._force_full_close = False
+
                 # Czy możemy wykonać nową korektę?
-                if self._can_adjust(now) and rad_temp is not None:
+                if self._can_adjust(now) and rad_temp is not None and not self._force_full_close:
                     if effective_mode == "ramp":
                         direction = self._decide_direction_ramp(
                             mix_temp=rad_temp,
                             boiler_temp=boiler_temp,
                         )
-                    else:  # "stabilize"
+                    elif effective_mode == "stabilize":
                         direction = self._decide_direction_work(mix_temp=rad_temp)
+                    else:
+                        direction = None
 
                     if direction is not None:
                         # Długość impulsu zależna od błędu na grzejnikach
@@ -250,6 +359,7 @@ class MixerModule(ModuleInterface):
             )
 
         self._last_mode = effective_mode
+        self._prev_boiler_mode = mode_enum
 
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
 
@@ -260,6 +370,14 @@ class MixerModule(ModuleInterface):
         )
 
     # ---------- LOGIKA POMOCNICZA ----------
+
+    def _is_far_from_setpoint(self, rad_temp: Optional[float]) -> bool:
+        if rad_temp is None:
+            return False
+        t_set = self._config.target_temp
+        band = self._config.ok_band_degC
+        far_err = self._config.ramp_error_factor * band
+        return abs(t_set - rad_temp) > far_err
 
     def _stop_movement(self) -> None:
         self._movement_until_ts = None
@@ -315,8 +433,7 @@ class MixerModule(ModuleInterface):
 
             # 2) jeśli ostatnie OTWÓRZ spowodowało za duży spadek,
             #    to czekamy, aż kocioł się częściowo odbije
-            if self._last_open_drop_too_big and \
-               self._last_open_start_boiler_temp is not None:
+            if self._last_open_drop_too_big and self._last_open_start_boiler_temp is not None:
                 max_drop = self._config.boiler_max_drop_degC
                 recover_factor = self._config.boiler_recover_factor
                 allowed_drop = max_drop * (1.0 - recover_factor)
@@ -410,6 +527,11 @@ class MixerModule(ModuleInterface):
         if "boiler_recover_factor" in values:
             self._config.boiler_recover_factor = float(values["boiler_recover_factor"])
 
+        if "preclose_on_ignition_enabled" in values:
+            self._config.preclose_on_ignition_enabled = bool(values["preclose_on_ignition_enabled"])
+        if "preclose_full_close_time_s" in values:
+            self._config.preclose_full_close_time_s = float(values["preclose_full_close_time_s"])
+
         if persist:
             self._save_config_to_file()
 
@@ -436,9 +558,14 @@ class MixerModule(ModuleInterface):
             "boiler_min_temp_for_open",
             "boiler_max_drop_degC",
             "boiler_recover_factor",
+            "preclose_on_ignition_enabled",
+            "preclose_full_close_time_s",
         ):
             if field in data:
-                setattr(self._config, field, float(data[field]))
+                if field == "preclose_on_ignition_enabled":
+                    setattr(self._config, field, bool(data[field]))
+                else:
+                    setattr(self._config, field, float(data[field]))
 
     def _save_config_to_file(self) -> None:
         data = asdict(self._config)

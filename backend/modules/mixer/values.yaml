@@ -7,3 +7,5 @@ min_pulse_s: 1.0
 ok_band_degC: 0.5
 ramp_error_factor: 3.0
 target_temp: 40.0
+preclose_on_ignition_enabled: true
+preclose_full_close_time_s: 120.0
