@@ -521,3 +521,10 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
 .burger-btn{
   backdrop-filter: none; /* zamiast blur(6px) */
 }
+
+.diagram svg{
+  width: 100%;
+  height: auto;      /* klucz */
+  max-height: 100%;
+  display: block;
+}

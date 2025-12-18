@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sterownik kotła – Logi systemowe</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- podmienisz później na swoje -->
+    <link rel="stylesheet" href="styles-logs.css" />
+  </head>
+
+  <body>
+    <input id="nav-toggle" class="nav-toggle" type="checkbox" />
+
+    <div class="app">
+      <label for="nav-toggle" class="burger-btn" aria-label="Menu">☰</label>
+
+      <main class="layout">
+        <!-- LEWA / CENTRALNA CZĘŚĆ: LOGI -->
+        <section class="diagram-wrapper">
+          <div class="diagram placeholder logs-container">
+            <div class="logs-inner">
+              <!-- TOPBAR: status + timestamp + odśwież -->
+              <div class="logs-topbar">
+                <div class="pill">
+                  <span class="pill-label">Status:</span>
+                  <span id="logs-status" class="pill-value">--</span>
+                </div>
+
+                <div class="pill">
+                  <span class="pill-label">Ostatni timestamp:</span>
+                  <span id="logs-ts" class="pill-value">--</span>
+                </div>
+
+                <div class="history-toolbar-group history-refresh-group">
+                  <button
+                    type="button"
+                    id="logs-refresh-btn"
+                    class="history-refresh-btn"
+                    title="Odśwież logi"
+                  >
+                    <svg
+                      class="history-refresh-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4.5 4.5v5.25h5.25M19.5 19.5v-5.25h-5.25"
+                        fill="none"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M5.636 18.364A8.25 8.25 0 0 0 19.5 12
+                           M18.364 5.636A8.25 8.25 0 0 0 4.5 12"
+                        fill="none"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- TOOLBAR: filtrowanie/szukaj (opcjonalne, możesz usunąć) -->
+              <div class="logs-toolbar">
+                <div class="logs-filters">
+                  <label class="logs-filter">
+                    <span class="logs-filter-label">Poziom</span>
+                    <select id="logs-level" class="logs-select">
+                      <option value="">Wszystkie</option>
+                      <option value="INFO">INFO</option>
+                      <option value="WARN">WARN</option>
+                      <option value="ERROR">ERROR</option>
+                      <option value="DEBUG">DEBUG</option>
+                    </select>
+                  </label>
+
+                  <label class="logs-filter">
+                    <span class="logs-filter-label">Szukaj</span>
+                    <input
+                      id="logs-search"
+                      class="logs-input"
+                      type="search"
+                      placeholder="np. podajnik, zapłon, temp..."
+                      autocomplete="off"
+                    />
+                  </label>
+
+                  <label class="logs-filter">
+                    <span class="logs-filter-label">Limit</span>
+                    <select id="logs-limit" class="logs-select">
+                      <option value="50">50</option>
+                      <option value="100" selected>100</option>
+                      <option value="200">200</option>
+                      <option value="500">500</option>
+                    </select>
+                  </label>
+
+                  <button
+                    type="button"
+                    id="logs-clear-btn"
+                    class="logs-btn"
+                    title="Wyczyść filtr wyszukiwania"
+                  >
+                    Wyczyść
+                  </button>
+                </div>
+              </div>
+
+              <!-- LISTA LOGÓW -->
+              <div class="logs-list-wrap" role="region" aria-label="Logi systemowe">
+                <div class="logs-header-row" aria-hidden="true">
+                  <span class="logs-col logs-col-ts">Czas</span>
+                  <span class="logs-col logs-col-level">Poziom</span>
+                  <span class="logs-col logs-col-src">Źródło</span>
+                  <span class="logs-col logs-col-msg">Wiadomość</span>
+                </div>
+
+                <!-- tu JS będzie wstrzykiwał wpisy -->
+                <div id="logs-list" class="logs-list">
+                  <div class="logs-empty" id="logs-empty">
+                    Brak logów do wyświetlenia.
+                  </div>
+                </div>
+              </div>
+
+              <!-- stopka/legend (opcjonalnie) -->
+              <div class="logs-hint">
+                Tip: kliknij wpis, żeby rozwinąć szczegóły (stacktrace / dane).
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- PRAWA KOLUMNA: MENU (BEZ ZMIAN) -->
+        <aside class="side-menu">
+          <div class="side-clock">
+            <div id="side-clock-time" class="side-clock-time">--:--</div>
+          </div>
+
+          <div class="menu-grid">
+            <a class="menu-btn" data-view="panel" href="index.html">
+              <span class="menu-icon">🏠</span>
+              <span class="menu-label">PANEL 1</span>
+            </a>
+
+            <a class="menu-btn" data-view="manual" href="manual.html">
+              <span class="menu-icon">🛠️</span>
+              <span class="menu-label">TRYB RĘCZNY</span>
+            </a>
+
+            <a class="menu-btn" data-view="ignite" href="#">
+              <span class="menu-icon">🔥</span>
+              <span class="menu-label">ROZPALANIE</span>
+            </a>
+
+            <a class="menu-btn" data-view="work" style="display: none" href="#">
+              <span class="menu-icon">🔥</span>
+              <span class="menu-label">PRACA</span>
+            </a>
+
+            <a
+              class="menu-btn"
+              data-view="add-fuel"
+              href="add-fuel.html"
+              style="display: none;"
+            >
+              <span class="menu-icon">➕</span>
+              <span class="menu-label">DOŁÓŻ OPAŁ</span>
+            </a>
+
+            <a class="menu-btn" data-view="settings" href="settings.html">
+              <span class="menu-icon">⚙️</span>
+              <span class="menu-label">USTAWIENIA</span>
+            </a>
+
+            <a class="menu-btn" data-view="stats" href="stats.html">
+              <span class="menu-icon">📊</span>
+              <span class="menu-label">STATYSTYKI</span>
+            </a>
+
+            <a class="menu-btn" data-view="history" href="history.html">
+              <span class="menu-icon">📈</span>
+              <span class="menu-label">HISTORIA</span>
+            </a>
+
+            <a class="menu-btn active" data-view="logs" href="logs.html">
+              <span class="menu-icon">🧾</span>
+              <span class="menu-label">LOGI</span>
+            </a>
+			
+		    <a class="menu-btn danger" data-view="emergency" href="#">
+			  <span class="menu-icon">⚠️</span>
+              <span class="menu-label">STOP</span>
+            </a>
+          </div>
+        </aside>
+      </main>
+
+      <footer class="status-bar">
+        <span id="status-text"></span>
+      </footer>
+    </div>
+
+    <label
+      for="nav-toggle"
+      class="menu-overlay"
+      aria-label="Zamknij menu"
+    ></label>
+
+    <script src="js/side-clock.js"></script>
+    <script src="js/mode-control.js"></script>
+
+    <!-- nowy skrypt od logów -->
+    <script src="js/logs.js"></script>
+  </body>
+</html>
