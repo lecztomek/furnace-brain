@@ -1,5 +1,5 @@
 installation
-pip install fastapi uvicorn pyyaml
+pip install fastapi uvicorn pyyaml watchfiles
 
 
 front
@@ -8,6 +8,9 @@ python -m http.server 5500
 backend 
 python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
+tests
+python -m pip install -U pytest
+python -m pytest -q tests/test_stats_module.py
 
 TODO
 ok- przeladowywanie ustawien po zapisie z gui

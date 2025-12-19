@@ -5,7 +5,7 @@ boiler_recover_factor: 1.0
 max_pulse_s: 6.0
 min_pulse_s: 1.0
 ok_band_degC: 0.5
+preclose_full_close_time_s: 120.0
+preclose_on_ignition_enabled: true
 ramp_error_factor: 3.0
 target_temp: 40.0
-preclose_on_ignition_enabled: true
-preclose_full_close_time_s: 120.0

@@ -20,6 +20,8 @@ from backend.api.stats_api import create_stats_router
 from backend.api.logs_api import create_logs_router
 
 from .core.config_store import ConfigStore
+import faulthandler
+import sys
 
 
 import logging
@@ -27,12 +29,14 @@ import logging
 from .hw.mock import MockHardware as Hardware
 #from .hw.rpi_hw import RpiHardware, HardwareConfig, Ds18b20Config, Max6675Config, PinConfig
 
+faulthandler.enable()
 logging.basicConfig(
     level=logging.INFO,  # bazowy poziom
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
 logging.getLogger("backend.hw.mock.mixer").setLevel(logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # --- INICJALIZACJA SPRZĘTU I MODUŁÓW ---
 
@@ -68,7 +72,6 @@ kernel = Kernel(
 )
 
 aux_runner = AuxRunner(kernel=kernel, modules=aux_modules)
-
 
 # --- CONFIG STORE ---
 
@@ -135,45 +138,41 @@ app.add_middleware(
 
 
 @app.on_event("startup")
-def on_startup() -> None:
+async def on_startup() -> None:
     global control_thread, aux_thread
 
-    # upewniamy się, że eventy są w stanie "działaj"
     control_stop_event.clear()
     aux_stop_event.clear()
 
-    control_thread = threading.Thread(
-        target=control_loop,
-        args=(control_stop_event,),
-        daemon=False,  # chcemy kulturalne zamknięcie, będziemy joinować w shutdown
-    )
+    control_thread = threading.Thread(target=control_loop, args=(control_stop_event,), daemon=True, name="control_loop")
     control_thread.start()
-    print("[KERNEL] Control loop started.")
 
-    aux_thread = threading.Thread(
-        target=aux_loop,
-        args=(aux_stop_event,),
-        daemon=False,
-    )
+    aux_thread = threading.Thread(target=aux_loop, args=(aux_stop_event,), daemon=True, name="aux_loop")
     aux_thread.start()
-    print("[AUX] Aux loop started.")
 
 
 @app.on_event("shutdown")
-def on_shutdown() -> None:
-    # sygnał stopu dla pętli
+async def on_shutdown() -> None:
+    global control_thread, aux_thread
+
+    logger.info("Shutdown requested: stopping loops...")
+
     control_stop_event.set()
     aux_stop_event.set()
 
-    # czekamy aż się ładnie zakończą
     if control_thread is not None:
         control_thread.join(timeout=5.0)
-        print("[KERNEL] Control loop stopped.")
+        logger.info("[KERNEL] alive=%s", control_thread.is_alive())
 
     if aux_thread is not None:
         aux_thread.join(timeout=5.0)
-        print("[AUX] Aux loop stopped.")
+        logger.info("[AUX] alive=%s", aux_thread.is_alive())
 
+    # pokaż wątki
+    for t in threading.enumerate():
+        logger.info("Alive thread: name=%s daemon=%s ident=%s", t.name, t.daemon, t.ident)
+
+    logger.info("Shutdown handler finished.")
 
 # --- ROUTERY ---
 
