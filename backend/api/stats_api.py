@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.core.state import SystemState
+from backend.core.state_store import StateStore
 
 
 def create_stats_router(
-    get_state: Callable[[], SystemState],
+    store: StateStore,
     module_id: str = "stats",
 ) -> APIRouter:
     """
@@ -58,12 +59,9 @@ def create_stats_router(
         Zwraca aktualne statystyki z system_state.runtime['stats'].
         """
         try:
-            state = get_state()
+            state = store.snapshot()
         except Exception as exc:
             raise HTTPException(status_code=503, detail="Nie udało się pobrać SystemState.") from exc
-
-        if state is None:
-            raise HTTPException(status_code=503, detail="SystemState jest niedostępny.")
 
         stats = _get_stats_dict(state)
 
@@ -90,7 +88,7 @@ def create_stats_router(
         Zwraca listę dostępnych pól na podstawie aktualnych danych runtime.
         """
         try:
-            state = get_state()
+            state = store.snapshot()
         except Exception as exc:
             raise HTTPException(status_code=503, detail="Nie udało się pobrać SystemState.") from exc
 
@@ -98,4 +96,3 @@ def create_stats_router(
         return {"module_id": module_id, "fields": sorted(stats.keys())}
 
     return router
-

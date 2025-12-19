@@ -18,6 +18,8 @@ from backend.api.history_api import create_history_router
 from backend.api.manual_api import create_manual_router
 from backend.api.stats_api import create_stats_router
 from backend.api.logs_api import create_logs_router
+from backend.core.state_store import StateStore
+
 
 from .core.config_store import ConfigStore
 import faulthandler
@@ -65,13 +67,16 @@ logger = logging.getLogger(__name__)
 hardware = Hardware()
 critical_modules, aux_modules = load_modules_split()
 
+store = StateStore(event_buffer_size=1000)
+
 kernel = Kernel(
     hardware=hardware,
     modules=critical_modules,
     safety_module=None,
+    store=store,
 )
 
-aux_runner = AuxRunner(kernel=kernel, modules=aux_modules)
+aux_runner = AuxRunner(store=store, modules=aux_modules)
 
 # --- CONFIG STORE ---
 
@@ -90,6 +95,17 @@ aux_stop_event = threading.Event()
 control_thread: threading.Thread | None = None
 aux_thread: threading.Thread | None = None
 
+critical_ids = {m.id for m in critical_modules}
+aux_ids = {m.id for m in aux_modules}
+
+def reload_any_module(module_id: str) -> None:
+    if module_id in critical_ids:
+        kernel.reload_module_config_from_file(module_id)
+        return
+    if module_id in aux_ids:
+        aux_runner.reload_module_config_from_file(module_id)
+        return
+    raise KeyError(f"Unknown module '{module_id}'")
 
 # --- PĘTLE ---
 
@@ -176,14 +192,17 @@ async def on_shutdown() -> None:
 
 # --- ROUTERY ---
 
-state_router = create_state_router(kernel=kernel)
-manual_router = create_manual_router(kernel=kernel)
-config_router = create_config_router(config_store=config_store, kernel=kernel)
+state_router = create_state_router(store=store)
+manual_router = create_manual_router(store=store)
+config_router = create_config_router(
+    config_store=config_store,
+    reload_module_config=reload_any_module,
+)
 
 history_base_dir = Path(__file__).resolve().parent / "modules" / "history"
 eventlog_base_dir = Path(__file__).resolve().parent / "modules" / "eventlog"
 
-stats_router = create_stats_router(get_state=lambda: kernel.state, module_id="stats")
+stats_router = create_stats_router(store=store, module_id="stats")
 app.include_router(stats_router, prefix="/api")
 
 app.include_router(

@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml  # pip install pyyaml
 
-from backend.core.kernel import ModuleInterface, ModuleTickResult
+from backend.core.module_interface import ModuleInterface, ModuleTickResult
 from backend.core.state import (
     BoilerMode,
     Event,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
-from backend.core.kernel import ModuleInterface, ModuleTickResult
+from backend.core.module_interface import ModuleInterface, ModuleTickResult
 from backend.core.state import (
     BoilerMode,
     Event,

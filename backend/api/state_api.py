@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from ..core.kernel import Kernel
+from backend.core.state_store import StateStore
 from ..core.state import SystemState, BoilerMode
 
 
@@ -15,11 +15,10 @@ MODE_DISPLAY = {
 }
 
 
-def create_state_router(kernel: Kernel) -> APIRouter:
+def create_state_router(store: StateStore) -> APIRouter:
     router = APIRouter(prefix="/state", tags=["state"])
 
-    def _serialize_state() -> dict:
-        s: SystemState = kernel.state
+    def _serialize_state(s: SystemState) -> dict:
         sens = s.sensors
         out = s.outputs
 
@@ -64,7 +63,8 @@ def create_state_router(kernel: Kernel) -> APIRouter:
 
     @router.get("/current")
     def get_current():
-        return _serialize_state()
+        s: SystemState = store.snapshot()
+        return _serialize_state(s)
 
     @router.post("/mode/{mode_name}")
     def set_mode(mode_name: str):
@@ -76,15 +76,8 @@ def create_state_router(kernel: Kernel) -> APIRouter:
         - IGNITION
         - WORK
         - MANUAL
-
-        Front woła np.:
-        POST /state/mode/IGNITION
-        POST /state/mode/WORK
-        POST /state/mode/OFF
         """
-        # zamieniamy string na enum
         try:
-            # pozwalamy na różne wielkości liter
             enum_value = BoilerMode[mode_name.upper()]
         except KeyError:
             valid = [m.name for m in BoilerMode]
@@ -96,9 +89,11 @@ def create_state_router(kernel: Kernel) -> APIRouter:
                 },
             )
 
-        s: SystemState = kernel.state
-        s.mode = enum_value
+        # UWAGA: modyfikujemy ŹRÓDŁO PRAWDY (store), nie snapshot
+        with store.locked() as s:
+            s.mode = enum_value
 
-        return _serialize_state()
+        # zwracamy świeży snapshot po zmianie
+        return _serialize_state(store.snapshot())
 
     return router

@@ -1,12 +1,17 @@
 # backend/api/config_api.py
 from __future__ import annotations
 
+from typing import Callable, Optional
+
 from fastapi import APIRouter, HTTPException, Body
 
 from ..core.config_store import ConfigStore
 
 
-def create_config_router(config_store: ConfigStore, kernel: Kernel) -> APIRouter:
+def create_config_router(
+    config_store: ConfigStore,
+    reload_module_config: Optional[Callable[[str], None]] = None,
+) -> APIRouter:
     """
     Router z endpointami:
       GET  /config/modules
@@ -18,9 +23,6 @@ def create_config_router(config_store: ConfigStore, kernel: Kernel) -> APIRouter
 
     @router.get("/modules")
     def list_config_modules():
-        """
-        Lista modułów, dla których jest dostępna konfiguracja.
-        """
         modules = config_store.list_modules()
         return [
             {
@@ -33,9 +35,6 @@ def create_config_router(config_store: ConfigStore, kernel: Kernel) -> APIRouter
 
     @router.get("/schema/{module_id}")
     def get_config_schema(module_id: str):
-        """
-        Zwraca schemę konfiguracji dla konkretnego modułu.
-        """
         try:
             schema = config_store.get_schema(module_id)
         except KeyError:
@@ -44,9 +43,6 @@ def create_config_router(config_store: ConfigStore, kernel: Kernel) -> APIRouter
 
     @router.get("/values/{module_id}")
     def get_config_values(module_id: str):
-        """
-        Zwraca aktualne (scalone) wartości konfiguracji dla modułu.
-        """
         try:
             values = config_store.get_values(module_id)
         except KeyError:
@@ -60,22 +56,22 @@ def create_config_router(config_store: ConfigStore, kernel: Kernel) -> APIRouter
         module_id: str,
         values: dict = Body(..., description="Mapa klucz->wartość zgodna z schema"),
     ):
-        """
-        Zapisuje nowe wartości konfiguracji dla modułu.
-        """
         try:
-            # 1) walidacja + zapis values.yaml
             validated = config_store.set_values(module_id, values)
         except KeyError:
             raise HTTPException(status_code=404, detail=f"Unknown module '{module_id}'")
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
 
-        # 2) jeśli mamy kernela – powiadom moduł, żeby sam przeładował values.yaml
-        if kernel is not None:
-            kernel.reload_module_config_from_file(module_id)
+        # opcjonalnie: zleć przeładowanie configu modułu (bez zależności API->Kernel)
+        if reload_module_config is not None:
+            try:
+                reload_module_config(module_id)
+            except Exception as exc:
+                # nie wywalamy całego requestu jeśli reload się wywali,
+                # ale informujemy klienta (możesz też zrobić 500 jeśli wolisz)
+                raise HTTPException(status_code=500, detail=f"Config saved, but reload failed: {exc}") from exc
 
-        # 3) zwracamy zwalidowane wartości
         return validated
 
     return router

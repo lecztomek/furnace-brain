@@ -7,7 +7,6 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, conint
 
-from ..core.kernel import Kernel
 from ..core.state import SystemState, BoilerMode
 
 
@@ -22,7 +21,7 @@ class ManualOutputsPatch(BaseModel):
     mixer_close_on: Optional[bool] = None
 
 
-def create_manual_router(kernel: Kernel) -> APIRouter:
+def create_manual_router(store: StateStore) -> APIRouter:
     router = APIRouter(prefix="/manual", tags=["manual"])
 
     @router.get("/current")
