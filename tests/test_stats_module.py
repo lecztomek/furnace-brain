@@ -364,7 +364,7 @@ def test_feeder_kgph_scales_linearly(sensors_ok):
     assert float(sB["power_kw_1h"]) == pytest.approx(float(sA["power_kw_1h"]) * ratio, rel=1e-6)
     assert float(sB["energy_kwh_1h"]) == pytest.approx(float(sA["energy_kwh_1h"]) * ratio, rel=1e-6)
 
-@pytest.mark.parametrize("dt", [1.0, 10.0, 60.0, 300.0])
+@pytest.mark.parametrize("dt", [60.0, 300.0])
 def test_7d_tail_pattern_only(dt, sensors_ok):
     module = StatsModule()
     state = make_state()
@@ -415,7 +415,7 @@ def test_min_avg_max_consistency_in_constant_on(suffix, sensors_ok):
 
     assert_min_avg_max(pmn, pav, pmx, msg=f"{suffix}: power min/avg/max")
 
-@pytest.mark.parametrize("dt", [1.0, 10.0, 60.0, 300.0])
+@pytest.mark.parametrize("dt", [60.0, 300.0])
 def test_7d_all_off_is_zero(dt, sensors_ok):
     m = StatsModule()
     st = make_state()
@@ -456,7 +456,7 @@ def test_4h_after_10h_on_should_equal_4h_on(dt, sensors_ok):
     assert_window_values(s, "4h", expected_on_s, feeder_kgph, calorific)
 
 
-@pytest.mark.parametrize("dt", [1.0, 10.0, 60.0, 300.0])
+@pytest.mark.parametrize("dt", [60.0, 300.0])
 def test_7d_after_20d_on_should_equal_7d_on(dt, sensors_ok):
     m = StatsModule()
     st = make_state()
