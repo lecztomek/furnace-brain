@@ -55,6 +55,10 @@ class MixerModule(ModuleInterface):
 
         self._schema_path = self._base_path / "schema.yaml"
         self._config_path = self._base_path / "values.yaml"
+        
+        self._move_start_ts: Optional[float] = None
+        self._move_direction_last: Optional[str] = None
+        self._move_planned_s: Optional[float] = None
 
         self._config = config or MixerConfig()
         self._load_config_from_file()
@@ -140,14 +144,14 @@ class MixerModule(ModuleInterface):
             self._prev_boiler_mode = mode_enum
 
             # log przejścia wyjść (na końcu ticka)
-            self._log_output_transition(
+            events.extend(self._log_output_transition(
                 now=now,
                 out_open=bool(outputs.mixer_open_on),
                 out_close=bool(outputs.mixer_close_on),
                 effective_mode=effective_mode,
                 rad_temp=rad_temp,
                 boiler_temp=boiler_temp,
-            )
+            ))
 
             status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
             return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
@@ -205,14 +209,14 @@ class MixerModule(ModuleInterface):
             self._last_mode = effective_mode
             self._prev_boiler_mode = mode_enum
 
-            self._log_output_transition(
+            events.extend(self._log_output_transition(
                 now=now,
                 out_open=bool(outputs.mixer_open_on),
                 out_close=bool(outputs.mixer_close_on),
                 effective_mode=effective_mode,
                 rad_temp=rad_temp,
                 boiler_temp=boiler_temp,
-            )
+            ))
 
             status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
             return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
@@ -312,14 +316,14 @@ class MixerModule(ModuleInterface):
         self._prev_boiler_mode = mode_enum
 
         # DEBUG: loguj tylko zmiany przekaźników OPEN/CLOSE
-        self._log_output_transition(
+        events.extend(self._log_output_transition(
             now=now,
             out_open=bool(outputs.mixer_open_on),
             out_close=bool(outputs.mixer_close_on),
             effective_mode=effective_mode,
             rad_temp=rad_temp,
             boiler_temp=boiler_temp,
-        )
+        ))
 
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
         return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
@@ -334,38 +338,100 @@ class MixerModule(ModuleInterface):
         effective_mode: str,
         rad_temp: Optional[float],
         boiler_temp: Optional[float],
-    ) -> None:
-        """
-        Loguje tylko zmiany przekaźników OPEN/CLOSE:
-        - START OPEN/CLOSE (False -> True)
-        - STOP  OPEN/CLOSE (True  -> False)
-        """
-        if out_open != self._last_out_open:
-            if out_open:
-                logger.debug(
-                    "Mixer relay: START OPEN (mode=%s, until=%.2f, T_CO=%s, T_boiler=%s)",
-                    effective_mode,
-                    self._movement_until_ts or -1.0,
-                    f"{rad_temp:.1f}" if rad_temp is not None else "None",
-                    f"{boiler_temp:.1f}" if boiler_temp is not None else "None",
-                )
-            else:
-                logger.debug("Mixer relay: STOP  OPEN (mode=%s)", effective_mode)
-
-        if out_close != self._last_out_close:
-            if out_close:
-                logger.debug(
-                    "Mixer relay: START CLOSE (mode=%s, until=%.2f, T_CO=%s, T_boiler=%s)",
-                    effective_mode,
-                    self._movement_until_ts or -1.0,
-                    f"{rad_temp:.1f}" if rad_temp is not None else "None",
-                    f"{boiler_temp:.1f}" if boiler_temp is not None else "None",
-                )
-            else:
-                logger.debug("Mixer relay: STOP  CLOSE (mode=%s)", effective_mode)
-
+    ) -> List[Event]:
+        evs: List[Event] = []
+    
+        # START OPEN
+        if out_open and not self._last_out_open:
+            planned = (self._movement_until_ts - now) if self._movement_until_ts else None
+            self._move_start_ts = now
+            self._move_direction_last = "open"
+            self._move_planned_s = planned
+    
+            evs.append(Event(
+                ts=now, source=self.id, level=EventLevel.INFO,
+                type="MIXER_MOVE_START",
+                message=f"Mixer: START OPEN (plan={planned:.2f}s, mode={effective_mode})" if planned is not None else f"Mixer: START OPEN (mode={effective_mode})",
+                data={
+                    "direction": "open",
+                    "planned_pulse_s": planned,
+                    "until_ts": self._movement_until_ts,
+                    "mode": effective_mode,
+                    "radiators_temp": rad_temp,
+                    "boiler_temp": boiler_temp,
+                    "target_temp": self._config.target_temp,
+                }
+            ))
+    
+        # STOP OPEN
+        if (not out_open) and self._last_out_open:
+            actual = (now - self._move_start_ts) if self._move_start_ts is not None else None
+            evs.append(Event(
+                ts=now, source=self.id, level=EventLevel.INFO,
+                type="MIXER_MOVE_STOP",
+                message=f"Mixer: STOP OPEN (ran={actual:.2f}s, plan={self._move_planned_s:.2f}s, mode={effective_mode})" if actual is not None and self._move_planned_s is not None else "Mixer: STOP OPEN",
+                data={
+                    "direction": "open",
+                    "actual_run_s": actual,
+                    "planned_pulse_s": self._move_planned_s,
+                    "mode": effective_mode,
+                    "radiators_temp": rad_temp,
+                    "boiler_temp": boiler_temp,
+                    "target_temp": self._config.target_temp,
+                }
+            ))
+            self._move_start_ts = None
+            self._move_direction_last = None
+            self._move_planned_s = None
+    
+        # START CLOSE
+        if out_close and not self._last_out_close:
+            planned = (self._movement_until_ts - now) if self._movement_until_ts else None
+            self._move_start_ts = now
+            self._move_direction_last = "close"
+            self._move_planned_s = planned
+    
+            evs.append(Event(
+                ts=now, source=self.id, level=EventLevel.INFO,
+                type="MIXER_MOVE_START",
+                message=f"Mixer: START CLOSE (plan={planned:.2f}s, mode={effective_mode})" if planned is not None else f"Mixer: START CLOSE (mode={effective_mode})",
+                data={
+                    "direction": "close",
+                    "planned_pulse_s": planned,
+                    "until_ts": self._movement_until_ts,
+                    "mode": effective_mode,
+                    "radiators_temp": rad_temp,
+                    "boiler_temp": boiler_temp,
+                    "target_temp": self._config.target_temp,
+                }
+            ))
+    
+        # STOP CLOSE
+        if (not out_close) and self._last_out_close:
+            actual = (now - self._move_start_ts) if self._move_start_ts is not None else None
+            evs.append(Event(
+                ts=now, source=self.id, level=EventLevel.INFO,
+                type="MIXER_MOVE_STOP",
+                message=f"Mixer: STOP CLOSE (ran={actual:.2f}s, plan={self._move_planned_s:.2f}s, mode={effective_mode})" if actual is not None and self._move_planned_s is not None else "Mixer: STOP CLOSE",
+                data={
+                    "direction": "close",
+                    "actual_run_s": actual,
+                    "planned_pulse_s": self._move_planned_s,
+                    "mode": effective_mode,
+                    "radiators_temp": rad_temp,
+                    "boiler_temp": boiler_temp,
+                    "target_temp": self._config.target_temp,
+                }
+            ))
+            self._move_start_ts = None
+            self._move_direction_last = None
+            self._move_planned_s = None
+    
+        # Twoje dotychczasowe logger.debug zostaw (lub usuń), ale pamiętaj zaktualizować _last_out_*
         self._last_out_open = out_open
         self._last_out_close = out_close
+        return evs
+
 
     def _is_far_from_setpoint(self, rad_temp: Optional[float]) -> bool:
         if rad_temp is None:
