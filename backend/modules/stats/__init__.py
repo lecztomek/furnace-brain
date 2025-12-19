@@ -12,7 +12,6 @@ import yaml  # pip install pyyaml
 from backend.core.kernel import ModuleInterface, ModuleTickResult
 from backend.core.state import (
     Event,
-    EventLevel,
     ModuleStatus,
     Sensors,
     SystemState,
@@ -22,16 +21,16 @@ from backend.core.state import (
 SECONDS_5M = 300.0
 MJ_TO_KWH = 1.0 / 3.6  # 1 kWh = 3.6 MJ
 
+# rolling windows (liczone z zamkniętych bucketów 5m)
+BUCKETS_1H = 12                 # 12 * 5m
+BUCKETS_4H = 48                 # 48 * 5m
+BUCKETS_24H = 288               # 288 * 5m
+BUCKETS_7D = 2016               # 2016 * 5m (7 dni)
 
 # ---------- KONFIGURACJA RUNTIME ----------
 
 @dataclass
 class StatsConfig:
-    """
-    enabled             – włącza/wyłącza liczenie
-    feeder_kg_per_hour  – ile kg/h podaje ślimak gdy feeder_on == True
-    calorific_mj_per_kg – MJ/kg (jeśli 0 -> nie liczymy mocy/energii)
-    """
     enabled: bool = True
     feeder_kg_per_hour: float = 10.0
     calorific_mj_per_kg: float = 0.0
@@ -67,10 +66,11 @@ class StatsModule(ModuleInterface):
     """
     Moduł statystyk spalania i mocy.
 
-    - liczy spalone kg na podstawie feeder_on (integracja po czasie)
-    - agreguje w hierarchii: 5m -> 1h -> 24h -> 7d
-    - 4h liczone "w locie" z ostatnich 4 bucketów 1h
-    - publikuje wyniki w system_state.runtime["stats"] (płaska struktura)
+    Opcja B (rolling):
+    - bazą są ZAMKNIĘTE buckety 5m
+    - okna 1h/4h/24h/7d liczone są jako agregacja ostatnich N bucketów 5m
+      (rolling po czasie, niezależne od częstotliwości tick)
+    - publikuje wyniki w system_state.runtime["stats"]
     """
 
     def __init__(self, base_path: Optional[Path] = None, config: Optional[StatsConfig] = None) -> None:
@@ -84,14 +84,12 @@ class StatsModule(ModuleInterface):
         # czas
         self._last_ts: Optional[float] = None
 
-        # aktualny bucket 5m
+        # aktualny bucket 5m (niezamknięty)
         self._bucket_start_ts: Optional[float] = None
         self._cur = _Bucket()
 
-        # historia (stałe rozmiary -> brak wycieku)
-        self._b5m: deque[_Agg] = deque(maxlen=12)   # 12 * 5m = 1h
-        self._b1h: deque[_Agg] = deque(maxlen=24)   # 24 * 1h = 24h
-        self._b24h: deque[_Agg] = deque(maxlen=7)   # 7 * 24h = 7d
+        # historia ZAMKNIĘTYCH bucketów 5m (7 dni)
+        self._b5m: deque[_Agg] = deque(maxlen=BUCKETS_7D)
 
     # --- ModuleInterface ---
 
@@ -103,10 +101,8 @@ class StatsModule(ModuleInterface):
         events: List[Event] = []
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
 
-        # init runtime slot
+        # init runtime slot (defensywnie)
         if not hasattr(system_state, "runtime"):
-            # jeśli runtime istnieje u Ciebie w state, to ten blok nigdy nie zadziała
-            # ale zostawiamy defensywnie bez "fallbacków" w logice liczenia.
             system_state.runtime = {}
 
         if not self._config.enabled:
@@ -127,43 +123,36 @@ class StatsModule(ModuleInterface):
             self._publish(now, system_state, enabled=True)
             return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
-        # stan ślimaka bierzemy z outputs (to ma być "realne" sterowanie)
         feeder_on = bool(system_state.outputs.feeder_on)
-
         t = self._last_ts
 
-        # integracja po czasie z podziałem na granice 5-minutowych bucketów
+        # integracja po czasie z podziałem na granice bucketów 5m
         while t < now:
             if self._bucket_start_ts is None:
                 self._bucket_start_ts = t
 
             bucket_end = self._bucket_start_ts + SECONDS_5M
-            step = min(now - t, bucket_end - t)  # ile sekund należy do aktualnego bucketa
+            step = min(now - t, bucket_end - t)
 
-            # zawsze zliczamy sekundy
             self._cur.seconds += step
 
-            # zliczamy kg tylko gdy feeder_on
             if feeder_on and self._config.feeder_kg_per_hour > 0:
                 kg = self._config.feeder_kg_per_hour * (step / 3600.0)
                 self._cur.coal_kg += kg
 
-                # energia/moc tylko jeśli podana kaloryczność
                 if self._config.calorific_mj_per_kg > 0:
                     kwh_per_kg = self._config.calorific_mj_per_kg * MJ_TO_KWH
                     self._cur.energy_kwh += kg * kwh_per_kg
 
             t += step
 
-            # domykamy bucket jeśli doszliśmy do jego końca
+            # domykamy bucket 5m
             if t >= bucket_end - 1e-9:
                 self._finalize_5m_bucket()
                 self._bucket_start_ts = bucket_end
                 self._cur = _Bucket()
 
         self._last_ts = now
-
-        # publikacja snapshotu
         self._publish(now, system_state, enabled=True)
 
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
@@ -201,16 +190,6 @@ class StatsModule(ModuleInterface):
         )
         self._b5m.append(a5)
 
-        # 1h = 12 * 5m
-        if len(self._b5m) == 12:
-            a1 = self._aggregate_from_children(list(self._b5m))
-            self._b1h.append(a1)
-
-            # 24h = 24 * 1h
-            if len(self._b1h) == 24:
-                a24 = self._aggregate_from_children(list(self._b1h))
-                self._b24h.append(a24)
-
     def _aggregate_from_children(self, children: List[_Agg]) -> _Agg:
         sec = sum(c.seconds for c in children)
         kg = sum(c.coal_kg for c in children)
@@ -237,23 +216,17 @@ class StatsModule(ModuleInterface):
             power_kw_max=power_max,
         )
 
-    def _window_4h(self) -> Optional[_Agg]:
-        if len(self._b1h) < 4:
+    def _window_from_5m(self, n: int) -> Optional[_Agg]:
+        if len(self._b5m) < n:
             return None
-        return self._aggregate_from_children(list(self._b1h)[-4:])
-
-    def _window_7d(self) -> Optional[_Agg]:
-        if len(self._b24h) < 7:
-            return None
-        # _b24h ma maxlen=7, więc jak len==7 to agregujemy wszystko
-        return self._aggregate_from_children(list(self._b24h))
+        return self._aggregate_from_children(list(self._b5m)[-n:])
 
     # ---------- PUBLIKACJA DO runtime ----------
 
     def _publish(self, now: float, system_state: SystemState, enabled: bool) -> None:
         ts_iso = datetime.fromtimestamp(now).isoformat(timespec="seconds")
 
-        # 5m: bierzemy ostatni ZAMKNIĘTY bucket (stabilne) – a jeśli brak, to aktualny (jeśli coś nazbierał)
+        # 5m: ostatni zamknięty bucket, a jeśli go brak, to aktualny (częściowy)
         a5: Optional[_Agg] = self._b5m[-1] if len(self._b5m) >= 1 else None
         if a5 is None and self._cur.seconds > 0:
             burn = self._rate_kgph(self._cur.seconds, self._cur.coal_kg)
@@ -266,10 +239,10 @@ class StatsModule(ModuleInterface):
                 power_kw_avg=power, power_kw_min=power, power_kw_max=power,
             )
 
-        a1: Optional[_Agg] = self._b1h[-1] if len(self._b1h) >= 1 else None
-        a4: Optional[_Agg] = self._window_4h()
-        a24: Optional[_Agg] = self._b24h[-1] if len(self._b24h) >= 1 else None
-        a7: Optional[_Agg] = self._window_7d()
+        a1 = self._window_from_5m(BUCKETS_1H)
+        a4 = self._window_from_5m(BUCKETS_4H)
+        a24 = self._window_from_5m(BUCKETS_24H)
+        a7 = self._window_from_5m(BUCKETS_7D)
 
         def pack(prefix: str, a: Optional[_Agg], out: Dict[str, Any]) -> None:
             if a is None:
@@ -311,7 +284,6 @@ class StatsModule(ModuleInterface):
         pack("24h", a24, payload)
         pack("7d", a7, payload)
 
-        # publikacja do runtime
         system_state.runtime["stats"] = payload
 
     # ---------- CONFIG (schema + values) ----------
@@ -355,4 +327,3 @@ class StatsModule(ModuleInterface):
     def _save_config_to_file(self) -> None:
         with self._config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(asdict(self._config), f, sort_keys=True, allow_unicode=True)
-
