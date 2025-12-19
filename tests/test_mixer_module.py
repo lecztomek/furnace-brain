@@ -269,3 +269,64 @@ def test_mixer_never_sets_open_and_close_together(mixer_module, state):
 
     hist = simulate(mixer_module, state, duration_s=10 * 60.0, dt=1.0)
     assert_never_open_and_close(hist)
+
+def test_preclose_emits_start_and_stop_with_duration(mixer_module, state):
+    """
+    Preclose powinno mieć telemetrię:
+    - START CLOSE (MIXER_MOVE_START)
+    - STOP  CLOSE (MIXER_MOVE_STOP)
+    oraz czas zbliżony do preclose_full_close_time_s.
+    """
+    preclose_s = 6.0
+    cfg_mixer(
+        mixer_module,
+        preclose_on_ignition_enabled=True,
+        preclose_full_close_time_s=preclose_s,
+        adjust_interval_s=5.0,
+        target_temp=40.0,
+        ok_band_degC=2.0,
+        ramp_error_factor=2.0,
+    )
+
+    state.sensors.boiler_temp = 60.0
+    state.sensors.radiators_temp = 10.0  # far -> preclose warunek spełniony
+
+    # 1) tick w WORK, żeby wejście w IGNITION było wykryte
+    state.mode = BoilerMode.WORK
+    tick(mixer_module, state, now=0.0)
+
+    # 2) wejście w IGNITION -> start preclose
+    state.mode = BoilerMode.IGNITION
+    open_on, close_on, ev, types = tick(mixer_module, state, now=1.0)
+
+    assert "MIXER_PRECLOSE_ON_IGNITION" in types, f"events={types}"
+    assert close_on is True
+
+    # tu powinien być też START przekaźnika CLOSE
+    e_start = first_event(ev, "MIXER_MOVE_START")
+    assert e_start is not None, f"Brak MIXER_MOVE_START na starcie preclose, events={types}"
+    assert e_start.data.get("direction") == "close"
+
+    planned = e_start.data.get("planned_pulse_s")
+    if planned is not None:
+        assert planned == pytest.approx(preclose_s, abs=0.5)  # z grubsza
+
+    # 3) dobijamy czas do końca impulsu + 1 tick, żeby zobaczyć STOP (zbocze True->False)
+    dt = 0.5
+    now = 1.0
+    found_stop = None
+    for _ in range(int((preclose_s + 2.0) / dt)):  # +2s zapasu
+        now += dt
+        open_on, close_on, ev, types = tick(mixer_module, state, now=now)
+        e_stop = first_event(ev, "MIXER_MOVE_STOP")
+        if e_stop is not None:
+            found_stop = (now, e_stop)
+            break
+
+    assert found_stop is not None, "Nie znaleziono MIXER_MOVE_STOP dla preclose"
+    _, e_stop = found_stop
+    assert e_stop.data.get("direction") == "close"
+
+    actual = e_stop.data.get("actual_run_s")
+    if actual is not None:
+        assert actual == pytest.approx(preclose_s, abs=dt + 0.3)

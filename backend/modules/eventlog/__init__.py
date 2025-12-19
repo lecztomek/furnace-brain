@@ -62,10 +62,6 @@ class EventLogModule(ModuleInterface):
 
         self._log_dir = (self._base_path / self._config.log_dir).resolve()
 
-        # deduplikacja / “cursor”
-        self._last_flushed_ts: Optional[float] = None
-        self._last_ts_fingerprints: Set[str] = set()
-
     @property
     def id(self) -> str:
         return "eventlog"
@@ -129,44 +125,26 @@ class EventLogModule(ModuleInterface):
         return self._log_dir / filename
 
     def _write_events(self, pending: List[Event]) -> None:
-        # sort dla powtarzalności
+        # sort dla powtarzalności (opcjonalne)
         pending.sort(key=lambda e: (e.ts, e.source, e.type, e.message))
-
-        # filtr: tylko “nowe” względem kursora
-        to_write: List[Event] = []
-        for e in pending:
-            fp = self._fingerprint(e)
-
-            if self._last_flushed_ts is None:
-                to_write.append(e)
-                continue
-
-            if e.ts > self._last_flushed_ts:
-                to_write.append(e)
-                continue
-
-            if e.ts == self._last_flushed_ts and fp not in self._last_ts_fingerprints:
-                to_write.append(e)
-                continue
-
-        if not to_write:
+    
+        if not pending:
             return
-
-        # katalog
+    
         self._log_dir.mkdir(parents=True, exist_ok=True)
-
+    
         # grupujemy po pliku (rotacja hour/day) wg TS eventu
         buckets: Dict[Path, List[Event]] = {}
-        for e in to_write:
+        for e in pending:
             p = self._file_path_for_ts(e.ts)
             buckets.setdefault(p, []).append(e)
-
+    
         for path, items in buckets.items():
             new_file = not path.exists()
-
+    
             with path.open("a", encoding="utf-8", newline="") as f:
                 w = csv.writer(f, delimiter=";")
-
+    
                 if new_file:
                     w.writerow(
                         [
@@ -179,18 +157,18 @@ class EventLogModule(ModuleInterface):
                             "data_json",     # JSON
                         ]
                     )
-
+    
                 for e in items:
                     t = dt.datetime.fromtimestamp(e.ts)
                     ts_str = t.isoformat(timespec="seconds")
-
+    
                     level = e.level.name if hasattr(e.level, "name") else str(e.level)
                     data_json = json.dumps(e.data or {}, ensure_ascii=False, separators=(",", ":"))
-
+    
                     w.writerow(
                         [
                             ts_str,
-                            f"{e.ts:.3f}",
+                            f"{e.ts:.6f}",  # daj 6 miejsc, łatwiej debugować
                             level,
                             e.source,
                             e.type,
@@ -198,17 +176,7 @@ class EventLogModule(ModuleInterface):
                             data_json,
                         ]
                     )
-
-        # update kursora (ostatni zapisany ts + fingerprints)
-        max_ts = max(e.ts for e in to_write)
-        if self._last_flushed_ts is None or max_ts > self._last_flushed_ts:
-            self._last_flushed_ts = max_ts
-            self._last_ts_fingerprints = set()
-
-        # dodaj fingerprints dla max_ts (żeby nie dublić przy kolejnym ticku)
-        for e in to_write:
-            if e.ts == self._last_flushed_ts:
-                self._last_ts_fingerprints.add(self._fingerprint(e))
+    
 
     # ---------- CONFIG (schema + values) ----------
 
