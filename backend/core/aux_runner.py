@@ -15,8 +15,8 @@ from .state import (
     SystemState,
 )
 
-# jeśli ModuleInterface jest w innym module u Ciebie, zostaw jak było
-from .kernel import ModuleInterface  # albo tam gdzie masz ten Protocol
+import logging
+logger = logging.getLogger(__name__)
 
 
 class AuxRunner:
