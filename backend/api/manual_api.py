@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, conint
 
+from backend.core.state_store import StateStore
 from ..core.state import SystemState, BoilerMode
 
 
@@ -29,7 +30,7 @@ def create_manual_router(store: StateStore) -> APIRouter:
         """
         Widok MANUAL czyta TYLKO te wartości.
         """
-        s: SystemState = kernel.state
+        s: SystemState = store.snapshot()
         m = s.manual
 
         return {
@@ -51,46 +52,48 @@ def create_manual_router(store: StateStore) -> APIRouter:
         """
         Zapisuje stan ręczny (SystemState.manual) — tylko w trybie MANUAL.
         """
-        s: SystemState = kernel.state
-        if s.mode != BoilerMode.MANUAL:
-            raise HTTPException(
-                status_code=409,
-                detail={"msg": "Wyjścia można zmieniać tylko w trybie MANUAL."},
-            )
-
-        # Nie pozwalamy na dwa kierunki naraz
+        # Mutual exclusion walidujemy od razu
         if patch.mixer_open_on is True and patch.mixer_close_on is True:
             raise HTTPException(
                 status_code=422,
                 detail={"msg": "mixer_open_on i mixer_close_on nie mogą być jednocześnie TRUE."},
             )
 
-        m = s.manual
-        m.last_update_ts = time.time()
+        # Modyfikujemy ŹRÓDŁO PRAWDY (store), nie snapshot
+        with store.locked() as s:
+            if s.mode != BoilerMode.MANUAL:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"msg": "Wyjścia można zmieniać tylko w trybie MANUAL."},
+                )
 
-        if patch.fan_power is not None:
-            m.fan_power = int(patch.fan_power)
+            m = s.manual
+            m.last_update_ts = time.time()
 
-        if patch.feeder_on is not None:
-            m.feeder_on = bool(patch.feeder_on)
+            if patch.fan_power is not None:
+                m.fan_power = int(patch.fan_power)
 
-        if patch.pump_co_on is not None:
-            m.pump_co_on = bool(patch.pump_co_on)
+            if patch.feeder_on is not None:
+                m.feeder_on = bool(patch.feeder_on)
 
-        if patch.pump_cwu_on is not None:
-            m.pump_cwu_on = bool(patch.pump_cwu_on)
+            if patch.pump_co_on is not None:
+                m.pump_co_on = bool(patch.pump_co_on)
 
-        # mixer z mutual exclusion
-        if patch.mixer_open_on is not None:
-            m.mixer_open_on = bool(patch.mixer_open_on)
-            if m.mixer_open_on:
-                m.mixer_close_on = False
+            if patch.pump_cwu_on is not None:
+                m.pump_cwu_on = bool(patch.pump_cwu_on)
 
-        if patch.mixer_close_on is not None:
-            m.mixer_close_on = bool(patch.mixer_close_on)
-            if m.mixer_close_on:
-                m.mixer_open_on = False
+            # mixer z mutual exclusion
+            if patch.mixer_open_on is not None:
+                m.mixer_open_on = bool(patch.mixer_open_on)
+                if m.mixer_open_on:
+                    m.mixer_close_on = False
+
+            if patch.mixer_close_on is not None:
+                m.mixer_close_on = bool(patch.mixer_close_on)
+                if m.mixer_close_on:
+                    m.mixer_open_on = False
 
         return {"ok": True}
 
     return router
+
