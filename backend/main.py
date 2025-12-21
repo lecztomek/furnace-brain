@@ -50,7 +50,7 @@ DATA_ROOT = Path(os.getenv("FURNACE_BRAIN_DATA_ROOT", str(Path(__file__).resolve
 #        rom_to_field={
 #            # Dopasuj nazwy pól do Twojego backend.core.state.Sensors
 #            "28-000000506777": "boiler_temp",     # np. kocioł
-#            "28-00000052b809": "cwu_temp",        # np. CWU
+#            "28-00000052b809": "hopper_temp",        # np. CWU
 #            "28-0000006f0738": "radiators_temp",  # np. CO / powrót / grzejniki
 #        },
 #        base_path="/sys/bus/w1/devices",
