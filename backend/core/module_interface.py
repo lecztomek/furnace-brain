@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Protocol
+from typing import Any, Dict, List, Tuple
+from typing_extensions import Protocol
 
 from backend.core.state import (
     Event,
