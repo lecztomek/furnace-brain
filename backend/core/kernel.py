@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Protocol, Tuple
+from typing import Any, Dict, List, Tuple
+from typing_extensions import Protocol
 import time
 import logging
 import traceback
