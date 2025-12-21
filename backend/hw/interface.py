@@ -1,7 +1,7 @@
 # backend/hw/interface.py
 from __future__ import annotations
 
-from typing import Protocol
+from typing_extensions import Protocol
 
 from backend.core.state import Sensors, Outputs
 
