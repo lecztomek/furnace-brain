@@ -157,7 +157,7 @@
     const levelUi = elLevel ? elLevel.value : "";
     const levelApi = levelUi ? mapLevelToApi(levelUi) : "";
 
-    const url = new URL(LOGS_RECENT_URL);
+    const url = new URL(LOGS_RECENT_URL, window.location.origin);
     url.searchParams.set("limit", String(isFinite(limit) ? limit : 25));
 
     // jeśli Twoje /logs/recent (CSV router) wspiera te filtry – zostawiamy:
