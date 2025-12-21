@@ -45,23 +45,41 @@ logger = logging.getLogger(__name__)
 #cfg = HardwareConfig(
 #    ds18b20=Ds18b20Config(
 #        rom_to_field={
-#            "28-00000aaaaaaa": "boiler_temp",
-#            "28-00000bbbbbbb": "cwu_temp",
-#            "28-00000ccccccc": "radiators_temp",
-#            "28-00000ddddddd": "return_temp",
-#            "28-00000eeeeeee": "hopper_temp",
-#        }
+#            # Dopasuj nazwy pól do Twojego backend.core.state.Sensors
+#            "28-000000506777": "boiler_temp",     # np. kocioł
+#            "28-00000052b809": "cwu_temp",        # np. CWU
+#            "28-0000006f0738": "radiators_temp",  # np. CO / powrót / grzejniki
+#        },
+#        base_path="/sys/bus/w1/devices",
 #    ),
-#    max6675=Max6675Config(spi_bus=0, spi_dev=0),
-#    pins=PinConfig(
-#        feeder_pin=17,
-#        pump_co_pin=27,
-#        pump_cwu_pin=22,
-#        fan_pwm_pin=18,
+
+    # Spaliny z termopary (MAX6675)
+    # Jeśli masz na CE0 -> spidev0.0; jeśli na CE1 -> spi_dev=1 (spidev0.1)
+#    max6675=Max6675Config(
+#        spi_bus=0,
+#        spi_dev=0,
+#        max_hz=4_000_000,
+#        mode=0,
+#    ),
+
+ #   pins=PinConfig(
+ #       # wyjścia SSR/ULN zgodnie z Twoją wiązką:
+ #       feeder_pin=16,       # ŚLIMAK: pin 36 -> GPIO16
+ #       pump_cwu_pin=20,     # CWU:    pin 38 -> GPIO20
+ #       pump_co_pin=21,      # CO:     pin 40 -> GPIO21
+ #       mixer_open_pin=6,    # ZAWÓR:  pin 31 -> GPIO6
+ #       mixer_close_pin=12,  # ZAWÓR:  pin 32 -> GPIO12
+
+        # dmuchawa YYAC-3S
+#        fan_pwm_pin=19,      # PWM:    pin 35 -> GPIO19
 #        fan_pwm_freq_hz=200,
 #    ),
+
 #    fan_inverted=False,
+#    sensors_poll_interval_s=5.0,
+#    sensors_stale_after_s=20.0,
 #)
+
 
 #hardware = RpiHardware(cfg)
 hardware = Hardware()

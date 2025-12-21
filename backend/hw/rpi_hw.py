@@ -4,8 +4,8 @@ import logging
 import os
 import threading
 import time
-from dataclasses import dataclass
-from typing import Dict, Optional
+from dataclasses import dataclass, is_dataclass
+from typing import Dict, Optional, Tuple
 
 from backend.core.state import Sensors, Outputs
 
@@ -43,19 +43,18 @@ class Max6675Config:
 class PinConfig:
     """
     BCM pin numbering.
-    """
-    # SSR/ULN2003 – wyjścia cyfrowe
-    feeder_pin: int = 17
-    pump_co_pin: int = 27
-    pump_cwu_pin: int = 22
-    pump_circ_pin: int = 23
-    mixer_open_pin: int = 24
-    mixer_close_pin: int = 25
-    alarm_buzzer_pin: int = 5
-    alarm_relay_pin: int = 6
 
-    # YYAC-3S (PWM)
-    fan_pwm_pin: int = 18
+    UWAGA: tu wpisujesz REALNE GPIO z Twojej instalacji.
+    """
+    # SSR/ULN – wyjścia cyfrowe
+    feeder_pin: int
+    pump_co_pin: int
+    pump_cwu_pin: int
+    mixer_open_pin: int
+    mixer_close_pin: int
+
+    # YYAC-3S (PWM dmuchawy)
+    fan_pwm_pin: int = 19          # u Ciebie GPIO19 (pin 35)
     fan_pwm_freq_hz: int = 200
 
 
@@ -129,17 +128,17 @@ class RpiHardware:
         stale_after = max(1.0, float(self.cfg.sensors_stale_after_s))
 
         with self._sensors_lock:
-            snap = Sensors(**vars(self._last_sensors))
+            snap = self._clone_dataclass(self._last_sensors)
             ds_ok_ts = self._last_ds18b20_ok_ts
             max_ok_ts = self._last_max6675_ok_ts
 
-        # Jeśli DS18B20 nie odświeżały się za długo, zeruj pola z DS18B20 (z mapowania)
+        # DS18B20 stale -> None
         if ds_ok_ts <= 0.0 or (now - ds_ok_ts) > stale_after:
             for _rom, field in self.cfg.ds18b20.rom_to_field.items():
                 if hasattr(snap, field):
                     setattr(snap, field, None)
 
-        # Jeśli MAX6675 nie odświeżał się za długo, zeruj flue_gas_temp
+        # MAX6675 stale -> None
         if self.cfg.max6675 is not None:
             if max_ok_ts <= 0.0 or (now - max_ok_ts) > stale_after:
                 snap.flue_gas_temp = None
@@ -149,7 +148,6 @@ class RpiHardware:
     def apply_outputs(self, outputs: Outputs) -> None:
         """
         Ustawia wyjścia. Idempotentne: zmieniamy tylko to, co się zmieniło.
-        Nie wywalamy ticka na drobnych błędach.
         """
         try:
             self._apply_digital(outputs)
@@ -161,7 +159,8 @@ class RpiHardware:
         except Exception as e:
             log.error("apply_outputs(fan_pwm) failed: %s", e)
 
-        self._last_outputs = outputs
+        # przechowuj kopię (bezpieczniej dla idempotencji)
+        self._last_outputs = self._clone_dataclass(outputs)
 
     def close(self) -> None:
         """
@@ -186,6 +185,12 @@ class RpiHardware:
             except Exception:
                 pass
 
+        if self._pwm is not None:
+            try:
+                self._pwm.stop()
+            except Exception:
+                pass
+
         if self._gpio is not None:
             try:
                 self._gpio.cleanup()
@@ -205,7 +210,6 @@ class RpiHardware:
         while not self._stop_evt.is_set():
             t0 = time.time()
 
-            # czytamy i aktualizujemy cache
             s, ds_ok, max_ok = self._read_sensors_uncached_with_freshness()
 
             with self._sensors_lock:
@@ -219,14 +223,7 @@ class RpiHardware:
             sleep_left = max(0.0, interval - dt)
             self._stop_evt.wait(sleep_left)
 
-    def _read_sensors_uncached_with_freshness(self) -> tuple[Sensors, bool, bool]:
-        """
-        Realny odczyt z czujników (może trwać).
-        Zwraca:
-        - Sensors
-        - ds18b20_ok: czy był choć 1 poprawny odczyt DS18B20 w tej iteracji
-        - max6675_ok: czy MAX6675 zwrócił poprawną wartość w tej iteracji
-        """
+    def _read_sensors_uncached_with_freshness(self) -> Tuple[Sensors, bool, bool]:
         s = Sensors()
         ds18b20_ok = False
         max6675_ok = False
@@ -265,12 +262,10 @@ class RpiHardware:
             pc.feeder_pin,
             pc.pump_co_pin,
             pc.pump_cwu_pin,
-            pc.pump_circ_pin,
             pc.mixer_open_pin,
             pc.mixer_close_pin,
-            pc.alarm_buzzer_pin,
-            pc.alarm_relay_pin,
         ]
+
         for p in out_pins:
             GPIO.setup(p, GPIO.OUT, initial=GPIO.LOW)
 
@@ -288,7 +283,7 @@ class RpiHardware:
             if self._pi.connected:
                 self._pi.set_mode(pc.fan_pwm_pin, pigpio.OUTPUT)
                 self._pi.set_PWM_frequency(pc.fan_pwm_pin, pc.fan_pwm_freq_hz)
-                self._pi.set_PWM_dutycycle(pc.fan_pwm_pin, 0)
+                self._pi.set_PWM_dutycycle(pc.fan_pwm_pin, 0)  # 0..255
                 log.info("PWM: using pigpio on GPIO%d @ %d Hz", pc.fan_pwm_pin, pc.fan_pwm_freq_hz)
                 return
             else:
@@ -301,7 +296,7 @@ class RpiHardware:
             GPIO = self._gpio
             GPIO.setup(pc.fan_pwm_pin, GPIO.OUT, initial=GPIO.LOW)
             self._pwm = GPIO.PWM(pc.fan_pwm_pin, pc.fan_pwm_freq_hz)
-            self._pwm.start(0.0)
+            self._pwm.start(0.0)  # 0..100
             log.info("PWM: using RPi.GPIO.PWM on GPIO%d @ %d Hz", pc.fan_pwm_pin, pc.fan_pwm_freq_hz)
         except Exception as e:
             log.warning("PWM init failed (no pigpio, no GPIO.PWM): %s", e)
@@ -327,10 +322,6 @@ class RpiHardware:
     # ---------- DS18B20 ----------
 
     def _read_all_ds18b20_into(self, sensors: Sensors) -> bool:
-        """
-        Wypełnia sensors polami z mapowania.
-        Zwraca True, jeśli chociaż jeden czujnik dał poprawny odczyt (nie-None).
-        """
         cfg = self.cfg.ds18b20
         any_ok = False
 
@@ -346,9 +337,6 @@ class RpiHardware:
         return any_ok
 
     def _read_ds18b20_c(self, base_path: str, rom_id: str) -> Optional[float]:
-        """
-        Zwraca temperaturę w °C albo None.
-        """
         path = os.path.join(base_path, rom_id, "w1_slave")
         try:
             with open(path, "r", encoding="ascii") as f:
@@ -412,11 +400,8 @@ class RpiHardware:
             pc.feeder_pin: bool(o.feeder_on),
             pc.pump_co_pin: bool(o.pump_co_on),
             pc.pump_cwu_pin: bool(o.pump_cwu_on),
-            pc.pump_circ_pin: bool(o.pump_circ_on),
             pc.mixer_open_pin: mixer_open,
             pc.mixer_close_pin: mixer_close,
-            pc.alarm_buzzer_pin: bool(o.alarm_buzzer_on),
-            pc.alarm_relay_pin: bool(o.alarm_relay_on),
         }
 
         last = self._last_outputs
@@ -424,11 +409,8 @@ class RpiHardware:
             pc.feeder_pin: bool(last.feeder_on),
             pc.pump_co_pin: bool(last.pump_co_on),
             pc.pump_cwu_pin: bool(last.pump_cwu_on),
-            pc.pump_circ_pin: bool(last.pump_circ_on),
             pc.mixer_open_pin: bool(last.mixer_open_on),
             pc.mixer_close_pin: bool(last.mixer_close_on),
-            pc.alarm_buzzer_pin: bool(last.alarm_buzzer_on),
-            pc.alarm_relay_pin: bool(last.alarm_relay_on),
         }
 
         for pin, state in desired.items():
@@ -464,3 +446,13 @@ class RpiHardware:
         # fallback: ON/OFF
         GPIO = self._gpio
         GPIO.output(pc.fan_pwm_pin, GPIO.HIGH if duty >= 50 else GPIO.LOW)
+
+    # ---------- Utils ----------
+
+    @staticmethod
+    def _clone_dataclass(obj):
+        # Sensors/Outputs zwykle są dataclassami; to daje bezpieczną kopię
+        if is_dataclass(obj):
+            return type(obj)(**vars(obj))
+        return type(obj)(**vars(obj))
+
