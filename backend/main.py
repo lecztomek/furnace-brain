@@ -24,6 +24,7 @@ from backend.core.state_store import StateStore
 from .core.config_store import ConfigStore
 import faulthandler
 import sys
+import os
 
 
 import logging
@@ -39,6 +40,8 @@ logging.basicConfig(
 
 logging.getLogger("backend.hw.mock.mixer").setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+DATA_ROOT = Path(os.getenv("FURNACE_BRAIN_DATA_ROOT", str(Path(__file__).resolve().parent)))
 
 # --- INICJALIZACJA SPRZĘTU I MODUŁÓW ---
 
@@ -217,8 +220,15 @@ config_router = create_config_router(
     reload_module_config=reload_any_module,
 )
 
-history_base_dir = Path(__file__).resolve().parent / "modules" / "history"
-eventlog_base_dir = Path(__file__).resolve().parent / "modules" / "eventlog"
+history_base_dir = Path(os.getenv(
+    "FURNACE_BRAIN_HISTORY_DIR",
+    str(Path(DATA_ROOT) / "modules" / "history")
+))
+
+eventlog_base_dir = Path(os.getenv(
+    "FURNACE_BRAIN_EVENTLOG_DIR",
+    str(Path(DATA_ROOT) / "modules" / "eventlog")
+))
 
 stats_router = create_stats_router(store=store, module_id="stats")
 app.include_router(stats_router, prefix="/api")
