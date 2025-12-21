@@ -1,5 +1,5 @@
 // main.js
-const STATE_API_BASE = "http://127.0.0.1:8000/api/state";
+const STATE_API_BASE = "/api/state";
 
 let timer = null;
 let inFlight = false;

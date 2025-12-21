@@ -1,6 +1,6 @@
 // js/stats.js
 (function () {
-  const STATS_API_BASE = "http://127.0.0.1:8000/api/stats";
+  const STATS_API_BASE = "/api/stats";
 
   function setStatus(text, isError = false) {
     const el = document.getElementById("status-text");

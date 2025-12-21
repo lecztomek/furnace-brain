@@ -1,7 +1,7 @@
 // js/mode-control.js
 
 // Jeśli router jest np. pod /api/state, zmień na "/api/state"
-const CONTROL_API_BASE = "http://127.0.0.1:8000/api/state";
+const CONTROL_API_BASE = "/api/state";
 
 /**
  * Uaktualnia tekst w dolnym pasku statusu.

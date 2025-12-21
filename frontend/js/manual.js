@@ -2,7 +2,7 @@
 (() => {
   "use strict";
 
-  const API_BASE = "http://127.0.0.1:8000/api";
+  const API_BASE = "/api";
   const MODE_URL = (mode) => `${API_BASE}/state/mode/${encodeURIComponent(mode)}`;
   const MANUAL_CURRENT_URL = `${API_BASE}/manual/current`;
   const MANUAL_REQ_URL = `${API_BASE}/manual/outputs`;

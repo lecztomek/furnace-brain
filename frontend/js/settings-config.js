@@ -1,7 +1,7 @@
 // js/settings-config.js
 
 // Backend FastAPI z prefiksem /api
-const CONFIG_API_BASE = "http://127.0.0.1:8000/api/config";
+const CONFIG_API_BASE = "/api/config";
 
 const configState = {};
 const schemaCache = {};

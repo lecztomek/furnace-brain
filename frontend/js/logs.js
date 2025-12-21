@@ -3,7 +3,7 @@
   "use strict";
 
   // ====== KONFIG ======
-  const API_BASE = "http://127.0.0.1:8000/api";
+  const API_BASE = "/api";
   const LOGS_RECENT_URL = `${API_BASE}/logs/recent`;
   const LOGS_META_URL = `${API_BASE}/logs/meta`; // opcjonalne (jeśli masz nadal /meta)
   // Uwaga: jeśli przeszedłeś na API czytające z CSV (history-style) i nie masz /meta,

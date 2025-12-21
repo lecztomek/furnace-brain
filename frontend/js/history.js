@@ -1,7 +1,7 @@
 // js/history.js
 
 (function () {
-  const HISTORY_API_BASE = "http://127.0.0.1:8000/api/history";
+  const HISTORY_API_BASE = "/api/history";
 
   const DEFAULT_RANGE_HOURS = 6;
 
