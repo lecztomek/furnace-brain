@@ -38,6 +38,11 @@ modules:
     path: backend.modules.pump_co:CoPumpModule
     enabled: true
     critical: true
+   
+   - id: stats
+    path: backend.modules.stats:StatsModule
+    enabled: true
+    critical: true    
     
   - id: manual
     path: backend.modules.manual:ManualModule
@@ -56,11 +61,6 @@ modules:
 
   - id: history
     path: backend.modules.history:HistoryModule
-    enabled: true
-    critical: false    
-    
-  - id: stats
-    path: backend.modules.stats:StatsModule
     enabled: true
     critical: false    
     
