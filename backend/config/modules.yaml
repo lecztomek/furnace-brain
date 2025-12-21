@@ -8,7 +8,7 @@ modules:
     path: backend.modules.power_ignition:IgnitionPowerModule
     enabled: true
     critical: true
-    
+
   - id: power_work
     path: backend.modules.power_work:WorkPowerModule
     enabled: true
@@ -23,10 +23,10 @@ modules:
     path: backend.modules.feeder:FeederModule
     enabled: true
     critical: true
-    
+
   - id: mixer
     path: backend.modules.mixer:MixerModule
-    enabled: true    
+    enabled: true
     critical: true
 
   - id: pump_cwu
@@ -38,12 +38,12 @@ modules:
     path: backend.modules.pump_co:CoPumpModule
     enabled: true
     critical: true
-   
-   - id: stats
+
+  - id: stats
     path: backend.modules.stats:StatsModule
     enabled: true
-    critical: true    
-    
+    critical: true
+
   - id: manual
     path: backend.modules.manual:ManualModule
     enabled: true
@@ -53,7 +53,7 @@ modules:
     path: backend.modules.overheat:OverheatModule
     enabled: true
     critical: true
-    
+
   - id: safety
     path: backend.modules.safety:SafetyModule
     enabled: true
@@ -62,9 +62,9 @@ modules:
   - id: history
     path: backend.modules.history:HistoryModule
     enabled: true
-    critical: false    
-    
+    critical: false
+
   - id: eventlog
     path: backend.modules.eventlog:EventLogModule
     enabled: true
-    critical: false    
+    critical: false
