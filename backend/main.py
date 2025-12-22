@@ -29,7 +29,7 @@ import os
 
 import logging
 
-#from .hw.mock import MockHardware as Hardware
+from .hw.mock import MockHardware as Hardware
 from .hw.rpi_hw import RpiHardware, HardwareConfig, Ds18b20Config, Max6675Config, PinConfig
 
 faulthandler.enable()
@@ -83,9 +83,19 @@ cfg = HardwareConfig(
     sensors_stale_after_s=20.0,
 )
 
+# --- WYBÓR HARDWARE NA PODSTAWIE ENV (JEDYNA ZMIANA) ---
 
-hardware = RpiHardware(cfg)
-#hardware = Hardware()
+def _env_truthy(name: str) -> bool:
+    v = os.getenv(name)
+    if v is None:
+        return False
+    return v.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+if _env_truthy("FURNACE_BRAIN_HW_RPI"):
+    hardware = RpiHardware(cfg)
+else:
+    hardware = Hardware()
+
 critical_modules, aux_modules = load_modules_split()
 
 store = StateStore(event_buffer_size=1000)
@@ -245,3 +255,4 @@ app.include_router(
 app.include_router(state_router, prefix="/api")
 app.include_router(manual_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
+
