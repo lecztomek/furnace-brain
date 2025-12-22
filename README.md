@@ -12,6 +12,22 @@ tests
 python -m pip install -U pytest
 python -m pytest -q tests/test_stats_module.py
 
+deploy
+chmod +x /home/pi/furnace-brain/scripts/gateway.py
+create /etc/furnace-brain.env
+
+create /etc/systemd/system/furnace-backend.service
+create /etc/systemd/system/furnace-gateway.service
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now furnace-backend.service
+sudo systemctl enable --now furnace-gateway.service
+
+sudo systemctl status furnace-backend.service --no-pager
+sudo systemctl status furnace-gateway.service --no-pager
+
+
+
 TODO
 ok- przeladowywanie ustawien po zapisie z gui
 ok- gui ogien poprawa locaklizacji

@@ -1,0 +1,25 @@
+[Unit]
+Description=Furnace Brain Gateway (static + /api proxy)
+After=network-online.target furnace-backend.service
+Wants=network-online.target
+Requires=furnace-backend.service
+RequiresMountsFor=/mnt/usb
+StartLimitIntervalSec=30
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/furnace-brain
+EnvironmentFile=/etc/furnace-brain.env
+
+ExecStart=/usr/bin/python3 /home/pi/furnace-brain/scripts/gateway.py ${FRONT_DIR} ${BACKEND_HOST} ${BACKEND_PORT} ${GATEWAY_PORT} ${GATEWAY_BIND}
+Restart=on-failure
+RestartSec=2
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
