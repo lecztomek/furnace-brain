@@ -6,3 +6,6 @@ flue_ignition_max_temp: 200.0
 flue_kp: 0.3
 flue_opt_temp: 120.0
 min_power_to_blow: 10.0
+startup_enabled: false
+startup_time_s: 0.0
+

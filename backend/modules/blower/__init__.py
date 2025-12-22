@@ -15,7 +15,7 @@ from backend.core.state import (
     Outputs,
     Sensors,
     SystemState,
-	PartialOutputs
+    PartialOutputs,
 )
 
 
@@ -38,6 +38,13 @@ class BlowerConfig:
     cycle_time_s          – czas pełnego cyklu dmuchawy [s]
                              (np. 30 s: przy 50% power → 15 s ON, 15 s OFF)
 
+    Rozruch dmuchawy:
+      startup_enabled     – czy rozruch jest aktywny
+      startup_time_s      – po każdym uruchomieniu dmuchawy (0→>0) podaj 100%
+                             przez ten czas, potem wróć do base_fan_percent.
+                             Jeśli faza ON z duty jest krótsza niż rozruch,
+                             dmuchawa i tak pracuje 100% tylko przez czas ON.
+
     Korekta z temperatury spalin:
 
       flue_control_enabled    – czy w ogóle używać korekcji z Tspalin
@@ -47,14 +54,14 @@ class BlowerConfig:
       flue_kp                 – czułość korekty duty na błąd Tspalin
                                  [ (°C różnicy) * flue_kp = % punktów duty ]
       flue_correction_max     – maksymalna korekta duty w górę/dół [pkt %]
-
     """
 
     base_fan_percent: float = 45.0
-
     min_power_to_blow: float = 3.0
-
     cycle_time_s: float = 30.0
+
+    startup_enabled: bool = False
+    startup_time_s: float = 0.0
 
     flue_control_enabled: bool = True
     flue_ignition_max_temp: float = 200.0  # max Tspalin w IGNITION
@@ -73,24 +80,10 @@ class BlowerModule(ModuleInterface):
     - Duty jest bazowo zależne TYLKO od power (duty_base = power/100),
       a korekta z Tspalin delikatnie podbija/obcina duty.
 
-    Mody:
-
-      OFF / MANUAL:
-        fan = 0
-
-      IGNITION:
-        - duty bazowo = power/100 (bez specjalnego boosta)
-        - jeśli flue_control_enabled:
-            jeśli Tspalin > flue_ignition_max_temp → zmniejszamy duty
-
-      WORK:
-        - duty bazowo = power/100
-        - jeśli flue_control_enabled:
-            dążymy do flue_opt_temp (korekta ± na duty)
-
-    Wynik zapisujemy do Outputs.fan_power (int 0–100):
-      - 0              – dmuchawa OFF (faza przerwy)
-      - base_fan_percent – dmuchawa ON (faza pracy)
+    Dodatkowo:
+    - Rozruch dmuchawy: przy każdym starcie (0→>0) podajemy 100% przez startup_time_s,
+      po czym wracamy do base_fan_percent. Jeśli faza ON z duty jest krótsza,
+      rozruch trwa tylko tyle co faza ON.
     """
 
     def __init__(
@@ -115,7 +108,8 @@ class BlowerModule(ModuleInterface):
         # stan cyklu duty
         self._cycle_start: Optional[float] = None
 
-    # --- ModuleInterface ---
+        # stan rozruchu: do kiedy trzymać 100%
+        self._startup_until: Optional[float] = None
 
     @property
     def id(self) -> str:
@@ -155,6 +149,7 @@ class BlowerModule(ModuleInterface):
         if effective_mode == "off" or power <= self._config.min_power_to_blow:
             self._fan_power = 0.0
             self._cycle_start = now
+            self._startup_until = None
 
         else:
             base_fan = self._config.base_fan_percent
@@ -211,13 +206,29 @@ class BlowerModule(ModuleInterface):
                 on_time = duty * cycle_T
 
                 if phase < on_time:
-                    # faza PRACY dmuchawy
                     fan = base_fan
                 else:
-                    # faza PRZERWY dmuchawy
                     fan = 0.0
 
-            # Ograniczenie do zakresu
+            # --- ROZRUCH DMUCHAWY: 0→>0 => 100% przez startup_time_s ---
+            if self._config.startup_enabled:
+                startup_s = float(self._config.startup_time_s)
+                if startup_s > 0.0:
+                    if fan > 0.0:
+                        # start tylko gdy poprzednio było 0 (czyli "rusza dmuchawa")
+                        if prev_fan <= 0.0:
+                            self._startup_until = now + startup_s
+
+                        # jeśli w oknie rozruchu i nadal mamy być ON (fan>0), daj 100%
+                        if self._startup_until is not None and now < self._startup_until:
+                            fan = 100.0
+                    else:
+                        # jeśli dmuchawa OFF, kasujemy rozruch (kolejny start odpali ponownie)
+                        self._startup_until = None
+            else:
+                # jeśli rozruch wyłączony, czyścimy stan
+                self._startup_until = None
+
             self._fan_power = fan
 
         # Eventy – zmiana trybu dmuchawy
@@ -262,7 +273,6 @@ class BlowerModule(ModuleInterface):
 
         self._last_mode = effective_mode
 
-        # Zapisujemy do Outputs.fan_power jako int 0–100
         outputs.fan_power = int(round(self._fan_power))
 
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
@@ -293,6 +303,11 @@ class BlowerModule(ModuleInterface):
         if "cycle_time_s" in values:
             self._config.cycle_time_s = float(values["cycle_time_s"])
 
+        if "startup_enabled" in values:
+            self._config.startup_enabled = bool(values["startup_enabled"])
+        if "startup_time_s" in values:
+            self._config.startup_time_s = float(values["startup_time_s"])
+
         if "flue_control_enabled" in values:
             self._config.flue_control_enabled = bool(values["flue_control_enabled"])
         if "flue_ignition_max_temp" in values:
@@ -306,7 +321,7 @@ class BlowerModule(ModuleInterface):
 
         if persist:
             self._save_config_to_file()
-			
+
     def reload_config_from_file(self) -> None:
         """
         Publiczne API wymagane przez Kernel.
@@ -329,6 +344,11 @@ class BlowerModule(ModuleInterface):
         if "cycle_time_s" in data:
             self._config.cycle_time_s = float(data["cycle_time_s"])
 
+        if "startup_enabled" in data:
+            self._config.startup_enabled = bool(data["startup_enabled"])
+        if "startup_time_s" in data:
+            self._config.startup_time_s = float(data["startup_time_s"])
+
         if "flue_control_enabled" in data:
             self._config.flue_control_enabled = bool(data["flue_control_enabled"])
         if "flue_ignition_max_temp" in data:
@@ -344,3 +364,4 @@ class BlowerModule(ModuleInterface):
         data = asdict(self._config)
         with self._config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, sort_keys=True, allow_unicode=True)
+

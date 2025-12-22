@@ -29,6 +29,26 @@ fields:
     group: basic
     description: "Poniżej tej mocy kotła dmuchawa pozostaje całkowicie wyłączona. Zapobiega niepotrzebnemu dmuchaniu przy bardzo małym zapotrzebowaniu na moc."
 
+  - key: startup_enabled
+    label: "Rozruch dmuchawy"
+    type: bool
+    default: false
+    group: basic
+    label_on: "WŁĄCZONY"
+    label_off: "WYŁĄCZONY"
+    description: "Jeśli włączone, po każdym uruchomieniu dmuchawy (0→>0) sterownik przez chwilę podaje 100%, a potem wraca do stałych obrotów."
+
+  - key: startup_time_s
+    label: "Czas rozruchu dmuchawy"
+    type: number
+    unit: "s"
+    min: 0
+    max: 30
+    step: 0.5
+    default: 0
+    group: basic
+    description: "Czas trwania rozruchu (100%) po starcie dmuchawy. Jeśli faza pracy z duty jest krótsza, rozruch trwa tylko tyle co faza pracy."
+
   - key: flue_control_enabled
     label: "Regulacja duty wg temp. spalin"
     type: bool
@@ -92,3 +112,4 @@ fields:
     default: 200
     group: basic
     description: "Maksymalna dopuszczalna temperatura spalin w trybie rozpalania (IGNITION). Po jej przekroczeniu sterownik zmniejsza duty, aby nie przegrzewać kotła na starcie."
+
