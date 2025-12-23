@@ -975,3 +975,96 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
   .side-menu{ position: fixed !important; }
 }
 
+/* Karta musi być pozycjonowana, żeby dymek się kotwiczył */
+.total-card { position: relative; }
+
+/* Details jako kontrolka w prawym górnym rogu */
+.hint{
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+}
+
+/* Summary jako okrągły przycisk "?" */
+.hint > summary{
+  list-style: none;            /* usuń trójkąt */
+  cursor: pointer;
+  user-select: none;
+
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-weight: 900;
+  font-size: 16px;
+  line-height: 1;
+
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.92);
+}
+
+/* usuń marker w Safari/Chrome */
+.hint > summary::-webkit-details-marker{ display:none; }
+
+.hint > summary:hover{
+  background: rgba(255,255,255,0.14);
+}
+
+.hint > summary:focus-visible{
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Dymek */
+.hint .hint-pop{
+  position: absolute;
+  top: 34px;
+  right: 0;
+
+  width: 240px;
+  padding: 10px 10px;
+
+  border-radius: 12px;
+  background: rgba(17,24,39,0.96);
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.45);
+
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: rgba(255,255,255,0.92);
+
+  display: none;              /* domyślnie ukryte */
+}
+
+/* po kliknięciu (open) pokazuj dymek */
+.hint[open] .hint-pop{ display: block; }
+
+/* Mała strzałka dymku */
+.hint[open] .hint-pop::before{
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: 12px;
+  width: 12px;
+  height: 12px;
+  background: rgba(17,24,39,0.96);
+  border-left: 1px solid rgba(255,255,255,0.14);
+  border-top: 1px solid rgba(255,255,255,0.14);
+  transform: rotate(45deg);
+}
+
+/* Na bardzo małych ekranach dymek niech nie wypada poza kafel */
+@media (max-width: 520px){
+  .hint .hint-pop{
+    width: 200px;
+    right: -6px;
+  }
+}
+

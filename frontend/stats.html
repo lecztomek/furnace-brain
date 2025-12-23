@@ -73,77 +73,98 @@
               <div class="stats-v2-divider"></div>
 
               <!-- TOTALS -->
-              <div class="stats-v2-bottom">
-                <div class="stats-v2-bottom-head">
-                  <div class="stats-v2-bottom-title">ZUŻYCIE</div>
-                </div>
+<!-- TOTALS -->
+<div class="stats-v2-bottom">
+  <div class="stats-v2-bottom-head">
+    <div class="stats-v2-bottom-title">ZUŻYCIE</div>
+  </div>
 
-                <div class="totals-row">
-                  <div class="total-card">
-                    <div class="total-card-top">5 MIN</div>
-                    <svg id="spark-5m" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
-                    <div class="total-card-val"><span id="coal-5m">--</span> <span class="u">kg</span></div>
-                  </div>
+  <div class="totals-row">
+    <div class="total-card">
+      <div class="total-card-top">5 MIN</div>
+      <svg id="spark-5m" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
+      <div class="total-card-val"><span id="coal-5m">--</span> <span class="u">kg</span></div>
+    </div>
 
-                  <div class="total-card">
-                    <div class="total-card-top">1 GODZ</div>
-                    <svg id="spark-1h" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
-                    <div class="total-card-val"><span id="coal-1h">--</span> <span class="u">kg</span></div>
-                  </div>
+    <div class="total-card">
+      <div class="total-card-top">1 GODZ</div>
+      <svg id="spark-1h" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
+      <div class="total-card-val"><span id="coal-1h">--</span> <span class="u">kg</span></div>
+    </div>
 
-                  <div class="total-card">
-                    <div class="total-card-top">4 GODZ</div>
-                    <svg id="spark-4h" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
-                    <div class="total-card-val"><span id="coal-4h">--</span> <span class="u">kg</span></div>
-                  </div>
+    <div class="total-card">
+      <div class="total-card-top">4 GODZ</div>
+      <svg id="spark-4h" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
+      <div class="total-card-val"><span id="coal-4h">--</span> <span class="u">kg</span></div>
+    </div>
 
-                  <div class="total-card">
-                    <div class="total-card-top">24 GODZ</div>
-                    <svg id="spark-24h" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
-                    <div class="total-card-val"><span id="coal-24h">--</span> <span class="u">kg</span></div>
-                  </div>
+    <div class="total-card">
+      <div class="total-card-top">24 GODZ</div>
+      <svg id="spark-24h" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
+      <div class="total-card-val"><span id="coal-24h">--</span> <span class="u">kg</span></div>
+    </div>
 
-                  <div class="total-card">
-                    <div class="total-card-top">7 DNI</div>
-                    <svg id="spark-7d" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
-                    <div class="total-card-val"><span id="coal-7d">--</span> <span class="u">kg</span></div>
-                  </div>
-                </div>
-                
-                <div class="stats-v2-divider"></div>
+    <div class="total-card">
+      <div class="total-card-top">7 DNI</div>
+      <svg id="spark-7d" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
+      <div class="total-card-val"><span id="coal-7d">--</span> <span class="u">kg</span></div>
+    </div>
+  </div>
 
-                <div class="stats-v2-bottom-head">
-                  <div class="stats-v2-bottom-title">PODSUMOWANIE</div>
-                </div>
+  <div class="stats-v2-divider"></div>
 
-                <div class="totals-row">
-                  <div class="total-card">
-                    <div class="total-card-top">PRACA DZIŚ</div>
-                    <div class="total-card-val"><span id="sum-active-today">--</span></div>
-                  </div>
+  <div class="stats-v2-bottom-head">
+    <div class="stats-v2-bottom-title">PODSUMOWANIE</div>
+  </div>
 
-                  <div class="total-card">
-                    <div class="total-card-top">ŚR. SPALANIE DZIŚ</div>
-                    <div class="total-card-val"><span id="sum-burn-today">--</span> <span class="u">kg/h</span></div>
-                  </div>
+  <div class="totals-row">
+    <div class="total-card">
+      <div class="total-card-top">PRACA DZIŚ</div>
+      <details class="hint">
+        <summary aria-label="Podpowiedź">?</summary>
+        <div class="hint-pop">Czas aktywnej pracy dzisiaj + udział aktywnego czasu (active_ratio).</div>
+      </details>
+      <div class="total-card-val"><span id="sum-active-today">--</span></div>
+    </div>
 
-                  <div class="total-card">
-                    <div class="total-card-top">ZUŻYCIE DZIŚ</div>
-                    <div class="total-card-val"><span id="sum-coal-today">--</span> <span class="u">kg</span></div>
-                  </div>
+    <div class="total-card">
+      <div class="total-card-top">ŚR. SPALANIE DZIŚ</div>
+      <details class="hint">
+        <summary aria-label="Podpowiedź">?</summary>
+        <div class="hint-pop">Średnie spalanie (kg/h) policzone z dzisiejszych danych.</div>
+      </details>
+      <div class="total-card-val"><span id="sum-burn-today">--</span> <span class="u">kg/h</span></div>
+    </div>
 
-                  <div class="total-card">
-                    <div class="total-card-top">STABILNOŚĆ 1H</div>
-                    <div class="total-card-val"><span id="sum-stability-1h">--</span></div>
-                  </div>
+    <div class="total-card">
+      <div class="total-card-top">ZUŻYCIE DZIŚ</div>
+      <details class="hint">
+        <summary aria-label="Podpowiedź">?</summary>
+        <div class="hint-pop">Suma zużytego opału dzisiaj (kg).</div>
+      </details>
+      <div class="total-card-val"><span id="sum-coal-today">--</span> <span class="u">kg</span></div>
+    </div>
 
-                  <div class="total-card">
-                    <div class="total-card-top">PODAJNIK TERAZ</div>
-                    <div class="total-card-val"><span id="sum-feeder-now">--</span></div>
-                  </div>
-                </div>
+    <div class="total-card">
+      <div class="total-card-top">STABILNOŚĆ 1H</div>
+      <details class="hint">
+        <summary aria-label="Podpowiedź">?</summary>
+        <div class="hint-pop">Rozrzut spalania w ostatniej godzinie: (max−min) i % względem średniej 1h. Im mniej, tym stabilniej.</div>
+      </details>
+      <div class="total-card-val"><span id="sum-stability-1h">--</span></div>
+    </div>
 
-              </div>
+    <div class="total-card">
+      <div class="total-card-top">PODAJNIK TERAZ</div>
+      <details class="hint">
+        <summary aria-label="Podpowiedź">?</summary>
+        <div class="hint-pop">Udział aktualnego spalania (5m) względem wydajności podajnika (feeder_kg_per_hour). Wskaźnik orientacyjny.</div>
+      </details>
+      <div class="total-card-val"><span id="sum-feeder-now">--</span></div>
+    </div>
+  </div>
+</div>
+
 
             </div>
           </div>
