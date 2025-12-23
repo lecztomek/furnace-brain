@@ -98,6 +98,7 @@ class Kernel:
     
     def reload_module_config_from_file(self, module_id: str) -> None:
         now = time.time()
+        now_mono = time.monotonic()
         module = self._modules.get(module_id)
     
         if module is None:
@@ -149,6 +150,7 @@ class Kernel:
 
     def step(self) -> None:
         now = time.time()
+        now_mono = time.monotonic()
         self._last_tick_ts = now
     
         sensors = self._hardware.read_sensors()
@@ -158,6 +160,7 @@ class Kernel:
         with self._store.locked() as st:
             st.sensors = sensors
             st.ts = now
+            st.ts_mono = now_mono
     
             combined_outputs: Outputs = self._copy_outputs(st.outputs)
     

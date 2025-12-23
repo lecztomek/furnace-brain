@@ -161,6 +161,7 @@ class SystemState:
     (np. ModeModule) mogą modyfikować niektóre pola (np. mode).
     """
     ts: float = field(default_factory=time.time)
+    ts_mono: float = field(default_factory=time.monotonic) 
 
     # Ostatnie odczyty z czujników:
     sensors: Sensors = field(default_factory=Sensors)

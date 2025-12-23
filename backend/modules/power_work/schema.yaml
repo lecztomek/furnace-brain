@@ -7,6 +7,8 @@ groups:
     label: "Podstawowe"
   - id: pid
     label: "PID"
+  - id: state
+    label: "Stan (restart)"
 
 fields:
   - key: boiler_set_temp
@@ -127,3 +129,52 @@ fields:
     description: >
       Ile punktów procentowych mocy odjąć za każdy dodatkowy stopień Celsjusza
       powyżej progu przegrzania.
+ 
+  - key: state_dir
+    label: "Katalog zapisu stanu"
+    type: text
+    default: "data"
+    group: state
+    description: "Katalog (względem katalogu modułu), gdzie zapisywany jest stan PID do przetrwania restartu."
+
+  - key: state_file
+    label: "Plik stanu"
+    type: text
+    default: "power_work_state.yaml"
+    group: state
+    description: "Nazwa pliku ze stanem PID."
+
+  - key: state_save_interval_s
+    label: "Interwał zapisu stanu"
+    type: number
+    unit: "s"
+    min: 1
+    max: 3600
+    step: 1
+    default: 30
+    group: state
+    description: "Co ile sekund zapisywać stan PID na dysk."
+
+  - key: state_max_age_s
+    label: "Maksymalny wiek stanu"
+    type: number
+    unit: "s"
+    min: 0
+    max: 86400
+    step: 60
+    default: 900
+    group: state
+    description: "Jeśli plik stanu jest starszy niż ten próg, restore jest pomijany (0 = zawsze próbuj)."
+
+  - key: state_max_temp_delta_C
+    label: "Maks. różnica temperatury przy restore"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 50
+    step: 0.5
+    default: 5
+    group: state
+    description: "Jeśli aktualna temp. kotła różni się od zapisanej o więcej niż ten próg, restore jest pomijany."
+
+ 

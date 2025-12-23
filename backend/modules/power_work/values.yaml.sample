@@ -8,3 +8,8 @@ max_slew_rate_percent_per_min: 10.0
 min_power: 15.0
 overtemp_kp: 10.0
 overtemp_start_degC: 2.0
+state_dir: "data"
+state_file: "power_work_state.yaml"
+state_save_interval_s: 30
+state_max_age_s: 900
+state_max_temp_delta_C: 5
