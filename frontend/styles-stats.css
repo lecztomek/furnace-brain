@@ -841,3 +841,137 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
   .totals-row{ grid-template-columns: 1fr 1fr; }
 }
 
+
+/* 1) ZAWSZE pozwól stronie scrollować (naprawa "poniżej nic nie widać") */
+html, body {
+  height: auto !important;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto !important;
+}
+
+/* jeśli gdzieś masz overflow hidden na app/layout – to to nadpisze */
+.app,
+.layout,
+.diagram-wrapper,
+.diagram,
+.stats-container {
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+/* 2) Scroll blokuj TYLKO gdy menu otwarte (checkbox nav-toggle) */
+#nav-toggle:checked ~ .app {
+  height: 100dvh !important;
+  overflow: hidden !important;
+}
+
+/* 3) Na mobile: układ ma być 1 kolumna (menu pod spodem albo jako overlay – ale nie obok) */
+@media (max-width: 900px) {
+  main.layout {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-auto-rows: auto !important;
+    gap: 12px;
+  }
+
+  .side-menu {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .diagram-wrapper,
+  .stats-v2,
+  .stats-v2-top,
+  .stats-v2-bottom,
+  .stats-v2-chart {
+    min-width: 0 !important; /* ważne, żeby nie wypychało na boki */
+  }
+}
+
+/* 4) Wykres: nie może "znikać" przez inline svg / brak wysokości */
+.burn-line {
+  width: 100% !important;
+  height: 180px !important;
+  display: block !important;
+}
+
+/* 5) Kafle: niech się zawijają zamiast rozpychać layout */
+.totals-row {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 980px) {
+  .totals-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .totals-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 380px) {
+  .totals-row { grid-template-columns: 1fr; }
+}
+
+
+/* === KIOSK: footer na dole + scroll w środku + bez "dziury" === */
+
+html, body { height: 100% !important; }
+body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
+
+.app{
+  height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Layout ma wypełniać ekran, ale nie robić 1fr-owej "dziury" w środku */
+.layout{
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+
+  /* klucz: nie minmax(0,1fr) */
+  grid-template-rows: auto !important;
+}
+
+/* Środek ma się scrollować, zamiast ucinać/robić dziwne rzeczy */
+.diagram-wrapper{
+  min-height: 0 !important;
+  overflow: auto !important;   /* zamiast hidden */
+}
+
+/* To usuwa wizualną "pustą dziurę": ramka nie wypełnia na siłę całej wysokości */
+.diagram.placeholder{
+  height: auto !important;     /* zamiast 100% */
+}
+
+/* stats-v2 też nie może się na siłę rozciągać */
+.stats-v2{
+  height: auto !important;     /* zamiast 100% */
+  min-height: 0 !important;
+}
+
+/* Status bar przyklejony na dole */
+.status-bar{
+  flex: 0 0 auto !important;
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 900 !important;
+}
+
+/* Menu overlay: zawsze fixed (u Ciebie było chwilami nadpisywane) */
+.side-menu{
+  position: fixed !important;
+  bottom: calc(28px + 12px) !important; /* status-bar(28px) + odstęp */
+}
+
+/* Nie pozwól moim starym mobile override’om zrobić z menu "static" */
+@media (max-width: 900px){
+  .side-menu{ position: fixed !important; }
+}
+

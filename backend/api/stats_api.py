@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -67,6 +67,157 @@ def create_stats_router(
             )
         return dict(data)
 
+    def _to_float(v: Any) -> Optional[float]:
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return float(v)
+        s = str(v).strip().replace(",", ".")
+        if s == "":
+            return None
+        try:
+            return float(s)
+        except ValueError:
+            return None
+
+    def _strip_power_energy(obj: Any) -> Any:
+        """
+        Usuwa z payloadu wszystko związane z power_kw* oraz energy_kwh* (rekurencyjnie).
+        Zostawiamy tylko rzeczy potrzebne pod coal i burn (oraz resztę nie-power/energy).
+        """
+        if isinstance(obj, dict):
+            out: Dict[str, Any] = {}
+            for k, v in obj.items():
+                if k.startswith("power_kw") or k.startswith("energy_kwh"):
+                    continue
+                out[k] = _strip_power_energy(v)
+            return out
+        if isinstance(obj, list):
+            return [_strip_power_energy(x) for x in obj]
+        return obj
+
+    def _last_5m_bars(count: int, now_dt: datetime) -> List[Dict[str, Any]]:
+        """
+        Zwraca ostatnie `count` bucketów 5m na podstawie CSV stats5m_*.csv.
+
+        Celowo czytamy tylko wartości związane z coal i burn (oraz pomocnicze seconds/active),
+        a pola power/energy pomijamy całkowicie.
+        """
+        _ensure_dir()
+
+        paths = sorted(stats_path.glob(f"{file_prefix_5m}_*.csv"))
+        if not paths:
+            return []
+
+        rows: List[Dict[str, Any]] = []
+
+        # czytamy od końca (zwykle wystarczy ostatni plik)
+        for path in reversed(paths):
+            try:
+                with path.open("r", encoding="utf-8", newline="") as f:
+                    reader = csv.DictReader(f, delimiter=";")
+                    for row in reader:
+                        ts_str = (row.get("ts_end_iso") or "").strip()
+                        if not ts_str:
+                            continue
+                        try:
+                            ts_end = datetime.fromisoformat(ts_str)
+                        except ValueError:
+                            continue
+                        if ts_end.tzinfo is None:
+                            ts_end = ts_end.replace(tzinfo=tz)
+
+                        # tylko dane do "teraz"
+                        if ts_end > now_dt:
+                            continue
+
+                        rows.append(row)
+            except OSError:
+                continue
+
+            # zapas, żeby spokojnie wyciąć ostatnie N po sortowaniu
+            if len(rows) >= count * 3:
+                break
+
+        if not rows:
+            return []
+
+        def _row_ts_end_unix(r: Dict[str, Any]) -> float:
+            ts_str = (r.get("ts_end_iso") or "").strip()
+            try:
+                dt = datetime.fromisoformat(ts_str)
+            except ValueError:
+                return 0.0
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=tz)
+            return dt.timestamp()
+
+        rows.sort(key=_row_ts_end_unix)
+        rows = rows[-count:]
+
+        bars: List[Dict[str, Any]] = []
+        for r in rows:
+            ts_end_iso = (r.get("ts_end_iso") or "").strip()
+            try:
+                ts_end = datetime.fromisoformat(ts_end_iso)
+            except ValueError:
+                continue
+            if ts_end.tzinfo is None:
+                ts_end = ts_end.replace(tzinfo=tz)
+
+            ts_start = ts_end - timedelta(minutes=5)
+
+            seconds_sum = _to_float(r.get("seconds_sum")) or _to_float(r.get("seconds")) or 300.0
+
+            # only coal + burn (różne warianty nazw w CSV)
+            coal = _to_float(r.get("coal_kg_sum"))
+            if coal is None:
+                coal = _to_float(r.get("coal_kg"))
+            if coal is None:
+                coal = 0.0
+
+            burn = _to_float(r.get("burn_kgph_avg"))
+            if burn is None:
+                burn = _to_float(r.get("burn_kgph"))
+            if burn is None:
+                burn = 0.0
+
+            active_ratio = _to_float(r.get("active_ratio"))
+            if active_ratio is None:
+                active_ratio = 1.0 if (seconds_sum or 0.0) > 0 else 0.0
+
+            bar: Dict[str, Any] = {
+                "ts_start_unix": ts_start.timestamp(),
+                "ts_end_unix": ts_end.timestamp(),
+                "ts_start_iso": ts_start.isoformat(),
+                "ts_end_iso": ts_end.isoformat(),
+                "seconds_sum": float(seconds_sum),
+                "coal_kg_sum": float(coal),
+                "burn_kgph_avg": float(burn),
+                "active_ratio": float(active_ratio),
+                # jeśli w CSV są max/min coal/burn – przepuść; power/energy nie bierzemy w ogóle
+                "burn_kgph_max_5m": _to_float(r.get("burn_kgph_max_5m")),
+                "burn_kgph_min_active_5m": _to_float(r.get("burn_kgph_min_active_5m")),
+                "coal_kg_max_5m": _to_float(r.get("coal_kg_max_5m")) or float(coal),
+            }
+            bars.append(bar)
+
+        # label jak było: -100m ... -5m (od najstarszego do najnowszego)
+                
+        for b in bars:
+            try:
+                dt_end = datetime.fromisoformat(b["ts_end_iso"])
+                if dt_end.tzinfo is None:
+                    dt_end = dt_end.replace(tzinfo=tz)
+                else:
+                    dt_end = dt_end.astimezone(tz)
+                b["label"] = dt_end.strftime("%H:%M")
+            except Exception:
+                b["label"] = ""
+
+
+        return bars
+
     # ---------------- LIVE (GUI endpoint) ----------------
 
     @router.get("/data")
@@ -101,6 +252,19 @@ def create_stats_router(
                     payload[key] = stats[key]
         else:
             payload = {"ts_unix": ts_unix, "ts_iso": ts_iso, **stats}
+
+        # --- 5m: zwiększamy liczbę słupków do 20, reszta przedziałów bez zmian ---
+        now_dt = datetime.fromtimestamp(ts_unix, tz=tz) if ts_unix > 0 else datetime.now(tz)
+
+        existing_compare = payload.get("compare_bars")
+        if not isinstance(existing_compare, dict):
+            existing_compare = {}
+
+        existing_compare["minutes_5m"] = _last_5m_bars(20, now_dt)
+        payload["compare_bars"] = existing_compare
+
+        # --- usuń wszystko power/energy z całego payloadu (łącznie z calendar / compare_bars / top-level) ---
+        payload = _strip_power_energy(payload)
 
         return {"module_id": module_id, "count": len(payload), "data": payload}
 
@@ -161,11 +325,19 @@ def create_stats_router(
                         if fields:
                             filtered: Dict[str, Any] = {"ts_end_iso": ts_str}
                             for key in fields:
+                                if key.startswith("power_kw") or key.startswith("energy_kwh"):
+                                    continue
                                 if key in row:
                                     filtered[key] = row[key]
                             items.append(filtered)
                         else:
-                            items.append(row)
+                            # bez fields: zwracamy wszystko poza power/energy
+                            filtered_all: Dict[str, Any] = {}
+                            for k, v in row.items():
+                                if k.startswith("power_kw") or k.startswith("energy_kwh"):
+                                    continue
+                                filtered_all[k] = v
+                            items.append(filtered_all)
             except OSError:
                 continue
 
@@ -189,6 +361,7 @@ def create_stats_router(
                     reader = csv.reader(f, delimiter=";")
                     header = next(reader, None)
                     if header:
+                        header = [h for h in header if not (h.startswith("power_kw") or h.startswith("energy_kwh"))]
                         return {"fields": header}
             except OSError:
                 continue
@@ -242,11 +415,18 @@ def create_stats_router(
                     if fields:
                         filtered: Dict[str, Any] = {"date": d_str}
                         for key in fields:
+                            if key.startswith("power_kw") or key.startswith("energy_kwh"):
+                                continue
                             if key in row:
                                 filtered[key] = row[key]
                         items.append(filtered)
                     else:
-                        items.append(row)
+                        filtered_all: Dict[str, Any] = {}
+                        for k, v in row.items():
+                            if k.startswith("power_kw") or k.startswith("energy_kwh"):
+                                continue
+                            filtered_all[k] = v
+                        items.append(filtered_all)
         except OSError as exc:
             raise HTTPException(status_code=503, detail=f"Nie udało się odczytać {daily_path}") from exc
 
@@ -271,8 +451,12 @@ def create_stats_router(
             with daily_path.open("r", encoding="utf-8", newline="") as f:
                 reader = csv.reader(f, delimiter=";")
                 header = next(reader, None)
-                return {"fields": header or []}
+                if not header:
+                    return {"fields": []}
+                header = [h for h in header if not (h.startswith("power_kw") or h.startswith("energy_kwh"))]
+                return {"fields": header}
         except OSError:
             return {"fields": []}
 
     return router
+

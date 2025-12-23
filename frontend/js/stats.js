@@ -63,7 +63,15 @@
     if (!svg) return;
     clearSvg(svg);
 
-    const w = 560, h = 180;
+    // bierz faktyczny rozmiar z DOM
+    const rect = svg.getBoundingClientRect();
+    const w = Math.max(320, Math.floor(rect.width || 560));
+    const h = 180;
+
+    // ustaw viewBox tak, żeby współrzędne mapowały się na całą szerokość
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+    svg.setAttribute("preserveAspectRatio", "none");
+
     const padL = 46, padR = 12, padT = 14, padB = 24;
     const innerW = w - padL - padR;
     const innerH = h - padT - padB;
@@ -186,52 +194,118 @@
 
   // ========= apply =========
 
-  function applyStats(data) {
-    setText("stats-status", data.enabled ? "OK" : "WYŁĄCZONE");
-    setText("stats-ts", fmtTs(data.ts_iso, data.ts_unix));
+function applyStats(data) {
+  setText("stats-status", data.enabled ? "OK" : "WYŁĄCZONE");
+  setText("stats-ts", fmtTs(data.ts_iso, data.ts_unix));
 
-    // OBECNIE (kg/h)
-    setText("burn-now", fmtNum(data.burn_kgph_5m, 2));
-    setText("coal-now-5m", fmtNum(data.coal_kg_5m, 3));
+  // OBECNIE (kg/h)
+  setText("burn-now", fmtNum(data.burn_kgph_5m, 2));
+  setText("coal-now-5m", fmtNum(data.coal_kg_5m, 3));
 
-    // totals (kg) — liczby bez “Zużycie:”
-    setText("coal-5m", fmtNum(data.coal_kg_5m, 3));
-    setText("coal-1h", fmtNum(data.coal_kg_1h, 3));
-    setText("coal-4h", fmtNum(data.coal_kg_4h, 3));
-    setText("coal-24h", fmtNum(data.coal_kg_24h, 3));
-    setText("coal-7d", fmtNum(data.coal_kg_7d, 3));
+  // totals (kg) — liczby bez “Zużycie:”
+  setText("coal-5m", fmtNum(data.coal_kg_5m, 3));
+  setText("coal-1h", fmtNum(data.coal_kg_1h, 3));
+  setText("coal-4h", fmtNum(data.coal_kg_4h, 3));
+  setText("coal-24h", fmtNum(data.coal_kg_24h, 3));
+  setText("coal-7d", fmtNum(data.coal_kg_7d, 3));
 
-    // WYKRES (kg/h) — bierzemy compare_bars.minutes_5m + TERAZ
-    const cmp = data.compare_bars || {};
-    const s5m = Array.isArray(cmp.minutes_5m) ? cmp.minutes_5m : [];
+  // WYKRES (kg/h) — bierzemy compare_bars.minutes_5m + TERAZ
+  const cmp = data.compare_bars || {};
+  const s5m = Array.isArray(cmp.minutes_5m) ? cmp.minutes_5m : [];
 
-    // punkty do linii: [-15m, -10m, -5m, TERAZ] (tyle umiemy pewnie z runtime)
-    const pts = [];
-    const xlabels = [];
+  // punkty do linii: minutes_5m + TERAZ
+  const pts = [];
+  const rawLabels = [];
 
-    for (const it of s5m) {
-      const v = Number(it?.burn_kgph_avg ?? it?.burn_kgph);
-      pts.push({ label: String(it?.label ?? ""), v: Number.isFinite(v) ? v : 0 });
-      xlabels.push(String(it?.label ?? ""));
-    }
-    pts.push({ label: "TERAZ", v: Number(data.burn_kgph_5m) || 0 });
-    xlabels.push("TERAZ");
-
-    renderLine("burn-line", pts.length >= 2 ? pts : [{ label: "TERAZ", v: Number(data.burn_kgph_5m) || 0 }, { label: "TERAZ", v: Number(data.burn_kgph_5m) || 0 }]);
-    setXLabels("burn-xlabels", xlabels);
-
-    // SPARKLINES (kg): 5m z minutes_5m, 1h z hours_1h, reszta jeśli backend da
-    const s1h = Array.isArray(cmp.hours_1h) ? cmp.hours_1h : [];
-    const s4h = Array.isArray(cmp.blocks_4h) ? cmp.blocks_4h : [];
-    const s24 = Array.isArray(cmp.days_24h) ? cmp.days_24h : [];
-    const s7d = Array.isArray(cmp.days_7d) ? cmp.days_7d : [];
-
-    renderSpark("spark-5m", s5m, "coal_kg_sum");
-    renderSpark("spark-1h", s1h, "coal_kg_sum");
-    renderSpark("spark-4h", s4h, "coal_kg_sum");
-    renderSpark("spark-24h", s24, "coal_kg_sum");
-    renderSpark("spark-7d", s7d, "coal_kg_sum");
+  for (const it of s5m) {
+    const v = Number(it?.burn_kgph_avg ?? it?.burn_kgph);
+    pts.push({ label: String(it?.label ?? ""), v: Number.isFinite(v) ? v : 0 });
+    rawLabels.push(String(it?.label ?? ""));
   }
+  pts.push({ label: "TERAZ", v: Number(data.burn_kgph_5m) || 0 });
+  rawLabels.push("TERAZ");
+
+  // pokaż tylko 3 labelki z serii + TERAZ (reszta pusta, żeby się mieściło)
+  const n = rawLabels.length;
+  const keepIdx = new Set([
+    0,
+    Math.floor((n - 2) / 2), // środek (bez TERAZ)
+    n - 2,                  // ostatni z serii
+    n - 1                   // TERAZ
+  ]);
+  const xlabels = rawLabels.map((t, i) => (keepIdx.has(i) ? t : ""));
+
+  renderLine(
+    "burn-line",
+    pts.length >= 2
+      ? pts
+      : [
+          { label: "TERAZ", v: Number(data.burn_kgph_5m) || 0 },
+          { label: "TERAZ", v: Number(data.burn_kgph_5m) || 0 }
+        ]
+  );
+  setXLabels("burn-xlabels", xlabels);
+
+  // SPARKLINES (kg): 5m z minutes_5m, 1h z hours_1h, reszta jeśli backend da
+  const s1h = Array.isArray(cmp.hours_1h) ? cmp.hours_1h : [];
+  const s4h = Array.isArray(cmp.blocks_4h) ? cmp.blocks_4h : [];
+  const s24 = Array.isArray(cmp.days_24h) ? cmp.days_24h : [];
+  const s7d = Array.isArray(cmp.days_7d) ? cmp.days_7d : [];
+
+  renderSpark("spark-5m", s5m, "coal_kg_sum");
+  renderSpark("spark-1h", s1h, "coal_kg_sum");
+  renderSpark("spark-4h", s4h, "coal_kg_sum");
+  renderSpark("spark-24h", s24, "coal_kg_sum");
+  renderSpark("spark-7d", s7d, "coal_kg_sum");
+
+  // ===== PODSUMOWANIE (today + 1h + ratio podajnika) =====
+  const today = (data && data.calendar && data.calendar.today) ? data.calendar.today : {};
+
+  const activeSeconds = Number(today.active_seconds ?? today.seconds_sum);
+  const activeRatio = Number(today.active_ratio);
+
+  function fmtDur(sec) {
+    if (!Number.isFinite(sec) || sec <= 0) return "—";
+    const s = Math.floor(sec);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (h <= 0) return `${m} min`;
+    return `${h}h ${m}m`;
+  }
+
+  const burnTodayAvg = Number(today.burn_kgph_avg);
+  const coalTodaySum = Number(today.coal_kg_sum);
+
+  // stabilność 1h: zakres i % względem avg 1h
+  const burn1h = Number(data.burn_kgph_1h);
+  const burn1hMin = Number(data.burn_kgph_min_1h);
+  const burn1hMax = Number(data.burn_kgph_max_1h);
+
+  let stability1h = "—";
+  if (Number.isFinite(burn1h) && burn1h > 0 && Number.isFinite(burn1hMin) && Number.isFinite(burn1hMax)) {
+    const range = burn1hMax - burn1hMin;
+    const pct = (range / burn1h) * 100;
+    stability1h = `${range.toFixed(2)} kg/h (${pct.toFixed(0)}%)`;
+  }
+
+  // wykorzystanie podajnika "teraz"
+  const feeder = Number(data.feeder_kg_per_hour);
+  const burnNow = Number(data.burn_kgph_5m);
+  let feederNow = "—";
+  if (Number.isFinite(feeder) && feeder > 0 && Number.isFinite(burnNow)) {
+    feederNow = `${((burnNow / feeder) * 100).toFixed(0)}%`;
+  }
+
+  // PRACA DZIŚ: czas + % (jeśli jest)
+  let activeText = fmtDur(activeSeconds);
+  if (Number.isFinite(activeRatio)) activeText += ` (${(activeRatio * 100).toFixed(0)}%)`;
+
+  setText("sum-active-today", activeText);
+  setText("sum-burn-today", Number.isFinite(burnTodayAvg) ? burnTodayAvg.toFixed(2) : "—");
+  setText("sum-coal-today", Number.isFinite(coalTodaySum) ? coalTodaySum.toFixed(2) : "—");
+  setText("sum-stability-1h", stability1h);
+  setText("sum-feeder-now", feederNow);
+}
 
   async function reloadStats() {
     try {
