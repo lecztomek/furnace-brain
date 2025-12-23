@@ -240,11 +240,26 @@ eventlog_base_dir = Path(os.getenv(
     str(Path(DATA_ROOT) / "modules" / "eventlog")
 ))
 
-stats_router = create_stats_router(store=store, module_id="stats")
-app.include_router(stats_router, prefix="/api")
+stats_base_dir = Path(os.getenv(
+    "FURNACE_BRAIN_STATS_DIR",
+    str(Path(DATA_ROOT) / "modules" / "stats")
+))
 
 app.include_router(
     create_logs_router(base_dir=eventlog_base_dir, log_dir="data", file_prefix="events"), prefix="/api")
+
+app.include_router(
+    create_stats_router(
+        store=store,
+        base_dir=stats_base_dir,
+        log_dir="data",
+        file_prefix_5m="stats5m",
+        daily_file="stats_daily.csv",
+        module_id="stats",
+        timezone="Europe/Warsaw",
+    ),
+    prefix="/api",
+)
 
 app.include_router(
     create_history_router(
@@ -252,6 +267,7 @@ app.include_router(
         log_dir="data",
         file_prefix="boiler"
     ), prefix="/api")
+    
 app.include_router(state_router, prefix="/api")
 app.include_router(manual_router, prefix="/api")
 app.include_router(config_router, prefix="/api")

@@ -2,11 +2,19 @@ id: stats
 name: "Statystyki spalania"
 description: >
   Liczy spalanie (kg/h) i moc (kW) na podstawie pracy ślimaka (outputs.feeder_on).
-  Dane są agregowane hierarchicznie: 5m -> 1h -> 24h -> 7d, aby ograniczyć pamięć.
+  Rolling: 5m -> 1h -> 4h -> 24h -> 7d.
+  Persist (wariant B): zapis bucketów 5m do CSV + dzienny cache do słupków (dziś/wczoraj/miesiąc/sezon).
+  Compare: słupki porównawcze "sprzed X przez stały czas" (np. -1h = [now-2h, now-1h]).
 
 groups:
   - id: basic
     label: "Podstawowe"
+  - id: persist
+    label: "Persist / cache"
+  - id: calendar
+    label: "Kalendarz / sezon / słupki"
+  - id: compare
+    label: "Porównania (słupki)"
 
 fields:
   - key: enabled
@@ -40,4 +48,88 @@ fields:
     default: 0
     group: basic
     description: >
-      Jeśli > 0, moduł policzy moc (kW). 0 = nie licz mocy.
+      Jeśli > 0, moduł policzy energię (kWh) i moc (kW). 0 = nie licz mocy.
+
+  - key: log_dir
+    label: "Katalog danych stats"
+    type: text
+    default: "data"
+    group: persist
+    description: >
+      Katalog, w którym zapisywane są pliki CSV z bucketami 5m oraz cache dzienny.
+
+  - key: file_prefix_5m
+    label: "Prefiks plików 5m"
+    type: text
+    default: "stats5m"
+    group: persist
+    description: >
+      Prefiks nazwy pliku CSV z bucketami 5m. Końcowa nazwa ma postać:
+      <prefiks>_YYYYMMDD_HH.csv (jeden plik na godzinę).
+
+  - key: daily_file
+    label: "Plik cache dziennego"
+    type: text
+    default: "stats_daily.csv"
+    group: persist
+    description: >
+      Stały plik CSV (append/upsert), 1 wiersz na dzień, do słupków i sum (miesiąc/sezon).
+
+  - key: state_file
+    label: "Plik stanu bieżącego dnia"
+    type: text
+    default: "stats_state.yaml"
+    group: persist
+    description: >
+      Plik YAML ze stanem "dziś" w trakcie (żeby nie zerować po restarcie).
+
+  - key: timezone
+    label: "Strefa czasowa"
+    type: text
+    default: "Europe/Warsaw"
+    group: calendar
+    description: >
+      Strefa czasowa używana do wyliczania dni/miesięcy (dziś/wczoraj).
+
+  - key: season_start_month
+    label: "Start sezonu (miesiąc)"
+    type: number
+    min: 1
+    max: 12
+    step: 1
+    default: 9
+    group: calendar
+    description: "Miesiąc startu sezonu grzewczego (np. 9 = wrzesień)."
+
+  - key: season_start_day
+    label: "Start sezonu (dzień)"
+    type: number
+    min: 1
+    max: 31
+    step: 1
+    default: 1
+    group: calendar
+    description: "Dzień miesiąca startu sezonu grzewczego."
+
+  - key: bars_days
+    label: "Ile słupków dziennych"
+    type: number
+    min: 1
+    max: 365
+    step: 1
+    default: 30
+    group: calendar
+    description: >
+      Ile dni wstecz moduł ma publikować do runtime["stats"].calendar.bars_daily.
+
+  - key: publish_compare_bars
+    label: "Publikuj porównawcze słupki"
+    type: bool
+    default: true
+    group: compare
+    label_on: "WŁĄCZONE"
+    label_off: "WYŁĄCZONE"
+    description: >
+      Jeśli włączone, moduł publikuje runtime["stats"].compare_bars z porównaniami
+      typu -1h/-2h/-3h, -5m/-10m/-15m itd.
+

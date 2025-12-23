@@ -5,6 +5,8 @@ backend/.venv/
 
 .venv/
 /backend/modules/eventlog/data/*.csv
+/backend/modules/stats/data/*.csv
+
 
 **/values.yaml
 

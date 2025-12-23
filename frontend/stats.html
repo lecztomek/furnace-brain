@@ -11,123 +11,106 @@
       <div class="app">
       <label for="nav-toggle" class="burger-btn" aria-label="Menu">☰</label>
       <main class="layout">
-        <!-- LEWA / CENTRALNA CZĘŚĆ: STATYSTYKI -->
+
         <section class="diagram-wrapper">
           <div class="diagram placeholder stats-container">
-            <div class="stats-inner">
-              <div class="stats-topbar">
-                <div class="pill">
-                  <span class="pill-label">Status:</span>
-                  <span id="stats-status" class="pill-value">--</span>
-                </div>
-                <div class="pill">
-                  <span class="pill-label">Ostatni timestamp:</span>
-                  <span id="stats-ts" class="pill-value">--</span>
+            <div class="stats-v2">
+
+              <!-- header -->
+              <div class="stats-v2-head">
+                <div class="stats-v2-title">
+                  <div class="stats-v2-title-big">SPALANIE</div>
                 </div>
 
-                <div class="history-toolbar-group history-refresh-group">
-                  <button
-                    type="button"
-                    id="stats-refresh-btn"
-                    class="history-refresh-btn"
-                    title="Odśwież statystyki"
-                  >
-                    <svg
-                      class="history-refresh-icon"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
+                <div class="stats-v2-meta">
+                  <div class="pill">
+                    <span class="pill-label">Status:</span>
+                    <span id="stats-status" class="pill-value">--</span>
+                  </div>
+                  <div class="pill">
+                    <span class="pill-label">Ostatni odczyt:</span>
+                    <span id="stats-ts" class="pill-value">--</span>
+                  </div>
+
+                  <div class="history-toolbar-group history-refresh-group">
+                    <button
+                      type="button"
+                      id="stats-refresh-btn"
+                      class="history-refresh-btn"
+                      title="Odśwież statystyki"
                     >
-                      <path
-                        d="M4.5 4.5v5.25h5.25M19.5 19.5v-5.25h-5.25"
-                        fill="none"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                      <path
-                        d="M5.636 18.364A8.25 8.25 0 0 0 19.5 12
-                           M18.364 5.636A8.25 8.25 0 0 0 4.5 12"
-                        fill="none"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                  </button>
+                      <svg class="history-refresh-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4.5 4.5v5.25h5.25M19.5 19.5v-5.25h-5.25"
+                              fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M5.636 18.364A8.25 8.25 0 0 0 19.5 12
+                                 M18.364 5.636A8.25 8.25 0 0 0 4.5 12"
+                              fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div class="stats-grid">
-                <!-- SPALANIE -->
-                <section class="panel">
-                  <div class="panel-header">
-                    <div class="panel-title">SPALANIE</div>
-                    <div class="panel-unit">kg/h</div>
+              <!-- BIG NUMBER + CHART -->
+              <div class="stats-v2-top">
+                <div class="stats-v2-now">
+                  <div class="stats-v2-now-label">OBECNIE</div>
+                  <div class="stats-v2-now-value">
+                    <span id="burn-now" class="stats-v2-now-num">--</span>
+                    <span class="stats-v2-now-unit">kg/h</span>
                   </div>
+                  <div class="stats-v2-now-sub">
+                    W ostatnich 5 min: <span id="coal-now-5m">--</span> kg
+                  </div>
+                </div>
 
-                  <div class="cards">
-                    <div class="card">
-                      <div class="card-label">5 MIN</div>
-                      <div class="card-value" id="burn_kgph_5m">--</div>
-                      <div class="card-foot" id="coal_kg_5m">--</div>
-                    </div>
-                    <div class="card">
-                      <div class="card-label">1 GODZ</div>
-                      <div class="card-value" id="burn_kgph_1h">--</div>
-                      <div class="card-foot" id="coal_kg_1h">--</div>
-                    </div>
-                    <div class="card">
-                      <div class="card-label">4 GODZ</div>
-                      <div class="card-value" id="burn_kgph_4h">--</div>
-                      <div class="card-foot" id="coal_kg_4h">--</div>
-                    </div>
-                    <div class="card">
-                      <div class="card-label">24 GODZ</div>
-                      <div class="card-value" id="burn_kgph_24h">--</div>
-                      <div class="card-foot" id="coal_kg_24h">--</div>
-                    </div>
-                    <div class="card">
-                      <div class="card-label">7 DNI</div>
-                      <div class="card-value" id="burn_kgph_7d">--</div>
-                      <div class="card-foot" id="coal_kg_7d">--</div>
-                    </div>
-                  </div>
-                </section>
-
-                <!-- MOC -->
-                <section class="panel">
-                  <div class="panel-header">
-                    <div class="panel-title">MOC</div>
-                    <div class="panel-unit">kW</div>
-                  </div>
-
-                  <div class="cards">
-                    <div class="card">
-                      <div class="card-label">5 MIN</div>
-                      <div class="card-value" id="power_kw_5m">--</div>
-                      <div class="card-foot" id="energy_kwh_5m">--</div>
-                    </div>
-                    <div class="card">
-                      <div class="card-label">1 GODZ</div>
-                      <div class="card-value" id="power_kw_1h">--</div>
-                      <div class="card-foot" id="energy_kwh_1h">--</div>
-                    </div>
-                    <div class="card">
-                      <div class="card-label">4 GODZ</div>
-                      <div class="card-value" id="power_kw_4h">--</div>
-                      <div class="card-foot" id="energy_kwh_4h">--</div>
-                    </div>
-                    <div class="card">
-                      <div class="card-label">24 GODZ</div>
-                      <div class="card-value" id="power_kw_24h">--</div>
-                      <div class="card-foot" id="energy_kwh_24h">--</div>
-                    </div>
-                    <div class="card">
-                      <div class="card-label">7 DNI</div>
-                      <div class="card-value" id="power_kw_7d">--</div>
-                      <div class="card-foot" id="energy_kwh_7d">--</div>
-                    </div>
-                  </div>
-                </section>
+                <div class="stats-v2-chart">
+                  <svg id="burn-line" viewBox="0 0 560 180" class="burn-line" aria-label="Wykres spalania kg/h"></svg>
+                  <div class="burn-xlabels" id="burn-xlabels"></div>
+                </div>
               </div>
+
+              <div class="stats-v2-divider"></div>
+
+              <!-- TOTALS -->
+              <div class="stats-v2-bottom">
+                <div class="stats-v2-bottom-head">
+                  <div class="stats-v2-bottom-title">ZUŻYCIE</div>
+                </div>
+
+                <div class="totals-row">
+                  <div class="total-card">
+                    <div class="total-card-top">5 MIN</div>
+                    <svg id="spark-5m" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
+                    <div class="total-card-val"><span id="coal-5m">--</span> <span class="u">kg</span></div>
+                  </div>
+
+                  <div class="total-card">
+                    <div class="total-card-top">1 GODZ</div>
+                    <svg id="spark-1h" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
+                    <div class="total-card-val"><span id="coal-1h">--</span> <span class="u">kg</span></div>
+                  </div>
+
+                  <div class="total-card">
+                    <div class="total-card-top">4 GODZ</div>
+                    <svg id="spark-4h" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
+                    <div class="total-card-val"><span id="coal-4h">--</span> <span class="u">kg</span></div>
+                  </div>
+
+                  <div class="total-card">
+                    <div class="total-card-top">24 GODZ</div>
+                    <svg id="spark-24h" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
+                    <div class="total-card-val"><span id="coal-24h">--</span> <span class="u">kg</span></div>
+                  </div>
+
+                  <div class="total-card">
+                    <div class="total-card-top">7 DNI</div>
+                    <svg id="spark-7d" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
+                    <div class="total-card-val"><span id="coal-7d">--</span> <span class="u">kg</span></div>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         </section>

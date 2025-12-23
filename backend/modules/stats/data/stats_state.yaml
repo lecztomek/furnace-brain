@@ -1,0 +1,12 @@
+day_acc:
+  _has_active: true
+  active_seconds: 7800.0
+  burn_kgph_max_5m: 4.802696719919915
+  burn_kgph_min_active_5m: 1.6007209740800323
+  coal_kg_max_5m: 0.4002247266599929
+  coal_kg_sum: 8.381737801853413
+  energy_kwh_sum: 67.51955451493028
+  power_kw_max_5m: 38.68839024379929
+  power_kw_min_active_5m: 12.894696735644704
+  seconds_sum: 7800.0
+day_key: '2025-12-23'

@@ -1,3 +1,17 @@
-calorific_mj_per_kg: 29.0
 enabled: true
 feeder_kg_per_hour: 12.0
+calorific_mj_per_kg: 29.0
+
+log_dir: "data"
+file_prefix_5m: "stats5m"
+daily_file: "stats_daily.csv"
+state_file: "stats_state.yaml"
+
+timezone: "Europe/Warsaw"
+season_start_month: 9
+season_start_day: 1
+
+bars_days: 30
+
+publish_compare_bars: true
+
