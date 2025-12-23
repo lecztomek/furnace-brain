@@ -12,7 +12,6 @@ from backend.core.state import (
     Event,
     EventLevel,
     ModuleStatus,
-    Outputs,
     Sensors,
     SystemState,
     PartialOutputs,
@@ -84,6 +83,11 @@ class BlowerModule(ModuleInterface):
     - Rozruch dmuchawy: przy każdym starcie (0→>0) podajemy 100% przez startup_time_s,
       po czym wracamy do base_fan_percent. Jeśli faza ON z duty jest krótsza,
       rozruch trwa tylko tyle co faza ON.
+
+    ZMIANA (bez psucia reszty):
+    - wszystkie timery/cykle liczone są na czasie monotonicznym system_state.ts_mono,
+      więc zmiana czasu/NTP nie robi glitchy w duty ani rozruchu.
+    - Event.ts zostaje na wall-time (parametr now) – czytelne logi.
     """
 
     def __init__(
@@ -105,10 +109,10 @@ class BlowerModule(ModuleInterface):
         self._fan_power: float = 0.0
         self._last_mode: Optional[str] = None
 
-        # stan cyklu duty
+        # stan cyklu duty (czas monotoniczny)
         self._cycle_start: Optional[float] = None
 
-        # stan rozruchu: do kiedy trzymać 100%
+        # stan rozruchu: do kiedy trzymać 100% (czas monotoniczny)
         self._startup_until: Optional[float] = None
 
     @property
@@ -117,12 +121,15 @@ class BlowerModule(ModuleInterface):
 
     def tick(
         self,
-        now: float,
+        now: float,  # wall time z kernela (logi)
         sensors: Sensors,
         system_state: SystemState,
     ) -> ModuleTickResult:
         events: List[Event] = []
         outputs = PartialOutputs()
+
+        # czas kontrolny (monotonic) do timerów/cykli
+        now_ctrl = float(getattr(system_state, "ts_mono", now))
 
         mode_enum = system_state.mode
         power = float(system_state.outputs.power_percent)  # 0–100
@@ -143,12 +150,12 @@ class BlowerModule(ModuleInterface):
 
         # Inicjalizacja początku cyklu przy starcie lub zmianie trybu
         if self._cycle_start is None or prev_mode != effective_mode:
-            self._cycle_start = now
+            self._cycle_start = now_ctrl
 
         # 1) OFF / MANUAL albo bardzo mały power → dmuchawa wyłączona
         if effective_mode == "off" or power <= self._config.min_power_to_blow:
             self._fan_power = 0.0
-            self._cycle_start = now
+            self._cycle_start = now_ctrl
             self._startup_until = None
 
         else:
@@ -194,14 +201,14 @@ class BlowerModule(ModuleInterface):
             # --- przeliczamy duty na PRACA/POSTÓJ w cyklu ---
             if duty <= 0.0:
                 fan = 0.0
-                self._cycle_start = now  # zaczynamy nowy cykl od zera
+                self._cycle_start = now_ctrl  # zaczynamy nowy cykl od zera
             elif duty >= 0.999:
                 fan = base_fan  # pełna ciągła praca
             else:
                 cycle_T = max(1.0, float(self._config.cycle_time_s))  # zabezpieczenie
                 if self._cycle_start is None:
-                    self._cycle_start = now
-                phase = (now - self._cycle_start) % cycle_T
+                    self._cycle_start = now_ctrl
+                phase = (now_ctrl - self._cycle_start) % cycle_T
 
                 on_time = duty * cycle_T
 
@@ -217,10 +224,10 @@ class BlowerModule(ModuleInterface):
                     if fan > 0.0:
                         # start tylko gdy poprzednio było 0 (czyli "rusza dmuchawa")
                         if prev_fan <= 0.0:
-                            self._startup_until = now + startup_s
+                            self._startup_until = now_ctrl + startup_s
 
                         # jeśli w oknie rozruchu i nadal mamy być ON (fan>0), daj 100%
-                        if self._startup_until is not None and now < self._startup_until:
+                        if self._startup_until is not None and now_ctrl < self._startup_until:
                             fan = 100.0
                     else:
                         # jeśli dmuchawa OFF, kasujemy rozruch (kolejny start odpali ponownie)

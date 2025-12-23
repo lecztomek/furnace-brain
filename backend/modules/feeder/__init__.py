@@ -12,10 +12,9 @@ from backend.core.state import (
     Event,
     EventLevel,
     ModuleStatus,
-    Outputs,
     Sensors,
     SystemState,
-	PartialOutputs
+    PartialOutputs,
 )
 
 
@@ -54,28 +53,10 @@ class FeederModule(ModuleInterface):
     """
     Moduł sterujący ślimakiem podajnika na podstawie mocy kotła (power_percent).
 
-    Logika:
-
-    - Jeśli SystemState.mode w {OFF, MANUAL}:
-        feeder_on = False, reset licznika.
-
-    - W trybach IGNITION / WORK:
-        - pobieramy power = system_state.outputs.power_percent,
-        - jeśli power <= min_power_to_feed:
-              feeder_on = False, reset licznika,
-          inaczej:
-              wyznaczamy czasy cyklu:
-                  on_time = feed_on_base_s
-                  off_time = feed_off_base_s * (100 / power)
-                  off_time przycinamy do [min_pause_s, max_pause_s]
-
-              następnie generujemy cykl:
-                  - zaczynamy od ON (po wejściu w tryb karmienia),
-                  - po on_time przełączamy na OFF,
-                  - po off_time przełączamy z powrotem na ON,
-                  - i tak w kółko.
-
-    Zmiany stanu ślimaka raportujemy eventami FEEDER_ON / FEEDER_OFF.
+    ZMIANA (bez psucia reszty):
+    - cykle czasowe (elapsed, last_switch_ts) liczone są na czasie monotonicznym
+      system_state.ts_mono, więc zmiana czasu/NTP nie robi glitchy.
+    - Event.ts zostaje na wall-time (parametr now) – czytelne logi.
     """
 
     def __init__(
@@ -96,8 +77,9 @@ class FeederModule(ModuleInterface):
 
         # Stan wewnętrzny cyklu
         self._feeder_on: bool = False
-        self._last_switch_ts: Optional[float] = None  # kiedy zmieniliśmy stan ON/OFF
-        self._last_effective_active: bool = False  # czy w poprzednim ticku byliśmy w "aktywnej" pracy (power > min i mode auto/ignition)
+        # UWAGA: to jest czas "kontrolny" (monotonic) – ustawiany w tick()
+        self._last_switch_ts: Optional[float] = None
+        self._last_effective_active: bool = False
 
     # --- ModuleInterface ---
 
@@ -107,12 +89,15 @@ class FeederModule(ModuleInterface):
 
     def tick(
         self,
-        now: float,
+        now: float,  # wall time z kernela (logi)
         sensors: Sensors,
         system_state: SystemState,
     ) -> ModuleTickResult:
         events: List[Event] = []
         outputs = PartialOutputs()  # domyślnie nie zmieniamy nic poza feeder_on
+
+        # czas kontrolny do cykli (monotonic)
+        now_ctrl = float(getattr(system_state, "ts_mono", now))
 
         mode = system_state.mode
         power = system_state.outputs.power_percent  # 0–100%
@@ -145,7 +130,6 @@ class FeederModule(ModuleInterface):
 
         else:
             # Aktywna praca – liczymy cykl ON/OFF
-            # Czasy cyklu na podstawie aktualnego power
             on_time = max(self._config.feed_on_base_s, 0.0)
 
             # zabezpieczenie przed dzieleniem przez 0
@@ -157,7 +141,7 @@ class FeederModule(ModuleInterface):
             if not self._last_effective_active:
                 # Wchodzimy świeżo w aktywne karmienie – zacznij od ON
                 self._feeder_on = True
-                self._last_switch_ts = now
+                self._last_switch_ts = now_ctrl
                 events.append(
                     Event(
                         ts=now,
@@ -181,14 +165,20 @@ class FeederModule(ModuleInterface):
                 if self._last_switch_ts is None:
                     # na wszelki wypadek zainicjalizuj
                     self._feeder_on = True
-                    self._last_switch_ts = now
+                    self._last_switch_ts = now_ctrl
                 else:
-                    elapsed = now - self._last_switch_ts
+                    elapsed = now_ctrl - self._last_switch_ts
+
+                    # zabezpieczenie na wypadek "dziwnego" czasu (np. brak aktualizacji ts_mono)
+                    if elapsed < 0:
+                        elapsed = 0.0
+                        self._last_switch_ts = now_ctrl
+
                     if self._feeder_on:
                         # jesteśmy w fazie ON
                         if elapsed >= on_time:
                             self._feeder_on = False
-                            self._last_switch_ts = now
+                            self._last_switch_ts = now_ctrl
                             events.append(
                                 Event(
                                     ts=now,
@@ -211,7 +201,7 @@ class FeederModule(ModuleInterface):
                         # jesteśmy w fazie OFF
                         if elapsed >= off_time:
                             self._feeder_on = True
-                            self._last_switch_ts = now
+                            self._last_switch_ts = now_ctrl
                             events.append(
                                 Event(
                                     ts=now,
@@ -235,13 +225,8 @@ class FeederModule(ModuleInterface):
 
         # Wykrywanie zmiany stanu (dla pewności, że mamy event przy każdej zmianie)
         if self._feeder_on != prev_feeder_on:
-            if self._feeder_on:
-                # jeśli FEEDER_ON nie był już dodany powyżej, można dopisać;
-                # zostawiamy jak jest, żeby nie dublować logów.
-                pass
-            else:
-                # analogicznie dla OFF
-                pass
+            # nie dublujemy eventów – logika powyżej już je dodaje
+            pass
 
         # Ustaw wyjście
         outputs.feeder_on = self._feeder_on
@@ -285,7 +270,7 @@ class FeederModule(ModuleInterface):
         Publiczne API wymagane przez Kernel.
         """
         self._load_config_from_file()
-			
+
     def _load_config_from_file(self) -> None:
         if not self._config_path.exists():
             return
@@ -307,3 +292,4 @@ class FeederModule(ModuleInterface):
         data = asdict(self._config)
         with self._config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, sort_keys=True, allow_unicode=True)
+

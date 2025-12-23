@@ -15,7 +15,7 @@ from backend.core.state import (
     Outputs,
     Sensors,
     SystemState,
-	PartialOutputs
+    PartialOutputs,
 )
 
 
@@ -116,12 +116,12 @@ class IgnitionPowerModule(ModuleInterface):
         self._power: float = 0.0
         self._last_mode_ignition: bool = False
 
-        # stan dla dT/dt
+        # stan dla dT/dt (CZAS MONOTONICZNY)
         self._ign_last_temp: Optional[float] = None
         self._ign_last_ts: Optional[float] = None
         self._ign_rate_ema: Optional[float] = None
 
-        # stan dla limitu zmian mocy
+        # stan dla limitu zmian mocy (CZAS MONOTONICZNY)
         self._last_power_ts: Optional[float] = None
 
     # --- ModuleInterface ---
@@ -138,6 +138,9 @@ class IgnitionPowerModule(ModuleInterface):
     ) -> ModuleTickResult:
         events: List[Event] = []
         outputs = PartialOutputs()
+
+        # czas sterujący (odporny na DST/NTP); eventy/logi nadal na wall time (now)
+        now_ctrl = float(getattr(system_state, "ts_mono", now))
 
         boiler_temp = sensors.boiler_temp
         mode_enum = system_state.mode
@@ -180,7 +183,7 @@ class IgnitionPowerModule(ModuleInterface):
         # --- Tryb IGNITION – liczymy moc "surową" ---
 
         power_delta = self._ignition_power_from_delta(boiler_temp)
-        power_rate = self._ignition_power_from_rate(now, boiler_temp)
+        power_rate = self._ignition_power_from_rate(now_ctrl, boiler_temp)
 
         raw_power = max(power_delta, power_rate)
 
@@ -192,7 +195,7 @@ class IgnitionPowerModule(ModuleInterface):
         limited_power = raw_power
 
         if self._last_power_ts is not None and prev_in_ignition:
-            dt = now - self._last_power_ts
+            dt = now_ctrl - self._last_power_ts
             if dt > 0:
                 max_slew_per_min = max(self._config.max_slew_rate_percent_per_min, 0.0)
                 max_delta = max_slew_per_min * dt / 60.0  # pkt% dozwolone w tym kroku
@@ -213,7 +216,7 @@ class IgnitionPowerModule(ModuleInterface):
         limited_power = max(self._config.min_power, min(limited_power, self._config.max_power))
 
         self._power = limited_power
-        self._last_power_ts = now
+        self._last_power_ts = now_ctrl
 
         if abs(self._power - prev_power) >= 5.0:
             events.append(
@@ -282,7 +285,7 @@ class IgnitionPowerModule(ModuleInterface):
 
         return power
 
-    def _ignition_power_from_rate(self, now: float, boiler_temp: Optional[float]) -> float:
+    def _ignition_power_from_rate(self, now_ctrl: float, boiler_temp: Optional[float]) -> float:
         """
         Część dT/dt – osobna moc:
 
@@ -306,18 +309,18 @@ class IgnitionPowerModule(ModuleInterface):
 
         # brak historii -> inicjalizacja, jeszcze nie liczymy mocy z dT/dt
         if self._ign_last_ts is None or self._ign_last_temp is None:
-            self._ign_last_ts = now
+            self._ign_last_ts = now_ctrl
             self._ign_last_temp = boiler_temp
             self._ign_rate_ema = None
             return 0.0
 
-        dt = now - self._ign_last_ts
+        dt = now_ctrl - self._ign_last_ts
         if dt <= 0:
             dt = 1.0  # awaryjnie
 
         inst_rate = (boiler_temp - self._ign_last_temp) / dt * 60.0  # °C/min
 
-        self._ign_last_ts = now
+        self._ign_last_ts = now_ctrl
         self._ign_last_temp = boiler_temp
 
         # prosta EMA dla wygładzenia (tau ~ 30 s)
@@ -433,3 +436,4 @@ class IgnitionPowerModule(ModuleInterface):
         data = asdict(self._config)
         with self._config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, sort_keys=True, allow_unicode=True)
+

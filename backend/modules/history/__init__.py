@@ -12,10 +12,9 @@ from backend.core.state import (
     Event,
     EventLevel,
     ModuleStatus,
-    Outputs,
     Sensors,
     SystemState,
-	PartialOutputs
+    PartialOutputs,
 )
 
 # ---------- KONFIGURACJA RUNTIME ----------
@@ -29,30 +28,19 @@ class HistoryConfig:
     interval_sec   – co ile sekund zapisywać nowy punkt danych.
     file_prefix    – prefiks nazwy pliku CSV.
     """
-
-    log_dir: str = "data"        # względnie do katalogu modułu
-    interval_sec: float = 30.0      # logowanie co 30 s
-    file_prefix: str = "boiler"     # np. boiler_20241209_13.csv
+    log_dir: str = "data"
+    interval_sec: float = 30.0
+    file_prefix: str = "boiler"
 
 
 class HistoryModule(ModuleInterface):
     """
     Moduł historii – zapisuje wybrane parametry kotła do plików CSV.
 
-    Zapisujemy:
-    - data_czas       – timestamp (ISO 8601),
-    - temp_pieca      – temperatura kotła,
-    - power           – moc,
-    - temp_grzejnikow – temperatura obiegu CO / grzejników,
-    - temp_spalin     – temperatura spalin,
-    - tryb_pracy      – np. "ignition", "work", itp.
+    Interwał ODMERZAMY WYŁĄCZNIE czasem monotonicznym (SystemState.ts_mono),
+    żeby skoki czasu systemowego (NTP / ręczne) nie psuły logowania.
 
-    Dane zapisywane są co `interval_sec` sekund (domyślnie 30 s).
-    Dla każdej godziny powstaje osobny plik CSV:
-      <log_dir>/<file_prefix>_YYYYMMDD_HH.csv
-
-    Uwaga: limit całkowitego rozmiaru (np. 1 GB) można zaimplementować
-    w osobnym module "sprzątającym" historię.
+    Timestamp w pliku i nazwa pliku dalej są z wall-clock (now / time.time()).
     """
 
     def __init__(
@@ -60,7 +48,6 @@ class HistoryModule(ModuleInterface):
         base_path: Path | None = None,
         config: HistoryConfig | None = None,
     ) -> None:
-        # Katalog modułu (tu leżą schema.yaml i values.yaml)
         if base_path is None:
             self._base_path = Path(__file__).resolve().parent
         else:
@@ -69,17 +56,13 @@ class HistoryModule(ModuleInterface):
         self._schema_path = self._base_path / "schema.yaml"
         self._config_path = self._base_path / "values.yaml"
 
-        # Konfiguracja runtime
         self._config = config or HistoryConfig()
         self._load_config_from_file()
 
-        # Katalog do logowania (może być względny względem katalogu modułu)
         self._log_dir = (self._base_path / self._config.log_dir).resolve()
 
-        # Stan wewnętrzny
-        self._last_write_ts: Optional[float] = None
-
-    # --- ModuleInterface ---
+        # Stan wewnętrzny: ostatni zapis wg czasu monotonicznego
+        self._last_write_mono: Optional[float] = None
 
     @property
     def id(self) -> str:
@@ -87,29 +70,27 @@ class HistoryModule(ModuleInterface):
 
     def tick(
         self,
-        now: float,
+        now: float,              # wall-clock z kernela (time.time())
         sensors: Sensors,
         system_state: SystemState,
     ) -> ModuleTickResult:
-        """
-        Jeden krok modułu historii.
-
-        Co `interval_sec` sekund dopisujemy wiersz do odpowiedniego pliku CSV.
-        """
         events: List[Event] = []
-        outputs = PartialOutputs()  # niczego nie sterujemy, tylko logujemy
+        outputs = PartialOutputs()
 
+        # BEZ fallbacków: wymagamy ts_mono w system_state
+        now_mono: float = system_state.ts_mono
+
+        interval = float(self._config.interval_sec)
         should_write = (
-            self._last_write_ts is None
-            or (now - self._last_write_ts) >= self._config.interval_sec
+            self._last_write_mono is None
+            or (now_mono - self._last_write_mono) >= interval
         )
 
         if should_write:
             try:
-                self._write_row(now, sensors, system_state)
-                self._last_write_ts = now
+                self._write_row(now, sensors, system_state)  # zapis czasu wall-clock do CSV
+                self._last_write_mono = now_mono
             except Exception as exc:
-                # Zgłaszamy event, ale nie przerywamy pracy systemu
                 events.append(
                     Event(
                         ts=now,
@@ -121,9 +102,7 @@ class HistoryModule(ModuleInterface):
                     )
                 )
 
-        # Status modułu – kernel i tak to nadpisze, ale musimy zwrócić instancję
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
-
         return ModuleTickResult(
             partial_outputs=outputs,
             events=events,
@@ -134,10 +113,6 @@ class HistoryModule(ModuleInterface):
 
     @staticmethod
     def _get_attr(obj: Any, *names: str) -> Any:
-        """
-        Pomocniczo: pobierz pierwsze istniejące pole z podanych nazw.
-        Jeśli żadne nie istnieje – zwróć None.
-        """
         for name in names:
             if hasattr(obj, name):
                 return getattr(obj, name)
@@ -149,42 +124,27 @@ class HistoryModule(ModuleInterface):
         sensors: Sensors,
         system_state: SystemState,
     ) -> None:
-        # Czas w lokalnej strefie (zależnie od systemu)
         ts = dt.datetime.fromtimestamp(now)
         ts_str = ts.isoformat(timespec="seconds")
 
-        # --- Odczyt wartości z sensors/system_state ---
-
-        # temp. kotła
         temp_pieca = sensors.boiler_temp
-
-        # moc kotła [%] – bierzemy z Outputs.power_percent
         power = system_state.outputs.power_percent
-
-        # temp. grzejników / CO
         temp_grzejnikow = sensors.radiators_temp
-
-        # temp. spalin – zgodnie z definicją Sensors
         temp_spalin = sensors.flue_gas_temp
 
-        # tryb pracy – enum BoilerMode z SystemState.mode
-        mode = system_state.mode  # BoilerMode
-        tryb_pracy = mode.name if mode is not None else None  # np. "IGNITION"
+        mode = system_state.mode
+        tryb_pracy = mode.name if mode is not None else None
 
-        # Upewniamy się, że katalog istnieje
         self._log_dir.mkdir(parents=True, exist_ok=True)
 
-        # 1 plik na godzinę
         filename = f"{self._config.file_prefix}_{ts.strftime('%Y%m%d_%H')}.csv"
         file_path = self._log_dir / filename
-
         new_file = not file_path.exists()
 
         with file_path.open("a", encoding="utf-8", newline="") as f:
             writer = csv.writer(f, delimiter=";")
 
             if new_file:
-                # Nagłówek
                 writer.writerow(
                     [
                         "data_czas",
@@ -196,7 +156,6 @@ class HistoryModule(ModuleInterface):
                     ]
                 )
 
-            # Wiersz danych
             writer.writerow(
                 [
                     ts_str,
@@ -208,23 +167,15 @@ class HistoryModule(ModuleInterface):
                 ]
             )
 
-
     # ---------- CONFIG (schema + values) ----------
 
     def get_config_schema(self) -> Dict[str, Any]:
-        """
-        Zwraca schemat konfiguracji z pliku schema.yaml jako dict.
-        """
         if not self._schema_path.exists():
             return {}
-
         with self._schema_path.open("r", encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
 
     def get_config_values(self) -> Dict[str, Any]:
-        """
-        Zwraca aktualne wartości konfiguracji jako dict.
-        """
         return {
             "log_dir": self._config.log_dir,
             "interval_sec": self._config.interval_sec,
@@ -232,10 +183,6 @@ class HistoryModule(ModuleInterface):
         }
 
     def set_config_values(self, values: Dict[str, Any], persist: bool = True) -> None:
-        """
-        Aktualizuje konfigurację modułu na podstawie dict (np. z GUI).
-        Opcjonalnie zapisuje do values.yaml.
-        """
         if "log_dir" in values:
             self._config.log_dir = str(values["log_dir"])
             self._log_dir = (self._base_path / self._config.log_dir).resolve()
@@ -249,12 +196,7 @@ class HistoryModule(ModuleInterface):
         if persist:
             self._save_config_to_file()
 
-    # ---------- PLIK values.yaml ----------
-
     def _load_config_from_file(self) -> None:
-        """
-        Ładuje values.yaml (jeśli istnieje) i nadpisuje domyślne wartości.
-        """
         if not self._config_path.exists():
             return
 
@@ -269,9 +211,7 @@ class HistoryModule(ModuleInterface):
             self._config.file_prefix = str(data["file_prefix"])
 
     def _save_config_to_file(self) -> None:
-        """
-        Zapisuje aktualną konfigurację do values.yaml.
-        """
         data = asdict(self._config)
         with self._config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, sort_keys=True, allow_unicode=True)
+

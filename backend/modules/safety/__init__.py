@@ -67,7 +67,7 @@ class SafetyModule(ModuleInterface):
             "flue_gas_temp": False,
         }
 
-        # rate-limit per typ
+        # rate-limit per typ (czas MONOTONICZNY)
         self._last_repeat_ts: Dict[str, float] = {
             "boiler_temp": 0.0,
             "radiators_temp": 0.0,
@@ -86,6 +86,9 @@ class SafetyModule(ModuleInterface):
 
         if not bool(self._config.enabled):
             return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
+
+        # czas sterujący (odporny na DST/NTP); eventy/logi nadal na wall time (now)
+        now_ctrl = float(getattr(system_state, "ts_mono", now))
 
         missing = {
             "boiler_temp": sensors.boiler_temp is None,
@@ -112,16 +115,16 @@ class SafetyModule(ModuleInterface):
                         data={"sensor": key, "missing": is_missing},
                     )
                 )
-                # reset repeat timera przy zmianie
-                self._last_repeat_ts[key] = now
+                # reset repeat timera przy zmianie (monotonic)
+                self._last_repeat_ts[key] = now_ctrl
 
         # --- Eventy okresowe (wciąż brakuje) ---
         repeat_s = max(5.0, float(self._config.repeat_warning_s))
         for key, is_missing in missing.items():
             if not is_missing:
                 continue
-            if now - self._last_repeat_ts.get(key, 0.0) >= repeat_s:
-                self._last_repeat_ts[key] = now
+            if now_ctrl - self._last_repeat_ts.get(key, 0.0) >= repeat_s:
+                self._last_repeat_ts[key] = now_ctrl
                 events.append(
                     Event(
                         ts=now,
@@ -221,3 +224,4 @@ class SafetyModule(ModuleInterface):
         data = asdict(self._config)
         with self._config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, sort_keys=True, allow_unicode=True)
+

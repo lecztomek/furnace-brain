@@ -60,9 +60,11 @@ class OverheatModule(ModuleInterface):
         # stan wewnętrzny (histereza + purge)
         self._boiler_active: bool = False
         self._hopper_active: bool = False
+
+        # UWAGA: ten timestamp jest w czasie MONOTONICZNYM (ctrl time)
         self._purge_until: Optional[float] = None
 
-        # rate-limit na event braku czujnika
+        # rate-limit na event braku czujnika (ctrl time)
         self._missing_sensor_last_event_ts: float = 0.0
 
     @property
@@ -74,13 +76,16 @@ class OverheatModule(ModuleInterface):
         outputs = PartialOutputs()  # domyślnie nic nie zmieniamy
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
 
+        # czas sterujący (odporny na DST/NTP); eventy/logi nadal na wall time (now)
+        now_ctrl = float(getattr(system_state, "ts_mono", now))
+
         t_boiler = sensors.boiler_temp
         t_hopper = sensors.hopper_temp
 
-        # Bez fallbacków: jeśli brak danych -> nie wymuszamy, tylko warning (max co 60s)
+        # Bez fallbacków: jeśli brak danych -> nie wymuszamy, tylko warning (max co 60s ctrl-time)
         if t_boiler is None or t_hopper is None:
-            if now - self._missing_sensor_last_event_ts >= 60.0:
-                self._missing_sensor_last_event_ts = now
+            if now_ctrl - self._missing_sensor_last_event_ts >= 60.0:
+                self._missing_sensor_last_event_ts = now_ctrl
                 events.append(
                     Event(
                         ts=now,
@@ -129,10 +134,10 @@ class OverheatModule(ModuleInterface):
             if t_hopper >= self._config.hopper_trip_temp:
                 self._hopper_active = True
 
-                # purge jednorazowo na wejście w alarm
+                # purge jednorazowo na wejście w alarm (ctrl-time)
                 purge_seconds = max(0.0, float(self._config.hopper_purge_minutes) * 60.0)
                 if purge_seconds > 0:
-                    self._purge_until = now + purge_seconds
+                    self._purge_until = now_ctrl + purge_seconds
                     events.append(
                         Event(
                             ts=now,
@@ -140,7 +145,12 @@ class OverheatModule(ModuleInterface):
                             level=EventLevel.ALARM,
                             type="HOPPER_PURGE_START",
                             message=f"Przegrzanie podajnika: uruchomiono ślimak na {self._config.hopper_purge_minutes:.1f} min.",
-                            data={"purge_minutes": self._config.hopper_purge_minutes, "purge_until": self._purge_until},
+                            data={
+                                "purge_minutes": self._config.hopper_purge_minutes,
+                                "purge_seconds": purge_seconds,
+                                # dla czytelności w logach: wall-time szacunkowe (nie wpływa na sterowanie)
+                                "purge_until_wall_ts": now + purge_seconds,
+                            },
                         )
                     )
         else:
@@ -189,7 +199,7 @@ class OverheatModule(ModuleInterface):
         # purge: feeder_on tylko w czasie purge i tylko przy przegrzaniu podajnika
         purge_on = False
         if self._hopper_active and self._purge_until is not None:
-            purge_on = now < self._purge_until
+            purge_on = now_ctrl < self._purge_until
             if not purge_on:
                 self._purge_until = None
                 events.append(
@@ -254,6 +264,9 @@ class OverheatModule(ModuleInterface):
 
         if persist:
             self._save_config_to_file()
+
+    def reload_config_from_file(self) -> None:
+        self._load_config_from_file()
 
     def _load_config_from_file(self) -> None:
         if not self._config_path.exists():

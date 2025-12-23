@@ -55,7 +55,8 @@ class MixerModule(ModuleInterface):
 
         self._schema_path = self._base_path / "schema.yaml"
         self._config_path = self._base_path / "values.yaml"
-        
+
+        # debug timings (czas kontrolny - monotonic)
         self._move_start_ts: Optional[float] = None
         self._move_direction_last: Optional[str] = None
         self._move_planned_s: Optional[float] = None
@@ -63,10 +64,10 @@ class MixerModule(ModuleInterface):
         self._config = config or MixerConfig()
         self._load_config_from_file()
 
-        # Stan ruchu zaworu:
+        # Stan ruchu zaworu (czas kontrolny - monotonic)
         self._movement_until_ts: Optional[float] = None
         self._movement_direction: Optional[str] = None  # "open" / "close" / None
-        self._last_action_ts: Optional[float] = None
+        self._last_action_ts: Optional[float] = None  # czas kontrolny - monotonic
 
         # Ochrona kotła – śledzenie wpływu OTWÓRZ na kocioł (tryb "ramp")
         self._last_open_start_boiler_temp: Optional[float] = None
@@ -92,12 +93,15 @@ class MixerModule(ModuleInterface):
 
     def tick(
         self,
-        now: float,
+        now: float,  # wall time (logi)
         sensors: Sensors,
         system_state: SystemState,
     ) -> ModuleTickResult:
         events: List[Event] = []
         outputs = PartialOutputs()
+
+        # czas kontrolny (monotonic) do wszelkich timerów/cykli
+        now_ctrl = float(getattr(system_state, "ts_mono", now))
 
         # FIX: PartialOutputs jest deltą (None = nie zmieniaj)
         outputs.mixer_open_on = False
@@ -146,6 +150,7 @@ class MixerModule(ModuleInterface):
             # log przejścia wyjść (na końcu ticka)
             events.extend(self._log_output_transition(
                 now=now,
+                now_ctrl=now_ctrl,
                 out_open=bool(outputs.mixer_open_on),
                 out_close=bool(outputs.mixer_close_on),
                 effective_mode=effective_mode,
@@ -168,7 +173,7 @@ class MixerModule(ModuleInterface):
 
             self._stop_movement()
             close_s = float(self._config.preclose_full_close_time_s)
-            self._start_movement(now, "close", close_s)
+            self._start_movement(now_ctrl, "close", close_s)
 
             outputs.mixer_close_on = True
 
@@ -211,6 +216,7 @@ class MixerModule(ModuleInterface):
 
             events.extend(self._log_output_transition(
                 now=now,
+                now_ctrl=now_ctrl,
                 out_open=bool(outputs.mixer_open_on),
                 out_close=bool(outputs.mixer_close_on),
                 effective_mode=effective_mode,
@@ -236,13 +242,13 @@ class MixerModule(ModuleInterface):
 
         # Główna logika ruchu zaworu
         if effective_mode == "ignition_preclose":
-            if self._movement_until_ts is not None and now < self._movement_until_ts:
+            if self._movement_until_ts is not None and now_ctrl < self._movement_until_ts:
                 outputs.mixer_close_on = True
             else:
                 self._stop_movement()
                 self._force_full_close = False
         else:
-            if self._movement_until_ts is not None and now < self._movement_until_ts:
+            if self._movement_until_ts is not None and now_ctrl < self._movement_until_ts:
                 if self._movement_direction == "open":
                     outputs.mixer_open_on = True
                 elif self._movement_direction == "close":
@@ -255,7 +261,7 @@ class MixerModule(ModuleInterface):
 
                 self._stop_movement()
 
-                if self._can_adjust(now) and rad_temp is not None:
+                if self._can_adjust(now_ctrl) and rad_temp is not None:
                     if effective_mode == "ramp":
                         direction = self._decide_direction_ramp(
                             mix_temp=rad_temp,
@@ -270,7 +276,7 @@ class MixerModule(ModuleInterface):
                         if effective_mode == "ramp" and direction == "open":
                             self._last_open_start_boiler_temp = boiler_temp
 
-                        self._start_movement(now, direction, pulse_s)
+                        self._start_movement(now_ctrl, direction, pulse_s)
 
                         if direction == "open":
                             outputs.mixer_open_on = True
@@ -318,6 +324,7 @@ class MixerModule(ModuleInterface):
         # DEBUG: loguj tylko zmiany przekaźników OPEN/CLOSE
         events.extend(self._log_output_transition(
             now=now,
+            now_ctrl=now_ctrl,
             out_open=bool(outputs.mixer_open_on),
             out_close=bool(outputs.mixer_close_on),
             effective_mode=effective_mode,
@@ -332,7 +339,8 @@ class MixerModule(ModuleInterface):
 
     def _log_output_transition(
         self,
-        now: float,
+        now: float,          # wall time do event.ts
+        now_ctrl: float,     # monotonic do liczenia "plan/ran"
         out_open: bool,
         out_close: bool,
         effective_mode: str,
@@ -340,36 +348,42 @@ class MixerModule(ModuleInterface):
         boiler_temp: Optional[float],
     ) -> List[Event]:
         evs: List[Event] = []
-    
+
         # START OPEN
         if out_open and not self._last_out_open:
-            planned = (self._movement_until_ts - now) if self._movement_until_ts else None
-            self._move_start_ts = now
+            planned = (self._movement_until_ts - now_ctrl) if self._movement_until_ts else None
+            self._move_start_ts = now_ctrl
             self._move_direction_last = "open"
             self._move_planned_s = planned
-    
+
             evs.append(Event(
                 ts=now, source=self.id, level=EventLevel.INFO,
                 type="MIXER_MOVE_START",
-                message=f"Mixer: START OPEN (plan={planned:.2f}s, mode={effective_mode})" if planned is not None else f"Mixer: START OPEN (mode={effective_mode})",
+                message=(
+                    f"Mixer: START OPEN (plan={planned:.2f}s, mode={effective_mode})"
+                    if planned is not None else f"Mixer: START OPEN (mode={effective_mode})"
+                ),
                 data={
                     "direction": "open",
                     "planned_pulse_s": planned,
-                    "until_ts": self._movement_until_ts,
+                    "until_ts": self._movement_until_ts,  # monotonic timestamp
                     "mode": effective_mode,
                     "radiators_temp": rad_temp,
                     "boiler_temp": boiler_temp,
                     "target_temp": self._config.target_temp,
                 }
             ))
-    
+
         # STOP OPEN
         if (not out_open) and self._last_out_open:
-            actual = (now - self._move_start_ts) if self._move_start_ts is not None else None
+            actual = (now_ctrl - self._move_start_ts) if self._move_start_ts is not None else None
             evs.append(Event(
                 ts=now, source=self.id, level=EventLevel.INFO,
                 type="MIXER_MOVE_STOP",
-                message=f"Mixer: STOP OPEN (ran={actual:.2f}s, plan={self._move_planned_s:.2f}s, mode={effective_mode})" if actual is not None and self._move_planned_s is not None else "Mixer: STOP OPEN",
+                message=(
+                    f"Mixer: STOP OPEN (ran={actual:.2f}s, plan={self._move_planned_s:.2f}s, mode={effective_mode})"
+                    if actual is not None and self._move_planned_s is not None else "Mixer: STOP OPEN"
+                ),
                 data={
                     "direction": "open",
                     "actual_run_s": actual,
@@ -383,36 +397,42 @@ class MixerModule(ModuleInterface):
             self._move_start_ts = None
             self._move_direction_last = None
             self._move_planned_s = None
-    
+
         # START CLOSE
         if out_close and not self._last_out_close:
-            planned = (self._movement_until_ts - now) if self._movement_until_ts else None
-            self._move_start_ts = now
+            planned = (self._movement_until_ts - now_ctrl) if self._movement_until_ts else None
+            self._move_start_ts = now_ctrl
             self._move_direction_last = "close"
             self._move_planned_s = planned
-    
+
             evs.append(Event(
                 ts=now, source=self.id, level=EventLevel.INFO,
                 type="MIXER_MOVE_START",
-                message=f"Mixer: START CLOSE (plan={planned:.2f}s, mode={effective_mode})" if planned is not None else f"Mixer: START CLOSE (mode={effective_mode})",
+                message=(
+                    f"Mixer: START CLOSE (plan={planned:.2f}s, mode={effective_mode})"
+                    if planned is not None else f"Mixer: START CLOSE (mode={effective_mode})"
+                ),
                 data={
                     "direction": "close",
                     "planned_pulse_s": planned,
-                    "until_ts": self._movement_until_ts,
+                    "until_ts": self._movement_until_ts,  # monotonic timestamp
                     "mode": effective_mode,
                     "radiators_temp": rad_temp,
                     "boiler_temp": boiler_temp,
                     "target_temp": self._config.target_temp,
                 }
             ))
-    
+
         # STOP CLOSE
         if (not out_close) and self._last_out_close:
-            actual = (now - self._move_start_ts) if self._move_start_ts is not None else None
+            actual = (now_ctrl - self._move_start_ts) if self._move_start_ts is not None else None
             evs.append(Event(
                 ts=now, source=self.id, level=EventLevel.INFO,
                 type="MIXER_MOVE_STOP",
-                message=f"Mixer: STOP CLOSE (ran={actual:.2f}s, plan={self._move_planned_s:.2f}s, mode={effective_mode})" if actual is not None and self._move_planned_s is not None else "Mixer: STOP CLOSE",
+                message=(
+                    f"Mixer: STOP CLOSE (ran={actual:.2f}s, plan={self._move_planned_s:.2f}s, mode={effective_mode})"
+                    if actual is not None and self._move_planned_s is not None else "Mixer: STOP CLOSE"
+                ),
                 data={
                     "direction": "close",
                     "actual_run_s": actual,
@@ -426,12 +446,10 @@ class MixerModule(ModuleInterface):
             self._move_start_ts = None
             self._move_direction_last = None
             self._move_planned_s = None
-    
-        # Twoje dotychczasowe logger.debug zostaw (lub usuń), ale pamiętaj zaktualizować _last_out_*
+
         self._last_out_open = out_open
         self._last_out_close = out_close
         return evs
-
 
     def _is_far_from_setpoint(self, rad_temp: Optional[float]) -> bool:
         if rad_temp is None:
@@ -445,10 +463,10 @@ class MixerModule(ModuleInterface):
         self._movement_until_ts = None
         self._movement_direction = None
 
-    def _can_adjust(self, now: float) -> bool:
+    def _can_adjust(self, now_ctrl: float) -> bool:
         if self._last_action_ts is None:
             return True
-        return (now - self._last_action_ts) >= self._config.adjust_interval_s
+        return (now_ctrl - self._last_action_ts) >= self._config.adjust_interval_s
 
     def _decide_direction_work(self, mix_temp: float) -> Optional[str]:
         t_set = self._config.target_temp
@@ -520,10 +538,10 @@ class MixerModule(ModuleInterface):
 
         return pulse
 
-    def _start_movement(self, now: float, direction: str, pulse_s: float) -> None:
+    def _start_movement(self, now_ctrl: float, direction: str, pulse_s: float) -> None:
         self._movement_direction = direction
-        self._movement_until_ts = now + pulse_s
-        self._last_action_ts = now
+        self._movement_until_ts = now_ctrl + pulse_s
+        self._last_action_ts = now_ctrl
 
     # ---------- CONFIG (schema + values) ----------
 
@@ -600,3 +618,4 @@ class MixerModule(ModuleInterface):
         data = asdict(self._config)
         with self._config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, sort_keys=True, allow_unicode=True)
+

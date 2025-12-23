@@ -16,7 +16,7 @@ from backend.core.state import (
     Outputs,
     Sensors,
     SystemState,
-	PartialOutputs
+    PartialOutputs,
 )
 
 
@@ -76,7 +76,7 @@ class ModeModule(ModuleInterface):
         self._config = config or ModeConfig()
         self._load_config_from_file()
 
-        # Stan wewnętrzny: kiedy weszliśmy w IGNITION
+        # Stan wewnętrzny: kiedy weszliśmy w IGNITION (CZAS MONOTONICZNY)
         self._ignition_started_at: Optional[float] = None
         self._last_mode: Optional[BoilerMode] = None
 
@@ -88,12 +88,15 @@ class ModeModule(ModuleInterface):
 
     def tick(
         self,
-        now: float,
+        now: float,  # wall time (do event.ts)
         sensors: Sensors,
         system_state: SystemState,
     ) -> ModuleTickResult:
         events: List[Event] = []
         outputs = PartialOutputs()  # moduł nie steruje sprzętem
+
+        # czas kontrolny do logiki czasowej (odporny na DST/NTP)
+        now_ctrl = float(getattr(system_state, "ts_mono", now))
 
         current_mode = system_state.mode
         boiler_temp = sensors.boiler_temp
@@ -117,9 +120,9 @@ class ModeModule(ModuleInterface):
                 )
             )
 
-            # Zarządzanie timestampem IGNITION
+            # Zarządzanie timestampem IGNITION (monotonic)
             if current_mode == BoilerMode.IGNITION:
-                self._ignition_started_at = now
+                self._ignition_started_at = now_ctrl
             else:
                 self._ignition_started_at = None
 
@@ -132,7 +135,12 @@ class ModeModule(ModuleInterface):
             and self._ignition_started_at is not None
             and boiler_temp is not None
         ):
-            ignition_duration = now - self._ignition_started_at
+            ignition_duration = now_ctrl - self._ignition_started_at
+
+            # zabezpieczenie gdyby monotonic się wyzerował / dane były niepoprawne
+            if ignition_duration < 0:
+                ignition_duration = 0.0
+                self._ignition_started_at = now_ctrl
 
             if (
                 ignition_duration >= self._config.min_ignition_time_s
@@ -217,7 +225,7 @@ class ModeModule(ModuleInterface):
         Publiczne API wymagane przez Kernel.
         """
         self._load_config_from_file()
-			
+
     def _load_config_from_file(self) -> None:
         if not self._config_path.exists():
             return
@@ -236,3 +244,4 @@ class ModeModule(ModuleInterface):
         data = asdict(self._config)
         with self._config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, sort_keys=True, allow_unicode=True)
+

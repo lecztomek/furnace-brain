@@ -71,6 +71,11 @@ class StatsModule(ModuleInterface):
     - okna 1h/4h/24h/7d liczone są jako agregacja ostatnich N bucketów 5m
       (rolling po czasie, niezależne od częstotliwości tick)
     - publikuje wyniki w system_state.runtime["stats"]
+
+    UWAGA dot. czasu:
+    - do integracji i bucketów używamy czasu monotonicznego (system_state.ts_mono),
+      żeby skoki wall-clock (NTP/DST) nie psuły statystyk
+    - do publikacji ts_unix/ts_iso nadal używamy `now` (wall time)
     """
 
     def __init__(self, base_path: Optional[Path] = None, config: Optional[StatsConfig] = None) -> None:
@@ -81,10 +86,10 @@ class StatsModule(ModuleInterface):
         self._config = config or StatsConfig()
         self._load_config_from_file()
 
-        # czas
+        # czas (MONOTONICZNY)
         self._last_ts: Optional[float] = None
 
-        # aktualny bucket 5m (niezamknięty)
+        # aktualny bucket 5m (niezamknięty) (MONOTONICZNY start)
         self._bucket_start_ts: Optional[float] = None
         self._cur = _Bucket()
 
@@ -105,34 +110,38 @@ class StatsModule(ModuleInterface):
         if not hasattr(system_state, "runtime"):
             system_state.runtime = {}
 
+        # czas do sterowania/integracji: monotoniczny (odporny na DST/NTP)
+        now_ctrl = float(getattr(system_state, "ts_mono", now))
+
         if not self._config.enabled:
             self._publish(now, system_state, enabled=False)
             return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
-        # pierwszy tick - inicjalizacja czasu
+        # pierwszy tick - inicjalizacja czasu (monotonic)
         if self._last_ts is None:
-            self._last_ts = now
-            self._bucket_start_ts = now
+            self._last_ts = now_ctrl
+            self._bucket_start_ts = now_ctrl
             self._cur = _Bucket()
             self._publish(now, system_state, enabled=True)
             return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
-        dt_total = now - self._last_ts
+        dt_total = now_ctrl - self._last_ts
         if dt_total <= 0:
-            self._last_ts = now
+            # monotonic raczej nie cofnie, ale zostawiamy defensywnie
+            self._last_ts = now_ctrl
             self._publish(now, system_state, enabled=True)
             return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
         feeder_on = bool(system_state.outputs.feeder_on)
         t = self._last_ts
 
-        # integracja po czasie z podziałem na granice bucketów 5m
-        while t < now:
+        # integracja po czasie z podziałem na granice bucketów 5m (monotonic)
+        while t < now_ctrl:
             if self._bucket_start_ts is None:
                 self._bucket_start_ts = t
 
             bucket_end = self._bucket_start_ts + SECONDS_5M
-            step = min(now - t, bucket_end - t)
+            step = min(now_ctrl - t, bucket_end - t)
 
             self._cur.seconds += step
 
@@ -152,7 +161,7 @@ class StatsModule(ModuleInterface):
                 self._bucket_start_ts = bucket_end
                 self._cur = _Bucket()
 
-        self._last_ts = now
+        self._last_ts = now_ctrl
         self._publish(now, system_state, enabled=True)
 
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
@@ -224,6 +233,7 @@ class StatsModule(ModuleInterface):
     # ---------- PUBLIKACJA DO runtime ----------
 
     def _publish(self, now: float, system_state: SystemState, enabled: bool) -> None:
+        # publikacja czasu: wall clock (czytelne dla UI/logów)
         ts_iso = datetime.fromtimestamp(now).isoformat(timespec="seconds")
 
         # 5m: ostatni zamknięty bucket, a jeśli go brak, to aktualny (częściowy)
@@ -327,3 +337,4 @@ class StatsModule(ModuleInterface):
     def _save_config_to_file(self) -> None:
         with self._config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(asdict(self._config), f, sort_keys=True, allow_unicode=True)
+
