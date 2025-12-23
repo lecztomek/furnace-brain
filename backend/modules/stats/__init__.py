@@ -8,7 +8,10 @@ from datetime import datetime, date, timedelta
 import csv
 
 import yaml  # pip install pyyaml
-from zoneinfo import ZoneInfo
+try:
+    from zoneinfo import ZoneInfo  # Python 3.9+
+except ImportError:
+    from backports.zoneinfo import ZoneInfo  # Python 3.7/3.8
 
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
 from backend.core.state import (
