@@ -5,7 +5,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import csv
-from zoneinfo import ZoneInfo
+try:
+    from zoneinfo import ZoneInfo  # Python 3.9+
+except ImportError:
+    from backports.zoneinfo import ZoneInfo  # Python 3.7/3.8
 
 from fastapi import APIRouter, HTTPException, Query
 
