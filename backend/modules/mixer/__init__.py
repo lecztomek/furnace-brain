@@ -101,7 +101,7 @@ class MixerModule(ModuleInterface):
         outputs = PartialOutputs()
 
         # czas kontrolny (monotonic) do wszelkich timerów/cykli
-        now_ctrl = float(getattr(system_state, "ts_mono", now))
+        now_ctrl = system_state.ts_mono
 
         # FIX: PartialOutputs jest deltą (None = nie zmieniaj)
         outputs.mixer_open_on = False

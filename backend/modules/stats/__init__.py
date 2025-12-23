@@ -27,6 +27,7 @@ BUCKETS_4H = 48                 # 48 * 5m
 BUCKETS_24H = 288               # 288 * 5m
 BUCKETS_7D = 2016               # 2016 * 5m (7 dni)
 
+
 # ---------- KONFIGURACJA RUNTIME ----------
 
 @dataclass
@@ -73,9 +74,10 @@ class StatsModule(ModuleInterface):
     - publikuje wyniki w system_state.runtime["stats"]
 
     UWAGA dot. czasu:
-    - do integracji i bucketów używamy czasu monotonicznego (system_state.ts_mono),
-      żeby skoki wall-clock (NTP/DST) nie psuły statystyk
+    - do integracji i bucketów używamy WYŁĄCZNIE czasu monotonicznego:
+      system_state.ts_mono (odporny na skoki wall-clock: NTP/DST)
     - do publikacji ts_unix/ts_iso nadal używamy `now` (wall time)
+    - BEZ fallbacków: jeśli ts_mono nie istnieje, to ma się wywalić (to błąd systemu)
     """
 
     def __init__(self, base_path: Optional[Path] = None, config: Optional[StatsConfig] = None) -> None:
@@ -87,16 +89,14 @@ class StatsModule(ModuleInterface):
         self._load_config_from_file()
 
         # czas (MONOTONICZNY)
-        self._last_ts: Optional[float] = None
+        self._last_ts_mono: Optional[float] = None
 
         # aktualny bucket 5m (niezamknięty) (MONOTONICZNY start)
-        self._bucket_start_ts: Optional[float] = None
+        self._bucket_start_mono: Optional[float] = None
         self._cur = _Bucket()
 
         # historia ZAMKNIĘTYCH bucketów 5m (7 dni)
         self._b5m: deque[_Agg] = deque(maxlen=BUCKETS_7D)
-
-    # --- ModuleInterface ---
 
     @property
     def id(self) -> str:
@@ -106,42 +106,38 @@ class StatsModule(ModuleInterface):
         events: List[Event] = []
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
 
-        # init runtime slot (defensywnie)
-        if not hasattr(system_state, "runtime"):
-            system_state.runtime = {}
-
-        # czas do sterowania/integracji: monotoniczny (odporny na DST/NTP)
-        now_ctrl = float(getattr(system_state, "ts_mono", now))
+        # czas do sterowania/integracji: monotoniczny (bez fallbacków)
+        now_mono: float = system_state.ts_mono
 
         if not self._config.enabled:
             self._publish(now, system_state, enabled=False)
             return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
         # pierwszy tick - inicjalizacja czasu (monotonic)
-        if self._last_ts is None:
-            self._last_ts = now_ctrl
-            self._bucket_start_ts = now_ctrl
+        if self._last_ts_mono is None:
+            self._last_ts_mono = now_mono
+            self._bucket_start_mono = now_mono
             self._cur = _Bucket()
             self._publish(now, system_state, enabled=True)
             return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
-        dt_total = now_ctrl - self._last_ts
+        dt_total = now_mono - self._last_ts_mono
         if dt_total <= 0:
-            # monotonic raczej nie cofnie, ale zostawiamy defensywnie
-            self._last_ts = now_ctrl
+            # monotonic nie powinien cofać, ale jak dt==0 to po prostu nic nie integrujemy
+            self._last_ts_mono = now_mono
             self._publish(now, system_state, enabled=True)
             return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
         feeder_on = bool(system_state.outputs.feeder_on)
-        t = self._last_ts
+        t = self._last_ts_mono
 
         # integracja po czasie z podziałem na granice bucketów 5m (monotonic)
-        while t < now_ctrl:
-            if self._bucket_start_ts is None:
-                self._bucket_start_ts = t
+        while t < now_mono:
+            if self._bucket_start_mono is None:
+                self._bucket_start_mono = t
 
-            bucket_end = self._bucket_start_ts + SECONDS_5M
-            step = min(now_ctrl - t, bucket_end - t)
+            bucket_end = self._bucket_start_mono + SECONDS_5M
+            step = min(now_mono - t, bucket_end - t)
 
             self._cur.seconds += step
 
@@ -158,10 +154,10 @@ class StatsModule(ModuleInterface):
             # domykamy bucket 5m
             if t >= bucket_end - 1e-9:
                 self._finalize_5m_bucket()
-                self._bucket_start_ts = bucket_end
+                self._bucket_start_mono = bucket_end
                 self._cur = _Bucket()
 
-        self._last_ts = now_ctrl
+        self._last_ts_mono = now_mono
         self._publish(now, system_state, enabled=True)
 
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
@@ -245,8 +241,12 @@ class StatsModule(ModuleInterface):
                 seconds=self._cur.seconds,
                 coal_kg=self._cur.coal_kg,
                 energy_kwh=self._cur.energy_kwh,
-                burn_kgph_avg=burn, burn_kgph_min=burn, burn_kgph_max=burn,
-                power_kw_avg=power, power_kw_min=power, power_kw_max=power,
+                burn_kgph_avg=burn,
+                burn_kgph_min=burn,
+                burn_kgph_max=burn,
+                power_kw_avg=power,
+                power_kw_min=power,
+                power_kw_max=power,
             )
 
         a1 = self._window_from_5m(BUCKETS_1H)
@@ -294,6 +294,7 @@ class StatsModule(ModuleInterface):
         pack("24h", a24, payload)
         pack("7d", a7, payload)
 
+        # BEZ fallbacków: runtime musi istnieć w SystemState
         system_state.runtime["stats"] = payload
 
     # ---------- CONFIG (schema + values) ----------

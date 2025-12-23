@@ -140,7 +140,7 @@ class IgnitionPowerModule(ModuleInterface):
         outputs = PartialOutputs()
 
         # czas sterujący (odporny na DST/NTP); eventy/logi nadal na wall time (now)
-        now_ctrl = float(getattr(system_state, "ts_mono", now))
+        now_ctrl = system_state.ts_mono
 
         boiler_temp = sensors.boiler_temp
         mode_enum = system_state.mode

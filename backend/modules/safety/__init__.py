@@ -88,7 +88,7 @@ class SafetyModule(ModuleInterface):
             return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
 
         # czas sterujący (odporny na DST/NTP); eventy/logi nadal na wall time (now)
-        now_ctrl = float(getattr(system_state, "ts_mono", now))
+        now_ctrl = system_state.ts_mono
 
         missing = {
             "boiler_temp": sensors.boiler_temp is None,

@@ -129,7 +129,7 @@ class BlowerModule(ModuleInterface):
         outputs = PartialOutputs()
 
         # czas kontrolny (monotonic) do timerów/cykli
-        now_ctrl = float(getattr(system_state, "ts_mono", now))
+        now_ctrl = system_state.ts_mono
 
         mode_enum = system_state.mode
         power = float(system_state.outputs.power_percent)  # 0–100

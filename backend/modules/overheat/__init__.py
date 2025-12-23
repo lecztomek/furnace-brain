@@ -77,7 +77,7 @@ class OverheatModule(ModuleInterface):
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
 
         # czas sterujący (odporny na DST/NTP); eventy/logi nadal na wall time (now)
-        now_ctrl = float(getattr(system_state, "ts_mono", now))
+        now_ctrl = system_state.ts_mono
 
         t_boiler = sensors.boiler_temp
         t_hopper = sensors.hopper_temp

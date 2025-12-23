@@ -97,7 +97,7 @@ class FeederModule(ModuleInterface):
         outputs = PartialOutputs()  # domyślnie nie zmieniamy nic poza feeder_on
 
         # czas kontrolny do cykli (monotonic)
-        now_ctrl = float(getattr(system_state, "ts_mono", now))
+        now_ctrl = system_state.ts_mono
 
         mode = system_state.mode
         power = system_state.outputs.power_percent  # 0–100%
