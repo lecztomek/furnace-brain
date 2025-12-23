@@ -7,3 +7,5 @@ backend/.venv/
 /backend/modules/eventlog/data/*.csv
 
 **/values.yaml
+
+backend/modules/power_work/data/power_work_state.yaml
