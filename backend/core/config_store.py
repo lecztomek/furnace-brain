@@ -151,18 +151,28 @@ class ConfigStore:
             return num
 
         elif ftype == "text":
-            # tekst wybierany z listy
+            # tekst wolny albo wybierany z listy (jeśli options/choices podane)
             options = field.get("options") or field.get("choices")
-            if options is None:
+        
+            if value is None:
                 raise ValueError(
-                    f"Pole '{field['key']}' typu 'text' nie ma zdefiniowanych opcji."
+                    f"Pole '{field['key']}' oczekuje tekstu, dostało: {value!r}"
                 )
-            if value not in options:
-                raise ValueError(
-                    f"Pole '{field['key']}' może przyjmować tylko: {options}, "
-                    f"dostało: {value!r}"
-                )
-            return str(value)
+
+            s = str(value)
+
+            # jeśli są opcje -> walidujemy jak enum
+            if options is not None:
+                if not isinstance(options, list):
+                    raise ValueError(
+                        f"Pole '{field['key']}': options/choices muszą być listą, dostało: {type(options).__name__}"
+                    )
+                if s not in options:
+                    raise ValueError(
+                        f"Pole '{field['key']}' może przyjmować tylko: {options}, dostało: {value!r}"
+                    )
+
+            return s
 
         elif ftype == "bool":
             # prosta konwersja do bool:
