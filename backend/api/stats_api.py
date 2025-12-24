@@ -83,22 +83,6 @@ def create_stats_router(
         except ValueError:
             return None
 
-    def _strip_power_energy(obj: Any) -> Any:
-        """
-        Usuwa z payloadu wszystko związane z power_kw* oraz energy_kwh* (rekurencyjnie).
-        Zostawiamy tylko rzeczy potrzebne pod coal i burn (oraz resztę nie-power/energy).
-        """
-        if isinstance(obj, dict):
-            out: Dict[str, Any] = {}
-            for k, v in obj.items():
-                if k.startswith("power_kw") or k.startswith("energy_kwh"):
-                    continue
-                out[k] = _strip_power_energy(v)
-            return out
-        if isinstance(obj, list):
-            return [_strip_power_energy(x) for x in obj]
-        return obj
-
     def _last_5m_bars(count: int, now_dt: datetime) -> List[Dict[str, Any]]:
         """
         Zwraca ostatnie `count` bucketów 5m na podstawie CSV stats5m_*.csv.
@@ -266,9 +250,6 @@ def create_stats_router(
         existing_compare["minutes_5m"] = _last_5m_bars(20, now_dt)
         payload["compare_bars"] = existing_compare
 
-        # --- usuń wszystko power/energy z całego payloadu (łącznie z calendar / compare_bars / top-level) ---
-        payload = _strip_power_energy(payload)
-
         return {"module_id": module_id, "count": len(payload), "data": payload}
 
     # ---------------- SERIA 5m z CSV (history-like) ----------------
@@ -328,8 +309,6 @@ def create_stats_router(
                         if fields:
                             filtered: Dict[str, Any] = {"ts_end_iso": ts_str}
                             for key in fields:
-                                if key.startswith("power_kw") or key.startswith("energy_kwh"):
-                                    continue
                                 if key in row:
                                     filtered[key] = row[key]
                             items.append(filtered)
@@ -337,8 +316,6 @@ def create_stats_router(
                             # bez fields: zwracamy wszystko poza power/energy
                             filtered_all: Dict[str, Any] = {}
                             for k, v in row.items():
-                                if k.startswith("power_kw") or k.startswith("energy_kwh"):
-                                    continue
                                 filtered_all[k] = v
                             items.append(filtered_all)
             except OSError:
@@ -364,7 +341,6 @@ def create_stats_router(
                     reader = csv.reader(f, delimiter=";")
                     header = next(reader, None)
                     if header:
-                        header = [h for h in header if not (h.startswith("power_kw") or h.startswith("energy_kwh"))]
                         return {"fields": header}
             except OSError:
                 continue
@@ -418,16 +394,12 @@ def create_stats_router(
                     if fields:
                         filtered: Dict[str, Any] = {"date": d_str}
                         for key in fields:
-                            if key.startswith("power_kw") or key.startswith("energy_kwh"):
-                                continue
                             if key in row:
                                 filtered[key] = row[key]
                         items.append(filtered)
                     else:
                         filtered_all: Dict[str, Any] = {}
                         for k, v in row.items():
-                            if k.startswith("power_kw") or k.startswith("energy_kwh"):
-                                continue
                             filtered_all[k] = v
                         items.append(filtered_all)
         except OSError as exc:
@@ -456,7 +428,6 @@ def create_stats_router(
                 header = next(reader, None)
                 if not header:
                     return {"fields": []}
-                header = [h for h in header if not (h.startswith("power_kw") or h.startswith("energy_kwh"))]
                 return {"fields": header}
         except OSError:
             return {"fields": []}

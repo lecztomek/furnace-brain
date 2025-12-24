@@ -33,6 +33,13 @@ class WorkFuzzyPowerConfig:
     boiler_tau_s: float = 180.0
     flue_tau_s: float = 60.0
 
+    # Waga wpływu spalin zależna od |błędu|:
+    # - blisko zadanej (|e|~0): w ≈ flue_weight_near
+    # - daleko (|e|>=flue_weight_band_C): w ≈ flue_weight_far
+    flue_weight_band_C: float = 8.0
+    flue_weight_near: float = 1.2
+    flue_weight_far: float = 0.1
+
     # Error e = T_set - T_boiler_f [°C]
     e_nb_a: float = -12.0
     e_nb_b: float = -8.0
@@ -265,6 +272,7 @@ class WorkFuzzyPowerModule(ModuleInterface):
                         "flue_f": flue_f,
                         "rate_degC_per_min": rate,
                         "delta": float(delta),
+                        "flue_weight": self._flue_weight(abs(err)),
                     },
                 )
             )
@@ -285,14 +293,18 @@ class WorkFuzzyPowerModule(ModuleInterface):
         mu_r = self._fuzzify_rate(rate)
         mu_f = self._fuzzify_flue(flue)
 
+        w_flue = self._flue_weight(abs(err))
+
         rules: List[tuple[float, str]] = []
 
+        # bazowe sterowanie błędem
         rules.append((mu_e["PB"], "UB"))
         rules.append((mu_e["PS"], "UM"))
         rules.append((mu_e["ZE"], "Z"))
         rules.append((mu_e["NS"], "DS"))
         rules.append((mu_e["NB"], "DB"))
 
+        # rate-damping / antyprzeregulowanie
         rules.append((min(mu_e["PS"], mu_r["RISE"]), "DS"))
         rules.append((min(mu_e["ZE"], mu_r["RISE"]), "DM"))
         rules.append((min(mu_e["NS"], mu_r["RISE"]), "DB"))
@@ -301,14 +313,15 @@ class WorkFuzzyPowerModule(ModuleInterface):
         rules.append((min(mu_e["PS"], mu_r["FALL"]), "UM"))
         rules.append((min(mu_e["NS"], mu_r["FALL"]), "Z"))
 
-        rules.append((mu_f["VHIGH"], "DB"))
-        rules.append((min(mu_f["HIGH"], max(mu_e["ZE"], mu_e["NS"])), "DB"))
-        rules.append((min(mu_f["HIGH"], mu_e["PS"]), "DS"))
+        # reguły spalinowe – skalowane wagą zależną od |błędu|
+        rules.append((w_flue * mu_f["VHIGH"], "DB"))
+        rules.append((w_flue * min(mu_f["HIGH"], max(mu_e["ZE"], mu_e["NS"])), "DB"))
+        rules.append((w_flue * min(mu_f["HIGH"], mu_e["PS"]), "DS"))
 
-        rules.append((min(mu_f["LOW"], mu_e["PB"]), "UB"))
-        rules.append((min(mu_f["LOW"], mu_e["PS"]), "UM"))
-        rules.append((min(mu_f["MID"], mu_e["PB"]), "UM"))
-        rules.append((min(mu_f["MID"], mu_e["PS"]), "US"))
+        rules.append((w_flue * min(mu_f["LOW"], mu_e["PB"]), "UB"))
+        rules.append((w_flue * min(mu_f["LOW"], mu_e["PS"]), "UM"))
+        rules.append((w_flue * min(mu_f["MID"], mu_e["PB"]), "UM"))
+        rules.append((w_flue * min(mu_f["MID"], mu_e["PS"]), "US"))
 
         agg: List[float] = [0.0] * len(self._delta_universe)
         for strength, out_label in rules:
@@ -316,9 +329,9 @@ class WorkFuzzyPowerModule(ModuleInterface):
                 continue
             for i, x in enumerate(self._delta_universe):
                 mu_out = self._out_membership(out_label, x)
-                v = strength if strength < mu_out else mu_out
+                v = strength if strength < mu_out else mu_out  # min()
                 if v > agg[i]:
-                    agg[i] = v
+                    agg[i] = v  # max()
 
         num = 0.0
         den = 0.0
@@ -329,6 +342,32 @@ class WorkFuzzyPowerModule(ModuleInterface):
         if den <= 1e-9:
             return 0.0
         return num / den
+
+    def _flue_weight(self, abs_err: float) -> float:
+        c = self._config
+        band = float(c.flue_weight_band_C)
+        if band <= 0.0:
+            return max(0.0, float(c.flue_weight_near))
+
+        x = abs_err / band
+        if x < 0.0:
+            x = 0.0
+        elif x > 1.0:
+            x = 1.0
+
+        # smoothstep: 0..1 (gładkie przejście)
+        s = x * x * (3.0 - 2.0 * x)
+
+        near = float(c.flue_weight_near)
+        far = float(c.flue_weight_far)
+
+        w = near * (1.0 - s) + far * s
+
+        if w < 0.0:
+            w = 0.0
+        if w > 5.0:
+            w = 5.0
+        return w
 
     def _fuzzify_error(self, e: float) -> Dict[str, float]:
         c = self._config
@@ -672,6 +711,9 @@ class WorkFuzzyPowerModule(ModuleInterface):
             "max_slew_rate_percent_per_min",
             "boiler_tau_s",
             "flue_tau_s",
+            "flue_weight_band_C",
+            "flue_weight_near",
+            "flue_weight_far",
             "delta_universe_min",
             "delta_universe_max",
             "delta_universe_step",
@@ -685,14 +727,14 @@ class WorkFuzzyPowerModule(ModuleInterface):
             "state_max_age_s",
             "state_max_boiler_temp_delta_C",
             "state_max_flue_temp_delta_C",
-            "e_nb_a","e_nb_b","e_nb_c","e_nb_d",
-            "e_ns_a","e_ns_b","e_ns_c",
-            "e_ze_a","e_ze_b","e_ze_c",
-            "e_ps_a","e_ps_b","e_ps_c",
-            "e_pb_a","e_pb_b","e_pb_c","e_pb_d",
-            "r_fall_a","r_fall_b","r_fall_c","r_fall_d",
-            "r_stable_a","r_stable_b","r_stable_c",
-            "r_rise_a","r_rise_b","r_rise_c","r_rise_d",
+            "e_nb_a", "e_nb_b", "e_nb_c", "e_nb_d",
+            "e_ns_a", "e_ns_b", "e_ns_c",
+            "e_ze_a", "e_ze_b", "e_ze_c",
+            "e_ps_a", "e_ps_b", "e_ps_c",
+            "e_pb_a", "e_pb_b", "e_pb_c", "e_pb_d",
+            "r_fall_a", "r_fall_b", "r_fall_c", "r_fall_d",
+            "r_stable_a", "r_stable_b", "r_stable_c",
+            "r_rise_a", "r_rise_b", "r_rise_c", "r_rise_d",
         ):
             if field_name in values:
                 setattr(self._config, field_name, float(values[field_name]))

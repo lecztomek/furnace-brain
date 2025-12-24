@@ -19,7 +19,7 @@
               <!-- header -->
               <div class="stats-v2-head">
                 <div class="stats-v2-title">
-                  <div class="stats-v2-title-big">SPALANIE</div>
+                  <div class="stats-v2-title-big">STATYSTYKI SPALANIA</div>
                 </div>
 
                 <div class="stats-v2-meta">
@@ -76,7 +76,7 @@
 <!-- TOTALS -->
 <div class="stats-v2-bottom">
   <div class="stats-v2-bottom-head">
-    <div class="stats-v2-bottom-title">ZUŻYCIE</div>
+    <div class="stats-v2-bottom-title">ZUŻYCIE OPAŁU</div>
   </div>
 
   <div class="totals-row">
@@ -119,12 +119,12 @@
 
   <div class="totals-row">
     <div class="total-card">
-      <div class="total-card-top">PRACA DZIŚ</div>
+      <div class="total-card-top">ŚR. MOC DZIŚ</div>
       <details class="hint">
         <summary aria-label="Podpowiedź">?</summary>
-        <div class="hint-pop">Czas aktywnej pracy dzisiaj + udział aktywnego czasu (active_ratio).</div>
+        <div class="hint-pop">Średnia moc (kW) policzona z dzisiejszych danych (calendar.today.power_kw_avg).</div>
       </details>
-      <div class="total-card-val"><span id="sum-active-today">--</span></div>
+      <div class="total-card-val"><span id="sum-active-today">--</span> <span class="u">kW</span></div>
     </div>
 
     <div class="total-card">
@@ -145,23 +145,28 @@
       <div class="total-card-val"><span id="sum-coal-today">--</span> <span class="u">kg</span></div>
     </div>
 
-    <div class="total-card">
-      <div class="total-card-top">STABILNOŚĆ 1H</div>
-      <details class="hint">
-        <summary aria-label="Podpowiedź">?</summary>
-        <div class="hint-pop">Rozrzut spalania w ostatniej godzinie: (max−min) i % względem średniej 1h. Im mniej, tym stabilniej.</div>
-      </details>
-      <div class="total-card-val"><span id="sum-stability-1h">--</span></div>
-    </div>
+<div class="total-card">
+  <div class="total-card-top">STABILNOŚĆ 1H</div>
+  <details class="hint">
+    <summary aria-label="Podpowiedź">?</summary>
+    <div class="hint-pop">Im mniej %, tym stabilniej. Gauge pokazuje stabilność (odwrócone), a liczba to % rozrzutu.</div>
+  </details>
 
-    <div class="total-card">
-      <div class="total-card-top">PODAJNIK TERAZ</div>
-      <details class="hint">
-        <summary aria-label="Podpowiedź">?</summary>
-        <div class="hint-pop">Udział aktualnego spalania (5m) względem wydajności podajnika (feeder_kg_per_hour). Wskaźnik orientacyjny.</div>
-      </details>
-      <div class="total-card-val"><span id="sum-feeder-now">--</span></div>
-    </div>
+  <div class="total-card-val">
+    <svg id="gauge-stab-1h" width="140" height="86" viewBox="0 0 140 86" aria-label="Stabilność 1h"></svg>
+  </div>
+</div>
+
+
+<div class="total-card">
+  <div class="total-card-top">STABILNOŚĆ DZIŚ</div>
+  <details class="hint">
+    <summary aria-label="Podpowiedź">?</summary>
+    <div class="hint-pop">Im mniej %, tym stabilniej. Gauge pokazuje stabilność (odwrócone), a liczba to % rozrzutu.</div>
+  </details>
+
+  <div class="total-card-val">
+    <svg id="gauge-stab-today" width="140" height="86" viewBox="0 0 140 86" aria-label="Stabilność dziś"></svg>
   </div>
 </div>
 

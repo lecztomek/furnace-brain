@@ -1068,3 +1068,16 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
   }
 }
 
+/* wyśrodkuj zawartość w kafelkach z gauge */
+.total-card .total-card-val {
+  display: flex;
+  flex-direction: column;
+  align-items: center;   /* poziomo */
+  justify-content: center;
+}
+
+/* svg jako block, żeby nie było "baseline offset" */
+.total-card .total-card-val svg {
+  display: block;
+}
+

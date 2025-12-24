@@ -89,12 +89,13 @@
     const max = Math.max(1, ...vals);
     const min = 0;
 
-    // y labels 0 / mid / max
+    // y labels 0 / mid / max (1 miejsce po przecinku)
     const labels = [
-      { t: `${Math.round(max)} kg/h`, y: padT },
-      { t: `${Math.round(max/2)} kg/h`, y: padT + innerH/2 },
-      { t: `0 kg/h`, y: padT + innerH }
+      { t: `${max.toFixed(1)} kg/h`, y: padT },
+      { t: `${(max / 2).toFixed(1)} kg/h`, y: padT + innerH / 2 },
+      { t: `${(0).toFixed(1)} kg/h`, y: padT + innerH }
     ];
+
     labels.forEach(L => {
       const tx = svgEl("text", {
         x: 8, y: L.y + 5,
@@ -192,120 +193,194 @@
     });
   }
 
+  // ========= Stability gauge =========
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  // % rozrzutu = (max-min)/avg * 100; null gdy brak danych
+  function rangePct(avg, mn, mx) {
+    const A = Number(avg), MN = Number(mn), MX = Number(mx);
+    if (!Number.isFinite(A) || A <= 0 || !Number.isFinite(MN) || !Number.isFinite(MX)) return null;
+    return ((MX - MN) / A) * 100;
+  }
+
+  // kolor łuku zależny od pct (mniej = lepiej)
+  function colorForPct(pct) {
+    if (!Number.isFinite(pct)) return "rgba(148,163,184,0.85)"; // slate
+    if (pct <= 10) return "rgba(34,197,94,0.90)";              // green
+    if (pct <= 20) return "rgba(251,191,36,0.95)";             // amber
+    return "rgba(239,68,68,0.90)";                             // red
+  }
+
+function renderGauge(svgId, score, pct) {
+  const svg = el(svgId);
+  if (!svg) return;
+  clearSvg(svg);
+
+  const cx = 70, cy = 72;
+  const r = 52;
+
+  const startDeg = 180;
+  const endDeg = 0;
+
+  const s = (score === null || score === undefined) ? null : clamp(Number(score), 0, 100);
+  const col = colorForPct(pct);
+
+  function polar(deg) {
+    const rad = (deg * Math.PI) / 180;
+    return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
+  }
+
+  function arcPath(a0, a1) {
+    const p0 = polar(a0);
+    const p1 = polar(a1);
+    // sweep=1 => górny półokrąg
+    return `M ${p0.x.toFixed(2)} ${p0.y.toFixed(2)} A ${r} ${r} 0 0 1 ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`;
+  }
+
+  const dFull = arcPath(startDeg, endDeg);
+
+  // TRACK (zawsze)
+  const track = svgEl("path", {
+    d: dFull,
+    fill: "none",
+    stroke: "rgba(255,255,255,0.22)",
+    "stroke-width": 10,
+    "stroke-linecap": "round"
+  });
+  svg.appendChild(track);
+
+  // Tekst w środku (zawsze)
+  const txt = svgEl("text", {
+    x: cx,
+    y: 56, // pozycja w "środku" (dostosowana do viewBox 0 0 140 86)
+    "text-anchor": "middle",
+    "dominant-baseline": "middle",
+    fill: "rgba(255,255,255,0.92)",
+    "font-size": 22,
+    "font-weight": 900
+  });
+  txt.textContent = (pct === null || !Number.isFinite(pct)) ? "—" : `${pct.toFixed(0)}%`;
+  svg.appendChild(txt);
+
+  // brak danych => tylko track + tekst
+  if (s === null || !Number.isFinite(s)) return;
+
+  // VALUE ARC (dash)
+  const value = svgEl("path", {
+    d: dFull,
+    fill: "none",
+    stroke: col,
+    "stroke-width": 10,
+    "stroke-linecap": "round"
+  });
+  svg.appendChild(value);
+
+  const len = value.getTotalLength();
+  const shown = (len * s) / 100;
+  value.style.strokeDasharray = `${shown} ${len}`;
+  value.style.strokeDashoffset = "0";
+
+  // DOT na końcu
+  const angle = startDeg + (endDeg - startDeg) * (s / 100);
+  const p = polar(angle);
+
+  svg.appendChild(svgEl("circle", {
+    cx: p.x, cy: p.y, r: 5.2,
+    fill: col,
+    stroke: "rgba(17,24,39,0.95)",
+    "stroke-width": 2
+  }));
+}
+
+
   // ========= apply =========
 
-function applyStats(data) {
-  setText("stats-status", data.enabled ? "OK" : "WYŁĄCZONE");
-  setText("stats-ts", fmtTs(data.ts_iso, data.ts_unix));
+  function applyStats(data) {
+    setText("stats-status", data.enabled ? "OK" : "WYŁĄCZONE");
+    setText("stats-ts", fmtTs(data.ts_iso, data.ts_unix));
 
-  // OBECNIE (kg/h)
-  setText("burn-now", fmtNum(data.burn_kgph_5m, 2));
-  setText("coal-now-5m", fmtNum(data.coal_kg_5m, 3));
+    // OBECNIE (kg/h)
+    setText("burn-now", fmtNum(data.burn_kgph_5m, 2));
+    setText("coal-now-5m", fmtNum(data.coal_kg_5m, 3));
 
-  // totals (kg) — liczby bez “Zużycie:”
-  setText("coal-5m", fmtNum(data.coal_kg_5m, 3));
-  setText("coal-1h", fmtNum(data.coal_kg_1h, 3));
-  setText("coal-4h", fmtNum(data.coal_kg_4h, 3));
-  setText("coal-24h", fmtNum(data.coal_kg_24h, 3));
-  setText("coal-7d", fmtNum(data.coal_kg_7d, 3));
+    // totals (kg) — liczby bez “Zużycie:”
+    setText("coal-5m", fmtNum(data.coal_kg_5m, 3));
+    setText("coal-1h", fmtNum(data.coal_kg_1h, 3));
+    setText("coal-4h", fmtNum(data.coal_kg_4h, 3));
+    setText("coal-24h", fmtNum(data.coal_kg_24h, 3));
+    setText("coal-7d", fmtNum(data.coal_kg_7d, 3));
 
-  // WYKRES (kg/h) — bierzemy compare_bars.minutes_5m + TERAZ
-  const cmp = data.compare_bars || {};
-  const s5m = Array.isArray(cmp.minutes_5m) ? cmp.minutes_5m : [];
+    // WYKRES (kg/h) — compare_bars.minutes_5m + TERAZ
+    const cmp = data.compare_bars || {};
+    const s5m = Array.isArray(cmp.minutes_5m) ? cmp.minutes_5m : [];
 
-  // punkty do linii: minutes_5m + TERAZ
-  const pts = [];
-  const rawLabels = [];
+    const pts = [];
+    const rawLabels = [];
 
-  for (const it of s5m) {
-    const v = Number(it?.burn_kgph_avg ?? it?.burn_kgph);
-    pts.push({ label: String(it?.label ?? ""), v: Number.isFinite(v) ? v : 0 });
-    rawLabels.push(String(it?.label ?? ""));
+    for (const it of s5m) {
+      const v = Number(it?.burn_kgph_avg ?? it?.burn_kgph);
+      pts.push({ label: String(it?.label ?? ""), v: Number.isFinite(v) ? v : 0 });
+      rawLabels.push(String(it?.label ?? ""));
+    }
+    pts.push({ label: "TERAZ", v: Number(data.burn_kgph_5m) || 0 });
+    rawLabels.push("TERAZ");
+
+    const n = rawLabels.length;
+    const keepIdx = new Set([
+      0,
+      Math.floor((n - 2) / 2),
+      n - 2,
+      n - 1
+    ]);
+    const xlabels = rawLabels.map((t, i) => (keepIdx.has(i) ? t : ""));
+
+    renderLine(
+      "burn-line",
+      pts.length >= 2
+        ? pts
+        : [
+            { label: "TERAZ", v: Number(data.burn_kgph_5m) || 0 },
+            { label: "TERAZ", v: Number(data.burn_kgph_5m) || 0 }
+          ]
+    );
+    setXLabels("burn-xlabels", xlabels);
+
+    // SPARKLINES (kg): 5m z minutes_5m, 1h z hours_1h, reszta jeśli backend da
+    const s1h = Array.isArray(cmp.hours_1h) ? cmp.hours_1h : [];
+    const s4h = Array.isArray(cmp.blocks_4h) ? cmp.blocks_4h : [];
+    const s24 = Array.isArray(cmp.days_24h) ? cmp.days_24h : [];
+    const s7d = Array.isArray(cmp.days_7d) ? cmp.days_7d : [];
+
+    renderSpark("spark-5m", s5m, "coal_kg_sum");
+    renderSpark("spark-1h", s1h, "coal_kg_sum");
+    renderSpark("spark-4h", s4h, "coal_kg_sum");
+    renderSpark("spark-24h", s24, "coal_kg_sum");
+    renderSpark("spark-7d", s7d, "coal_kg_sum");
+
+    // ===== PODSUMOWANIE =====
+    const today = (data && data.calendar && data.calendar.today) ? data.calendar.today : {};
+
+    // ŚR. MOC DZIŚ (kafelek z id sum-active-today)
+    const powerTodayAvg = Number(today.power_kw_avg);
+    setText("sum-active-today", Number.isFinite(powerTodayAvg) ? powerTodayAvg.toFixed(2) : "—");
+
+    // ŚR. SPALANIE DZIŚ + ZUŻYCIE DZIŚ
+    const burnTodayAvg = Number(today.burn_kgph_avg);
+    const coalTodaySum = Number(today.coal_kg_sum);
+    setText("sum-burn-today", Number.isFinite(burnTodayAvg) ? burnTodayAvg.toFixed(2) : "—");
+    setText("sum-coal-today", Number.isFinite(coalTodaySum) ? coalTodaySum.toFixed(2) : "—");
+
+    // STABILNOŚĆ 1H -> % rozrzutu, gauge pokazuje score = 100 - pct
+    const pct1h = rangePct(data.burn_kgph_1h, data.burn_kgph_min_1h, data.burn_kgph_max_1h);
+    setText("sum-stability-1h", pct1h === null ? "—" : `${pct1h.toFixed(0)}%`);
+    renderGauge("gauge-stab-1h", pct1h === null ? null : (100 - pct1h), pct1h);
+
+    // STABILNOŚĆ DZIŚ -> % rozrzutu (max_5m - min_active_5m) / avg_dziś
+    const pctToday = rangePct(today.burn_kgph_avg, today.burn_kgph_min_active_5m, today.burn_kgph_max_5m);
+    setText("sum-feeder-now", pctToday === null ? "—" : `${pctToday.toFixed(0)}%`);
+    renderGauge("gauge-stab-today", pctToday === null ? null : (100 - pctToday), pctToday);
   }
-  pts.push({ label: "TERAZ", v: Number(data.burn_kgph_5m) || 0 });
-  rawLabels.push("TERAZ");
-
-  // pokaż tylko 3 labelki z serii + TERAZ (reszta pusta, żeby się mieściło)
-  const n = rawLabels.length;
-  const keepIdx = new Set([
-    0,
-    Math.floor((n - 2) / 2), // środek (bez TERAZ)
-    n - 2,                  // ostatni z serii
-    n - 1                   // TERAZ
-  ]);
-  const xlabels = rawLabels.map((t, i) => (keepIdx.has(i) ? t : ""));
-
-  renderLine(
-    "burn-line",
-    pts.length >= 2
-      ? pts
-      : [
-          { label: "TERAZ", v: Number(data.burn_kgph_5m) || 0 },
-          { label: "TERAZ", v: Number(data.burn_kgph_5m) || 0 }
-        ]
-  );
-  setXLabels("burn-xlabels", xlabels);
-
-  // SPARKLINES (kg): 5m z minutes_5m, 1h z hours_1h, reszta jeśli backend da
-  const s1h = Array.isArray(cmp.hours_1h) ? cmp.hours_1h : [];
-  const s4h = Array.isArray(cmp.blocks_4h) ? cmp.blocks_4h : [];
-  const s24 = Array.isArray(cmp.days_24h) ? cmp.days_24h : [];
-  const s7d = Array.isArray(cmp.days_7d) ? cmp.days_7d : [];
-
-  renderSpark("spark-5m", s5m, "coal_kg_sum");
-  renderSpark("spark-1h", s1h, "coal_kg_sum");
-  renderSpark("spark-4h", s4h, "coal_kg_sum");
-  renderSpark("spark-24h", s24, "coal_kg_sum");
-  renderSpark("spark-7d", s7d, "coal_kg_sum");
-
-  // ===== PODSUMOWANIE (today + 1h + ratio podajnika) =====
-  const today = (data && data.calendar && data.calendar.today) ? data.calendar.today : {};
-
-  const activeSeconds = Number(today.active_seconds ?? today.seconds_sum);
-  const activeRatio = Number(today.active_ratio);
-
-  function fmtDur(sec) {
-    if (!Number.isFinite(sec) || sec <= 0) return "—";
-    const s = Math.floor(sec);
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    if (h <= 0) return `${m} min`;
-    return `${h}h ${m}m`;
-  }
-
-  const burnTodayAvg = Number(today.burn_kgph_avg);
-  const coalTodaySum = Number(today.coal_kg_sum);
-
-  // stabilność 1h: zakres i % względem avg 1h
-  const burn1h = Number(data.burn_kgph_1h);
-  const burn1hMin = Number(data.burn_kgph_min_1h);
-  const burn1hMax = Number(data.burn_kgph_max_1h);
-
-  let stability1h = "—";
-  if (Number.isFinite(burn1h) && burn1h > 0 && Number.isFinite(burn1hMin) && Number.isFinite(burn1hMax)) {
-    const range = burn1hMax - burn1hMin;
-    const pct = (range / burn1h) * 100;
-    stability1h = `${range.toFixed(2)} kg/h (${pct.toFixed(0)}%)`;
-  }
-
-  // wykorzystanie podajnika "teraz"
-  const feeder = Number(data.feeder_kg_per_hour);
-  const burnNow = Number(data.burn_kgph_5m);
-  let feederNow = "—";
-  if (Number.isFinite(feeder) && feeder > 0 && Number.isFinite(burnNow)) {
-    feederNow = `${((burnNow / feeder) * 100).toFixed(0)}%`;
-  }
-
-  // PRACA DZIŚ: czas + % (jeśli jest)
-  let activeText = fmtDur(activeSeconds);
-  if (Number.isFinite(activeRatio)) activeText += ` (${(activeRatio * 100).toFixed(0)}%)`;
-
-  setText("sum-active-today", activeText);
-  setText("sum-burn-today", Number.isFinite(burnTodayAvg) ? burnTodayAvg.toFixed(2) : "—");
-  setText("sum-coal-today", Number.isFinite(coalTodaySum) ? coalTodaySum.toFixed(2) : "—");
-  setText("sum-stability-1h", stability1h);
-  setText("sum-feeder-now", feederNow);
-}
 
   async function reloadStats() {
     try {

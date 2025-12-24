@@ -1,15 +1,16 @@
-# schema.yaml
 id: power_work_fuzzy
-name: "Moc kotła – PRACA (Fuzzy)"
-description: "Wyznaczanie mocy kotła (power %) w trybie WORK na podstawie Mamdani Fuzzy Logic: temp. kotła + temp. spalin."
+name: "Mocy kotła – PRACA (Fuzzy)"
+description: "Sterowanie mocą kotła w trybie WORK algorytmem fuzzy (Mamdani) na podstawie temperatury kotła i spalin. Wpływ spalin maleje wraz z odległością od zadanej."
 
 groups:
   - id: basic
     label: "Podstawowe"
   - id: filters
     label: "Filtry"
+  - id: flue
+    label: "Spaliny"
   - id: fuzzy
-    label: "Fuzzy"
+    label: "Fuzzy (Mamdani)"
   - id: state
     label: "Stan (restart)"
 
@@ -31,9 +32,12 @@ fields:
     unit: "°C"
     min: 40
     max: 90
-    step: 0.5
-    default: 56.0
+    step: 1
+    default: 56
     group: basic
+    description: >
+      Temperatura, do której regulator dąży w trybie WORK.
+      Fuzzy pracuje stabilizująco w pobliżu tej wartości.
 
   - key: min_power
     label: "Minimalna moc"
@@ -44,6 +48,9 @@ fields:
     step: 1
     default: 15
     group: basic
+    description: >
+      Dolne ograniczenie mocy wyjściowej. Regulator nigdy nie zejdzie poniżej tej wartości
+      (w WORK), chyba że moduł jest wyłączony (enabled=false) i nie nadpisuje wyjścia.
 
   - key: max_power
     label: "Maksymalna moc"
@@ -54,6 +61,9 @@ fields:
     step: 1
     default: 100
     group: basic
+    description: >
+      Górne ograniczenie mocy wyjściowej. Pozwala "przydusić" kocioł programowo,
+      jeśli obiekt jest mocny lub łatwo się przeregulowuje.
 
   - key: max_slew_rate_percent_per_min
     label: "Maksymalna zmiana mocy na minutę"
@@ -64,88 +74,90 @@ fields:
     step: 0.5
     default: 10
     group: basic
+    description: >
+      Ograniczenie szybkości zmiany mocy (slew rate) w trybie WORK.
+      Przykład: 10 pkt%/min oznacza max ~5 pkt% na 30 sekund.
+      0 wyłącza ograniczenie.
 
   - key: boiler_tau_s
-    label: "Stała filtru temp. kotła"
+    label: "Stała czasowa filtru kotła"
     type: number
     unit: "s"
-    min: 10
-    max: 1200
-    step: 10
+    min: 1
+    max: 2000
+    step: 1
     default: 180
     group: filters
+    description: >
+      Stała czasowa filtru IIR (wygładzania) temperatury kotła używanej przez fuzzy.
+      Większa wartość = wolniejsza reakcja regulatora i większe opóźnienie (może powodować overshoot).
+      Dla szybkiego/mocnego obiektu zwykle wartość powinna być mniejsza.
 
   - key: flue_tau_s
-    label: "Stała filtru temp. spalin"
+    label: "Stała czasowa filtru spalin"
     type: number
     unit: "s"
-    min: 5
-    max: 600
-    step: 5
+    min: 1
+    max: 2000
+    step: 1
     default: 60
     group: filters
-
-  - key: delta_scale
-    label: "Skala ΔP (agresywność)"
-    type: number
-    unit: ""
-    min: 0
-    max: 3
-    step: 0.05
-    default: 0.8
-    group: fuzzy
-    description: "Mnożnik na wynik fuzzy (ΔP). Najprostszy parametr do strojenia."
-
-  - key: delta_universe_step
-    label: "Krok defuzyfikacji (dokładność)"
-    type: number
-    unit: ""
-    min: 0.01
-    max: 0.5
-    step: 0.01
-    default: 0.05
-    group: fuzzy
-    description: "Im mniejszy krok, tym dokładniejszy centroid (kosztem CPU)."
+    description: >
+      Stała czasowa filtru IIR temperatury spalin. Spaliny zmieniają się szybko,
+      więc zbyt duża stała czasowa może opóźniać "hamowanie" i pogarszać stabilność.
 
   - key: flue_min_C
-    label: "Spaliny: niski poziom (min)"
+    label: "Spaliny: minimum (LOW start)"
     type: number
     unit: "°C"
     min: 0
     max: 300
-    step: 0.5
+    step: 1
     default: 58
-    group: fuzzy
+    group: flue
+    description: >
+      Punkt odniesienia dla niskich spalin (LOW). Poniżej tej wartości przynależność LOW
+      jest wysoka, a wpływ spalin zwykle nie ogranicza mocy.
 
   - key: flue_mid_C
-    label: "Spaliny: typowy poziom (środek)"
+    label: "Spaliny: środek (MID peak)"
     type: number
     unit: "°C"
     min: 0
     max: 300
-    step: 0.5
+    step: 1
     default: 66
-    group: fuzzy
+    group: flue
+    description: >
+      Wartość "środkowa" spalin (MID) – okolice typowej pracy stabilnej.
+      Używana do budowy funkcji przynależności MID i płynnego przejścia między LOW/HIGH.
 
   - key: flue_max_C
-    label: "Spaliny: wysoki poziom (max)"
+    label: "Spaliny: maksimum (HIGH peak)"
     type: number
     unit: "°C"
     min: 0
     max: 300
-    step: 0.5
+    step: 1
     default: 76
-    group: fuzzy
+    group: flue
+    description: >
+      Wartość odpowiadająca wysokim spalinom (HIGH). Powyżej tej wartości regulator
+      powinien coraz mocniej ograniczać moc (zależnie od wagi spalin).
 
   - key: flue_overlap_ratio
-    label: "Spaliny: overlap zbiorów"
+    label: "Spaliny: nakładanie zbiorów"
     type: number
     unit: ""
     min: 0.05
     max: 0.45
     step: 0.01
     default: 0.20
-    group: fuzzy
+    group: flue
+    description: >
+      Jak mocno zbiory LOW/MID/HIGH nakładają się na siebie (szerokość przejść).
+      Mniejsze wartości = ostrzejsze przejścia (bardziej "skokowe" decyzje),
+      większe wartości = łagodniejsze przejścia (bardziej płynne sterowanie).
 
   - key: flue_vhigh_margin_C
     label: "Spaliny: margines VHIGH ponad max"
@@ -153,21 +165,123 @@ fields:
     unit: "°C"
     min: 0
     max: 100
+    step: 1
+    default: 8
+    group: flue
+    description: >
+      O ile °C ponad flue_max_C zaczyna się obszar bardzo wysokich spalin (VHIGH).
+      Ten obszar zwykle odpowiada za agresywne hamowanie mocy, by uniknąć przegrzewania.
+
+  - key: flue_weight_band_C
+    label: "Waga spalin: pasmo (|e|)"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 30
     step: 0.5
     default: 8
+    group: flue
+    description: >
+      Szerokość pasma błędu temperatury kotła, w którym spaliny są "ważne".
+      Dla |błędu| = 0 waga spalin jest bliska flue_weight_near.
+      Dla |błędu| >= pasmo waga przechodzi do flue_weight_far.
+
+  - key: flue_weight_near
+    label: "Waga spalin blisko zadanej"
+    type: number
+    unit: ""
+    min: 0
+    max: 5
+    step: 0.05
+    default: 1.2
+    group: flue
+    description: >
+      Jak mocno sygnał spalin wpływa na decyzję fuzzy, gdy temperatura kotła
+      jest blisko zadanej (|błąd| ~ 0). Większa wartość = spaliny mocniej hamują/podbijają decyzje
+      (zależnie od reguł).
+
+  - key: flue_weight_far
+    label: "Waga spalin daleko od zadanej"
+    type: number
+    unit: ""
+    min: 0
+    max: 5
+    step: 0.05
+    default: 0.1
+    group: flue
+    description: >
+      Minimalna waga spalin, gdy temperatura kotła jest daleko od zadanej.
+      Typowo ustawiana nisko, żeby "dobijanie" do zadanej było sterowane głównie błędem kotła,
+      a nie krótkotrwałymi wahaniami spalin.
+
+  - key: delta_scale
+    label: "Skalowanie ΔP"
+    type: number
+    unit: ""
+    min: 0
+    max: 5
+    step: 0.05
+    default: 0.8
     group: fuzzy
+    description: >
+      Skala wzmocnienia wyjścia fuzzy. Regulator wyznacza ΔP (zmianę mocy) w jednostkach pkt%,
+      a następnie mnoży ją przez delta_scale. Zmniejsz, jeśli moc rośnie/spada zbyt agresywnie.
+
+  - key: delta_universe_min
+    label: "ΔP min"
+    type: number
+    unit: "pkt%"
+    min: -50
+    max: 0
+    step: 0.5
+    default: -6
+    group: fuzzy
+    description: >
+      Minimalna rozważana zmiana mocy ΔP (pkt%) w jednym kroku fuzzy (przed limiterem slew rate).
+      Bardziej ujemne = regulator może szybciej hamować.
+
+  - key: delta_universe_max
+    label: "ΔP max"
+    type: number
+    unit: "pkt%"
+    min: 0
+    max: 50
+    step: 0.5
+    default: 6
+    group: fuzzy
+    description: >
+      Maksymalna rozważana zmiana mocy ΔP (pkt%) w jednym kroku fuzzy (przed limiterem slew rate).
+      Większe wartości = regulator może szybciej "dodać ognia".
+
+  - key: delta_universe_step
+    label: "ΔP krok dyskretyzacji"
+    type: number
+    unit: "pkt%"
+    min: 0.01
+    max: 1
+    step: 0.01
+    default: 0.05
+    group: fuzzy
+    description: >
+      Krok dyskretyzacji uniwersum ΔP podczas defuzyfikacji (centroid).
+      Mniejszy krok = dokładniej, ale wolniej obliczeniowo.
 
   - key: state_dir
     label: "Katalog zapisu stanu"
     type: text
     default: "data"
     group: state
+    description: >
+      Katalog (względem katalogu modułu) do zapisu stanu regulatora fuzzy
+      (żeby po restarcie zachować wygładzenia i ostatnią moc).
 
   - key: state_file
     label: "Plik stanu"
     type: text
     default: "power_work_fuzzy_state.yaml"
     group: state
+    description: >
+      Nazwa pliku ze stanem regulatora fuzzy.
 
   - key: state_save_interval_s
     label: "Interwał zapisu stanu"
@@ -178,6 +292,8 @@ fields:
     step: 1
     default: 30
     group: state
+    description: >
+      Co ile sekund zapisywać stan regulatora na dysk.
 
   - key: state_max_age_s
     label: "Maksymalny wiek stanu"
@@ -188,6 +304,9 @@ fields:
     step: 60
     default: 900
     group: state
+    description: >
+      Jeśli plik stanu jest starszy niż ten próg, przywrócenie stanu jest pomijane
+      (0 = zawsze próbuj).
 
   - key: state_max_boiler_temp_delta_C
     label: "Maks. różnica temp. kotła przy restore"
@@ -198,6 +317,9 @@ fields:
     step: 0.5
     default: 5
     group: state
+    description: >
+      Maksymalna dopuszczalna różnica między aktualną temperaturą kotła a tą zapisaną w stanie.
+      Jeśli różnica jest większa, restore jest pomijany (żeby nie startować z "dziwnym" filtrem).
 
   - key: state_max_flue_temp_delta_C
     label: "Maks. różnica temp. spalin przy restore"
@@ -208,4 +330,7 @@ fields:
     step: 1
     default: 30
     group: state
+    description: >
+      Maksymalna dopuszczalna różnica między aktualną temperaturą spalin a tą zapisaną w stanie.
+      Jeśli różnica jest większa, restore jest pomijany.
 
