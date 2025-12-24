@@ -1,5 +1,5 @@
 id: power_work
-name: "Mocy kotła – PRACA"
+name: "Moc kotła PID – PRACA"
 description: "Wyznaczanie mocy kotła (power %) w trybie pracy na podstawie PID-a po temperaturze kotła, z oknem całki i korektą przegrzania."
 
 groups:
@@ -11,6 +11,17 @@ groups:
     label: "Stan (restart)"
 
 fields:
+  - key: enabled
+    label: "Regulator aktywny"
+    type: bool
+    default: true
+    label_on: "WŁĄCZONE"
+    label_off: "WYŁĄCZONE"
+    group: basic
+    description: >
+      Gdy wyłączone, moduł power_work nie nadpisuje outputs.power_percent.
+      Tylko śledzi aktualną moc, żeby po włączeniu nie było skoku.
+
   - key: boiler_set_temp
     label: "Zadana temperatura kotła"
     type: number

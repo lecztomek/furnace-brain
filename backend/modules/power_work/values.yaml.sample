@@ -1,3 +1,4 @@
+enabled: true
 boiler_set_temp: 56.0
 integral_window_s: 600.0
 kd: 0.0

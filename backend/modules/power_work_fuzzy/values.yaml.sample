@@ -1,0 +1,29 @@
+# values.yaml
+enabled: true
+boiler_set_temp: 56.0
+
+min_power: 15.0
+max_power: 100.0
+max_slew_rate_percent_per_min: 10.0
+
+boiler_tau_s: 180.0
+flue_tau_s: 60.0
+
+delta_universe_min: -6.0
+delta_universe_max: 6.0
+delta_universe_step: 0.05
+delta_scale: 0.8
+
+flue_min_C: 58.0
+flue_mid_C: 66.0
+flue_max_C: 76.0
+flue_overlap_ratio: 0.20
+flue_vhigh_margin_C: 8.0
+
+state_dir: data
+state_file: power_work_fuzzy_state.yaml
+state_save_interval_s: 30.0
+state_max_age_s: 900.0
+state_max_boiler_temp_delta_C: 5.0
+state_max_flue_temp_delta_C: 30.0
+

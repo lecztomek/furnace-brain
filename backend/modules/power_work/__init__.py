@@ -69,6 +69,8 @@ class WorkPowerConfig:
         przywrócić, ale tylko jeśli plik jest "świeży" i temp. kotła pasuje.
     """
 
+    enabled: bool = True
+
     boiler_set_temp: float = 55.0
 
     kp: float = 2.0
@@ -119,6 +121,8 @@ class WorkPowerModule(ModuleInterface):
         self._config = config or WorkPowerConfig()
         self._load_config_from_file()
 
+        self._last_enabled: bool = bool(self._config.enabled)
+
         # Stan PID-a
         self._integral: float = 0.0
         self._last_error: Optional[float] = None
@@ -166,6 +170,20 @@ class WorkPowerModule(ModuleInterface):
         # CZAS KONTROLNY: monotonic z SystemState (nie zależy od zmiany czasu/NTP)
         now_ctrl = float(getattr(system_state, "ts_mono", now))
 
+        enabled_now = bool(self._config.enabled)
+        if enabled_now != self._last_enabled:
+            events.append(
+                Event(
+                    ts=now,
+                    source=self.id,
+                    level=EventLevel.INFO,
+                    type="WORK_POWER_ENABLED_CHANGED",
+                    message=f"power_work: {'ENABLED' if enabled_now else 'DISABLED'}",
+                    data={"enabled": enabled_now},
+                )
+            )
+            self._last_enabled = enabled_now
+
         # Zdarzenia zmiany trybu
         if prev_in_work != in_work:
             events.append(
@@ -193,6 +211,21 @@ class WorkPowerModule(ModuleInterface):
                 self._last_tick_ts = None
                 self._last_power_ts = None
             self._restored_state_meta = None
+
+        if not enabled_now:
+            if boiler_temp is not None:
+                actual_power = system_state.outputs.power_percent
+                self._track_to_power(now_ctrl, boiler_temp, actual_power)
+
+            self._last_in_work = in_work
+            self._maybe_persist_state(now_wall=now, boiler_temp=boiler_temp, events=events)
+
+            status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
+            return ModuleTickResult(
+                partial_outputs=outputs,
+                events=events,
+                status=status,
+            )
 
         # --- AKTUALIZACJA STANU PID / TRACKING ---
 
@@ -569,6 +602,9 @@ class WorkPowerModule(ModuleInterface):
         return asdict(self._config)
 
     def set_config_values(self, values: Dict[str, Any], persist: bool = True) -> None:
+        if "enabled" in values:
+            self._config.enabled = bool(values["enabled"])
+
         if "boiler_set_temp" in values:
             self._config.boiler_set_temp = float(values["boiler_set_temp"])
 
@@ -629,6 +665,9 @@ class WorkPowerModule(ModuleInterface):
 
         with self._config_path.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
+
+        if "enabled" in data:
+            self._config.enabled = bool(data["enabled"])
 
         # floaty
         for field_name in (

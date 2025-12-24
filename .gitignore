@@ -13,3 +13,5 @@ backend/.venv/
 backend/modules/power_work/data/power_work_state.yaml
 
 backend/modules/stats/data/stats_state.yaml
+
+backend/modules/power_work_fuzzy/data/power_work_fuzzy_state.yaml
