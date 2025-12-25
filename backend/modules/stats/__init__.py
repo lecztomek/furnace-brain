@@ -153,7 +153,12 @@ class StatsModule(ModuleInterface):
     - porównania robimy na ts_end_unix i wyrównujemy do siatki 5 minut
     """
 
-    def __init__(self, base_path: Optional[Path] = None, config: Optional[StatsConfig] = None) -> None:
+    def __init__(
+        self,
+        base_path: Optional[Path] = None,
+        config: Optional[StatsConfig] = None,
+        data_root: Optional[Path] = None,  # loader może wstrzyknąć ścieżkę
+    ) -> None:
         self._base_path = base_path or Path(__file__).resolve().parent
         self._schema_path = self._base_path / "schema.yaml"
         self._config_path = self._base_path / "values.yaml"
@@ -163,11 +168,14 @@ class StatsModule(ModuleInterface):
 
         self._tz = ZoneInfo(self._config.timezone)
 
-        self._log_dir = (self._base_path / self._config.log_dir).resolve()
-        self._log_dir.mkdir(parents=True, exist_ok=True)
+        # persist root: data_root/modules/stats  (albo fallback do katalogu modułu)
+        if data_root is not None:
+            self._persist_root = (Path(data_root).resolve() / "modules" / self.id).resolve()
+        else:
+            self._persist_root = self._base_path.resolve()
 
-        self._daily_path = self._log_dir / self._config.daily_file
-        self._state_path = self._log_dir / self._config.state_file
+        # ścieżki danych (log_dir/daily/state) – zależne od persist_root
+        self._refresh_paths(create=True)
 
         # czas (MONOTONICZNY)
         self._last_ts_mono: Optional[float] = None
@@ -272,6 +280,19 @@ class StatsModule(ModuleInterface):
         self._publish(now, system_state, enabled=True)
 
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
+
+    def _refresh_paths(self, create: bool = False) -> None:
+        """
+        Odświeża ścieżki persist na podstawie:
+          - self._persist_root
+          - self._config.log_dir / daily_file / state_file
+        """
+        self._log_dir = (self._persist_root / self._config.log_dir).resolve()
+        if create:
+            self._log_dir.mkdir(parents=True, exist_ok=True)
+        self._daily_path = self._log_dir / self._config.daily_file
+        self._state_path = self._log_dir / self._config.state_file
+
 
     # ---------- LICZENIE / AGREGACJE ----------
 
@@ -1135,27 +1156,21 @@ class StatsModule(ModuleInterface):
         if "calorific_mj_per_kg" in values:
             self._config.calorific_mj_per_kg = float(values["calorific_mj_per_kg"])
 
-        if "log_dir" in values:
-            self._config.log_dir = str(values["log_dir"])
-            self._log_dir = (self._base_path / self._config.log_dir).resolve()
-            self._log_dir.mkdir(parents=True, exist_ok=True)
-            self._daily_path = self._log_dir / self._config.daily_file
-            self._state_path = self._log_dir / self._config.state_file
-
         if "file_prefix_5m" in values:
             self._config.file_prefix_5m = str(values["file_prefix_5m"])
-
-        if "daily_file" in values:
-            self._config.daily_file = str(values["daily_file"])
-            self._daily_path = self._log_dir / self._config.daily_file
-
-        if "state_file" in values:
-            self._config.state_file = str(values["state_file"])
-            self._state_path = self._log_dir / self._config.state_file
 
         if "timezone" in values:
             self._config.timezone = str(values["timezone"])
             self._tz = ZoneInfo(self._config.timezone)
+            
+        if "log_dir" in values:
+            self._config.log_dir = str(values["log_dir"])
+
+        if "daily_file" in values:
+            self._config.daily_file = str(values["daily_file"])
+
+        if "state_file" in values:
+            self._config.state_file = str(values["state_file"])
 
         if "season_start_month" in values:
             self._config.season_start_month = int(values["season_start_month"])
@@ -1170,9 +1185,13 @@ class StatsModule(ModuleInterface):
 
         if persist:
             self._save_config_to_file()
+            
+        self._refresh_paths(create=True)
 
     def reload_config_from_file(self) -> None:
         self._load_config_from_file()
+        self._tz = ZoneInfo(self._config.timezone)
+        self._refresh_paths(create=True)
 
     def _load_config_from_file(self) -> None:
         if not self._config_path.exists():

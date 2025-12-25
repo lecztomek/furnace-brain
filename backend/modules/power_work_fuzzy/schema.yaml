@@ -220,7 +220,7 @@ fields:
     unit: ""
     min: 0
     max: 5
-    step: 0.05
+    step: 0.01
     default: 0.8
     group: fuzzy
     description: >

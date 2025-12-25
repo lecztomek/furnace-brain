@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import threading
 import time
+import datetime as dt
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -20,6 +21,7 @@ from backend.api.stats_api import create_stats_router
 from backend.api.logs_api import create_logs_router
 from backend.core.state_store import StateStore
 
+from backend.core.clock import RealClock, SimClock
 
 from .core.config_store import ConfigStore
 import faulthandler
@@ -92,11 +94,20 @@ def _env_truthy(name: str) -> bool:
     return v.strip().lower() in {"1", "true", "yes", "y", "on"}
 
 if _env_truthy("FURNACE_BRAIN_HW_RPI"):
+    clock = RealClock()
     hardware = RpiHardware(cfg)
 else:
-    hardware = Hardware()
+    clock = SimClock(scale=float(os.getenv("FURNACE_BRAIN_TIME_SCALE", "10")))
+    hardware = Hardware(clock=clock)
 
-critical_modules, aux_modules = load_modules_split()
+is_rpi = _env_truthy("FURNACE_BRAIN_HW_RPI")
+if is_rpi:
+    run_root = DATA_ROOT
+else:
+    run_id = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_root = DATA_ROOT / "sim_runs" / run_id
+
+critical_modules, aux_modules = load_modules_split(data_root=run_root)
 
 store = StateStore(event_buffer_size=1000)
 
@@ -105,6 +116,7 @@ kernel = Kernel(
     modules=critical_modules,
     safety_module=None,
     store=store,
+    clock=clock,
 )
 
 aux_runner = AuxRunner(store=store, modules=aux_modules)
@@ -230,19 +242,21 @@ config_router = create_config_router(
     reload_module_config=reload_any_module,
 )
 
+API_ROOT = run_root
+
 history_base_dir = Path(os.getenv(
     "FURNACE_BRAIN_HISTORY_DIR",
-    str(Path(DATA_ROOT) / "modules" / "history")
+    str(API_ROOT / "modules" / "history")
 ))
 
 eventlog_base_dir = Path(os.getenv(
     "FURNACE_BRAIN_EVENTLOG_DIR",
-    str(Path(DATA_ROOT) / "modules" / "eventlog")
+    str(API_ROOT / "modules" / "eventlog")
 ))
 
 stats_base_dir = Path(os.getenv(
     "FURNACE_BRAIN_STATS_DIR",
-    str(Path(DATA_ROOT) / "modules" / "stats")
+    str(API_ROOT / "modules" / "stats")
 ))
 
 app.include_router(

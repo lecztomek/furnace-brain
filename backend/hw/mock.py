@@ -6,6 +6,7 @@ import logging
 
 from backend.hw.interface import HardwareInterface
 from backend.core.state import Sensors, Outputs
+from backend.core.clock import Clock, RealClock
 
 
 __all__ = ["MockHardware"]
@@ -42,7 +43,6 @@ class _ThermalState:
     stb_triggered: bool = False
     door_open: bool = False
 
-
 class MockHardware(HardwareInterface):
     """
     Symulator warstwy sprzętowej z dwustanowym paliwem, zaworem mieszającym
@@ -72,73 +72,48 @@ class MockHardware(HardwareInterface):
     """
 
     # --- Stałe fizyczne / parametry kotła ---
-
     C_WATER = 4180.0  # [J/(kg*K)]
 
     M_BOILER_WATER = 50.0    # [kg] ~ 50 l w kotle
     M_CO_WATER = 150.0       # [kg] ~ 150 l w instalacji CO
     M_CWU_WATER = 120.0      # [kg] – przyjęty zasobnik 120 l
 
-    # Pojemność cieplna „węzła spalin” przy czujniku (dymnica, kawałek rury, powietrze)
-    C_FLUE = 2500.0          # [J/K] – mniejsza pojemność, szybsza reakcja
-
+    C_FLUE = 2500.0          # [J/K]
     ROOM_TEMP = 20.0         # [°C]
     MAX_DT = 5.0             # [s]
 
-    # --- Paliwo / spalanie ---
+    FUEL_FEED_RATE = 0.0036      # [kg/s]
+    FUEL_LHV = 29_000_000.0      # [J/kg]
 
-    FUEL_FEED_RATE = 0.0036      # [kg/s] – ~3.6 g/s
-
-    FUEL_LHV = 29_000_000.0      # [J/kg] – wartość opałowa ekogroszku 29 MJ/kg
-
-    # Powietrze / dmuchawa
     MAX_AIR_FLOW_M3_H = 255.0
     MAX_AIR_FLOW_M3_S = MAX_AIR_FLOW_M3_H / 3600.0  # [m³/s]
     AIR_PER_KG_FUEL_STOICH = 9.0  # [m³/kg]
 
-    BOILER_EFFICIENCY = 0.80      # 80% energii zostaje w kotle+spalinach
-    FRACTION_TO_WATER = 0.75      # z użytecznej energii tyle w wodzie, reszta w spalinach
+    BOILER_EFFICIENCY = 0.80
+    FRACTION_TO_WATER = 0.75
 
-    # --- 2-etapowy model paliwa ---
+    FUEL_DRYING_TIME_S = 60.0
+    NATURAL_BURN_TIME_S = 600.0
 
-    FUEL_DRYING_TIME_S = 60.0     # szybsze przejście świeżego paliwa w „żar”
-    NATURAL_BURN_TIME_S = 600.0   # naturalne dogorywanie
-
-    # --- Straty ciepła ---
-
-    U_BOILER_LOSS_W_PER_K = 50.0   # kocioł -> kotłownia
-
-    # CO – rozróżniamy sytuację z pompą i bez:
-    U_CO_LOSS_ACTIVE_W_PER_K = 400.0  # grzejniki -> dom przy pracującej pompie
-    U_CO_LOSS_IDLE_W_PER_K = 40.0     # minimalne straty przy wyłączonej pompie
-
-    U_CWU_LOSS_W_PER_K = 20.0      # zasobnik -> kotłownia
-
-    # Wymiennik CWU (wężownica): kocioł <-> zasobnik CWU
+    U_BOILER_LOSS_W_PER_K = 50.0
+    U_CO_LOSS_ACTIVE_W_PER_K = 400.0
+    U_CO_LOSS_IDLE_W_PER_K = 40.0
+    U_CWU_LOSS_W_PER_K = 20.0
     U_CWU_EXCH_W_PER_K = 800.0
-
-    # Spaliny – straty z okolic czujnika (dymnica, początek komina)
     U_FLUE_LOSS_W_PER_K = 25.0
+    HOPPER_COUPLING_W_PER_K = 5.0
 
-    HOPPER_COUPLING_W_PER_K = 5.0  # kocioł -> zasobnik
-
-    # --- Pompy ---
-
-    # 1320 l/h ≈ 0.3667 kg/s
     PUMP_FLOW_KG_PER_S = 1320.0 / 3600.0
-
-    # --- Zawór mieszający CO ---
-
-    MIX_VALVE_FULL_TRAVEL_S = 120.0  # czas pełnego przebiegu 0→1 lub 1→0
-
-    # --- STB ---
+    MIX_VALVE_FULL_TRAVEL_S = 120.0
 
     STB_LIMIT = 95.0  # [°C]
 
-    def __init__(self) -> None:
+    def __init__(self, clock: Clock | None = None) -> None:
+        self._clock: Clock = clock or RealClock()
+
         self._state = _ThermalState()
         self._outputs = Outputs()
-        self._last_update = time.monotonic()
+        self._last_update = self._clock.monotonic()
 
         self._C_boiler = self.M_BOILER_WATER * self.C_WATER
         self._C_co = self.M_CO_WATER * self.C_WATER
@@ -160,11 +135,12 @@ class MockHardware(HardwareInterface):
         self._mixer_prev_on: bool = False
         self._mixer_on_since: float | None = None
 
+
     # ------------------------------------------------------------------
     #  HardwareInterface
     # ------------------------------------------------------------------
     def read_sensors(self) -> Sensors:
-        now = time.monotonic()
+        now = self._clock.monotonic()
         dt = now - self._last_update
         self._last_update = now
 

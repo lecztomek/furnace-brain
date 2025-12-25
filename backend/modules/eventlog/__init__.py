@@ -8,6 +8,7 @@ import datetime as dt
 import json
 import yaml  # pip install pyyaml
 
+from pathlib import Path
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
 from backend.core.state import (
     Event,
@@ -34,25 +35,25 @@ class EventLogConfig:
     file_prefix: str = "events"
     rotate: str = "hour"  # "hour" | "day"
 
-
 class EventLogModule(ModuleInterface):
     """
     Moduł logów – zapisuje eventy (SystemState.recent_events) do CSV.
-
-    UWAGA: kernel ustawia state.recent_events = all_events na końcu kroku.
-    Ten moduł w praktyce zapisuje eventy z POPRZEDNIEGO ticka (bo je widzi
-    na wejściu do tick()) – bez modyfikacji kernela to jest OK.
     """
 
     def __init__(
         self,
+        *,
+        data_root: Path,
         base_path: Path | None = None,
         config: EventLogConfig | None = None,
     ) -> None:
-        if base_path is None:
-            self._base_path = Path(__file__).resolve().parent
-        else:
-            self._base_path = base_path
+        if data_root is None:
+            raise ValueError("EventLogModule: data_root is required")
+
+        self._data_root = data_root.resolve()
+
+        # base_path zostaje tylko dla schema/values
+        self._base_path = Path(__file__).resolve().parent if base_path is None else base_path
 
         self._schema_path = self._base_path / "schema.yaml"
         self._config_path = self._base_path / "values.yaml"
@@ -60,7 +61,15 @@ class EventLogModule(ModuleInterface):
         self._config = config or EventLogConfig()
         self._load_config_from_file()
 
-        self._log_dir = (self._base_path / self._config.log_dir).resolve()
+        # >>> TU ZMIANA: katalog logów pochodzi z data_root, a nie z configa
+        self._log_dir = (self._data_root / "modules" / self.id).resolve() / "data"
+
+        # opcjonalnie: twarde wykrycie starego log_dir w configu
+        if getattr(self._config, "log_dir", None) not in (None, "", "data"):
+            raise ValueError(
+                "EventLogModule: log_dir in config is deprecated; log path comes from data_root"
+            )
+
 
     @property
     def id(self) -> str:

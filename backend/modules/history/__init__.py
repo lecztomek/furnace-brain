@@ -34,20 +34,17 @@ class HistoryConfig:
 
 
 class HistoryModule(ModuleInterface):
-    """
-    Moduł historii – zapisuje wybrane parametry kotła do plików CSV.
-
-    Interwał ODMERZAMY WYŁĄCZNIE czasem monotonicznym (SystemState.ts_mono),
-    żeby skoki czasu systemowego (NTP / ręczne) nie psuły logowania.
-
-    Timestamp w pliku i nazwa pliku dalej są z wall-clock (now / time.time()).
-    """
-
     def __init__(
         self,
+        *,
+        data_root: Path,                 # <<< WYMAGANE
         base_path: Path | None = None,
         config: HistoryConfig | None = None,
     ) -> None:
+        if data_root is None:
+            raise ValueError("HistoryModule: data_root is required")
+
+        self._data_root = data_root.resolve()
         if base_path is None:
             self._base_path = Path(__file__).resolve().parent
         else:
@@ -59,7 +56,7 @@ class HistoryModule(ModuleInterface):
         self._config = config or HistoryConfig()
         self._load_config_from_file()
 
-        self._log_dir = (self._base_path / self._config.log_dir).resolve()
+        self._log_dir = (self._data_root / "modules" / self.id).resolve() / "data"
 
         # Stan wewnętrzny: ostatni zapis wg czasu monotonicznego
         self._last_write_mono: Optional[float] = None

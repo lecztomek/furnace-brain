@@ -105,6 +105,7 @@ class WorkFuzzyPowerModule(ModuleInterface):
         self,
         base_path: Optional[Path] = None,
         config: Optional[WorkFuzzyPowerConfig] = None,
+        data_root: Optional[Path] = None,  # <--- loader wstrzyknie
     ) -> None:
         if base_path is None:
             self._base_path = Path(__file__).resolve().parent
@@ -115,7 +116,23 @@ class WorkFuzzyPowerModule(ModuleInterface):
         self._config_path = self._base_path / "values.yaml"
 
         self._config = config or WorkFuzzyPowerConfig()
+
+        # persist root: data_root/modules/power_work_fuzzy (albo fallback do katalogu modułu)
+        if data_root is not None:
+            self._persist_root = (Path(data_root).resolve() / "modules" / self.id).resolve()
+        else:
+            self._persist_root = self._base_path.resolve()
+
+        # ✅ ustaw ścieżki zanim _load_config_from_file() zacznie je dotykać
+        self._state_dir = (self._persist_root / self._config.state_dir).resolve()
+        self._state_path = self._state_dir / self._config.state_file
+
+        # wczytaj values.yaml (może zmienić state_dir/state_file)
         self._load_config_from_file()
+
+        # ✅ docelowe ścieżki po load (na wypadek zmian w values.yaml)
+        self._state_dir = (self._persist_root / self._config.state_dir).resolve()
+        self._state_path = self._state_dir / self._config.state_file
 
         self._power: float = 0.0
         self._last_in_work: bool = False
@@ -129,8 +146,6 @@ class WorkFuzzyPowerModule(ModuleInterface):
         self._last_boiler_f: Optional[float] = None
         self._last_rate_ts: Optional[float] = None
 
-        self._state_dir = (self._base_path / self._config.state_dir).resolve()
-        self._state_path = self._state_dir / self._config.state_file
         self._last_state_save_wall_ts: Optional[float] = None
         self._restored_state_meta: Optional[Dict[str, Any]] = None
         self._try_restore_state_from_disk()
@@ -538,7 +553,8 @@ class WorkFuzzyPowerModule(ModuleInterface):
     # -------- persist --------
 
     def _try_restore_state_from_disk(self) -> None:
-        self._state_dir = (self._base_path / self._config.state_dir).resolve()
+        # ✅ zawsze licz ścieżki od persist_root (data_root/modules/<id>)
+        self._state_dir = (self._persist_root / self._config.state_dir).resolve()
         self._state_path = self._state_dir / self._config.state_file
 
         if not self._state_path.exists():
@@ -741,7 +757,7 @@ class WorkFuzzyPowerModule(ModuleInterface):
 
         if "state_dir" in values:
             self._config.state_dir = str(values["state_dir"])
-            self._state_dir = (self._base_path / self._config.state_dir).resolve()
+            self._state_dir = (self._persist_root / self._config.state_dir).resolve()
             self._state_path = self._state_dir / self._config.state_file
 
         if "state_file" in values:
@@ -759,7 +775,7 @@ class WorkFuzzyPowerModule(ModuleInterface):
 
     def reload_config_from_file(self) -> None:
         self._load_config_from_file()
-        self._state_dir = (self._base_path / self._config.state_dir).resolve()
+        self._state_dir = (self._persist_root / self._config.state_dir).resolve()
         self._state_path = self._state_dir / self._config.state_file
         self._delta_universe = self._build_universe(
             self._config.delta_universe_min,
@@ -791,7 +807,8 @@ class WorkFuzzyPowerModule(ModuleInterface):
         if "state_file" in data:
             self._config.state_file = str(data["state_file"])
 
-        self._state_dir = (self._base_path / self._config.state_dir).resolve()
+        # ✅ ścieżki od persist_root (a nie od katalogu modułu)
+        self._state_dir = (self._persist_root / self._config.state_dir).resolve()
         self._state_path = self._state_dir / self._config.state_file
 
     def _save_config_to_file(self) -> None:

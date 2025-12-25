@@ -109,6 +109,7 @@ class WorkPowerModule(ModuleInterface):
         self,
         base_path: Optional[Path] = None,
         config: Optional[WorkPowerConfig] = None,
+        data_root: Optional[Path] = None,   # <--- to pozwala loaderowi wstrzyknąć ścieżkę
     ) -> None:
         if base_path is None:
             self._base_path = Path(__file__).resolve().parent
@@ -119,33 +120,41 @@ class WorkPowerModule(ModuleInterface):
         self._config_path = self._base_path / "values.yaml"
 
         self._config = config or WorkPowerConfig()
+
+        # ✅ Zainicjalizuj ścieżki zanim _load_config_from_file() je dotknie
+        # (tymczasowo na "starej" bazie – po load i tak ustawimy docelowe)
+        self._state_dir = (self._base_path / self._config.state_dir).resolve()
+        self._state_path = self._state_dir / self._config.state_file
+
+        # wczytaj values.yaml (może zmienić state_file / inne parametry)
         self._load_config_from_file()
+
+        # ✅ DOCZELOWA ścieżka persist: z data_root (albo fallback)
+        if data_root is not None:
+            self._state_dir = (Path(data_root).resolve() / "modules" / self.id).resolve() / "data"
+        else:
+            self._state_dir = (self._base_path / self._config.state_dir).resolve()
+
+        self._state_path = self._state_dir / self._config.state_file
+        self._last_state_save_wall_ts: Optional[float] = None
 
         self._last_enabled: bool = bool(self._config.enabled)
 
         # Stan PID-a
         self._integral: float = 0.0
         self._last_error: Optional[float] = None
-        # UWAGA: teraz trzymamy czas "kontrolny" (monotonic)
         self._last_tick_ts: Optional[float] = None
 
-        # Stan mocy (ostatnia moc w TRYBIE WORK / tracking)
+        # Stan mocy
         self._power: float = 0.0
         self._last_in_work: bool = False
 
-        # Stan dla limitu zmian mocy (slew rate) – też w czasie monotonic
+        # Slew rate timestamp
         self._last_power_ts: Optional[float] = None
 
-        # Persist stanu
-        self._state_dir = (self._base_path / self._config.state_dir).resolve()
-        self._state_path = self._state_dir / self._config.state_file
-        self._last_state_save_wall_ts: Optional[float] = None  # do interwału zapisu (wall time OK)
-
-        # Po restore trzymamy meta do walidacji (dopiero gdy mamy temp. kotła)
+        # Restore
         self._restored_state_meta: Optional[Dict[str, Any]] = None
         self._try_restore_state_from_disk()
-
-    # --- ModuleInterface ---
 
     @property
     def id(self) -> str:
@@ -436,9 +445,6 @@ class WorkPowerModule(ModuleInterface):
         Jeśli brak pliku / błąd / za stare => ignorujemy i działamy jak teraz.
         Walidację temperatury robimy dopiero w tick(), gdy mamy boiler_temp.
         """
-        self._state_dir = (self._base_path / self._config.state_dir).resolve()
-        self._state_path = self._state_dir / self._config.state_file
-
         if not self._state_path.exists():
             return
 
@@ -633,9 +639,8 @@ class WorkPowerModule(ModuleInterface):
 
         # persist: katalog/pliki/limity
         if "state_dir" in values:
+            # (ZMIANA: zostawiamy w configu jak było, ale ścieżka i tak pochodzi z data_root)
             self._config.state_dir = str(values["state_dir"])
-            self._state_dir = (self._base_path / self._config.state_dir).resolve()
-            self._state_path = self._state_dir / self._config.state_file
 
         if "state_file" in values:
             self._config.state_file = str(values["state_file"])
@@ -655,8 +660,7 @@ class WorkPowerModule(ModuleInterface):
 
     def reload_config_from_file(self) -> None:
         self._load_config_from_file()
-        # odśwież ścieżki stanu (jeśli ktoś zmienił state_dir/state_file)
-        self._state_dir = (self._base_path / self._config.state_dir).resolve()
+        # (ZMIANA: odświeżamy tylko plik, katalog jest z data_root)
         self._state_path = self._state_dir / self._config.state_file
 
     def _load_config_from_file(self) -> None:
@@ -693,8 +697,7 @@ class WorkPowerModule(ModuleInterface):
             if field_name in data:
                 setattr(self._config, field_name, str(data[field_name]))
 
-        # update ścieżek
-        self._state_dir = (self._base_path / self._config.state_dir).resolve()
+        # (ZMIANA: katalog nie zależy od state_dir; aktualizujemy tylko plik)
         self._state_path = self._state_dir / self._config.state_file
 
     def _save_config_to_file(self) -> None:

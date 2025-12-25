@@ -21,6 +21,7 @@ from backend.core.state import (
 
 from backend.core.module_interface import ModuleInterface
 
+from backend.core.clock import Clock, RealClock
 from backend.hw.interface import HardwareInterface
 from backend.core.state_store import StateStore
 
@@ -33,11 +34,14 @@ class Kernel:
         hardware: HardwareInterface,
         modules: List[ModuleInterface],
 		store: StateStore,   
-        safety_module: ModuleInterface | None = None,
+		safety_module: ModuleInterface | None = None,
+		clock: Clock | None = None
     ) -> None:
         self._hardware = hardware
         self._modules: Dict[str, ModuleInterface] = {m.id: m for m in modules}
         self._safety_module = safety_module
+        self._clock: Clock = clock or RealClock()
+        self._last_tick_ts: float = self._clock.time()
 
         self._store = store
         self._last_tick_ts: float = time.time()
@@ -149,8 +153,8 @@ class Kernel:
     
 
     def step(self) -> None:
-        now = time.time()
-        now_mono = time.monotonic()
+        now = self._clock.time()
+        now_mono = self._clock.monotonic()
         self._last_tick_ts = now
     
         sensors = self._hardware.read_sensors()
@@ -165,12 +169,12 @@ class Kernel:
             combined_outputs: Outputs = self._copy_outputs(st.outputs)
     
             for mid, module in self._modules.items():
-                start = time.time()
+                start = self._clock.time()
                 status = st.modules.get(mid) or ModuleStatus(id=mid)
     
                 try:
                     result = module.tick(now=now, sensors=sensors, system_state=st)
-                    duration = time.time() - start
+                    duration = self._clock.time() - start
     
                     if not isinstance(result.partial_outputs, PartialOutputs):
                         raise TypeError(...)
