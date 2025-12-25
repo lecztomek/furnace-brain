@@ -46,11 +46,11 @@ class AuxRunner:
         Jeden krok pętli pomocniczej.
         Wywołujesz ją w osobnym wątku, co np. 1–5 sekund.
         """
-        now = time.time()
+        state: SystemState = self._store.snapshot()
+        now = float(state.ts)
         self._last_ts = now
 
         # Snapshot stanu ze store (bez ryzyka race z kernelem):
-        state: SystemState = self._store.snapshot()
         sensors = state.sensors
 
         # Eventy z kernela inkrementalnie (nie gubimy między tickami):

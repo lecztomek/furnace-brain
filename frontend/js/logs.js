@@ -28,6 +28,25 @@
   /** @type {Array<any>} */
   let currentItems = [];
 
+  // --- Virtual clock (symulowany czas z backendu) ---
+  let clockOffsetMs = 0;
+
+  async function syncClockOffset() {
+    try {
+      const st = await fetch("/api/state/current").then((r) => r.json());
+      if (st && typeof st.ts === "number") {
+        const serverNowMs = Math.round(st.ts * 1000);
+        clockOffsetMs = serverNowMs - Date.now();
+      }
+    } catch (e) {
+      clockOffsetMs = 0; // fallback: czas przeglądarki
+    }
+  }
+
+  function virtualNow() {
+    return new Date(Date.now() + clockOffsetMs);
+  }
+
   // ====== UTILS ======
   const escapeHtml = (s) => {
     if (s === null || s === undefined) return "";
@@ -163,9 +182,6 @@
     // jeśli Twoje /logs/recent (CSV router) wspiera te filtry – zostawiamy:
     if (levelApi) url.searchParams.set("level", levelApi);
 
-    // (opcjonalnie) jeśli chcesz filtrować po source już na backendzie:
-    // ale Ty chcesz source lokalnie, więc NIE wysyłamy source do API.
-
     setPillsOk("pobieranie…", "--");
 
     try {
@@ -183,7 +199,7 @@
       const tsText =
         typeof payload?.ts === "number"
           ? new Date(payload.ts * 1000).toLocaleString()
-          : new Date().toLocaleString();
+          : virtualNow().toLocaleString();
 
       setPillsOk("OK", tsText);
 
@@ -295,8 +311,11 @@
   async function init() {
     bindUi();
     await loadMeta();  // opcjonalne
+    await syncClockOffset();
+    setInterval(syncClockOffset, 5000);
     await fetchLogs(); // jednorazowe wczytanie
   }
 
   document.addEventListener("DOMContentLoaded", init);
 })();
+

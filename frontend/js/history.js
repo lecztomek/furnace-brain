@@ -36,6 +36,26 @@
   let currentFrom = null;  // Date
   let currentTo = null;    // Date
 
+  // --- Virtual clock (symulowany czas z backendu) ---
+  let clockOffsetMs = 0;
+
+  async function syncClockOffset() {
+    try {
+      const st = await fetch("/api/state/current").then((r) => r.json());
+      if (st && typeof st.ts === "number") {
+        const serverNowMs = Math.round(st.ts * 1000);
+        clockOffsetMs = serverNowMs - Date.now();
+      }
+    } catch (e) {
+      // fallback: czas przeglądarki
+      clockOffsetMs = 0;
+    }
+  }
+
+  function virtualNow() {
+    return new Date(Date.now() + clockOffsetMs);
+  }
+
   function setStatus(text) {
     const el = document.getElementById("status-text");
     if (el) el.textContent = text || "";
@@ -55,16 +75,15 @@
     return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
   }
 
-	function formatDateTimeLabel(date) {
-	  const pad = (n) => String(n).padStart(2, "0");
-	  const d = pad(date.getDate());
-	  const m = pad(date.getMonth() + 1);
-	  const h = pad(date.getHours());
-	  const min = pad(date.getMinutes());
-	  // bez roku – i tak się nie przewijamy na lata wstecz
-	  return `${d}.${m} ${h}:${min}`;
-	}
-
+  function formatDateTimeLabel(date) {
+    const pad = (n) => String(n).padStart(2, "0");
+    const d = pad(date.getDate());
+    const m = pad(date.getMonth() + 1);
+    const h = pad(date.getHours());
+    const min = pad(date.getMinutes());
+    // bez roku – i tak się nie przewijamy na lata wstecz
+    return `${d}.${m} ${h}:${min}`;
+  }
 
   function updateWindowLabel() {
     const labelEl = document.getElementById("history-window-label");
@@ -81,7 +100,7 @@
   }
 
   function setInitialWindow(rangeHours) {
-    const now = new Date();
+    const now = virtualNow();
     currentTo = now;
     currentFrom = new Date(now.getTime() - rangeHours * 3600 * 1000);
     updateWindowLabel();
@@ -96,7 +115,7 @@
     const deltaMs = direction * hours * 3600 * 1000;
     let newFrom = new Date(currentFrom.getTime() + deltaMs);
     let newTo = new Date(currentTo.getTime() + deltaMs);
-    const now = new Date();
+    const now = virtualNow();
 
     // nie wychodzimy w przyszłość
     if (newTo > now) {
@@ -403,7 +422,7 @@
         const hours = Number(btn.getAttribute("data-range-hours") || "6");
 
         // zmieniamy szerokość okna, prawy koniec zostaje gdzie był (albo teraz)
-        const now = new Date();
+        const now = virtualNow();
         if (!currentTo) {
           currentTo = now;
         }
@@ -468,6 +487,10 @@
       buildSeriesCheckboxes(fields);
       initSeriesChangeHandler();
 
+      // sync zegara z backendu (symulacja) + okresowe odświeżanie offsetu
+      await syncClockOffset();
+      setInterval(syncClockOffset, 5000);
+
       // Ustawiamy domyślnie zakres 6h (prawe okno = teraz)
       setInitialWindow(DEFAULT_RANGE_HOURS);
 
@@ -484,3 +507,4 @@
 
   document.addEventListener("DOMContentLoaded", initHistoryView);
 })();
+

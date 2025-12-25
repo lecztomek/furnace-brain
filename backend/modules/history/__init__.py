@@ -7,6 +7,11 @@ import csv
 import datetime as dt
 import yaml  # pip install pyyaml
 
+try:
+    from zoneinfo import ZoneInfo  # Python 3.9+
+except ImportError:
+    from backports.zoneinfo import ZoneInfo  # Python 3.7/3.8
+
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
 from backend.core.state import (
     Event,
@@ -31,7 +36,7 @@ class HistoryConfig:
     log_dir: str = "data"
     interval_sec: float = 30.0
     file_prefix: str = "boiler"
-
+    timezone: str = "Europe/Warsaw"
 
 class HistoryModule(ModuleInterface):
     def __init__(
@@ -56,7 +61,10 @@ class HistoryModule(ModuleInterface):
         self._config = config or HistoryConfig()
         self._load_config_from_file()
 
-        self._log_dir = (self._data_root / "modules" / self.id).resolve() / "data"
+        self._tz = ZoneInfo(self._config.timezone)
+
+        self._persist_root = (self._data_root / "modules" / self.id).resolve()
+        self._log_dir = (self._persist_root / self._config.log_dir).resolve()
 
         # Stan wewnętrzny: ostatni zapis wg czasu monotonicznego
         self._last_write_mono: Optional[float] = None
@@ -74,7 +82,7 @@ class HistoryModule(ModuleInterface):
         events: List[Event] = []
         outputs = PartialOutputs()
 
-        # BEZ fallbacków: wymagamy ts_mono w system_state
+
         now_mono: float = system_state.ts_mono
 
         interval = float(self._config.interval_sec)
@@ -83,9 +91,16 @@ class HistoryModule(ModuleInterface):
             or (now_mono - self._last_write_mono) >= interval
         )
 
+        now_mono: float = system_state.ts_mono
+
+        anchor_wall = float(now)
+        anchor_mono = float(now_mono)
+
+        log_now = float(self._mono_to_wall(now_mono, anchor_wall, anchor_mono))
+
         if should_write:
             try:
-                self._write_row(now, sensors, system_state)  # zapis czasu wall-clock do CSV
+                self._write_row(log_now, sensors, system_state)  # zapis czasu wall-clock do CSV
                 self._last_write_mono = now_mono
             except Exception as exc:
                 events.append(
@@ -114,6 +129,11 @@ class HistoryModule(ModuleInterface):
             if hasattr(obj, name):
                 return getattr(obj, name)
         return None
+
+    def _mono_to_wall(self, ts_mono: float, anchor_wall: float, anchor_mono: float) -> float:
+        # wall(ts) ~= anchor_wall - (anchor_mono - ts_mono)
+        return anchor_wall - (anchor_mono - ts_mono)
+
 
     def _write_row(
         self,
