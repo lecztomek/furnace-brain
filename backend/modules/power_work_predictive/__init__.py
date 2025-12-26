@@ -131,10 +131,12 @@ class WorkPowerPredictiveModule(ModuleInterface):
 
         self._last_state_save_wall_ts: Optional[float] = None
         self._last_enabled: bool = bool(self._config.enabled)
+        self._filter_last_ts: Optional[float] = None
 
         # filtry
         self._boiler_tf: Optional[float] = None
-        self._boiler_tf_prev: Optional[float] = None  # (1) poprzednia wartość do modelu (y[k-1])
+        self._y_prev_model: Optional[float] = None
+        self._boiler_tf_prev: Optional[float] = None  # poprzednia wartość do modelu (y[k-1])
         self._flue_tf: Optional[float] = None
 
         # PI
@@ -164,6 +166,14 @@ class WorkPowerPredictiveModule(ModuleInterface):
         # blending
         self._alpha: float = 0.0
         self._stable_since_ts: Optional[float] = None
+
+        # FIX: osobny zegar dla α (nie sprzęgamy z _last_power_ts, bo ten jest aktualizowany w slew limiterze)
+        self._last_alpha_ts: Optional[float] = None
+
+        # logi diagnostyczne (rate-limit)
+        self._last_switch_log_ts: Optional[float] = None
+        self._last_model_log_ts: Optional[float] = None
+        self._last_model_skip_log_ts: Optional[float] = None
 
         # restore
         self._restored_state_meta: Optional[Dict[str, Any]] = None
@@ -209,9 +219,16 @@ class WorkPowerPredictiveModule(ModuleInterface):
                     data={"in_work": in_work},
                 )
             )
+            # żeby α nie "skakało" dt po wyjściu/wejściu z WORK
+            self._last_alpha_ts = None
+            # opcjonalnie też reset logów okresowych
+            self._last_switch_log_ts = None
+            self._last_model_log_ts = None
+            self._last_model_skip_log_ts = None
 
         if not prev_in_work and in_work:
             self._last_power_ts = None  # pierwszy krok bez slew limit
+            self._last_alpha_ts = None  # pierwszy krok bez "dużego dt" dla α
 
         boiler_temp = sensors.boiler_temp
 
@@ -222,15 +239,18 @@ class WorkPowerPredictiveModule(ModuleInterface):
             self._restored_state_meta = None
 
         # filtry
+        dt_filt = self._dt(self._filter_last_ts, now_ctrl)
+        self._filter_last_ts = now_ctrl
+
         boiler_tf: Optional[float] = None
         if boiler_temp is not None:
-            # (1) zapamiętaj poprzednią wartość filtrowaną do modelu (y[k-1])
+            # zapamiętaj poprzednią wartość filtrowaną do modelu (y[k-1])
             self._boiler_tf_prev = self._boiler_tf
 
             boiler_tf = self._lowpass_update(
                 prev=self._boiler_tf,
                 x=float(boiler_temp),
-                dt=self._dt(self._pi_last_tick_ts, now_ctrl),
+                dt=dt_filt,
                 tau=max(float(self._config.boiler_temp_filter_tau_s), 0.1),
             )
             self._boiler_tf = boiler_tf
@@ -240,7 +260,7 @@ class WorkPowerPredictiveModule(ModuleInterface):
             self._flue_tf = self._lowpass_update(
                 prev=self._flue_tf,
                 x=float(flue_temp),
-                dt=self._dt(self._pi_last_tick_ts, now_ctrl),
+                dt=dt_filt,
                 tau=max(float(self._config.flue_temp_filter_tau_s), 0.1),
             )
 
@@ -252,13 +272,14 @@ class WorkPowerPredictiveModule(ModuleInterface):
                 self._power = actual_power
                 self._alpha = 0.0
                 self._stable_since_ts = None
+                self._last_alpha_ts = None
 
             self._last_in_work = in_work
             self._maybe_persist_state(now_wall=now, boiler_temp=boiler_temp, events=events)
             status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
             return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
 
-        # historia u(t) do modelu
+        # historia u(t) do modelu (historię trzymamy zawsze, żeby po wejściu w WORK był u_delay)
         current_power_for_history = float(system_state.outputs.power_percent if not in_work else self._power)
         self._push_u_history(now_ctrl, current_power_for_history)
 
@@ -277,9 +298,9 @@ class WorkPowerPredictiveModule(ModuleInterface):
         else:
             p_pi = self._pi_power
 
-        # uczenie modelu
-        if self._config.model_enabled and boiler_tf is not None:
-            self._maybe_update_model(now_ctrl, boiler_tf)
+        # UCZENIE MODELU: tylko w WORK (zgodnie z Twoją prośbą)
+        if in_work and self._config.model_enabled and boiler_tf is not None:
+            self._maybe_update_model(now_wall=now, now_ctrl=now_ctrl, boiler_tf=boiler_tf, events=events)
 
         # poza WORK: nie nadpisuj
         if not in_work:
@@ -293,8 +314,10 @@ class WorkPowerPredictiveModule(ModuleInterface):
         if self._config.switch_use_model and self._config.model_enabled and boiler_tf is not None:
             power_model = self._model_based_power(boiler_tf, p_pi)
 
-        # α (warunkowe przejęcie)
-        self._update_alpha(now_ctrl, boiler_tf)
+        # α (warunkowe przejęcie) + log stanu przełączania
+        if boiler_tf is not None:
+            self._update_alpha(now_ctrl, boiler_tf)
+            self._maybe_log_switch_status(now_wall=now, now_ctrl=now_ctrl, boiler_tf=boiler_tf, events=events)
 
         power = (1.0 - self._alpha) * float(p_pi) + self._alpha * float(power_model)
 
@@ -384,7 +407,7 @@ class WorkPowerPredictiveModule(ModuleInterface):
 
     # ---------------- MODEL (RLS) ----------------
 
-    def _maybe_update_model(self, now_ctrl: float, boiler_tf: float) -> None:
+    def _maybe_update_model(self, now_wall: float, now_ctrl: float, boiler_tf: float, events: List[Event]) -> None:
         period = max(float(self._config.model_update_period_s), 1.0)
         if self._model_last_update_ts is not None and (now_ctrl - self._model_last_update_ts) < period:
             return
@@ -392,19 +415,27 @@ class WorkPowerPredictiveModule(ModuleInterface):
         # u(t-delay)
         u_del = self._get_delayed_u(now_ctrl)
         if u_del is None:
+            self._maybe_log_model_skip(now_wall, now_ctrl, events, reason="no_delayed_u")
             return
 
-        # (1) y_prev MUSI być z poprzedniej próbki (y[k-1]) – nie bieżąca
-        y_prev = float(self._boiler_tf_prev if self._boiler_tf_prev is not None else boiler_tf)
+        # y_prev = poprzednia próbka MODELU (nie poprzedni tick)
+        if self._y_prev_model is None:
+            # nie mamy jeszcze poprzedniej próbki modelu -> inicjalizacja i wyjdź
+            self._y_prev_model = float(boiler_tf)
+            self._model_last_update_ts = now_ctrl  # opcjonalnie: ustaw czas, żeby nie robić 2 update'ów od razu
+            self._maybe_log_model_skip(now_wall, now_ctrl, events, reason="init_y_prev_model")
+            return
 
+        y_prev = float(self._y_prev_model)
         # predykcja 1-krok
         a, b, c = self._theta
         y_hat = a * y_prev + b * float(u_del) + c
         resid = float(boiler_tf) - y_hat
 
-        # (2)(3)(4) zabezpieczenie przed niefinity (chroni RMSE i RLS przed "wystrzałem")
+        # zabezpieczenie przed niefinity
         if not (math.isfinite(y_hat) and math.isfinite(resid)):
             self._reset_model_only()
+            self._maybe_log_model_skip(now_wall, now_ctrl, events, reason="nan_or_inf")
             return
 
         self._update_pred_rmse(now_ctrl, resid)
@@ -412,7 +443,20 @@ class WorkPowerPredictiveModule(ModuleInterface):
         phi = [y_prev, float(u_del), 1.0]
         self._rls_update(phi, float(boiler_tf))
 
+        self._y_prev_model = float(boiler_tf)
         self._model_last_update_ts = now_ctrl
+
+        # log postępu nauki (rate-limit)
+        self._maybe_log_model_update(
+            now_wall=now_wall,
+            now_ctrl=now_ctrl,
+            boiler_tf=boiler_tf,
+            y_prev=y_prev,
+            u_del=float(u_del),
+            y_hat=float(y_hat),
+            resid=float(resid),
+            events=events,
+        )
 
     def _rls_update(self, phi: List[float], y: float) -> None:
         lam = self._clamp(float(self._config.model_lambda), 0.90, 0.99999)
@@ -458,11 +502,11 @@ class WorkPowerPredictiveModule(ModuleInterface):
         # sanity: a w sensownym zakresie
         self._theta[0] = self._clamp(self._theta[0], 0.90, 0.9999)
 
-        # (2) sanity: b i c w sensownym zakresie, żeby nie rozjechać predykcji/RMSE
+        # sanity: b i c w sensownym zakresie
         self._theta[1] = self._clamp(self._theta[1], -1.0, 1.0)      # b
         self._theta[2] = self._clamp(self._theta[2], -100.0, 100.0)  # c
 
-        # (3) sanity: macierz P nie może się rozjechać liczbowo
+        # sanity: macierz P nie może się rozjechać liczbowo
         for i in range(3):
             for j in range(3):
                 v = float(self._P[i][j])
@@ -484,7 +528,6 @@ class WorkPowerPredictiveModule(ModuleInterface):
         new_s2 = (1.0 - alpha) * prev_s2 + alpha * s2
         new_rmse = float(math.sqrt(max(new_s2, 0.0)))
 
-        # (4) sanity: RMSE też musi być skończone
         self._pred_rmse_ewma = new_rmse if math.isfinite(new_rmse) else 99.0
 
     def _model_based_power(self, boiler_tf: float, p_pi: float) -> float:
@@ -497,7 +540,7 @@ class WorkPowerPredictiveModule(ModuleInterface):
         n = int(max(1, horizon / step))
 
         y = float(boiler_tf)
-        u = float(p_pi)
+        u = self._clamp(float(p_pi), float(self._config.min_power), float(self._config.max_power))
         for _ in range(n):
             y = a * y + b * u + c
             if not math.isfinite(y):
@@ -509,7 +552,6 @@ class WorkPowerPredictiveModule(ModuleInterface):
         return out if math.isfinite(out) else float(p_pi)
 
     def _reset_model_only(self) -> None:
-        # bez zmiany "zasad działania" modułu: tylko bezpieczny reset części modelowej
         self._theta = [self._config.model_init_a, self._config.model_init_b, self._config.model_init_c]
         self._P = [
             [self._config.model_init_P_diag, 0.0, 0.0],
@@ -525,6 +567,7 @@ class WorkPowerPredictiveModule(ModuleInterface):
         if not self._config.switch_use_model or not self._config.model_enabled:
             self._alpha = 0.0
             self._stable_since_ts = None
+            self._last_alpha_ts = now_ctrl
             return
 
         e = abs(float(self._config.boiler_set_temp) - float(boiler_tf))
@@ -543,9 +586,14 @@ class WorkPowerPredictiveModule(ModuleInterface):
         if self._stable_since_ts is not None:
             can_ramp_up = (now_ctrl - self._stable_since_ts) >= float(self._config.stable_required_s)
 
+        # FIX: dt liczymy z osobnego zegara, nie z _last_power_ts (slew limiter)
         dt = 0.0
-        if self._last_power_ts is not None:
-            dt = max(0.0, now_ctrl - self._last_power_ts)
+        if self._last_alpha_ts is not None:
+            dt = max(0.0, now_ctrl - self._last_alpha_ts)
+        self._last_alpha_ts = now_ctrl
+
+        if dt <= 0.0:
+            return
 
         if bad:
             self._alpha = max(0.0, float(self._alpha) - float(self._config.alpha_ramp_down_per_s) * dt)
@@ -554,6 +602,111 @@ class WorkPowerPredictiveModule(ModuleInterface):
                 self._alpha = min(1.0, float(self._alpha) + float(self._config.alpha_ramp_up_per_s) * dt)
             else:
                 self._alpha = max(0.0, float(self._alpha) - 0.5 * float(self._config.alpha_ramp_down_per_s) * dt)
+
+    def _maybe_log_switch_status(self, now_wall: float, now_ctrl: float, boiler_tf: float, events: List[Event]) -> None:
+        # co 30s, żeby w logu było widać czy ma szanse przejąć
+        period = 30.0
+        if self._last_switch_log_ts is not None and (now_ctrl - self._last_switch_log_ts) < period:
+            return
+
+        e = abs(float(self._config.boiler_set_temp) - float(boiler_tf))
+        rmse = float(self._pred_rmse_ewma)
+        good = (e <= float(self._config.err_on_degC)) and (rmse <= float(self._config.rmse_on_degC))
+        bad = (e >= float(self._config.err_off_degC)) or (rmse >= float(self._config.rmse_off_degC))
+
+        stable_for = 0.0
+        if self._stable_since_ts is not None:
+            stable_for = max(0.0, now_ctrl - self._stable_since_ts)
+
+        can_ramp_up = (self._stable_since_ts is not None) and (stable_for >= float(self._config.stable_required_s))
+
+        events.append(
+            Event(
+                ts=now_wall,
+                source=self.id,
+                level=EventLevel.INFO,
+                type="POWER_WORK_PREDICTIVE_SWITCH_STATUS",
+                message=(
+                    f"{self.id}: α={self._alpha:.2f} "
+                    f"e={e:.2f}°C rmse={rmse:.2f} "
+                    f"good={good} bad={bad} stable_for={stable_for:.0f}s/{float(self._config.stable_required_s):.0f}s"
+                ),
+                data={
+                    "alpha": float(self._alpha),
+                    "e": float(e),
+                    "rmse": float(rmse),
+                    "good": bool(good),
+                    "bad": bool(bad),
+                    "stable_for_s": float(stable_for),
+                    "stable_required_s": float(self._config.stable_required_s),
+                    "can_ramp_up": bool(can_ramp_up),
+                    "err_on_degC": float(self._config.err_on_degC),
+                    "rmse_on_degC": float(self._config.rmse_on_degC),
+                    "err_off_degC": float(self._config.err_off_degC),
+                    "rmse_off_degC": float(self._config.rmse_off_degC),
+                },
+            )
+        )
+        self._last_switch_log_ts = now_ctrl
+
+    def _maybe_log_model_update(
+        self,
+        now_wall: float,
+        now_ctrl: float,
+        boiler_tf: float,
+        y_prev: float,
+        u_del: float,
+        y_hat: float,
+        resid: float,
+        events: List[Event],
+    ) -> None:
+        period = 30.0
+        if self._last_model_log_ts is not None and (now_ctrl - self._last_model_log_ts) < period:
+            return
+
+        a, b, c = self._theta
+        events.append(
+            Event(
+                ts=now_wall,
+                source=self.id,
+                level=EventLevel.INFO,
+                type="POWER_WORK_PREDICTIVE_MODEL_UPDATE",
+                message=(
+                    f"{self.id}: model update "
+                    f"rmse={self._pred_rmse_ewma:.2f} "
+                    f"y={boiler_tf:.2f} y_hat={y_hat:.2f} resid={resid:.2f} "
+                    f"θ=[a={a:.5f}, b={b:.4f}, c={c:.2f}] u_del={u_del:.1f}"
+                ),
+                data={
+                    "boiler_tf": float(boiler_tf),
+                    "y_prev": float(y_prev),
+                    "u_del": float(u_del),
+                    "y_hat": float(y_hat),
+                    "resid": float(resid),
+                    "pred_rmse_ewma": float(self._pred_rmse_ewma),
+                    "theta": [float(a), float(b), float(c)],
+                },
+            )
+        )
+        self._last_model_log_ts = now_ctrl
+
+    def _maybe_log_model_skip(self, now_wall: float, now_ctrl: float, events: List[Event], reason: str) -> None:
+        # tylko do diagnostyki; rate-limit 60s
+        period = 60.0
+        if self._last_model_skip_log_ts is not None and (now_ctrl - self._last_model_skip_log_ts) < period:
+            return
+
+        events.append(
+            Event(
+                ts=now_wall,
+                source=self.id,
+                level=EventLevel.INFO,
+                type="POWER_WORK_PREDICTIVE_MODEL_UPDATE_SKIPPED",
+                message=f"{self.id}: model update skipped ({reason})",
+                data={"reason": str(reason)},
+            )
+        )
+        self._last_model_skip_log_ts = now_ctrl
 
     # ---------------- HELPERS ----------------
 
@@ -633,6 +786,7 @@ class WorkPowerPredictiveModule(ModuleInterface):
     def _hard_reset_runtime_state(self) -> None:
         self._boiler_tf = None
         self._boiler_tf_prev = None
+        self._y_prev_model = None      
         self._flue_tf = None
 
         self._pi_integral = 0.0
@@ -642,8 +796,14 @@ class WorkPowerPredictiveModule(ModuleInterface):
 
         self._power = 0.0
         self._last_power_ts = None
+
         self._alpha = 0.0
         self._stable_since_ts = None
+        self._last_alpha_ts = None
+
+        self._last_switch_log_ts = None
+        self._last_model_log_ts = None
+        self._last_model_skip_log_ts = None
 
         self._theta = [self._config.model_init_a, self._config.model_init_b, self._config.model_init_c]
         self._P = [
@@ -736,6 +896,12 @@ class WorkPowerPredictiveModule(ModuleInterface):
         self._last_power_ts = None
         self._model_last_update_ts = None
         self._boiler_tf_prev = None
+        self._y_prev_model = None
+
+        self._last_alpha_ts = None
+        self._last_switch_log_ts = None
+        self._last_model_log_ts = None
+        self._last_model_skip_log_ts = None
 
     def _validate_restored_state(self, current_boiler_temp: float, now_wall: float, events: List[Event]) -> bool:
         meta = self._restored_state_meta or {}
