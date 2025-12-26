@@ -1,0 +1,78 @@
+enabled: true
+
+# base setpoint + filters
+boiler_set_temp: 56.0
+boiler_tau_s: 50.0
+flue_tau_s: 10.0
+
+# NEW: output power smoothing (EMA/PT1). 0 disables.
+power_out_tau_s: 60.0
+
+# power limits
+min_power: 30.0
+max_power: 90.0
+max_slew_rate_percent_per_min: 20.0
+
+# delta
+delta_universe_min: -6.0
+delta_universe_max: 6.0
+delta_universe_step: 0.05
+delta_scale: 0.6
+
+# flue thresholds (start values; auto-tune will adapt them)
+flue_min_C: 110.0
+flue_mid_C: 160.0
+flue_max_C: 260.0
+flue_overlap_ratio: 0.2
+flue_vhigh_margin_C: 20.0
+
+# flue influence vs |error|
+flue_weight_band_C: 5.0
+flue_weight_near: 2.0
+flue_weight_far: 0.1
+
+# --- neuro learning (rule weights) ---
+neuro_enabled: true
+learning_delay_s: 120.0
+learning_min_update_interval_s: 5.0
+learning_deadzone_C: 0.3
+learning_freeze_on_saturation: true
+learning_rate: 0.05
+learning_reg: 0.01
+rule_weight_min: 0.5
+rule_weight_max: 1.8
+learning_buffer_max: 900
+learning_event_delta_threshold: 0.25
+learning_event_min_interval_s: 120.0
+
+# --- reward shaping (anti-jerk / anti-flue spikes) ---
+reward_temp_gain: 1.0
+reward_k_dp: 0.03
+reward_k_ddp: 0.08
+reward_k_tf: 0.004
+reward_k_dtf: 0.02
+reward_clip: 2.0
+
+# --- auto-tuning flue thresholds ---
+auto_flue_enabled: true
+auto_flue_window_s: 1200.0
+auto_flue_update_interval_s: 30.0
+auto_flue_stable_abs_err_C: 0.8
+auto_flue_stable_rate_C_per_min: 0.15
+auto_flue_min_bound_C: 60.0
+auto_flue_max_bound_C: 400.0
+auto_flue_ema_alpha: 0.05
+auto_flue_q_low: 0.20
+auto_flue_q_mid: 0.50
+auto_flue_q_high: 0.80
+auto_flue_min_span_C: 10.0
+auto_flue_event_min_interval_s: 300.0
+
+# persist
+state_dir: data
+state_file: power_work_neuro_fuzzy_state.yaml
+state_save_interval_s: 30.0
+state_max_age_s: 900.0
+state_max_boiler_temp_delta_C: 5.0
+state_max_flue_temp_delta_C: 30.0
+

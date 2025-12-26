@@ -1,0 +1,765 @@
+id: power_work_neuro_fuzzy
+name: "Mocy kotła – PRACA (Neuro-Fuzzy)"
+description: >
+  Sterowanie mocą kotła w trybie WORK algorytmem fuzzy (Mamdani) z warstwą neuro:
+  online adaptacja wag reguł (uczenie opóźnione) + auto-kalibracja progów spalin
+  + adaptacja parametrów stabilności (delta_scale, flue_weight_near, flue_weight_band_C).
+
+groups:
+  - id: basic
+    label: "Podstawowe"
+  - id: filters
+    label: "Filtry"
+  - id: flue
+    label: "Spaliny"
+  - id: fuzzy
+    label: "Fuzzy (Mamdani)"
+  - id: neuro
+    label: "Neuro (uczenie wag)"
+  - id: reward
+    label: "Reward (antyszarpanie)"
+  - id: auto
+    label: "Auto-tuning (spaliny)"
+  - id: adapt
+    label: "Adaptacja stabilności"
+  - id: state
+    label: "Stan (restart)"
+
+fields:
+  - key: enabled
+    label: "Regulator aktywny"
+    type: bool
+    default: true
+    group: basic
+
+  - key: boiler_set_temp
+    label: "Zadana temperatura kotła"
+    type: number
+    unit: "°C"
+    min: 40
+    max: 90
+    step: 1
+    default: 56
+    group: basic
+
+  - key: min_power
+    label: "Minimalna moc"
+    type: number
+    unit: "%"
+    min: 0
+    max: 100
+    step: 1
+    default: 15
+    group: basic
+
+  - key: max_power
+    label: "Maksymalna moc"
+    type: number
+    unit: "%"
+    min: 0
+    max: 100
+    step: 1
+    default: 100
+    group: basic
+
+  - key: max_slew_rate_percent_per_min
+    label: "Maksymalna zmiana mocy na minutę"
+    type: number
+    unit: "pkt%/min"
+    min: 0
+    max: 100
+    step: 0.5
+    default: 10
+    group: basic
+
+  - key: boiler_tau_s
+    label: "Stała czasowa filtru kotła"
+    type: number
+    unit: "s"
+    min: 1
+    max: 2000
+    step: 1
+    default: 180
+    group: filters
+
+  - key: flue_tau_s
+    label: "Stała czasowa filtru spalin"
+    type: number
+    unit: "s"
+    min: 1
+    max: 2000
+    step: 1
+    default: 60
+    group: filters
+
+  - key: flue_min_C
+    label: "Spaliny: minimum (LOW start)"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 400
+    step: 1
+    default: 110
+    group: flue
+
+  - key: flue_mid_C
+    label: "Spaliny: środek (MID peak)"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 400
+    step: 1
+    default: 160
+    group: flue
+
+  - key: flue_max_C
+    label: "Spaliny: maksimum (HIGH peak)"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 400
+    step: 1
+    default: 260
+    group: flue
+
+  - key: flue_overlap_ratio
+    label: "Spaliny: nakładanie zbiorów"
+    type: number
+    unit: ""
+    min: 0.05
+    max: 0.45
+    step: 0.01
+    default: 0.20
+    group: flue
+
+  - key: flue_vhigh_margin_C
+    label: "Spaliny: margines VHIGH ponad max"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 100
+    step: 1
+    default: 20
+    group: flue
+
+  - key: flue_weight_band_C
+    label: "Waga spalin: pasmo (|e|)"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 30
+    step: 0.5
+    default: 8
+    group: flue
+
+  - key: flue_weight_near
+    label: "Waga spalin blisko zadanej"
+    type: number
+    unit: ""
+    min: 0
+    max: 5
+    step: 0.05
+    default: 1.2
+    group: flue
+
+  - key: flue_weight_far
+    label: "Waga spalin daleko od zadanej"
+    type: number
+    unit: ""
+    min: 0
+    max: 5
+    step: 0.05
+    default: 0.1
+    group: flue
+
+  - key: delta_scale
+    label: "Skalowanie ΔP"
+    type: number
+    unit: ""
+    min: 0
+    max: 5
+    step: 0.01
+    default: 0.6
+    group: fuzzy
+
+  - key: delta_universe_min
+    label: "ΔP min"
+    type: number
+    unit: "pkt%"
+    min: -50
+    max: 0
+    step: 0.5
+    default: -6
+    group: fuzzy
+
+  - key: delta_universe_max
+    label: "ΔP max"
+    type: number
+    unit: "pkt%"
+    min: 0
+    max: 50
+    step: 0.5
+    default: 6
+    group: fuzzy
+
+  - key: delta_universe_step
+    label: "ΔP krok dyskretyzacji"
+    type: number
+    unit: "pkt%"
+    min: 0.01
+    max: 1
+    step: 0.01
+    default: 0.05
+    group: fuzzy
+
+  # --- neuro ---
+  - key: neuro_enabled
+    label: "Uczenie wag reguł"
+    type: bool
+    default: true
+    group: neuro
+
+  - key: learning_delay_s
+    label: "Opóźnienie oceny (delay)"
+    type: number
+    unit: "s"
+    min: 10
+    max: 1000
+    step: 5
+    default: 120
+    group: neuro
+
+  - key: learning_min_update_interval_s
+    label: "Min. interwał aktualizacji wag"
+    type: number
+    unit: "s"
+    min: 0
+    max: 60
+    step: 1
+    default: 5
+    group: neuro
+
+  - key: learning_deadzone_C
+    label: "Deadzone uczenia (|e|)"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 5
+    step: 0.05
+    default: 0.3
+    group: neuro
+
+  - key: learning_freeze_on_saturation
+    label: "Nie ucz w saturacji mocy"
+    type: bool
+    default: true
+    group: neuro
+
+  - key: learning_rate
+    label: "Learning rate"
+    type: number
+    unit: ""
+    min: 0
+    max: 1
+    step: 0.005
+    default: 0.05
+    group: neuro
+
+  - key: learning_reg
+    label: "Regularyzacja wag → 1.0"
+    type: number
+    unit: ""
+    min: 0
+    max: 1
+    step: 0.005
+    default: 0.01
+    group: neuro
+
+  - key: rule_weight_min
+    label: "Min waga reguły"
+    type: number
+    unit: ""
+    min: 0.1
+    max: 3.0
+    step: 0.05
+    default: 0.5
+    group: neuro
+
+  - key: rule_weight_max
+    label: "Max waga reguły"
+    type: number
+    unit: ""
+    min: 0.5
+    max: 5.0
+    step: 0.05
+    default: 1.8
+    group: neuro
+
+  - key: learning_buffer_max
+    label: "Rozmiar bufora uczenia"
+    type: number
+    unit: "próbki"
+    min: 50
+    max: 5000
+    step: 50
+    default: 900
+    group: neuro
+
+  - key: learning_event_delta_threshold
+    label: "Próg logowania zmian wag"
+    type: number
+    unit: ""
+    min: 0
+    max: 2
+    step: 0.05
+    default: 0.25
+    group: neuro
+
+  - key: learning_event_min_interval_s
+    label: "Min. interwał eventów uczenia"
+    type: number
+    unit: "s"
+    min: 0
+    max: 3600
+    step: 10
+    default: 120
+    group: neuro
+
+  # --- reward shaping ---
+  - key: reward_temp_gain
+    label: "Waga celu temperatury"
+    type: number
+    unit: ""
+    min: 0
+    max: 5
+    step: 0.05
+    default: 1.0
+    group: reward
+
+  - key: reward_k_dp
+    label: "Kara za |ΔP|"
+    type: number
+    unit: ""
+    min: 0
+    max: 1
+    step: 0.005
+    default: 0.03
+    group: reward
+
+  - key: reward_k_ddp
+    label: "Kara za |ΔΔP|"
+    type: number
+    unit: ""
+    min: 0
+    max: 2
+    step: 0.01
+    default: 0.08
+    group: reward
+
+  - key: reward_k_tf
+    label: "Kara za (Tf - Tf_mid)+"
+    type: number
+    unit: ""
+    min: 0
+    max: 1
+    step: 0.001
+    default: 0.004
+    group: reward
+
+  - key: reward_k_dtf
+    label: "Kara za (dTf/dt)+"
+    type: number
+    unit: ""
+    min: 0
+    max: 1
+    step: 0.005
+    default: 0.02
+    group: reward
+
+  - key: reward_clip
+    label: "Clamp reward"
+    type: number
+    unit: ""
+    min: 0.5
+    max: 10
+    step: 0.1
+    default: 2.0
+    group: reward
+
+  # --- auto flue ---
+  - key: auto_flue_enabled
+    label: "Auto-kalibracja progów spalin"
+    type: bool
+    default: true
+    group: auto
+
+  - key: auto_flue_window_s
+    label: "Okno statystyk spalin"
+    type: number
+    unit: "s"
+    min: 60
+    max: 7200
+    step: 60
+    default: 1200
+    group: auto
+
+  - key: auto_flue_update_interval_s
+    label: "Co ile sekund aktualizować progi"
+    type: number
+    unit: "s"
+    min: 5
+    max: 600
+    step: 5
+    default: 30
+    group: auto
+
+  - key: auto_flue_stable_abs_err_C
+    label: "Warunek stabilności: |e|"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 5
+    step: 0.05
+    default: 0.8
+    group: auto
+
+  - key: auto_flue_stable_rate_C_per_min
+    label: "Warunek stabilności: |rate|"
+    type: number
+    unit: "°C/min"
+    min: 0
+    max: 2
+    step: 0.01
+    default: 0.15
+    group: auto
+
+  - key: auto_flue_q_low
+    label: "Kwantyl LOW"
+    type: number
+    unit: ""
+    min: 0.05
+    max: 0.45
+    step: 0.01
+    default: 0.20
+    group: auto
+
+  - key: auto_flue_q_mid
+    label: "Kwantyl MID"
+    type: number
+    unit: ""
+    min: 0.10
+    max: 0.90
+    step: 0.01
+    default: 0.50
+    group: auto
+
+  - key: auto_flue_q_high
+    label: "Kwantyl HIGH"
+    type: number
+    unit: ""
+    min: 0.55
+    max: 0.95
+    step: 0.01
+    default: 0.80
+    group: auto
+
+  - key: auto_flue_ema_alpha
+    label: "Szybkość dostosowania (EMA alpha)"
+    type: number
+    unit: ""
+    min: 0.001
+    max: 0.2
+    step: 0.001
+    default: 0.05
+    group: auto
+
+  - key: auto_flue_min_span_C
+    label: "Min. rozpiętość progów (max-min)"
+    type: number
+    unit: "°C"
+    min: 5
+    max: 80
+    step: 1
+    default: 10
+    group: auto
+
+  - key: auto_flue_min_bound_C
+    label: "Granica dolna progów"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 200
+    step: 1
+    default: 60
+    group: auto
+
+  - key: auto_flue_max_bound_C
+    label: "Granica górna progów"
+    type: number
+    unit: "°C"
+    min: 100
+    max: 600
+    step: 5
+    default: 400
+    group: auto
+
+  - key: auto_flue_event_min_interval_s
+    label: "Min. interwał eventów auto-tune"
+    type: number
+    unit: "s"
+    min: 0
+    max: 3600
+    step: 10
+    default: 300
+    group: auto
+
+  # --- ADAPT: stability knobs ---
+  - key: adapt_enabled
+    label: "Adaptuj parametry stabilności"
+    type: bool
+    default: true
+    group: adapt
+
+  - key: adapt_window_s
+    label: "Okno statystyk adaptacji"
+    type: number
+    unit: "s"
+    min: 120
+    max: 7200
+    step: 60
+    default: 1200
+    group: adapt
+
+  - key: adapt_update_interval_s
+    label: "Co ile sekund adaptować"
+    type: number
+    unit: "s"
+    min: 5
+    max: 600
+    step: 5
+    default: 60
+    group: adapt
+
+  - key: adapt_event_min_interval_s
+    label: "Min. interwał eventów adaptacji"
+    type: number
+    unit: "s"
+    min: 0
+    max: 3600
+    step: 10
+    default: 300
+    group: adapt
+
+  - key: adapt_err_ok_C
+    label: "Temp OK: średnie |e| <= "
+    type: number
+    unit: "°C"
+    min: 0
+    max: 3
+    step: 0.05
+    default: 0.6
+    group: adapt
+
+  - key: adapt_err_bad_C
+    label: "Temp słaba: średnie |e| >= "
+    type: number
+    unit: "°C"
+    min: 0.5
+    max: 5
+    step: 0.1
+    default: 1.5
+    group: adapt
+
+  - key: adapt_rate_ok_C_per_min
+    label: "Temp OK: średnie |rate| <= "
+    type: number
+    unit: "°C/min"
+    min: 0
+    max: 2
+    step: 0.05
+    default: 0.25
+    group: adapt
+
+  - key: adapt_power_std_high
+    label: "Próg: std(moc) duże"
+    type: number
+    unit: "pkt%"
+    min: 1
+    max: 20
+    step: 0.5
+    default: 6.0
+    group: adapt
+
+  - key: adapt_power_absdp_mean_high
+    label: "Próg: mean(|ΔP|) duże"
+    type: number
+    unit: "pkt%/tick"
+    min: 0.5
+    max: 20
+    step: 0.5
+    default: 4.0
+    group: adapt
+
+  - key: adapt_flue_std_high
+    label: "Próg: std(spaliny) duże"
+    type: number
+    unit: "°C"
+    min: 2
+    max: 50
+    step: 1
+    default: 12.0
+    group: adapt
+
+  - key: adapt_flue_rate_max_high
+    label: "Próg: max(dTf/dt)+ duże"
+    type: number
+    unit: "°C/min"
+    min: 5
+    max: 200
+    step: 5
+    default: 25.0
+    group: adapt
+
+  - key: adapt_delta_scale_step
+    label: "Krok: delta_scale"
+    type: number
+    unit: ""
+    min: 0.001
+    max: 0.2
+    step: 0.001
+    default: 0.02
+    group: adapt
+
+  - key: adapt_flue_weight_near_step
+    label: "Krok: flue_weight_near"
+    type: number
+    unit: ""
+    min: 0.01
+    max: 0.5
+    step: 0.01
+    default: 0.05
+    group: adapt
+
+  - key: adapt_flue_weight_band_step_C
+    label: "Krok: flue_weight_band_C"
+    type: number
+    unit: "°C"
+    min: 0.1
+    max: 5
+    step: 0.1
+    default: 0.5
+    group: adapt
+
+  - key: adapt_delta_scale_min
+    label: "Min delta_scale"
+    type: number
+    unit: ""
+    min: 0.05
+    max: 2
+    step: 0.01
+    default: 0.25
+    group: adapt
+
+  - key: adapt_delta_scale_max
+    label: "Max delta_scale"
+    type: number
+    unit: ""
+    min: 0.1
+    max: 5
+    step: 0.01
+    default: 1.50
+    group: adapt
+
+  - key: adapt_flue_weight_near_min
+    label: "Min flue_weight_near"
+    type: number
+    unit: ""
+    min: 0
+    max: 5
+    step: 0.05
+    default: 0.4
+    group: adapt
+
+  - key: adapt_flue_weight_near_max
+    label: "Max flue_weight_near"
+    type: number
+    unit: ""
+    min: 0
+    max: 5
+    step: 0.05
+    default: 3.0
+    group: adapt
+
+  - key: adapt_flue_weight_band_min_C
+    label: "Min flue_weight_band_C"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 30
+    step: 0.5
+    default: 3.0
+    group: adapt
+
+  - key: adapt_flue_weight_band_max_C
+    label: "Max flue_weight_band_C"
+    type: number
+    unit: "°C"
+    min: 1
+    max: 60
+    step: 0.5
+    default: 20.0
+    group: adapt
+
+  # --- state ---
+  - key: state_dir
+    label: "Katalog zapisu stanu"
+    type: text
+    default: "data"
+    group: state
+
+  - key: state_file
+    label: "Plik stanu"
+    type: text
+    default: "power_work_neuro_fuzzy_state.yaml"
+    group: state
+
+  - key: state_save_interval_s
+    label: "Interwał zapisu stanu"
+    type: number
+    unit: "s"
+    min: 1
+    max: 3600
+    step: 1
+    default: 30
+    group: state
+
+  - key: state_max_age_s
+    label: "Maksymalny wiek stanu"
+    type: number
+    unit: "s"
+    min: 0
+    max: 86400
+    step: 60
+    default: 900
+    group: state
+
+  - key: state_max_boiler_temp_delta_C
+    label: "Maks. różnica temp. kotła przy restore"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 50
+    step: 0.5
+    default: 5
+    group: state
+
+  - key: state_max_flue_temp_delta_C
+    label: "Maks. różnica temp. spalin przy restore"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 200
+    step: 1
+    default: 30
+    group: state
+

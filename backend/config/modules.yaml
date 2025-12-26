@@ -11,12 +11,22 @@ modules:
 
   - id: power_work
     path: backend.modules.power_work:WorkPowerModule
-    enabled: true
+    enabled: false
     critical: true
 
   - id: power_work_fuzzy
     path: backend.modules.power_work_fuzzy:WorkFuzzyPowerModule
+    enabled: false
+    critical: true
+
+  - id: power_work_predictive
+    path: backend.modules.power_work_predictive:WorkPowerPredictiveModule
     enabled: true
+    critical: true
+
+  - id: power_work_neuro_fuzzy
+    path: backend.modules.power_work_neuro_fuzzy:WorkNeuroFuzzyPowerModule
+    enabled: false
     critical: true
 
   - id: blower

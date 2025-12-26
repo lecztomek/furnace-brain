@@ -50,45 +50,40 @@ class AuxRunner:
         now = float(state.ts)
         self._last_ts = now
 
-        # Snapshot stanu ze store (bez ryzyka race z kernelem):
         sensors = state.sensors
 
         # Eventy z kernela inkrementalnie (nie gubimy między tickami):
         new_events, newest_seq, overflow = self._store.events_since(self._last_event_seq)
         self._last_event_seq = newest_seq
 
-        # To jest paczka, którą widzą aux-moduły:
         base_events: List[Event] = list(new_events)
-
-        # (opcjonalnie) jeśli chcesz, żeby aux-moduły widziały też "ostatni tick kernela"
-        # bez dublowania, możesz dodać:
-        # base_events.extend(list(state.recent_events))
 
         # aux-moduły dostają events jako recent_events w SNAPSHOT-cie
         state.recent_events = base_events
 
-        # Zbieramy statusy żeby później zapisać je do store
         updated_statuses: Dict[str, ModuleStatus] = {}
 
-        # Zbieramy eventy błędów aux (żeby je opublikować w store)
-        aux_error_events: List[Event] = []
+        # ZMIANA: zbieramy wszystkie eventy z AUX (zwrócone + wyjątki)
+        events_to_publish: List[Event] = []
+        events_to_show_now: List[Event] = []
 
         for mid, module in self._modules.items():
             start = time.time()
 
-            # status bierzemy ze snapshotu (fallback), ale zapis będzie do store
             status = state.modules.get(mid) or ModuleStatus(id=mid)
 
             try:
-                # Aux-moduły dostają ten sam kontrakt tick(),
-                # ale ich partial_outputs i events są TU ignorowane.
-                module.tick(now=now, sensors=sensors, system_state=state)
+                result = module.tick(now=now, sensors=sensors, system_state=state)
                 duration = time.time() - start
 
                 status.health = ModuleHealth.OK
                 status.last_error = None
                 status.last_tick_duration = duration
                 status.last_updated = now
+
+                if result.events:
+                    events_to_publish.extend(result.events)
+                    events_to_show_now.extend(result.events)
 
             except Exception as exc:  # pylint: disable=broad-except
                 duration = time.time() - start
@@ -97,16 +92,16 @@ class AuxRunner:
                 status.last_tick_duration = duration
                 status.last_updated = now
 
-                aux_error_events.append(
-                    Event(
-                        ts=now,
-                        source="aux_runner",
-                        level=EventLevel.ERROR,
-                        type="AUX_MODULE_ERROR",
-                        message=f"Aux module {mid} raised an exception",
-                        data={"module": mid, "error": str(exc)},
-                    )
+                ev = Event(
+                    ts=now,
+                    source="aux_runner",
+                    level=EventLevel.ERROR,
+                    type="AUX_MODULE_ERROR",
+                    message=f"Aux module {mid} raised an exception",
+                    data={"module": mid, "error": str(exc)},
                 )
+                events_to_publish.append(ev)
+                events_to_show_now.append(ev)
 
             updated_statuses[mid] = status
 
@@ -115,15 +110,13 @@ class AuxRunner:
             for mid, status in updated_statuses.items():
                 st.modules[mid] = status
 
-            # (opcjonalnie) jeśli chcesz, żeby /api/state widziało od razu błędy AUX,
-            # dopisz je do recent_events (kernel i tak nadpisze przy kolejnym ticku,
-            # ale eventy NIE zginą, bo są też w ring-buforze):
-            if aux_error_events:
-                st.recent_events = list(st.recent_events) + aux_error_events
+            # ZMIANA: pokaż od razu eventy z AUX w /api/state (do czasu kolejnego ticka kernela)
+            if events_to_show_now:
+                st.recent_events = list(st.recent_events) + events_to_show_now
 
-        # Publikujemy aux error eventy do ring-bufora (żeby nie ginęły):
-        if aux_error_events:
-            self._store.publish_events(aux_error_events)
+        if events_to_publish:
+            self._store.publish_events(events_to_publish)
+
 			
     def reload_module_config_from_file(self, module_id: str) -> None:
         now = time.time()

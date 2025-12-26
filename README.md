@@ -64,3 +64,4 @@ ok- zmiana czasu - tryb pid wariuje
 ok- restart systemu - pid od zera poparwic
 ok- ilosc spalonego wegla 
 - przerob stats zeby bylo dwupoziomowe zapis w aux a wyliczanie w critical
+arduino modul przekaznika 
