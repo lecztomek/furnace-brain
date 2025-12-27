@@ -157,6 +157,42 @@ fields:
     description: >
       Jeśli błąd przekroczy ten próg, moduł oddaje sterowanie i wraca do uczenia.
 
+  - key: resume_takeover_enabled
+    label: "Resume takeover po OFF→WORK"
+    type: bool
+    default: true
+    group: takeover
+    description: >
+      Jeśli moduł był w takeover i tryb wyszedł z WORK, to po powrocie do WORK
+      spróbuje wznowić takeover od poprzedniej komendy mocy (bez powrotu do baseline).
+
+  - key: resume_takeover_max_gap_s
+    label: "Resume: maks. przerwa OFF→WORK"
+    type: number
+    unit: "s"
+    min: 0
+    max: 7200
+    step: 30
+    default: 1200
+    group: takeover
+    description: >
+      Jeśli przerwa między LEAVE WORK i ENTER WORK jest większa niż ten próg,
+      resume jest pomijany.
+
+  - key: resume_max_temp_delta_C
+    label: "Resume: maks. ΔT"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 50
+    step: 0.5
+    default: 5
+    group: takeover
+    description: >
+      Jeśli temperatura (po filtrze lub surowa) po powrocie do WORK różni się od tej
+      zapamiętanej przy wyjściu o więcej niż próg, resume jest pomijany.
+
+
   - key: boiler_temp_filter_tau_s
     label: "Filtr temp. kotła (tau)"
     type: number

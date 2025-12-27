@@ -48,6 +48,11 @@ class WorkPowerPredictiveConfig:
          - clamp do [min_power, max_power]
 
     4) Poza WORK: nie nadpisuje outputs.power_percent.
+
+    5) Resume takeover po OFF->WORK:
+         - jeśli przy wyjściu z WORK byliśmy w takeover, to po powrocie do WORK
+           spróbuj wznowić takeover od poprzedniej komendy mocy (_power_cmd),
+           o ile przerwa i zmiana temperatury nie są zbyt duże.
     """
 
     enabled: bool = True
@@ -83,6 +88,11 @@ class WorkPowerPredictiveConfig:
     takeover_trend_window_s: float = 10 * 60.0
     takeover_hold_rise_degC: float = 0.8  # nie dodawaj, jeśli T wzrosła >= w oknie
     takeover_hold_fall_degC: float = 0.8  # nie odejmuj, jeśli T spadła >= w oknie
+
+    # resume po OFF->WORK
+    resume_takeover_enabled: bool = True
+    resume_takeover_max_gap_s: float = 20 * 60.0
+    resume_max_temp_delta_C: float = 5.0
 
     # minimalny odstęp między zmianami mocy
     min_adjust_interval_s: float = 60.0  # 0 = zmieniaj zawsze
@@ -152,6 +162,12 @@ class WorkPowerPredictiveModule(ModuleInterface):
         self._last_status_log_ctrl_ts: Optional[float] = None
         self._last_in_work: bool = False
 
+        # resume takeover po OFF->WORK
+        self._resume_pending: bool = False
+        self._resume_saved_ctrl_ts: Optional[float] = None
+        self._resume_saved_temp: Optional[float] = None
+        self._resume_saved_power_cmd: Optional[float] = None
+
         # restore meta
         self._restored_state_meta: Optional[Dict[str, Any]] = None
         self._try_restore_state_from_disk()
@@ -172,6 +188,23 @@ class WorkPowerPredictiveModule(ModuleInterface):
 
         enabled_now = bool(self._config.enabled)
         prev_enabled = bool(self._last_enabled)
+
+        boiler_temp = sensors.boiler_temp
+
+        # filtr temp (wcześnie, żeby boiler_tf było dostępne już przy MODE_CHANGED)
+        dt_filt = self._dt(self._filter_last_ts, now_ctrl)
+        self._filter_last_ts = now_ctrl
+
+        boiler_tf: Optional[float] = None
+        if boiler_temp is not None:
+            boiler_tf = self._lowpass_update(
+                prev=self._boiler_tf,
+                x=float(boiler_temp),
+                dt=dt_filt,
+                tau=max(float(self._config.boiler_temp_filter_tau_s), 0.1),
+            )
+            self._boiler_tf = boiler_tf
+            self._push_temp_history(now_ctrl, float(boiler_tf))
 
         if enabled_now != prev_enabled:
             events.append(
@@ -201,6 +234,12 @@ class WorkPowerPredictiveModule(ModuleInterface):
 
             self._last_enabled = enabled_now
 
+        # walidacja restore po temp.
+        if boiler_temp is not None and self._restored_state_meta is not None:
+            if not self._validate_restored_state(float(boiler_temp), now, events):
+                self._hard_reset_runtime_state()
+            self._restored_state_meta = None
+
         if prev_in_work != in_work:
             events.append(
                 Event(
@@ -212,43 +251,82 @@ class WorkPowerPredictiveModule(ModuleInterface):
                     data={"in_work": in_work},
                 )
             )
-            # reset logów / sesji po zmianie trybu
             self._last_status_log_ctrl_ts = None
 
             if not in_work:
+                # LEAVE WORK: jeśli takeover był aktywny, przygotuj resume
+                if self._takeover and bool(self._config.resume_takeover_enabled):
+                    self._resume_pending = True
+                    self._resume_saved_ctrl_ts = now_ctrl
+                    if boiler_tf is not None:
+                        self._resume_saved_temp = float(boiler_tf)
+                    elif boiler_temp is not None:
+                        self._resume_saved_temp = float(boiler_temp)
+                    else:
+                        self._resume_saved_temp = None
+                    self._resume_saved_power_cmd = float(self._power_cmd)
+
                 # poza WORK oddaj sterowanie
                 self._takeover = False
                 self._last_adjust_ctrl_ts = None
+
             else:
-                # wejście do WORK: start uczenia jeśli nowa sesja
-                if self._learn_start_ctrl_ts is None:
-                    self._learn_start_ctrl_ts = now_ctrl
-                self._last_adjust_ctrl_ts = None
+                # ENTER WORK: spróbuj wznowić takeover (bez powrotu do baseline)
+                resumed = False
+                dt_gap: Optional[float] = None
 
-        boiler_temp = sensors.boiler_temp
+                if self._resume_pending and bool(self._config.resume_takeover_enabled):
+                    gap_ok = True
+                    if self._resume_saved_ctrl_ts is not None:
+                        dt_gap = now_ctrl - float(self._resume_saved_ctrl_ts)
+                        gap_ok = (dt_gap >= 0) and (dt_gap <= float(self._config.resume_takeover_max_gap_s))
 
-        # walidacja restore po temp.
-        if boiler_temp is not None and self._restored_state_meta is not None:
-            if not self._validate_restored_state(float(boiler_temp), now, events):
-                self._hard_reset_runtime_state()
-            self._restored_state_meta = None
+                    temp_ok = True
+                    cur_t: Optional[float] = None
+                    if boiler_tf is not None:
+                        cur_t = float(boiler_tf)
+                    elif boiler_temp is not None:
+                        cur_t = float(boiler_temp)
 
-        # filtr temp
-        dt_filt = self._dt(self._filter_last_ts, now_ctrl)
-        self._filter_last_ts = now_ctrl
+                    if (self._resume_saved_temp is not None) and (cur_t is not None):
+                        temp_ok = abs(cur_t - float(self._resume_saved_temp)) <= float(self._config.resume_max_temp_delta_C)
 
-        boiler_tf: Optional[float] = None
-        if boiler_temp is not None:
-            boiler_tf = self._lowpass_update(
-                prev=self._boiler_tf,
-                x=float(boiler_temp),
-                dt=dt_filt,
-                tau=max(float(self._config.boiler_temp_filter_tau_s), 0.1),
-            )
-            self._boiler_tf = boiler_tf
+                    if gap_ok and temp_ok and (self._resume_saved_power_cmd is not None):
+                        self._takeover = True
+                        self._power_cmd = float(self._resume_saved_power_cmd)
+                        self._last_adjust_ctrl_ts = now_ctrl  # nie koryguj natychmiast po resume
+                        resumed = True
 
-            # aktualizuj historię do span(T) + trendu
-            self._push_temp_history(now_ctrl, float(boiler_tf))
+                        events.append(
+                            Event(
+                                ts=now,
+                                source=self.id,
+                                level=EventLevel.INFO,
+                                type="POWER_WORK_PREDICTIVE_TAKEOVER_RESUMED",
+                                message=(
+                                    f"{self.id}: TAKEOVER RESUMED "
+                                    f"(gap_s={dt_gap if dt_gap is not None else 'None'} cmd={self._power_cmd:.1f}%)"
+                                ),
+                                data={
+                                    "gap_s": float(dt_gap) if dt_gap is not None else None,
+                                    "resume_cmd": float(self._power_cmd),
+                                    "saved_temp": float(self._resume_saved_temp) if self._resume_saved_temp is not None else None,
+                                    "current_temp": float(cur_t) if cur_t is not None else None,
+                                },
+                            )
+                        )
+
+                # wyczyść resume flagi niezależnie od wyniku
+                self._resume_pending = False
+                self._resume_saved_ctrl_ts = None
+                self._resume_saved_temp = None
+                self._resume_saved_power_cmd = None
+
+                if not resumed:
+                    # standardowa ścieżka jak wcześniej
+                    if self._learn_start_ctrl_ts is None:
+                        self._learn_start_ctrl_ts = now_ctrl
+                    self._last_adjust_ctrl_ts = None
 
         # realna moc systemu (źródło do uczenia gdy nie sterujemy)
         try:
@@ -634,6 +712,12 @@ class WorkPowerPredictiveModule(ModuleInterface):
         self._last_status_log_ctrl_ts = None
         self._last_in_work = False
 
+        # resume state
+        self._resume_pending = False
+        self._resume_saved_ctrl_ts = None
+        self._resume_saved_temp = None
+        self._resume_saved_power_cmd = None
+
     # ---------------- PERSIST ----------------
 
     def _try_restore_state_from_disk(self) -> None:
@@ -681,6 +765,12 @@ class WorkPowerPredictiveModule(ModuleInterface):
         self._last_adjust_ctrl_ts = None
         self._last_status_log_ctrl_ts = None
 
+        # resume state
+        self._resume_pending = False
+        self._resume_saved_ctrl_ts = None
+        self._resume_saved_temp = None
+        self._resume_saved_power_cmd = None
+
     def _reset_learning_state(self, now_ctrl: Optional[float], clear_persist: bool = True) -> None:
         # reset uczenia + przejęcia
         self._power_ema = None
@@ -697,6 +787,12 @@ class WorkPowerPredictiveModule(ModuleInterface):
 
         # reset meta restore, żeby nie walidować starego
         self._restored_state_meta = None
+
+        # resume state
+        self._resume_pending = False
+        self._resume_saved_ctrl_ts = None
+        self._resume_saved_temp = None
+        self._resume_saved_power_cmd = None
 
         # opcjonalnie: usuń persist, żeby nie wróciło po restarcie
         if clear_persist:
