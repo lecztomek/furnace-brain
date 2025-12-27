@@ -1,52 +1,23 @@
-enabled: false
 boiler_set_temp: 56.0
-
-min_power: 15.0
-max_power: 100.0
-
-overtemp_start_degC: 2.0
-overtemp_kp: 10.0
-
-max_slew_rate_percent_per_min: 10.0
-
 boiler_temp_filter_tau_s: 15.0
-flue_temp_filter_tau_s: 30.0
-
-# PI (fallback)
-pi_kp: 6.0
-pi_ki: 0.02
-pi_integral_window_s: 900.0
-
-# Model
-model_enabled: true
-model_update_period_s: 15.0
-model_delay_s: 90.0
-model_lambda: 0.995
-model_init_a: 0.995
-model_init_b: 0.02
-model_init_c: 0.0
-model_init_P_diag: 1000000.0
-
-pred_err_ewma_tau_s: 600.0
-
-# Model-based control (MPC-lite)
-model_horizon_s: 1200.0
-model_gain: 1.0
-
-# Switching / blending
-switch_use_model: true
-err_on_degC: 3.0
-rmse_on_degC: 1.0
-err_off_degC: 6.0
-rmse_off_degC: 2.0
-stable_required_s: 600.0
-alpha_ramp_up_per_s: 0.0016666667   # 1/(10min)
-alpha_ramp_down_per_s: 0.0083333333 # 1/(2min)
-
-# Persist
+dropout_err_off_degC: 5.0
+ema_tau_s: 1200.0
+enabled: true
+learn_gate_err_degC: 1.5
+learn_max_span_degC: 1.5
+learn_min_samples: 30.0
+learn_min_time_s: 600.0
+max_power: 100.0
+min_adjust_interval_s: 90.0
+min_power: 15.0
+overtemp_kp: 5.0
+overtemp_start_degC: 3.0
 state_dir: data
 state_file: power_work_predictive_state.yaml
-state_save_interval_s: 30.0
 state_max_age_s: 900.0
-state_max_temp_delta_C: 5.0
-
+state_max_temp_delta_C: 2.5
+state_save_interval_s: 60.0
+status_log_period_s: 60.0
+takeover_step_percent: 0.5
+temp_span_window_s: 300.0
+trim_deadband_degC: 0.2

@@ -2,20 +2,22 @@ id: power_work_predictive
 name: "Moc kotła – predykcyjny (WORK)"
 description: >
   Wyznaczanie mocy kotła (power %) w trybie WORK.
-  Moduł ma stabilny tor bazowy PI oraz w tle uczy model pieca (ARX/RLS).
-  Gdy błąd temperatury jest mały i model przewiduje dobrze, sterowanie
-  przechodzi płynnie na tor modelowy (blend α). Po pogorszeniu warunków
-  wraca do PI.
+  Moduł uczy się typowej mocy (baseline) jako średniej wykładniczej EMA
+  na podstawie realnej mocy systemu. Próbki do uczenia zbiera dopiero,
+  gdy warunki są spokojne: mały błąd i małe wahania temperatury w oknie
+  (span(T)=max-min w temp_span_window_s).
+  Po spełnieniu minimalnego czasu i liczby próbek moduł OD RAZU przejmuje sterowanie.
+  Sterowanie jest krokowe: co min_adjust_interval_s zmienia moc o takeover_step_percent
+  jeśli temperatura jest poza deadband (trim_deadband_degC).
+  Dodatkowo działa ochrona przed przegrzaniem (overtemp_*), która może natychmiast obniżyć moc.
 
 groups:
   - id: basic
     label: "Podstawowe"
-  - id: pi
-    label: "PI (bazowy / fallback)"
-  - id: model
-    label: "Model (uczenie + predykcja)"
-  - id: switch
-    label: "Przełączanie (warunki + α)"
+  - id: learning
+    label: "Uczenie baseline (EMA)"
+  - id: takeover
+    label: "Przejęcie sterowania"
   - id: state
     label: "Stan (restart)"
 
@@ -28,8 +30,8 @@ fields:
     label_off: "WYŁĄCZONE"
     group: basic
     description: >
-      Gdy wyłączone, moduł nie nadpisuje outputs.power_percent.
-      Może tylko śledzić (tracking) stan PI, aby po włączeniu nie było skoku mocy.
+      Gdy wyłączone, moduł nie nadpisuje outputs.power_percent
+      i nie przejmuje sterowania.
 
   - key: boiler_set_temp
     label: "Zadana temperatura kotła"
@@ -38,9 +40,9 @@ fields:
     min: 40
     max: 90
     step: 1
-    default: 65
+    default: 56
     group: basic
-    description: "Temperatura, do której dąży regulator mocy w trybie WORK."
+    description: "Temperatura, do której dąży regulator w trybie WORK."
 
   - key: min_power
     label: "Minimalna moc"
@@ -49,7 +51,7 @@ fields:
     min: 0
     max: 100
     step: 1
-    default: 10
+    default: 15
     group: basic
     description: "Dolne ograniczenie mocy (w WORK)."
 
@@ -64,18 +66,56 @@ fields:
     group: basic
     description: "Górne ograniczenie mocy (w WORK)."
 
-  - key: max_slew_rate_percent_per_min
-    label: "Maks. zmiana mocy na minutę"
+  - key: min_adjust_interval_s
+    label: "Min. odstęp między korektami mocy"
     type: number
-    unit: "pkt%/min"
+    unit: "s"
     min: 0
-    max: 100
-    step: 0.5
-    default: 10
-    group: basic
+    max: 3600
+    step: 1
+    default: 60
+    group: takeover
     description: >
-      Ograniczenie szybkości zmian mocy. Wartość 0 wyłącza limiter.
-      Przy dużej bezwładności pieca limiter zwykle mocno poprawia stabilność.
+      Ogranicza częstotliwość zmian mocy po przejęciu sterowania.
+      0 oznacza zmianę w każdym ticku. Przy przegrzaniu moduł może
+      natychmiast obniżyć moc niezależnie od interwału.
+
+  - key: takeover_step_percent
+    label: "Takeover: krok zmiany mocy"
+    type: number
+    unit: "pkt%"
+    min: 0.1
+    max: 10
+    step: 0.1
+    default: 1.0
+    group: takeover
+    description: >
+      O ile pkt% zmieniać moc co min_adjust_interval_s, jeśli temperatura
+      jest poza deadband.
+
+  - key: trim_deadband_degC
+    label: "Deadband temperatury"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 5
+    step: 0.1
+    default: 0.5
+    group: takeover
+    description: >
+      Jeśli |błąd| <= deadband, moc nie jest zmieniana (krok=0).
+
+  - key: dropout_err_off_degC
+    label: "Oddanie: |błąd| >= "
+    type: number
+    unit: "°C"
+    min: 0
+    max: 30
+    step: 0.5
+    default: 5.0
+    group: takeover
+    description: >
+      Jeśli błąd przekroczy ten próg, moduł oddaje sterowanie i wraca do uczenia.
 
   - key: overtemp_start_degC
     label: "Próg przegrzania (powyżej zadanej)"
@@ -86,8 +126,7 @@ fields:
     step: 0.5
     default: 2
     group: basic
-    description: >
-      O ile °C powyżej zadanej zaczynamy dodatkowo obniżać moc.
+    description: "O ile °C powyżej zadanej zaczynamy dodatkowo obniżać moc."
 
   - key: overtemp_kp
     label: "Siła korekty przegrzania"
@@ -98,8 +137,7 @@ fields:
     step: 1
     default: 10
     group: basic
-    description: >
-      Ile punktów procentowych mocy odejmować za każdy °C powyżej progu przegrzania.
+    description: "Ile pkt% mocy odejmować za każdy °C powyżej progu przegrzania."
 
   - key: boiler_temp_filter_tau_s
     label: "Filtr temp. kotła (tau)"
@@ -110,239 +148,87 @@ fields:
     step: 1
     default: 15
     group: basic
-    description: >
-      Stała czasowa filtru dolnoprzepustowego na temperaturze kotła.
-      Pomaga wygasić szum i uspokoić sterowanie (PI + model).
+    description: "Stała czasowa filtru dolnoprzepustowego na temperaturze kotła."
 
-  - key: flue_temp_filter_tau_s
-    label: "Filtr temp. spalin (tau)"
+  - key: status_log_period_s
+    label: "Log: okres statusu"
     type: number
     unit: "s"
-    min: 0
-    max: 600
+    min: 1
+    max: 3600
     step: 1
     default: 30
     group: basic
-    description: >
-      Stała czasowa filtru na temperaturze spalin (jeśli dostępna).
-      Uwaga: przy cyklicznym duty dmuchawy filtr/średnia jest konieczna.
+    description: "Co ile sekund emitować log stanu (status)."
 
-  # --- PI ---
-  - key: pi_kp
-    label: "PI: Kp"
-    type: number
-    min: 0
-    max: 50
-    step: 0.1
-    default: 6.0
-    group: pi
-    description: >
-      Wzmocnienie członu proporcjonalnego toru bazowego (fallback).
-      Ten tor steruje zawsze, a tor modelowy tylko przejmuje część sterowania przez α.
-
-  - key: pi_ki
-    label: "PI: Ki"
-    type: number
-    unit: "1/s"
-    min: 0
-    max: 1
-    step: 0.001
-    default: 0.02
-    group: pi
-    description: >
-      Wzmocnienie członu całkującego toru bazowego.
-      W obiektach z bezwładnością zwykle lepiej mieć małe Ki + ograniczenia i filtrację.
-
-  - key: pi_integral_window_s
-    label: "PI: okno całki"
-    type: number
-    unit: "s"
-    min: 10
-    max: 7200
-    step: 10
-    default: 900
-    group: pi
-    description: >
-      Leaky integrator: im większa wartość, tym wolniej "zapominamy" błędy.
-      Zmniejsza windup i poprawia zachowanie przy zmianach warunków spalania.
-
-  # --- Model ---
-  - key: model_enabled
-    label: "Model: włączony"
-    type: bool
-    default: true
-    group: model
-    description: >
-      Włącza uczenie modelu i możliwość wyliczania mocy toru modelowego.
-
-  - key: model_update_period_s
-    label: "Model: okres uczenia"
-    type: number
-    unit: "s"
-    min: 5
-    max: 120
-    step: 1
-    default: 15
-    group: model
-    description: >
-      Co ile sekund aktualizować parametry modelu (RLS). Dłużej = stabilniej, krócej = szybciej się uczy.
-
-  - key: model_delay_s
-    label: "Model: opóźnienie (czas martwy)"
-    type: number
-    unit: "s"
-    min: 0
-    max: 600
-    step: 5
-    default: 90
-    group: model
-    description: >
-      Szacowany czas od zmiany mocy do zauważalnego wpływu na temperaturę kotła.
-      Używany do pobierania u(t-delay) w modelu.
-
-  - key: model_lambda
-    label: "Model: zapominanie λ"
-    type: number
-    min: 0.90
-    max: 0.99999
-    step: 0.0005
-    default: 0.995
-    group: model
-    description: >
-      Parametr zapominania w RLS. Bliżej 1 = model zmienia się wolniej (mniej podatny na szum).
-
-  - key: pred_err_ewma_tau_s
-    label: "Model: wygładzanie RMSE"
+  # --- learning (EMA) ---
+  - key: temp_span_window_s
+    label: "Stabilność: okno span(T)"
     type: number
     unit: "s"
     min: 60
     max: 7200
     step: 30
-    default: 600
-    group: model
+    default: 300
+    group: learning
     description: >
-      Stała czasowa dla uśredniania błędu predykcji (RMSE).
-      To jest "miara wiarygodności modelu" używana do przełączania.
+      Okno czasowe do liczenia span(T)=max-min dla temperatury (po filtrze).
 
-  - key: model_horizon_s
-    label: "Sterowanie: horyzont predykcji"
+  - key: ema_tau_s
+    label: "EMA: stała czasowa (tau)"
     type: number
     unit: "s"
     min: 60
     max: 7200
     step: 60
     default: 1200
-    group: model
-    description: >
-      Jak daleko w przyszłość symulujemy temperaturę w torze modelowym (MPC-lite).
+    group: learning
+    description: "Jak szybko baseline EMA dostosowuje się do warunków (większa = wolniej)."
 
-  - key: model_gain
-    label: "Sterowanie: gain modelu"
-    type: number
-    unit: "pkt%/°C"
-    min: 0
-    max: 20
-    step: 0.1
-    default: 1.0
-    group: model
-    description: >
-      Jak mocno tor modelowy koryguje moc na podstawie przewidywanego błędu na końcu horyzontu.
-
-  # --- Switch / blend ---
-  - key: switch_use_model
-    label: "Przełączanie: używaj modelu"
-    type: bool
-    default: true
-    group: switch
-    description: >
-      Jeśli wyłączone, moduł działa jak zwykły PI (α=0 zawsze).
-
-  - key: err_on_degC
-    label: "Wejście: |błąd| <= "
-    type: number
-    unit: "°C"
-    min: 0
-    max: 30
-    step: 0.5
-    default: 3
-    group: switch
-    description: >
-      Warunek wejścia w tryb modelowy: błąd temperatury musi być mały.
-
-  - key: rmse_on_degC
-    label: "Wejście: RMSE <= "
+  - key: learn_gate_err_degC
+    label: "Uczenie: warunek |błąd| <= "
     type: number
     unit: "°C"
     min: 0
     max: 10
     step: 0.1
     default: 1.0
-    group: switch
-    description: >
-      Warunek wejścia: model musi przewidywać dobrze (niski RMSE).
+    group: learning
+    description: "EMA uczy się tylko gdy błąd temperatury jest mały."
 
-  - key: err_off_degC
-    label: "Wyjście: |błąd| >= "
-    type: number
-    unit: "°C"
-    min: 0
-    max: 30
-    step: 0.5
-    default: 6
-    group: switch
-    description: >
-      Warunek wyjścia (histereza): jeśli błąd rośnie powyżej progu, wracamy w stronę PI.
-
-  - key: rmse_off_degC
-    label: "Wyjście: RMSE >= "
+  - key: learn_max_span_degC
+    label: "Uczenie: warunek span(T) <= "
     type: number
     unit: "°C"
     min: 0
     max: 10
-    step: 0.1
-    default: 2.0
-    group: switch
-    description: >
-      Warunek wyjścia (histereza): jeśli model zaczyna się mylić, α spada do 0.
+    step: 0.05
+    default: 0.5
+    group: learning
+    description: "EMA uczy się tylko gdy temperatura ma małe wahania w oknie (span)."
 
-  - key: stable_required_s
-    label: "Wymagany czas stabilności"
+  - key: learn_min_time_s
+    label: "Uczenie: minimalny czas"
     type: number
     unit: "s"
     min: 0
     max: 7200
     step: 30
     default: 600
-    group: switch
-    description: >
-      Jak długo muszą być spełnione warunki wejścia (błąd + RMSE), zanim α zacznie rosnąć.
+    group: learning
+    description: "Minimalny czas pracy w WORK wymagany przed przejęciem sterowania."
 
-  - key: alpha_ramp_up_per_s
-    label: "Rampa α w górę"
+  - key: learn_min_samples
+    label: "Uczenie: minimalna liczba próbek"
     type: number
-    unit: "1/s"
     min: 0
-    max: 0.1
-    step: 0.0001
-    default: 0.0016666667
-    group: switch
-    description: >
-      Szybkość narastania α (przejęcie sterowania przez tor modelowy).
-      Mniejsza wartość = wolniejsze, bezpieczniejsze przejęcie.
+    max: 5000
+    step: 1
+    default: 30
+    group: learning
+    description: "Minimalna liczba aktualizacji EMA wymaganych przed przejęciem sterowania."
 
-  - key: alpha_ramp_down_per_s
-    label: "Rampa α w dół"
-    type: number
-    unit: "1/s"
-    min: 0
-    max: 0.1
-    step: 0.0001
-    default: 0.0083333333
-    group: switch
-    description: >
-      Szybkość spadku α (powrót do PI). Zwykle szybciej niż narastanie.
-
-  # --- State ---
+  # --- state ---
   - key: state_dir
     label: "Katalog zapisu stanu"
     type: text
@@ -355,7 +241,7 @@ fields:
     type: text
     default: "power_work_predictive_state.yaml"
     group: state
-    description: "Nazwa pliku, w którym zapisywany jest stan (PI + model + α)."
+    description: "Nazwa pliku, w którym zapisywany jest stan (EMA i liczniki)."
 
   - key: state_save_interval_s
     label: "Interwał zapisu stanu"
@@ -389,3 +275,4 @@ fields:
     default: 5
     group: state
     description: "Jeśli aktualna temp. kotła różni się od zapisanej o więcej niż próg, restore jest pomijany."
+
