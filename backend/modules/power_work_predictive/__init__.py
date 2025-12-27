@@ -168,7 +168,9 @@ class WorkPowerPredictiveModule(ModuleInterface):
         now_ctrl = float(getattr(system_state, "ts_mono", now))
 
         enabled_now = bool(self._config.enabled)
-        if enabled_now != self._last_enabled:
+        prev_enabled = bool(self._last_enabled)
+
+        if enabled_now != prev_enabled:
             events.append(
                 Event(
                     ts=now,
@@ -179,8 +181,24 @@ class WorkPowerPredictiveModule(ModuleInterface):
                     data={"enabled": enabled_now},
                 )
             )
-            self._last_enabled = enabled_now
 
+            # >>> DODAJ TO:
+            if enabled_now and (not prev_enabled):
+                # reset po włączeniu, żeby wyczyścić źle nauczoną EMA
+                self._reset_learning_state(now_ctrl=now_ctrl if in_work else None, clear_persist=True)
+                events.append(
+                    Event(
+                        ts=now,
+                        source=self.id,
+                        level=EventLevel.INFO,
+                        type="POWER_WORK_PREDICTIVE_RESET_ON_ENABLE",
+                        message=f"{self.id}: reset learning state on ENABLE",
+                        data={},
+                    )
+                )
+
+            self._last_enabled = enabled_now
+            
         if prev_in_work != in_work:
             events.append(
                 Event(
@@ -627,6 +645,31 @@ class WorkPowerPredictiveModule(ModuleInterface):
         self._learn_start_ctrl_ts = None
         self._last_adjust_ctrl_ts = None
         self._last_status_log_ctrl_ts = None
+
+    def _reset_learning_state(self, now_ctrl: Optional[float], clear_persist: bool = True) -> None:
+        # reset uczenia + przejęcia
+        self._power_ema = None
+        self._learn_samples = 0
+        self._learn_start_ctrl_ts = now_ctrl  # od razu zacznie liczyć czas nauki od teraz (jeśli jesteś w WORK)
+        self._takeover = False
+
+        # reset sterowania
+        self._power_cmd = 0.0
+        self._last_adjust_ctrl_ts = None
+
+        # reset okna stabilności
+        self._temp_hist.clear()
+
+        # reset meta restore, żeby nie walidować starego
+        self._restored_state_meta = None
+
+        # opcjonalnie: usuń persist, żeby nie wróciło po restarcie
+        if clear_persist:
+            try:
+                if self._state_path.exists():
+                    self._state_path.unlink()
+            except Exception:
+                pass
 
     def _validate_restored_state(self, current_boiler_temp: float, now_wall: float, events: List[Event]) -> bool:
         meta = self._restored_state_meta or {}
