@@ -42,8 +42,10 @@ class WorkPowerPredictiveConfig:
              jeśli T < set - deadband -> +takeover_step_percent
              jeśli T > set + deadband -> -takeover_step_percent
              jeśli w deadband -> brak zmiany
+         - dodatkowo: gating na trend temperatury w oknie takeover_trend_window_s:
+             * nie dodawaj, jeśli T już rośnie o >= takeover_hold_rise_degC
+             * nie odejmuj, jeśli T już spada o >= takeover_hold_fall_degC
          - clamp do [min_power, max_power]
-         - wyjątek bezpieczeństwa: przy przegrzaniu można natychmiast obniżyć moc
 
     4) Poza WORK: nie nadpisuje outputs.power_percent.
     """
@@ -77,9 +79,10 @@ class WorkPowerPredictiveConfig:
     # deadband (wykorzystujemy istniejące pole trim_deadband_degC jako deadband dla kroku)
     trim_deadband_degC: float = 0.5
 
-    # korekta przegrzania
-    overtemp_start_degC: float = 2.0
-    overtemp_kp: float = 10.0
+    # takeover: gating na trend temperatury (żeby nie "dopompowywać" przy bezwładności)
+    takeover_trend_window_s: float = 10 * 60.0
+    takeover_hold_rise_degC: float = 0.8  # nie dodawaj, jeśli T wzrosła >= w oknie
+    takeover_hold_fall_degC: float = 0.8  # nie odejmuj, jeśli T spadła >= w oknie
 
     # minimalny odstęp między zmianami mocy
     min_adjust_interval_s: float = 60.0  # 0 = zmieniaj zawsze
@@ -128,7 +131,7 @@ class WorkPowerPredictiveModule(ModuleInterface):
         self._filter_last_ts: Optional[float] = None
         self._boiler_tf: Optional[float] = None
 
-        # okno temperatury do span(T)
+        # okno temperatury do span(T) + trendu
         self._temp_hist: Deque[Tuple[float, float]] = deque()  # (now_ctrl, boiler_tf)
 
         # uczenie EMA
@@ -182,7 +185,6 @@ class WorkPowerPredictiveModule(ModuleInterface):
                 )
             )
 
-            # >>> DODAJ TO:
             if enabled_now and (not prev_enabled):
                 # reset po włączeniu, żeby wyczyścić źle nauczoną EMA
                 self._reset_learning_state(now_ctrl=now_ctrl if in_work else None, clear_persist=True)
@@ -198,7 +200,7 @@ class WorkPowerPredictiveModule(ModuleInterface):
                 )
 
             self._last_enabled = enabled_now
-            
+
         if prev_in_work != in_work:
             events.append(
                 Event(
@@ -245,7 +247,7 @@ class WorkPowerPredictiveModule(ModuleInterface):
             )
             self._boiler_tf = boiler_tf
 
-            # aktualizuj historię do span(T)
+            # aktualizuj historię do span(T) + trendu
             self._push_temp_history(now_ctrl, float(boiler_tf))
 
         # realna moc systemu (źródło do uczenia gdy nie sterujemy)
@@ -313,7 +315,7 @@ class WorkPowerPredictiveModule(ModuleInterface):
             # startujemy dokładnie od nauczonej mocy
             self._power_cmd = float(baseline0)
 
-            # liczymy interwał od teraz: pierwsza korekta dopiero po min_adjust_interval_s (chyba że safety)
+            # liczymy interwał od teraz: pierwsza korekta dopiero po min_adjust_interval_s
             self._last_adjust_ctrl_ts = now_ctrl
 
             events.append(
@@ -323,7 +325,11 @@ class WorkPowerPredictiveModule(ModuleInterface):
                     level=EventLevel.INFO,
                     type="POWER_WORK_PREDICTIVE_TAKEOVER_ON",
                     message=f"{self.id}: TAKEOVER ON (learn_elapsed={learn_elapsed:.0f}s samples={self._learn_samples} baseline0={baseline0:.1f}%)",
-                    data={"learn_elapsed_s": float(learn_elapsed), "learn_samples": int(self._learn_samples), "baseline0": float(baseline0)},
+                    data={
+                        "learn_elapsed_s": float(learn_elapsed),
+                        "learn_samples": int(self._learn_samples),
+                        "baseline0": float(baseline0),
+                    },
                 )
             )
 
@@ -334,13 +340,13 @@ class WorkPowerPredictiveModule(ModuleInterface):
             if float(err_abs) >= float(self._config.dropout_err_off_degC):
                 self._takeover = False
 
-                # RESET SESJI (learning + timery) — tak jak chcesz
+                # RESET SESJI (learning + timery)
                 self._power_ema = None
                 self._learn_samples = 0
                 self._learn_start_ctrl_ts = now_ctrl  # start nowej nauki od teraz
 
                 self._last_adjust_ctrl_ts = None
-                self._temp_hist.clear()               # żeby span(T) zaczynał od nowa
+                self._temp_hist.clear()  # żeby span(T) i trend zaczynały od nowa
 
                 events.append(
                     Event(
@@ -352,7 +358,7 @@ class WorkPowerPredictiveModule(ModuleInterface):
                         data={"err_abs_degC": float(err_abs), "reset": True},
                     )
                 )
-                
+
         # jeśli nie przejęte: nie steruj
         if not self._takeover:
             self._maybe_log_status(
@@ -369,29 +375,36 @@ class WorkPowerPredictiveModule(ModuleInterface):
             status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
             return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
 
-        # ---------- TAKEOVER: proste sterowanie krokowe ----------
+        # ---------- TAKEOVER: sterowanie krokowe + gating na trend ----------
         step = max(float(self._config.takeover_step_percent), 0.0)
         deadband = max(float(self._config.trim_deadband_degC), 0.0)
 
         power_target = float(self._power_cmd)  # domyślnie trzymaj
 
-        # decyzja: +step / -step / 0
+        # trend temperatury w oknie (po filtrze)
+        temp_rise: Optional[float] = None
+        if boiler_tf is not None:
+            temp_rise = self._temp_rise(now_ctrl, float(self._config.takeover_trend_window_s))
+
+        # decyzja: +step / -step / 0 z dodatkowym warunkiem trendu
         if boiler_tf is not None and step > 0.0:
             err = float(self._config.boiler_set_temp) - float(boiler_tf)  # + gdy za zimno
-            if err > deadband:
-                power_target = float(self._power_cmd) + step
-            elif err < -deadband:
-                power_target = float(self._power_cmd) - step
 
-        # przegrzanie (safety) – może natychmiast obniżyć moc
-        overtemp_active = False
-        if boiler_temp is not None:
-            t_set = float(self._config.boiler_set_temp)
-            start = max(float(self._config.overtemp_start_degC), 0.0)
-            if float(boiler_temp) > t_set + start:
-                overtemp_active = True
-                over = float(boiler_temp) - (t_set + start)
-                power_target -= over * max(float(self._config.overtemp_kp), 0.0)
+            if err > deadband:
+                # za zimno -> normalnie +step, ale jeśli i tak rośnie wystarczająco, nie dokładaj
+                hold_rise = float(self._config.takeover_hold_rise_degC)
+                if (temp_rise is not None) and (temp_rise >= hold_rise):
+                    pass
+                else:
+                    power_target = float(self._power_cmd) + step
+
+            elif err < -deadband:
+                # za ciepło -> normalnie -step, ale jeśli i tak spada wystarczająco, nie odejmuj
+                hold_fall = float(self._config.takeover_hold_fall_degC)
+                if (temp_rise is not None) and (-temp_rise >= hold_fall):
+                    pass
+                else:
+                    power_target = float(self._power_cmd) - step
 
         # clamp
         power_target = self._clamp(power_target, float(self._config.min_power), float(self._config.max_power))
@@ -400,7 +413,6 @@ class WorkPowerPredictiveModule(ModuleInterface):
         power_cmd = self._apply_min_adjust_interval(
             target=float(power_target),
             now_ctrl=now_ctrl,
-            force_decrease=bool(overtemp_active),
         )
 
         self._power_cmd = float(power_cmd)
@@ -423,12 +435,11 @@ class WorkPowerPredictiveModule(ModuleInterface):
 
     # ---------------- MIN ADJUST INTERVAL ----------------
 
-    def _apply_min_adjust_interval(self, target: float, now_ctrl: float, force_decrease: bool) -> float:
+    def _apply_min_adjust_interval(self, target: float, now_ctrl: float) -> float:
         """
         Ogranicza częstotliwość zmian mocy.
         - Jeśli min_adjust_interval_s=0 -> zawsze przyjmuj target.
-        - Jeśli nie minął interwał -> trzymamy poprzednią moc (self._power_cmd),
-          chyba że force_decrease=True i target < self._power_cmd (bezpieczeństwo).
+        - Jeśli nie minął interwał -> trzymamy poprzednią moc (self._power_cmd).
         """
         interval = max(float(self._config.min_adjust_interval_s), 0.0)
 
@@ -446,10 +457,6 @@ class WorkPowerPredictiveModule(ModuleInterface):
 
         dt = now_ctrl - float(self._last_adjust_ctrl_ts)
         if dt < interval:
-            # wyjątek: natychmiastowe obniżenie przy safety
-            if force_decrease and float(target) < float(self._power_cmd):
-                self._last_adjust_ctrl_ts = now_ctrl
-                return float(target)
             return float(self._power_cmd)
 
         # minął interwał -> przyjmij target
@@ -457,11 +464,15 @@ class WorkPowerPredictiveModule(ModuleInterface):
             self._last_adjust_ctrl_ts = now_ctrl
         return float(target)
 
-    # ---------------- STABILITY WINDOW (SPAN) ----------------
+    # ---------------- STABILITY WINDOW (SPAN) + TREND ----------------
 
     def _push_temp_history(self, now_ctrl: float, boiler_tf: float) -> None:
         self._temp_hist.append((now_ctrl, float(boiler_tf)))
-        keep_s = max(float(self._config.temp_span_window_s), 1.0) + 30.0
+        keep_s = max(
+            float(self._config.temp_span_window_s),
+            float(self._config.takeover_trend_window_s),
+            60.0,
+        ) + 30.0
         cutoff = now_ctrl - keep_s
         while self._temp_hist and self._temp_hist[0][0] < cutoff:
             self._temp_hist.popleft()
@@ -492,6 +503,30 @@ class WorkPowerPredictiveModule(ModuleInterface):
 
         span = float(max(vals) - min(vals))
         return span if math.isfinite(span) else None
+
+    def _temp_rise(self, now_ctrl: float, window_s: float) -> Optional[float]:
+        """
+        Zwraca różnicę temperatury w oknie: newest - oldest (po filtrze).
+        Dodatnia -> rośnie, ujemna -> spada.
+        """
+        window_s = max(float(window_s), 1.0)
+        if not self._temp_hist:
+            return None
+
+        cutoff = now_ctrl - window_s
+        vals = [(ts, v) for (ts, v) in self._temp_hist if ts >= cutoff]
+
+        if len(vals) < 3:
+            return None
+
+        oldest_ts, oldest_v = vals[0]
+        covered = now_ctrl - oldest_ts
+        if covered < 0.7 * window_s:
+            return None
+
+        newest_v = vals[-1][1]
+        rise = float(newest_v - oldest_v)
+        return rise if math.isfinite(rise) else None
 
     # ---------------- STATUS LOG ----------------
 
@@ -657,7 +692,7 @@ class WorkPowerPredictiveModule(ModuleInterface):
         self._power_cmd = 0.0
         self._last_adjust_ctrl_ts = None
 
-        # reset okna stabilności
+        # reset okna stabilności / trendu
         self._temp_hist.clear()
 
         # reset meta restore, żeby nie walidować starego
@@ -697,7 +732,11 @@ class WorkPowerPredictiveModule(ModuleInterface):
                     level=EventLevel.INFO,
                     type="POWER_WORK_PREDICTIVE_STATE_RESTORE_SKIPPED",
                     message=f"{self.id}: pominięto restore (ΔT={delta:.1f}°C > {self._config.state_max_temp_delta_C:.1f}°C)",
-                    data={"delta_temp": delta, "saved_temp": float(saved_temp), "current_temp": float(current_boiler_temp)},
+                    data={
+                        "delta_temp": delta,
+                        "saved_temp": float(saved_temp),
+                        "current_temp": float(current_boiler_temp),
+                    },
                 )
             )
             return False

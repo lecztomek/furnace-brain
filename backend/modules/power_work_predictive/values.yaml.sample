@@ -1,23 +1,27 @@
 boiler_set_temp: 56.0
 boiler_temp_filter_tau_s: 15.0
-dropout_err_off_degC: 5.0
+dropout_err_off_degC: 4.0
 ema_tau_s: 1200.0
 enabled: true
 learn_gate_err_degC: 1.5
 learn_max_span_degC: 1.5
 learn_min_samples: 30.0
-learn_min_time_s: 600.0
+learn_min_time_s: 900.0
 max_power: 100.0
 min_adjust_interval_s: 90.0
 min_power: 15.0
-overtemp_kp: 5.0
-overtemp_start_degC: 3.0
 state_dir: data
 state_file: power_work_predictive_state.yaml
 state_max_age_s: 900.0
 state_max_temp_delta_C: 2.5
 state_save_interval_s: 60.0
-status_log_period_s: 60.0
+status_log_period_s: 100.0
 takeover_step_percent: 0.5
-temp_span_window_s: 300.0
+temp_span_window_s: 600.0
 trim_deadband_degC: 0.2
+
+# --- NEW: trend gating po takeover ---
+takeover_trend_window_s: 600.0
+takeover_hold_rise_degC: 0.8
+takeover_hold_fall_degC: 0.8
+

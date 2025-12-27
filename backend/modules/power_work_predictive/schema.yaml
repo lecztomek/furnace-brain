@@ -9,7 +9,8 @@ description: >
   Po spełnieniu minimalnego czasu i liczby próbek moduł OD RAZU przejmuje sterowanie.
   Sterowanie jest krokowe: co min_adjust_interval_s zmienia moc o takeover_step_percent
   jeśli temperatura jest poza deadband (trim_deadband_degC).
-  Dodatkowo działa ochrona przed przegrzaniem (overtemp_*), która może natychmiast obniżyć moc.
+  Dodatkowo po takeover stosuje warunek trendu temperatury (okno takeover_trend_window_s),
+  żeby nie dokładać/nie odejmować mocy, gdy temperatura już zmienia się we właściwym kierunku.
 
 groups:
   - id: basic
@@ -77,8 +78,7 @@ fields:
     group: takeover
     description: >
       Ogranicza częstotliwość zmian mocy po przejęciu sterowania.
-      0 oznacza zmianę w każdym ticku. Przy przegrzaniu moduł może
-      natychmiast obniżyć moc niezależnie od interwału.
+      0 oznacza zmianę w każdym ticku.
 
   - key: takeover_step_percent
     label: "Takeover: krok zmiany mocy"
@@ -91,7 +91,7 @@ fields:
     group: takeover
     description: >
       O ile pkt% zmieniać moc co min_adjust_interval_s, jeśli temperatura
-      jest poza deadband.
+      jest poza deadband (i nie jest zablokowana przez warunek trendu).
 
   - key: trim_deadband_degC
     label: "Deadband temperatury"
@@ -105,6 +105,46 @@ fields:
     description: >
       Jeśli |błąd| <= deadband, moc nie jest zmieniana (krok=0).
 
+  - key: takeover_trend_window_s
+    label: "Takeover: okno trendu temperatury"
+    type: number
+    unit: "s"
+    min: 60
+    max: 7200
+    step: 30
+    default: 600
+    group: takeover
+    description: >
+      Okno czasowe do oceny trendu temperatury (po filtrze).
+      Używane do blokowania dokładania/odejmowania mocy, gdy temperatura
+      już zmienia się w oczekiwanym kierunku.
+
+  - key: takeover_hold_rise_degC
+    label: "Takeover: nie dokładaj mocy gdy T rośnie o ≥"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 10
+    step: 0.1
+    default: 0.8
+    group: takeover
+    description: >
+      Jeśli w oknie trendu temperatura (po filtrze) wzrosła co najmniej o tę wartość,
+      to przy T < set - deadband regulator NIE zwiększy mocy (bo i tak dogrzewa).
+
+  - key: takeover_hold_fall_degC
+    label: "Takeover: nie odejmuj mocy gdy T spada o ≥"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 10
+    step: 0.1
+    default: 0.8
+    group: takeover
+    description: >
+      Jeśli w oknie trendu temperatura (po filtrze) spadła co najmniej o tę wartość,
+      to przy T > set + deadband regulator NIE zmniejszy mocy (bo i tak stygnie).
+
   - key: dropout_err_off_degC
     label: "Oddanie: |błąd| >= "
     type: number
@@ -116,28 +156,6 @@ fields:
     group: takeover
     description: >
       Jeśli błąd przekroczy ten próg, moduł oddaje sterowanie i wraca do uczenia.
-
-  - key: overtemp_start_degC
-    label: "Próg przegrzania (powyżej zadanej)"
-    type: number
-    unit: "°C"
-    min: 0
-    max: 30
-    step: 0.5
-    default: 2
-    group: basic
-    description: "O ile °C powyżej zadanej zaczynamy dodatkowo obniżać moc."
-
-  - key: overtemp_kp
-    label: "Siła korekty przegrzania"
-    type: number
-    unit: "pkt%/°C"
-    min: 0
-    max: 50
-    step: 1
-    default: 10
-    group: basic
-    description: "Ile pkt% mocy odejmować za każdy °C powyżej progu przegrzania."
 
   - key: boiler_temp_filter_tau_s
     label: "Filtr temp. kotła (tau)"
