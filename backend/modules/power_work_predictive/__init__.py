@@ -36,11 +36,15 @@ class WorkPowerPredictiveConfig:
          - gdy nauczył się min. czasu i min. próbek (i ma już EMA) -> TAKEOVER OD RAZU
            (bez dodatkowej fazy "stability required").
 
-    3) Sterowanie po przejęciu (krokowe, proste):
+    3) Sterowanie po przejęciu (krokowe, proste) – PREDYKCYJNE:
          - start od baseline EMA
          - co min_adjust_interval_s:
-             jeśli T < set - deadband -> +takeover_step_percent
-             jeśli T > set + deadband -> -takeover_step_percent
+             wyznacz prognozę temperatury T_pred za takeover_predict_horizon_s
+             na podstawie trendu (takeover_trend_window_s):
+                 T_pred = T + slope * horizon
+                 slope ≈ (T_now - T_oldest) / window
+             jeśli T_pred < set - deadband -> +takeover_step_percent
+             jeśli T_pred > set + deadband -> -takeover_step_percent
              jeśli w deadband -> brak zmiany
          - dodatkowo: gating na trend temperatury w oknie takeover_trend_window_s:
              * nie dodawaj, jeśli T już rośnie o >= takeover_hold_rise_degC
@@ -88,6 +92,9 @@ class WorkPowerPredictiveConfig:
     takeover_trend_window_s: float = 10 * 60.0
     takeover_hold_rise_degC: float = 0.8  # nie dodawaj, jeśli T wzrosła >= w oknie
     takeover_hold_fall_degC: float = 0.8  # nie odejmuj, jeśli T spadła >= w oknie
+
+    # NEW: takeover: horyzont predykcji temperatury (0 = wyłącz predykcję)
+    takeover_predict_horizon_s: float = 10 * 60.0
 
     # resume po OFF->WORK
     resume_takeover_enabled: bool = True
@@ -411,7 +418,7 @@ class WorkPowerPredictiveModule(ModuleInterface):
                 )
             )
 
-        # oddanie sterowania gdy błąd duży
+        # oddanie sterowania gdy błąd duży (bez zmian: liczymy na aktualnej temp.)
         err_abs: Optional[float] = None
         if self._takeover and boiler_tf is not None:
             err_abs = abs(float(self._config.boiler_set_temp) - float(boiler_tf))
@@ -464,9 +471,17 @@ class WorkPowerPredictiveModule(ModuleInterface):
         if boiler_tf is not None:
             temp_rise = self._temp_rise(now_ctrl, float(self._config.takeover_trend_window_s))
 
+        # NEW: prognoza temperatury (jeśli mamy trend i horizon > 0)
+        boiler_tf_eff: Optional[float] = boiler_tf
+        horizon_s = float(self._config.takeover_predict_horizon_s)
+        if (boiler_tf is not None) and (temp_rise is not None) and (horizon_s > 0.0):
+            w = max(float(self._config.takeover_trend_window_s), 1.0)
+            slope = float(temp_rise) / w  # [°C/s]
+            boiler_tf_eff = float(boiler_tf) + slope * horizon_s
+
         # decyzja: +step / -step / 0 z dodatkowym warunkiem trendu
-        if boiler_tf is not None and step > 0.0:
-            err = float(self._config.boiler_set_temp) - float(boiler_tf)  # + gdy za zimno
+        if boiler_tf_eff is not None and step > 0.0:
+            err = float(self._config.boiler_set_temp) - float(boiler_tf_eff)  # + gdy "za zimno" wg prognozy
 
             if err > deadband:
                 # za zimno -> normalnie +step, ale jeśli i tak rośnie wystarczająco, nie dokładaj
@@ -942,4 +957,3 @@ class WorkPowerPredictiveModule(ModuleInterface):
     def _save_config_to_file(self) -> None:
         with self._config_path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(asdict(self._config), f, sort_keys=True, allow_unicode=True)
-

@@ -20,12 +20,12 @@ takeover_step_percent: 0.5
 temp_span_window_s: 600.0
 trim_deadband_degC: 0.2
 
-
 takeover_trend_window_s: 600.0
 takeover_hold_rise_degC: 0.8
 takeover_hold_fall_degC: 0.8
+
+takeover_predict_horizon_s: 600.0
+
 resume_takeover_enabled: true
 resume_takeover_max_gap_s: 600.0
 resume_max_temp_delta_C: 2.0
-
-

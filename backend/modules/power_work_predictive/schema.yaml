@@ -11,6 +11,8 @@ description: >
   jeśli temperatura jest poza deadband (trim_deadband_degC).
   Dodatkowo po takeover stosuje warunek trendu temperatury (okno takeover_trend_window_s),
   żeby nie dokładać/nie odejmować mocy, gdy temperatura już zmienia się we właściwym kierunku.
+  Decyzja o zwiększeniu/zmniejszeniu mocy jest podejmowana na podstawie prognozowanej
+  temperatury za takeover_predict_horizon_s (T_pred wyznaczane z trendu w takeover_trend_window_s).
 
 groups:
   - id: basic
@@ -118,6 +120,21 @@ fields:
       Okno czasowe do oceny trendu temperatury (po filtrze).
       Używane do blokowania dokładania/odejmowania mocy, gdy temperatura
       już zmienia się w oczekiwanym kierunku.
+      Dodatkowo używane do wyznaczenia trendu do predykcji temperatury.
+
+  - key: takeover_predict_horizon_s
+    label: "Takeover: horyzont predykcji temperatury"
+    type: number
+    unit: "s"
+    min: 0
+    max: 3600
+    step: 30
+    default: 600
+    group: takeover
+    description: >
+      O ile sekund w przyszłość prognozować temperaturę (T_pred) na podstawie trendu
+      z takeover_trend_window_s. Decyzja o +step / -step używa błędu set - T_pred.
+      0 wyłącza predykcję (wtedy działa jak wcześniej na aktualnej temperaturze).
 
   - key: takeover_hold_rise_degC
     label: "Takeover: nie dokładaj mocy gdy T rośnie o ≥"
@@ -191,7 +208,6 @@ fields:
     description: >
       Jeśli temperatura (po filtrze lub surowa) po powrocie do WORK różni się od tej
       zapamiętanej przy wyjściu o więcej niż próg, resume jest pomijany.
-
 
   - key: boiler_temp_filter_tau_s
     label: "Filtr temp. kotła (tau)"
@@ -329,4 +345,3 @@ fields:
     default: 5
     group: state
     description: "Jeśli aktualna temp. kotła różni się od zapisanej o więcej niż próg, restore jest pomijany."
-
