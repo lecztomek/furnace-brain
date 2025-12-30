@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 import logging
+import random
 
 from backend.hw.interface import HardwareInterface
 from backend.core.state import Sensors, Outputs
@@ -42,6 +43,23 @@ class _ThermalState:
 
     stb_triggered: bool = False
     door_open: bool = False
+
+
+@dataclass
+class _Disturbances:
+    """
+    Proste zakłócenia testowe:
+    - chwilowy niedodatek paliwa (ślizg/mostek/przycięcie) -> feeder_mult < 1.0
+    - gorsze spalanie danej dawki (wilgotność/reaktywność) -> burn_quality < 1.0
+
+    Celowo NIE ruszamy dmuchawy i innych elementów.
+    """
+    feeder_mult: float = 1.0
+    feeder_mult_until: float = 0.0
+
+    burn_quality: float = 1.0
+    burn_quality_until: float = 0.0
+
 
 class MockHardware(HardwareInterface):
     """
@@ -108,7 +126,7 @@ class MockHardware(HardwareInterface):
 
     STB_LIMIT = 95.0  # [°C]
 
-    def __init__(self, clock: Clock | None = None) -> None:
+    def __init__(self, clock: Clock | None = None, seed: int | None = None) -> None:
         self._clock: Clock = clock or RealClock()
 
         self._state = _ThermalState()
@@ -135,6 +153,13 @@ class MockHardware(HardwareInterface):
         self._mixer_prev_on: bool = False
         self._mixer_on_since: float | None = None
 
+        # Zakłócenia (tylko: ślimak mniej poda / gorsza dawka paliwa)
+        self._dist = _Disturbances()
+        self._rng = random.Random(seed if seed is not None else int(time.time() * 1000))
+
+        # Harmonogramy zdarzeń (Poisson): losowy czas do następnego zdarzenia
+        self._next_underfeed_at = self._rng.expovariate(1.0 / (8 * 60))   # średnio co ~8 min
+        self._next_bad_burn_at = self._rng.expovariate(1.0 / (12 * 60))   # średnio co ~12 min
 
     # ------------------------------------------------------------------
     #  HardwareInterface
@@ -168,6 +193,77 @@ class MockHardware(HardwareInterface):
         self._outputs = Outputs(**outputs.__dict__)
 
     # ------------------------------------------------------------------
+    #  Zakłócenia testowe (Poisson w czasie + zróżnicowana intensywność)
+    # ------------------------------------------------------------------
+    def _update_disturbances(self, t: float, dt: float, feeder_on: bool) -> None:
+        d = self._dist
+        r = self._rng
+
+        # 1) zawsze wygaszaj, jeśli czas minął
+        if t >= d.feeder_mult_until:
+            d.feeder_mult = 1.0
+        if t >= d.burn_quality_until:
+            d.burn_quality = 1.0
+
+        # Zdarzenia startują sensownie tylko gdy feeder_on
+        if not feeder_on:
+            return
+
+        # helper do losowania "spadku" z Beta: najczęściej mały, czasem większy
+        def sample_drop(max_drop: float, alpha: float, beta: float) -> float:
+            return max_drop * r.betavariate(alpha, beta)
+
+        # --- UNDERFEED (ślizg/mostek/przycięcie) ---
+        if t >= self._next_underfeed_at and t >= d.feeder_mult_until:
+            duration = r.uniform(5.0, 25.0)
+
+            # max_drop=0.50 => feeder_mult w [0.50..1.00]
+            # Beta(2,8) => zwykle mały drop, czasem większy
+            drop = sample_drop(max_drop=0.50, alpha=2.0, beta=8.0)
+
+            # okazjonalnie “mocniejsza wpadka”
+            if r.random() < 0.08:
+                drop = max(drop, r.uniform(0.45, 0.60))  # do 60% mniej
+
+            d.feeder_mult = 1.0 - drop
+            d.feeder_mult_until = t + duration
+
+            logger_feeder.warning(
+                "Disturbance: UNDERFEED mult=%.2f (drop=%.0f%%) for %.1fs",
+                d.feeder_mult,
+                drop * 100.0,
+                duration,
+            )
+
+            # zaplanuj następne zdarzenie (średnio co ~8 min)
+            self._next_underfeed_at = t + r.expovariate(1.0 / (8 * 60))
+
+        # --- BAD_BURN (gorsza dawka/reaktywność/wilgotność) ---
+        if t >= self._next_bad_burn_at and t >= d.burn_quality_until:
+            duration = r.uniform(30.0, 180.0)
+
+            # max_loss=0.35 => burn_quality w [0.65..1.00]
+            # Beta(2,6) => zwykle lekko gorsze, czasem zauważalnie
+            loss = sample_drop(max_drop=0.35, alpha=2.0, beta=6.0)
+
+            # okazjonalnie “wybitnie słaba” partia
+            if r.random() < 0.06:
+                loss = max(loss, r.uniform(0.30, 0.45))  # quality nawet ~0.55
+
+            d.burn_quality = 1.0 - loss
+            d.burn_quality_until = t + duration
+
+            logger_energy.warning(
+                "Disturbance: BAD_BURN quality=%.2f (loss=%.0f%%) for %.1fs",
+                d.burn_quality,
+                loss * 100.0,
+                duration,
+            )
+
+            # zaplanuj następne zdarzenie (średnio co ~12 min)
+            self._next_bad_burn_at = t + r.expovariate(1.0 / (12 * 60))
+
+    # ------------------------------------------------------------------
     #  Fizyka kotła
     # ------------------------------------------------------------------
     def _step_physics(self, dt: float) -> None:
@@ -177,6 +273,10 @@ class MockHardware(HardwareInterface):
         # aktualizujemy czas symulacji
         self._sim_time += dt
         t = self._sim_time
+
+        # aktualizacja zakłóceń (tylko ślimak i “gorsze spalanie”)
+        self._update_disturbances(t, dt, feeder_on=o.feeder_on)
+        d = self._dist
 
         # --- ZMIANY STANÓW ON/OFF (feeder, fan, mixer) --------------------
         # Feeder
@@ -219,7 +319,7 @@ class MockHardware(HardwareInterface):
 
         logger_core.debug(
             "STEP t=%.2fs dt=%.3f | T_kotla=%.1f T_CO=%.1f T_CWU=%.1f T_spalin=%.1f "
-            "fuel_buffer=%.4f active_fuel=%.4f mix_pos=%.3f",
+            "fuel_buffer=%.4f active_fuel=%.4f mix_pos=%.3f | feeder_mult=%.3f burn_q=%.3f",
             t,
             dt,
             s.boiler_temp,
@@ -229,6 +329,8 @@ class MockHardware(HardwareInterface):
             s.fuel_buffer,
             s.active_fuel,
             self._mix_valve_pos,
+            d.feeder_mult,
+            d.burn_quality,
         )
 
         # 0) Zawór mieszający – aktualizacja pozycji
@@ -259,15 +361,17 @@ class MockHardware(HardwareInterface):
                 0.0 if self._mixer_on_since is None else t - self._mixer_on_since,
             )
 
-        # 1) ŚLIMAK – dosypywanie świeżego paliwa
+        # 1) ŚLIMAK – dosypywanie świeżego paliwa (z zakłóceniem UNDERFEED)
         if o.feeder_on:
-            added = self.FUEL_FEED_RATE * dt
+            effective_feed_rate = self.FUEL_FEED_RATE * d.feeder_mult
+            added = effective_feed_rate * dt
             s.fuel_buffer += added
             logger_feeder.debug(
-                "Feeder step: added=%.5f kg, fuel_buffer=%.5f (on_for=%.2fs)",
+                "Feeder step: added=%.5f kg, fuel_buffer=%.5f (on_for=%.2fs, mult=%.3f)",
                 added,
                 s.fuel_buffer,
                 0.0 if self._feeder_on_since is None else t - self._feeder_on_since,
+                d.feeder_mult,
             )
 
         # 2) fuel_buffer -> active_fuel (suszenie/nagrzewanie)
@@ -285,7 +389,7 @@ class MockHardware(HardwareInterface):
                 s.active_fuel,
             )
 
-        # 3) Spalanie active_fuel zależne od nadmuchu
+        # 3) Spalanie active_fuel zależne od nadmuchu (bez psucia dmuchawy)
         fan_fraction = max(0.0, min(1.0, o.fan_power / 100.0))
 
         burn_mass = 0.0
@@ -328,16 +432,17 @@ class MockHardware(HardwareInterface):
                     s.active_fuel,
                 )
 
-        # 4) Energia ze spalania
+        # 4) Energia ze spalania (z zakłóceniem BAD_BURN)
         Q_chem = burn_mass * self.FUEL_LHV           # [J]
-        Q_useful = Q_chem * self.BOILER_EFFICIENCY   # [J]
+        Q_useful = Q_chem * self.BOILER_EFFICIENCY * d.burn_quality   # [J]
 
         if burn_mass > 0.0:
             logger_energy.debug(
-                "Combustion energy: burn_mass=%.5f kg, Q_chem=%.0f J, Q_useful=%.0f J",
+                "Combustion energy: burn_mass=%.5f kg, Q_chem=%.0f J, Q_useful=%.0f J (burn_quality=%.3f)",
                 burn_mass,
                 Q_chem,
                 Q_useful,
+                d.burn_quality,
             )
 
         Q_to_water = Q_useful * self.FRACTION_TO_WATER
