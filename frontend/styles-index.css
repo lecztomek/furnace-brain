@@ -528,3 +528,132 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
   max-height: 100%;
   display: block;
 }
+
+/* modal */
+
+/* ===== MODAL / POPUP ===== */
+.modal.hidden { display: none; }
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+}
+
+.modal__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(3px);
+}
+
+.modal__card {
+  position: relative;
+  width: min(420px, calc(100vw - 28px));
+  border-radius: 18px;
+  background: #111b22;
+  border: 1px solid #2c3b47;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+  padding: 14px;
+}
+
+.modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 4px 10px;
+  border-bottom: 1px solid #233241;
+}
+
+.modal__title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.modal__close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #f9fafb;
+  font-size: 18px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.modal__close:active { transform: scale(0.98); }
+
+.modal__body {
+  padding: 14px 6px 6px;
+}
+
+.temp-stepper {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.temp-stepper__btn {
+  height: 70px;
+  border-radius: 16px;
+  border: 1px solid #2c3b47;
+  background: #1f2a33;
+  color: #f9fafb;
+  font-size: 34px;
+  cursor: pointer;
+}
+
+.temp-stepper__btn:active { transform: scale(0.98); }
+
+.temp-stepper__value {
+  height: 70px;
+  border-radius: 16px;
+  border: 1px solid #2c3b47;
+  background: #0d151b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 34px;
+  font-weight: 800;
+}
+
+.temp-stepper__unit {
+  font-size: 18px;
+  opacity: 0.8;
+  font-weight: 700;
+}
+
+.temp-hint {
+  margin-top: 10px;
+  opacity: 0.75;
+  font-size: 13px;
+  min-height: 18px;
+}
+
+.temp-save {
+  margin-top: 14px;
+  width: 100%;
+  height: 54px;
+  border-radius: 16px;
+  border: 0;
+  background: #1f6feb;   /* niebieski */
+  color: #ffffff;        /* biały tekst */
+  font-weight: 800;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.temp-save:active { transform: scale(0.99); }
+
+/* Żeby było jasne że klikalne */
+#radiators-temp { cursor: pointer; }
+#radiators-temp rect { transition: filter .15s ease, transform .15s ease; }
+#radiators-temp:hover rect { filter: brightness(1.08); }
+#radiators-temp:active rect { transform: scale(0.995); transform-origin: center; }
+

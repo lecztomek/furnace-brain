@@ -73,5 +73,39 @@ def create_config_router(
                 raise HTTPException(status_code=500, detail=f"Config saved, but reload failed: {exc}") from exc
 
         return validated
+    
+    @router.get("/value/{module_id}/{key}")
+    def get_config_value(module_id: str, key: str):
+        try:
+            value = config_store.get_value(module_id, key)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+        except ValueError as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+        return {"key": key, "value": value}
+
+    @router.put("/value/{module_id}/{key}")
+    def set_config_value(
+        module_id: str,
+        key: str,
+        value: object = Body(..., description="Pojedyncza wartość (np. liczba/tekst/bool)"),
+    ):
+        try:
+            validated_value = config_store.set_value(module_id, key, value)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+        if reload_module_config is not None:
+            try:
+                reload_module_config(module_id)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Config saved, but reload failed: {exc}",
+                ) from exc
+
+        return {"key": key, "value": validated_value}
 
     return router

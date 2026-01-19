@@ -506,7 +506,35 @@
             <span id="status-text"></span>
          </footer>
       </div>
+      
+      <!-- POPUP USTAWIANIA TEMPERATURY -->
+      <div id="temp-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="temp-modal-title">
+        <div class="modal__overlay" data-close="1"></div>
+
+        <div class="modal__card">
+          <div class="modal__header">
+            <div id="temp-modal-title" class="modal__title">Ustaw temperaturę</div>
+            <button class="modal__close" type="button" aria-label="Zamknij" data-close="1">✕</button>
+          </div>
+
+          <div class="modal__body">
+            <div class="temp-stepper">
+              <button id="temp-minus" class="temp-stepper__btn" type="button">−</button>
+              <div class="temp-stepper__value">
+                <span id="temp-value">--</span><span class="temp-stepper__unit">°C</span>
+              </div>
+              <button id="temp-plus" class="temp-stepper__btn" type="button">+</button>
+            </div>
+
+            <div class="temp-hint" id="temp-hint"></div>
+
+            <button id="temp-save" class="temp-save" type="button">Zapisz</button>
+          </div>
+        </div>
+      </div>
+
       <label for="nav-toggle" class="menu-overlay" aria-label="Zamknij menu"></label>
+      <script src="js/temp-setpoint-modal.js"></script>
       <script src="js/side-clock.js"></script>
       <script src="js/furnace-ui-utils.js"></script>
 	    <script src="js/mode-control.js"></script>

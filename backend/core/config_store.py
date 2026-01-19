@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 import yaml
 
 
@@ -122,6 +122,60 @@ class ConfigStore:
             yaml.safe_dump(validated, f, allow_unicode=True)
 
         return validated
+
+    def get_value(self, module_id: str, key: str) -> Any:
+        """Zwraca pojedynczą wartość (z defaultem jeśli brak w values.yaml)."""
+        schema = self.get_schema(module_id)
+        fields = schema.get("fields", [])
+        field = next((f for f in fields if f.get("key") == key), None)
+        if field is None:
+            raise KeyError(f"Unknown key '{key}' in module '{module_id}'")
+
+        raw_values = self._load_raw_values(module_id)
+
+        if key in raw_values:
+            value = raw_values[key]
+        else:
+            value = field.get("default")
+
+        if value is None:
+            raise ValueError(f"Brak wartości dla pola '{key}' i brak domyślnej.")
+
+        return self._validate_single_value(field, value)
+
+    def set_value(self, module_id: str, key: str, value: Any) -> Any:
+        """
+        Ustawia pojedynczy parametr w values.yaml.
+        - Waliduje tylko ten klucz wg schemy.
+        - Pozostałe klucze w values.yaml pozostają nietknięte.
+        - Jeśli values.yaml nie istnieje, zostanie utworzony.
+        Zwraca zwalidowaną wartość.
+        """
+        schema = self.get_schema(module_id)
+        fields = schema.get("fields", [])
+        field = next((f for f in fields if f.get("key") == key), None)
+        if field is None:
+            raise KeyError(f"Unknown key '{key}' in module '{module_id}'")
+
+        validated_value = self._validate_single_value(field, value)
+
+        raw_values = self._load_raw_values(module_id)
+        raw_values[key] = validated_value
+
+        vpath = self._values_path(module_id)
+        vpath.parent.mkdir(parents=True, exist_ok=True)
+        with vpath.open("w", encoding="utf-8") as f:
+            yaml.safe_dump(raw_values, f, allow_unicode=True)
+
+        return validated_value
+
+    def _load_raw_values(self, module_id: str) -> Dict[str, Any]:
+        """Ładuje surowe values.yaml (bez defaultów)."""
+        vpath = self._values_path(module_id)
+        if vpath.exists():
+            with vpath.open("r", encoding="utf-8") as f:
+                return yaml.safe_load(f) or {}
+        return {}
 
     # ---------- Walidacja pojedynczej wartości ----------
 
