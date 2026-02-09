@@ -1,12 +1,14 @@
 id: mixer
 name: "Zawór mieszający"
-description: "Sterowanie zaworem mieszającym na podstawie temperatury za zaworem i kotła."
+description: "Sterowanie zaworem mieszającym na podstawie temperatury za zaworem (CO) oraz ochrony kotła."
 
 groups:
   - id: basic
     label: "Podstawowe"
+  - id: ramp
+    label: "Tryb dogrzewania (ramp)"
   - id: boiler_protection
-    label: "Ochrona kotła"
+    label: "Ochrona kotła / powrotu"
 
 fields:
   - key: target_temp
@@ -29,10 +31,10 @@ fields:
     step: 0.1
     default: 2
     group: basic
-    description: "Dopuszczalne odchylenie od zadanej, w którym zawór nie wykonuje ruchów, aby nie \"mielić\" zbyt często."
+    description: "Dopuszczalne odchylenie od zadanej, w którym zawór nie wykonuje ruchów, aby nie mielić zbyt często."
 
   - key: min_pulse_s
-    label: "Minimalny czas ruchu zaworu"
+    label: "Minimalny czas ruchu zaworu (stabilize)"
     type: number
     unit: "s"
     min: 0.2
@@ -40,10 +42,10 @@ fields:
     step: 0.1
     default: 0.5
     group: basic
-    description: "Najkrótszy impuls OTWÓRZ/ZAMKNIJ. Chroni przed bardzo krótkimi, nieefektywnymi ruchami."
+    description: "Najkrótszy impuls OTWÓRZ/ZAMKNIJ w trybie stabilize."
 
   - key: max_pulse_s
-    label: "Maksymalny czas ruchu zaworu"
+    label: "Maksymalny czas ruchu zaworu (stabilize)"
     type: number
     unit: "s"
     min: 0.5
@@ -51,10 +53,10 @@ fields:
     step: 0.5
     default: 3
     group: basic
-    description: "Najdłuższy pojedynczy impuls OTWÓRZ/ZAMKNIJ, aby nie przekręcić za mocno zaworu jednym ruchem."
+    description: "Najdłuższy pojedynczy impuls OTWÓRZ/ZAMKNIJ w trybie stabilize."
 
   - key: adjust_interval_s
-    label: "Minimalny odstęp między korektami"
+    label: "Minimalny odstęp między korektami (stabilize)"
     type: number
     unit: "s"
     min: 5
@@ -62,56 +64,93 @@ fields:
     step: 5
     default: 10
     group: basic
-    description: "Jak często NAJSZYBCIEJ możemy wykonać kolejny ruch zaworu. Zwiększ przy dużej bezwładności instalacji."
+    description: "Jak często NAJSZYBCIEJ tryb stabilize może wykonać kolejny ruch zaworu."
 
   - key: ramp_error_factor
-    label: "Próg przejścia w tryb dogrzewania (ramp)"
+    label: "Próg wejścia w ramp (od dołu)"
     type: number
     unit: "× martwa strefa"
     min: 1
-    max: 5
+    max: 10
     step: 0.5
     default: 2
-    group: basic
+    group: ramp
     description: >
-      Przy ilu szerokościach martwej strefy od zadanej uznajemy, że grzejniki są „daleko”
-      i przechodzimy w tryb ramp. Np. 2 oznacza przełączenie przy |T - zadana| > 2 × ok_band_degC.
+      Ramp włącza się tylko gdy T_CO jest DALeko PONIŻEJ zadanej:
+      T_CO < target_temp - (ramp_error_factor * ok_band_degC).
+
+  - key: ramp_open_pulse_s
+    label: "Stały czas OTWIERANIA w ramp"
+    type: number
+    unit: "s"
+    min: 0.5
+    max: 30
+    step: 0.5
+    default: 2
+    group: ramp
+    description: "W trybie ramp, gdy bramka kotła pozwala, zawór otwiera się zawsze o stały czas."
+
+  - key: ramp_adjust_interval_s
+    label: "Odstęp między impulsami w ramp"
+    type: number
+    unit: "s"
+    min: 5
+    max: 600
+    step: 5
+    default: 60
+    group: ramp
+    description: "Jak często tryb ramp może wykonać impuls OTWÓRZ (niezależnie od stabilize)."
 
   - key: boiler_min_temp_for_open
-    label: "Minimalna temp. kotła do otwierania"
+    label: "Próg kotła dla OPEN w ramp"
     type: number
     unit: "°C"
     min: 30
     max: 90
     step: 1
-    default: 55
-    group: boiler_protection
-    description: "Poniżej tej temperatury kotła zawór nie będzie otwierany w trybie dogrzewania (\"ramp\"), aby nie wychłodzić kotła zbyt wcześnie."
-
-  - key: boiler_max_drop_degC
-    label: "Maksymalny spadek temp. kotła po otwarciu"
-    type: number
-    unit: "°C"
-    min: 1
-    max: 20
-    step: 0.5
-    default: 5
-    group: boiler_protection
-    description: "Jeśli po ruchu OTWÓRZ w trybie dogrzewania kocioł spadnie o więcej niż tyle stopni, kolejne otwarcia będą tymczasowo blokowane."
-
-  - key: boiler_recover_factor
-    label: "Wymagane odbicie kotła po spadku"
-    type: number
-    unit: ""
-    min: 0.1
-    max: 5.0
-    step: 0.1
-    default: 0.5
+    default: 48
     group: boiler_protection
     description: >
-      Jaka część spadku temperatury kotła musi zostać odrobiona, aby znieść blokadę kolejnych otwarć.
-      Np. przy 0.5 i spadku 6°C czekamy, aż kocioł podniesie się o 3°C.
-      
+      W trybie ramp:
+      jeśli T_kotła >= ten próg -> wolno wydawać OPEN.
+      Jeśli T_kotła jest niżej (ale powyżej progu ochrony) -> ramp NIC nie robi.
+
+  - key: boiler_force_close_temp
+    label: "Próg ochrony: poniżej zawsze CLOSE"
+    type: number
+    unit: "°C"
+    min: 20
+    max: 80
+    step: 1
+    default: 43
+    group: boiler_protection
+    description: >
+      Jeśli T_kotła <= ten próg, włącza się ochrona: zawór zawsze ZAMYKA na dom
+      co protect_interval_s (niezależnie od ramp/stabilize).
+      Ustaw niżej niż boiler_min_temp_for_open (histereza).
+
+  - key: protect_interval_s
+    label: "Interwał ochrony (CLOSE)"
+    type: number
+    unit: "s"
+    min: 2
+    max: 120
+    step: 1
+    default: 15
+    group: boiler_protection
+    description: "Jak często ochrona może wysłać impuls CLOSE, gdy T_kotła <= boiler_force_close_temp."
+
+  - key: protect_pulse_s
+    label: "Czas impulsu CLOSE w ochronie"
+    type: number
+    unit: "s"
+    min: 0.5
+    max: 60
+    step: 0.5
+    default: 6
+    group: boiler_protection
+    description: "Jak długo trwa pojedynczy impuls CLOSE w trybie ochrony."
+
   - key: preclose_on_ignition_enabled
     label: "Pre-close przy wejściu w rozpalanie"
     type: bool
@@ -120,9 +159,8 @@ fields:
     default: true
     group: boiler_protection
     description: >
-      Jeśli wchodzimy w rozpalanie (IGNITION) i temperatura na grzejnikach jest
-      daleko od zadanej (warunek jak dla ramp), to przed rampowaniem wykonujemy
-      pełne domknięcie zaworu przez określony czas, aby startować ramp od 0%.
+      Jeśli wchodzimy w IGNITION i T_CO jest daleko od zadanej (warunek jak dla ramp),
+      to przed rampowaniem wykonujemy pełne domknięcie zaworu przez określony czas.
 
   - key: preclose_full_close_time_s
     label: "Czas pełnego zamknięcia zaworu (pre-close)"
@@ -133,5 +171,5 @@ fields:
     step: 1
     default: 120
     group: boiler_protection
-    description: "Ile sekund trwa pełne domknięcie zaworu od w pełni otwartego do w pełni zamkniętego."
+    description: "Ile sekund trwa pełne domknięcie zaworu w trybie pre-close."
 
