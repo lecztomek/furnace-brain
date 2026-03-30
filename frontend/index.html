@@ -532,9 +532,59 @@
           </div>
         </div>
       </div>
+      
+      <div id="feeder-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="feeder-modal-title">
+        <div class="modal__overlay" data-feeder-close="1"></div>
+
+        <div class="modal__card">
+          <div class="modal__header">
+            <div id="feeder-modal-title" class="modal__title">Ustawienia podajnika</div>
+            <button class="modal__close" type="button" aria-label="Zamknij" data-feeder-close="1">✕</button>
+          </div>
+
+          <div class="modal__body">
+            <div style="text-align:center; font-weight:700; margin-bottom:8px;">Czas podawania</div>
+            <div class="temp-stepper">
+              <button id="feeder-on-minus" class="temp-stepper__btn" type="button">−</button>
+              <div class="temp-stepper__value">
+                <span id="feeder-on-value">--</span><span class="temp-stepper__unit">s</span>
+              </div>
+              <button id="feeder-on-plus" class="temp-stepper__btn" type="button">+</button>
+            </div>
+
+            <div style="text-align:center; font-weight:700; margin:16px 0 8px;">Przerwa podawania</div>
+            <div class="temp-stepper">
+              <button id="feeder-off-minus" class="temp-stepper__btn" type="button">−</button>
+              <div class="temp-stepper__value">
+                <span id="feeder-off-value">--</span><span class="temp-stepper__unit">s</span>
+              </div>
+              <button id="feeder-off-plus" class="temp-stepper__btn" type="button">+</button>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:18px;">
+              <button class="temp-stepper__btn feeder-preset-btn" type="button" data-feed-on="8" data-feed-off="56" style="font-size: 28px;">
+                Czysty groszek — 8s / 56s
+              </button>
+
+              <button class="temp-stepper__btn feeder-preset-btn" type="button" data-feed-on="8" data-feed-off="48" style="font-size: 28px;">
+                Zrębki 30% + groszek — 8s / 48s
+              </button>
+
+              <button class="temp-stepper__btn feeder-preset-btn" type="button" data-feed-on="8" data-feed-off="35" style="font-size: 28px;">
+                Zrębki — 8s / 35s
+              </button>
+            </div>
+
+            <div id="feeder-hint" class="temp-hint"></div>
+
+            <button id="feeder-save" class="temp-save" type="button">Zapisz</button>
+          </div>
+        </div>
+      </div>
 
       <label for="nav-toggle" class="menu-overlay" aria-label="Zamknij menu"></label>
       <script src="js/temp-setpoint-modal.js"></script>
+      <script src="js/feeder-modal.js"></script>
       <script src="js/side-clock.js"></script>
       <script src="js/furnace-ui-utils.js"></script>
 	    <script src="js/mode-control.js"></script>
