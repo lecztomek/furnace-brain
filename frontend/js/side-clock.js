@@ -28,9 +28,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let lastChangeMs = Date.now();
   let staleEl = null;
 
-  // big warning sign (like a road sign) over the hot water tank on the left,
+  // big warning sign (like a road sign) on the left of the main page,
   // how long there's no data written inside it
   function showStale(text, short) {
+    if (!document.getElementById("mode-badge")) return; // main page only
     if (!text) {
       if (staleEl) staleEl.style.display = "none";
       return;
@@ -39,8 +40,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const style = document.createElement("style");
       style.textContent =
         "@keyframes stale-pulse{0%,100%{opacity:1}50%{opacity:.6}}" +
-        ".stale-sign{position:fixed;left:16%;top:45%;z-index:3000;pointer-events:none;" +
-        "width:min(180px,34vh);filter:drop-shadow(0 3px 8px rgba(0,0,0,.65));animation:stale-pulse 2s ease-in-out infinite}" +
+        ".stale-sign{position:fixed;left:24px;bottom:44px;z-index:3000;pointer-events:none;" +
+        "width:min(160px,30vh);filter:drop-shadow(0 3px 8px rgba(0,0,0,.65));animation:stale-pulse 2s ease-in-out infinite}" +
         ".stale-sign svg{display:block;width:100%;height:auto}";
       document.head.appendChild(style);
       staleEl = document.createElement("div");
