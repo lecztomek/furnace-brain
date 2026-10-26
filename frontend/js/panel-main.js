@@ -48,6 +48,7 @@ async function fetchState() {
     const data = await response.json();
     updateUIFromState(data);
     showAppInfo(data.app);
+    showOutside(data.sensors?.outside_temp);
     document.dispatchEvent(new CustomEvent("furnace:state", { detail: data }));
 
     // status na sukces (jeśli chcesz, możesz to usunąć żeby nie spamowało)
@@ -75,6 +76,16 @@ function showAppInfo(app) {
     const time = started.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", hour12: false });
     uptimeEl.textContent = `działa od ${date} ${time} (${fmtUptime(Date.now() / 1000 - app.started_at)})`;
   }
+}
+
+// window on the diagram: outside temperature + sun or moon by the local hour
+function showOutside(temp) {
+  const textEl = document.getElementById("outside-temp-text");
+  const group = document.getElementById("outside-weather");
+  if (!textEl || !group) return;
+  textEl.textContent = temp == null ? "--°C" : `${Math.round(temp)}°C`;
+  const hour = new Date().getHours();
+  group.classList.toggle("is-night", hour < 6 || hour >= 19);
 }
 
 function fmtUptime(seconds) {

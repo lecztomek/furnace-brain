@@ -264,6 +264,13 @@ body {
   font-size: 13px;
 }
 
+/* outside temperature window (index.html #outside-weather) */
+.outside-weather__moon { display: none; }
+#outside-temp text { font-size: 46px; }
+.outside-weather.is-night .outside-weather__moon { display: inline; }
+.outside-weather.is-night .outside-weather__sun { display: none; }
+.outside-weather.is-night .outside-weather__sky { fill: url(#sky-night); }
+
 /* same look as the mode badge */
 .app-info {
   position: absolute;
