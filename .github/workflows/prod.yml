@@ -1,15 +1,15 @@
 name: Deploy to prod
 
 # Moves the prod branch to the chosen version - the furnace (furnace-update.timer
-# on the Pi) picks it up within a few minutes. Every deploy gets a
-# prod-YYYYMMDD-HHMMSS tag, so going back to an older version = run this
-# workflow with one of those tags.
+# on the Pi) picks it up within a few minutes. The deployed commit is tagged
+# v<VERSION> (from the VERSION file), so going back to an older version = run
+# this workflow with one of those tags, e.g. v1.0.0.
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version: main, a prod-... tag (to go back) or a commit hash"
+        description: "Version: main, a tag like v1.0.0 (to go back) or a commit hash"
         required: true
         default: main
       skip_tests:
@@ -57,22 +57,42 @@ jobs:
             --ignore=tests/test_mixer_module.py \
             --ignore=tests/test_stats_module.py || [ $? -eq 5 ]
 
-      - name: Move prod
+      - name: Check version tag
+        id: tag
         env:
           SHA: ${{ steps.v.outputs.sha }}
         run: |
-          tag="prod-$(TZ=Europe/Warsaw date +%Y%m%d-%H%M%S)"
+          version=$(git show "$SHA:VERSION" 2>/dev/null | tr -d '[:space:]')
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+            || { echo "::error::VERSION at this commit is missing or not X.Y.Z ('$version')"; exit 1; }
+          tag="v$version"
+          existing=$(git rev-parse --verify --quiet "refs/tags/$tag^{commit}" || true)
+          if [[ -n "$existing" && "$existing" != "$SHA" ]]; then
+            echo "::error::$tag already points to $(git log -1 --format='%h %s' "$existing") - bump VERSION for new changes"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "new=$([[ -z "$existing" ]] && echo 1 || echo 0)" >> "$GITHUB_OUTPUT"
+
+      - name: Move prod
+        env:
+          SHA: ${{ steps.v.outputs.sha }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          NEW_TAG: ${{ steps.tag.outputs.new }}
+        run: |
           git push --force origin "$SHA:refs/heads/prod"
-          git tag "$tag" "$SHA"
-          git push origin "$tag"
+          if [[ "$NEW_TAG" == 1 ]]; then
+            git tag "$TAG" "$SHA"
+            git push origin "$TAG"
+          fi
           {
-            echo "## prod → \`$tag\`"
+            echo "## prod → \`$TAG\`"
             echo "$(git log -1 --format='`%h` %s' "$SHA")"
             echo
             echo "The furnace will pick up this version within ~5 minutes."
             echo
-            echo "### Recent deploys (enter a tag as the version to go back)"
+            echo "### Released versions (enter one as the version to go back)"
             git fetch --quiet --tags origin
-            git for-each-ref --sort=-refname --count=10 \
-              --format='- `%(refname:short)` — %(subject)' 'refs/tags/prod-*'
+            git for-each-ref --sort=-v:refname --count=10 \
+              --format='- `%(refname:short)` — %(subject)' 'refs/tags/v*'
           } >> "$GITHUB_STEP_SUMMARY"

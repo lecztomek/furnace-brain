@@ -61,7 +61,7 @@ async function fetchState() {
   }
 }
 
-// top-left corner: "wersja prod-20261026-120000" / "działa od 26.10 08:45 (2 h 13 min)"
+// top-left corner: "wersja 1.0.0" / "działa od 26.10 08:45 (2 h 13 min)"
 function showAppInfo(app) {
   const versionEl = document.getElementById("app-version");
   const uptimeEl = document.getElementById("app-uptime");

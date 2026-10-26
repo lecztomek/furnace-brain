@@ -7,7 +7,7 @@
 # Manually (on the Pi, or: ssh pi@<ip> furnace-brain/deploy/update.sh):
 #
 #   deploy/update.sh             -> update to origin/prod
-#   deploy/update.sh <ref>       -> update to a branch/tag/commit (e.g. origin/main, prod-20261026-120000)
+#   deploy/update.sh <ref>       -> update to a branch/tag/commit (e.g. origin/main, v1.0.0)
 #   deploy/update.sh --dry-run   -> show what would change, change nothing
 #   deploy/update.sh --rollback  -> emergency: go back to the previous version (until prod changes)
 #   deploy/update.sh --force     -> retry a version that previously failed to start

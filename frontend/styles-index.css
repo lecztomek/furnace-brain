@@ -203,16 +203,29 @@ body {
 }
 
 /* version + uptime in the top-left corner of the diagram */
+/* same look as the mode badge */
 .app-info {
   position: absolute;
-  top: 18px;
-  left: 22px;
+  top: 22px;
+  left: 26px;
   z-index: 5;
-  max-width: calc(100% - 44px);
-  color: #cbd5e1;
-  font-size: clamp(14px, 1.7vw, 20px);
-  line-height: 1.35;
+  max-width: calc(100% - 52px);
+  padding: 0.45em 1.1em;
+  background: rgba(10, 18, 26, 0.9);
+  border: 2px solid #111;
+  border-radius: 22px;
+  color: #f5f5f5;
+  font-size: clamp(12px, 1.5vw, 18px);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
   pointer-events: none;
+}
+
+.app-info:empty,
+.app-info:has(#app-version:empty) {
+  display: none;
 }
 
 .app-info > div {
@@ -221,9 +234,9 @@ body {
   text-overflow: ellipsis;
 }
 
-#app-version {
-  font-weight: 600;
-  color: #f1f5f9;
+#app-uptime {
+  color: #cbd5e1;
+  font-weight: 500;
 }
 
 .menu-btn {

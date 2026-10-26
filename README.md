@@ -20,11 +20,17 @@ How it works
 
 Releasing to the furnace / going back to an older version
 - GitHub -> Actions -> "Deploy to prod" -> Run workflow
-  - version = main                  -> release what is on main right now
-  - version = prod-20261026-120000  -> go back to an earlier deploy
-  - version = <commit hash>         -> any version
-- every deploy gets a prod-YYYYMMDD-HHMMSS tag; the most recent ones are listed
+  - version = main            -> release what is on main right now
+  - version = v1.0.0          -> go back to an earlier release
+  - version = <commit hash>   -> any version
+- the released commit is tagged v<VERSION>; released versions are listed
   in the summary of each workflow run
+
+Version numbers
+- the VERSION file holds the version (X.Y.Z), shown on the main page
+- bump it with every change: Z for fixes, Y for new features, X for big changes
+- "Deploy to prod" refuses to release changed code under an already released
+  version number (= VERSION was not bumped)
 - a version that failed to start is remembered and skipped until prod changes
 
 Settings (backend/modules/*/values.yaml) are not in git and deploys don't touch them.
