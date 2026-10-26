@@ -68,6 +68,7 @@ function showAppInfo(app) {
   const uptimeEl = document.getElementById("app-uptime");
   if (!versionEl || !uptimeEl || !app) return;
   versionEl.textContent = app.version ? `wersja ${app.version}` : "";
+  document.getElementById("app-info")?.classList.toggle("is-empty", !app.version);
   if (app.started_at) {
     const started = new Date(app.started_at * 1000);
     const date = started.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit" });

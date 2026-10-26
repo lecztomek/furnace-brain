@@ -284,8 +284,9 @@ body {
   pointer-events: none;
 }
 
-.app-info:empty,
-.app-info:has(#app-version:empty) {
+/* hidden until the first state arrives (class toggled in JS - Safari doesn't
+   always re-evaluate :has()/:empty when text is filled in later) */
+.app-info.is-empty {
   display: none;
 }
 
