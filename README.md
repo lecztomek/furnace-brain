@@ -56,20 +56,6 @@ Remote view of the furnace (read-only)
   5. run "Deploy to prod" (or the "Remote view (GitHub Pages)" workflow) -
      it publishes the GUI of the prod version
 
-Phone alerts (module "Powiadomienia", backend/modules/alerts)
-- push notifications through ntfy - free app (Android/iPhone), no account
-- setup: install ntfy, "+" -> subscribe to a topic with a random name, e.g.
-  piec-7f3a9c21d4e8 (the name is the password - anyone who knows it gets the
-  alerts); on the Pi, /etc/furnace-brain.env:
-    FURNACE_BRAIN_NTFY_TOPIC=piec-7f3a9c21d4e8
-  restart furnace-backend, enable "Powiadomienia" in the settings - a test
-  message "Powiadomienia włączone" arrives
-- alerts: cold flue gas at high power in WORK (5 min average below 40 C at a
-  10 min average power of 70 % or more = no coal reaches the fire), repeated
-  every 5 min, then an all-clear; the controller's ALARM events (overheating,
-  sensors); tapping a notification opens the remote view
-- sending problems are on the logs page (source "alerts")
-
 Mode after a restart (update, power cut)
 - the boiler mode is saved to $FURNACE_BRAIN_DATA_ROOT/mode_state.json on every
   change and restored at start-up: STOP stays STOP, PRACA stays PRACA,
