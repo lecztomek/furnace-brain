@@ -1,0 +1,77 @@
+name: Wdróż na prod
+
+# Przestawia branch prod na wybraną wersję - piec (furnace-update.timer na Pi)
+# pobierze ją w ciągu kilku minut. Każde wdrożenie dostaje tag prod-RRRRMMDD-GGMMSS,
+# więc powrót do starszej wersji = uruchom ten workflow z jednym z tych tagów.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Wersja: main, tag prod-... (powrót do starszej) albo hash commita"
+        required: true
+        default: main
+      skip_tests:
+        description: "Pomiń testy (tylko awaryjnie)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency: prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ustal commit
+        id: v
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          sha=$(git rev-parse --verify --quiet "origin/$VERSION^{commit}" \
+             || git rev-parse --verify --quiet "$VERSION^{commit}") \
+             || { echo "::error::Nie znam wersji '$VERSION'"; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Wdrażam: $(git log -1 --format='%h %s (%ci)' "$sha")"
+          git checkout --quiet "$sha"
+
+      - uses: actions/setup-python@v5
+        if: ${{ !inputs.skip_tests }}
+        with:
+          python-version: "3.11"
+
+      - name: Testy
+        if: ${{ !inputs.skip_tests }}
+        run: |
+          pip install -r requirements.txt pytest pytest-timeout
+          # kod 5 = brak testów (starsze wersje) - nie blokuje
+          python -m pytest -q --timeout=120 \
+            --ignore=tests/test_mixer_module.py \
+            --ignore=tests/test_stats_module.py || [ $? -eq 5 ]
+
+      - name: Przestaw prod
+        env:
+          SHA: ${{ steps.v.outputs.sha }}
+        run: |
+          tag="prod-$(TZ=Europe/Warsaw date +%Y%m%d-%H%M%S)"
+          git push --force origin "$SHA:refs/heads/prod"
+          git tag "$tag" "$SHA"
+          git push origin "$tag"
+          {
+            echo "## Prod → \`$tag\`"
+            echo "$(git log -1 --format='`%h` %s' "$SHA")"
+            echo
+            echo "Piec pobierze tę wersję w ciągu ~5 minut."
+            echo
+            echo "### Ostatnie wdrożenia (do powrotu wpisz tag jako wersję)"
+            git fetch --quiet --tags origin
+            git for-each-ref --sort=-refname --count=10 \
+              --format='- `%(refname:short)` — %(subject)' 'refs/tags/prod-*'
+          } >> "$GITHUB_STEP_SUMMARY"

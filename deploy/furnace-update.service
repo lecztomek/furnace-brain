@@ -1,0 +1,12 @@
+[Unit]
+Description=Furnace Brain - automatyczna aktualizacja z brancha prod
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+ExecStart=/home/pi/furnace-brain/deploy/update.sh origin/prod
+StandardOutput=journal
+StandardError=journal

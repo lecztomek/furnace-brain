@@ -1,5 +1,5 @@
 installation
-pip install fastapi uvicorn pyyaml watchfiles
+pip install -r requirements.txt
 
 dev run
 ./furnace-run-dev.sh 
@@ -9,18 +9,58 @@ python -m pip install -U pytest
 python -m pytest -q tests/test_stats_module.py
 
 deploy
-chmod +x /home/pi/furnace-brain/scripts/gateway.py
-create /etc/furnace-brain.env
+======
 
-create /etc/systemd/system/furnace-backend.service
-create /etc/systemd/system/furnace-gateway.service
+Jak to działa
+- main  -> środowisko testowe w chmurze (Render, symulator pieca), wdraża się samo
+           po każdym pushu, który przejdzie testy (render.yaml, .github/workflows/tests.yml)
+- prod  -> prawdziwy piec. Pi co 5 min sprawdza branch prod (furnace-update.timer)
+           i sam robi deploy/update.sh: kopia values.yaml, restart, sprawdzenie
+           czy backend wstał, a jak nie - powrót do poprzedniej wersji.
 
-sudo systemctl daemon-reload
-sudo systemctl enable --now furnace-backend.service
-sudo systemctl enable --now furnace-gateway.service
+Wydanie na piec / powrót do starszej wersji
+- GitHub -> Actions -> "Wdróż na prod" -> Run workflow
+  - version = main                  -> wydaj to, co jest teraz na main
+  - version = prod-20261026-120000  -> powrót do wcześniejszego wdrożenia
+  - version = <hash commita>        -> dowolna wersja
+- każde wdrożenie dostaje tag prod-RRRRMMDD-GGMMSS, lista ostatnich jest
+  w podsumowaniu każdego uruchomienia workflow
+- wersja, która nie wstała, jest zapamiętywana i pomijana, dopóki prod się nie zmieni
 
-sudo systemctl status furnace-backend.service --no-pager
-sudo systemctl status furnace-gateway.service --no-pager
+Ustawienia (backend/modules/*/values.yaml) nie są w gicie i deploy ich nie rusza.
+Nowe pola ze schema.yaml backend sam dopisuje na końcu values.yaml przy starcie.
+
+Na Pi - ręcznie
+  deploy/update.sh --dry-run     # co by się zmieniło
+  deploy/update.sh --rollback    # awaryjnie: poprzednia wersja (do następnej zmiany prod)
+  deploy/update.sh --force       # ponów wersję, która wcześniej nie wstała
+  journalctl -u furnace-update -e   # logi automatycznych aktualizacji
+
+Pierwsze przejście na git (jednorazowo, na Pi)
+  sudo apt install -y git
+  cd /home/pi/furnace-brain
+  git init -b main
+  git remote add origin https://github.com/lecztomek/furnace-brain.git
+  git fetch origin
+  git reset origin/prod          # pliki na dysku zostają, zmienia się tylko indeks
+  git status                     # czym Pi różni się od repo - przejrzyj!
+  git diff
+  git checkout -- .              # gdy różnice można wyrzucić
+  git checkout -B prod origin/prod
+
+  sudo cp deploy/furnace-backend.service deploy/furnace-gateway.service \
+          deploy/furnace-update.service deploy/furnace-update.timer /etc/systemd/system/
+  sudo systemctl daemon-reload
+  sudo systemctl restart furnace-backend furnace-gateway
+  sudo systemctl enable --now furnace-update.timer
+
+Pierwsza instalacja usług (nowe Pi)
+  create /etc/furnace-brain.env (wzór: deploy/furnace-brain.env.sample)
+  python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+  sudo systemctl enable --now furnace-backend.service furnace-gateway.service
+
+  sudo systemctl status furnace-backend.service --no-pager
+  sudo systemctl status furnace-gateway.service --no-pager
 
 
 

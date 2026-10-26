@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Aktualizacja furnace-brain na Raspberry Pi prosto z GitHuba.
 #
-# Uruchamiaj NA PI (albo zdalnie: ssh pi@<ip> furnace-brain/deploy/update.sh).
+# Normalnie uruchamia go co kilka minut furnace-update.timer - wersję na piecu
+# wyznacza branch prod (zmieniany workflowem "Wdróż na prod" na GitHubie).
+# Ręcznie (na Pi albo: ssh pi@<ip> furnace-brain/deploy/update.sh):
 #
-#   deploy/update.sh             -> aktualizacja do origin/main
-#   deploy/update.sh <ref>       -> aktualizacja do brancha/taga/commita (np. origin/test, v1.2, a1b2c3d)
+#   deploy/update.sh             -> aktualizacja do origin/prod
+#   deploy/update.sh <ref>       -> aktualizacja do brancha/taga/commita (np. origin/main, prod-20261026-1200)
 #   deploy/update.sh --dry-run   -> pokaż co się zmieni, nic nie zmieniaj
-#   deploy/update.sh --rollback  -> wróć do wersji sprzed ostatniej aktualizacji
+#   deploy/update.sh --rollback  -> awaryjnie wróć do poprzedniej wersji (do czasu zmiany prod)
+#   deploy/update.sh --force     -> spróbuj ponownie wersji, która wcześniej nie wstała
 #
 # Czego skrypt NIE rusza:
 #   - backend/modules/*/values.yaml (ustawienia z GUI) - są w .gitignore,
@@ -15,7 +18,8 @@
 # Dodatkowo przed każdą zmianą robi kopię values.yaml do $DATA_ROOT/backups/.
 #
 # Po restarcie sprawdza, czy backend odpowiada i czy pętla sterowania żyje.
-# Jeśli nie - automatycznie wraca do poprzedniej wersji.
+# Jeśli nie - automatycznie wraca do poprzedniej wersji i zapamiętuje złą wersję,
+# żeby timer nie próbował jej wdrażać w kółko.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,7 +35,9 @@ trap 'rm -f "$0"' EXIT
 ENV_FILE="${ENV_FILE:-/etc/furnace-brain.env}"
 SYSTEMD_DIR="${SYSTEMD_DIR:-/etc/systemd/system}"
 SERVICES=(furnace-backend.service furnace-gateway.service)
+UNIT_FILES=("${SERVICES[@]}" furnace-update.service furnace-update.timer)
 PREV_FILE="$APP_ROOT/.deploy_prev"
+FAILED_FILE="$APP_ROOT/.deploy_failed"
 HEALTH_TIMEOUT_S="${HEALTH_TIMEOUT_S:-60}"
 
 if [[ -f "$ENV_FILE" ]]; then
@@ -45,12 +51,14 @@ DATA_ROOT="${FURNACE_BRAIN_DATA_ROOT:-$APP_ROOT/backend}"
 
 DRY_RUN=0
 ROLLBACK=0
-TARGET_REF="origin/main"
+FORCE=0
+TARGET_REF="origin/prod"
 for arg in "$@"; do
   case "$arg" in
     --dry-run)  DRY_RUN=1 ;;
     --rollback) ROLLBACK=1 ;;
-    -h|--help)  sed -n '2,19p' "$APP_ROOT/deploy/update.sh"; exit 0 ;;
+    --force)    FORCE=1 ;;
+    -h|--help)  sed -n '2,23p' "$APP_ROOT/deploy/update.sh"; exit 0 ;;
     -*)         echo "Nieznana opcja: $arg"; exit 2 ;;
     *)          TARGET_REF="$arg" ;;
   esac
@@ -90,6 +98,11 @@ if [[ "$OLD" == "$NEW" ]]; then
   exit 0
 fi
 
+if (( ! FORCE )) && [[ -f "$FAILED_FILE" && "$(cat "$FAILED_FILE")" == "$NEW" ]]; then
+  log "Pomijam $(git log -1 --format='%h %s' "$NEW") - ta wersja już raz nie wstała (--force, żeby spróbować)."
+  exit 0
+fi
+
 log "Obecna wersja: $(git log -1 --format='%h %s (%cr)' "$OLD")"
 log "Nowa wersja:   $(git log -1 --format='%h %s (%cr)' "$NEW")"
 if git merge-base --is-ancestor "$OLD" "$NEW"; then
@@ -126,14 +139,19 @@ switch_to() {
   fi
 
   local reload=0 svc
-  for svc in "${SERVICES[@]}"; do
+  for svc in "${UNIT_FILES[@]}"; do
     if [[ -f "deploy/$svc" ]] && ! cmp -s "deploy/$svc" "$SYSTEMD_DIR/$svc"; then
       log "Aktualizuję $SYSTEMD_DIR/$svc"
       sudo install -m 644 "deploy/$svc" "$SYSTEMD_DIR/$svc"
       reload=1
     fi
   done
-  if (( reload )); then sudo systemctl daemon-reload; fi
+  if (( reload )); then
+    sudo systemctl daemon-reload
+    if systemctl is-enabled --quiet furnace-update.timer 2>/dev/null; then
+      sudo systemctl restart furnace-update.timer
+    fi
+  fi
 
   log "Restart usług..."
   sudo systemctl restart "${SERVICES[@]}"
@@ -176,12 +194,16 @@ switch_to "$OLD" "$NEW"
 log "Sprawdzam, czy backend wstał (do ${HEALTH_TIMEOUT_S}s)..."
 if health_check; then
   echo "$OLD" > "$PREV_FILE"
+  rm -f "$FAILED_FILE"
+  # ręczne wycofanie: timer nie wróci do porzuconej wersji, dopóki prod się nie zmieni
+  if (( ROLLBACK )); then echo "$OLD" > "$FAILED_FILE"; fi
   log "Gotowe: $(git log -1 --format='%h %s' "$NEW")"
   exit 0
 fi
 
 warn "Nowa wersja nie działa. Ostatnie logi backendu:"
 sudo journalctl -u furnace-backend.service -n 40 --no-pager || true
+echo "$NEW" > "$FAILED_FILE"
 warn "Wracam do $(git log -1 --format='%h %s' "$OLD")..."
 switch_to "$NEW" "$OLD"
 if health_check; then
