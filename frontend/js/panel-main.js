@@ -61,20 +61,18 @@ async function fetchState() {
   }
 }
 
-// "wersja prod-20261026-120000 • działa od 26.10 08:45 (2 h 13 min)"
+// top-left corner: "wersja prod-20261026-120000" / "działa od 26.10 08:45 (2 h 13 min)"
 function showAppInfo(app) {
-  const el = document.getElementById("app-info");
-  if (!el || !app) return;
-  const parts = [];
-  if (app.version) parts.push(`wersja ${app.version}`);
+  const versionEl = document.getElementById("app-version");
+  const uptimeEl = document.getElementById("app-uptime");
+  if (!versionEl || !uptimeEl || !app) return;
+  versionEl.textContent = app.version ? `wersja ${app.version}` : "";
   if (app.started_at) {
     const started = new Date(app.started_at * 1000);
     const date = started.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit" });
     const time = started.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", hour12: false });
-    parts.push(`działa od ${date} ${time} (${fmtUptime(Date.now() / 1000 - app.started_at)})`);
+    uptimeEl.textContent = `działa od ${date} ${time} (${fmtUptime(Date.now() / 1000 - app.started_at)})`;
   }
-  el.textContent = parts.join(" • ");
-  el.title = el.textContent;
 }
 
 function fmtUptime(seconds) {

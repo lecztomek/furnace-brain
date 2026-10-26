@@ -67,6 +67,7 @@ body {
 /* DIAGRAM */
 
 .diagram-wrapper {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -199,27 +200,30 @@ body {
   color: #e5e7eb;
   display: flex;
   align-items: center;
-  gap: 12px;
 }
 
-.status-bar .app-info {
-  margin-left: auto;
-  color: #9ca3af;
+/* version + uptime in the top-left corner of the diagram */
+.app-info {
+  position: absolute;
+  top: 18px;
+  left: 22px;
+  z-index: 5;
+  max-width: calc(100% - 44px);
+  color: #cbd5e1;
+  font-size: clamp(14px, 1.7vw, 20px);
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.app-info > div {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-@media (max-width: 600px) {
-  .status-bar {
-    height: auto;
-    flex-wrap: wrap;
-    row-gap: 2px;
-  }
-  .status-bar .app-info {
-    margin-left: 0;
-    flex-basis: 100%;
-  }
+#app-version {
+  font-weight: 600;
+  color: #f1f5f9;
 }
 
 .menu-btn {
