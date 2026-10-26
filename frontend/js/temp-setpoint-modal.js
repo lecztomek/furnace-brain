@@ -8,38 +8,24 @@
   // ===== Targets: element on the diagram -> settings shown in the popup =====
   // A field with "also" is written to every listed module (one setting shared
   // by several regulators); it is read from the first one.
-  // "label" overrides the schema label; "atLeast" keeps the field >= another
-  // field of the same popup (by "id", which must come earlier in the list).
-  // "hint" replaces the range hint under the fields.
+  // "derived" settings are not shown as fields - they are saved automatically
+  // as field value + offset (and listed in the hint).
   const TARGETS = {
     boiler: {
       opener: "furnace-temp",
       title: "Zadana temp kotła",
-      hint: "praca ≤ przejście ≤ rozpalanie",
       fields: [
         {
-          id: "work",
-          label: "Praca (PID, fuzzy, predykcyjny)",
           moduleId: "power_work",
           key: "boiler_set_temp",
           also: [
             { moduleId: "power_work_fuzzy", key: "boiler_set_temp" },
             { moduleId: "power_work_predictive", key: "boiler_set_temp" },
           ],
-        },
-        {
-          id: "switch",
-          label: "Przejście rozpalanie → praca",
-          moduleId: "mode",
-          key: "switch_temp",
-          atLeast: "work",
-        },
-        {
-          id: "ignition",
-          label: "Rozpalanie",
-          moduleId: "power_ignition",
-          key: "boiler_set_temp",
-          atLeast: "switch",
+          derived: [
+            { label: "przejście na pracę", moduleId: "mode", key: "switch_temp", offset: 3 },
+            { label: "rozpalanie", moduleId: "power_ignition", key: "boiler_set_temp", offset: 4 },
+          ],
         },
       ],
     },
@@ -120,18 +106,29 @@
     const step = Number(field.def.step ?? 1);
     field.value = roundToStep(clamp(v, min, max), step);
     field.valueEl.textContent = fmt(field.value);
-    applyConstraints();
+    updateHint();
   }
 
-  function applyConstraints() {
-    if (!active) return;
-    active.fields.forEach((f) => {
-      const other = f.atLeast && active.fields.find((o) => o.id === f.atLeast);
-      if (other && other.value !== null && f.value !== null && f.value < other.value) {
-        f.value = other.value;
-        f.valueEl.textContent = fmt(f.value);
+  function derivedValue(field, d) {
+    return Math.min(field.value + d.offset, Number(d.def.max ?? Infinity));
+  }
+
+  function updateHint() {
+    if (!active || !active.fields.length || active.fields.some((f) => f.value === null)) return;
+    const fields = active.fields;
+    const parts = [];
+    fields.forEach((f) => {
+      const unit = f.def.unit || "";
+      if (f.derived?.length) {
+        parts.push(`Automatycznie: ${f.derived.map((d) => `${d.label} ${fmt(derivedValue(f, d))}${unit}`).join(", ")}`);
       }
     });
+    if (!parts.length) parts.push(rangeHint(fields));
+    const outOfSync = fields.filter((f) => !f.inSync);
+    if (outOfSync.length) {
+      parts.push(`regulatory różne (${outOfSync.map((f) => [f.loaded, ...f.others].map(fmt).join("/")).join(", ")}), zapis wyrówna`);
+    }
+    hintEl.textContent = parts.join(" • ");
   }
 
   function renderField(field, withLabel) {
@@ -213,7 +210,13 @@
             (f.also || []).map((o) => apiJson(valueUrl(o.moduleId, o.key)).then((d) => Number(d?.value)))
           );
           const inSync = others.every((v) => v === num);
-          return { ...f, def, value: null, loaded: num, inSync, others, valueEl: null };
+          const derived = await Promise.all(
+            (f.derived || []).map(async (d) => {
+              const [dDef, dData] = await Promise.all([fieldDef(d.moduleId, d.key), apiJson(valueUrl(d.moduleId, d.key))]);
+              return { ...d, def: dDef, current: Number(dData?.value) };
+            })
+          );
+          return { ...f, def, derived, value: null, loaded: num, inSync, others, valueEl: null };
         })
       );
       if (active !== opened) return; // zamknięte w trakcie wczytywania
@@ -221,17 +224,12 @@
       active.fields = fields;
       fields.forEach((f) => {
         renderField(f, fields.length > 1);
-        const raw = f.loaded;
-        setValue(f, raw);
-        // what the backend has (rounded), so a value lifted by a constraint gets saved
-        f.loaded = roundToStep(clamp(raw, Number(f.def.min ?? -Infinity), Number(f.def.max ?? Infinity)), Number(f.def.step ?? 1));
+        setValue(f, f.loaded);
+        f.loaded = f.value;
+        // derived settings that don't match yet also make the save write them
+        if (f.derived.some((d) => d.current !== derivedValue(f, d))) f.inSync = false;
       });
-      const outOfSync = fields.filter((f) => !f.inSync);
-      hintEl.textContent = outOfSync.length
-        ? `${(cfg.hint || rangeHint(fields))} • regulatory różne (${outOfSync
-            .map((f) => [f.loaded, ...f.others].map(fmt).join("/"))
-            .join(", ")}), zapis wyrówna`
-        : (cfg.hint || rangeHint(fields));
+      updateHint();
       btnSave.disabled = false;
     } catch (err) {
       console.error(err);
@@ -268,15 +266,17 @@
     btnSave.textContent = "Zapisywanie…";
 
     try {
-      // only changed fields (or shared ones whose modules differ)
+      const put = (moduleId, key, value) =>
+        apiJson(valueUrl(moduleId, key), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify(value),
+        });
+
+      // only changed fields (or ones whose shared/derived settings differ)
       for (const f of active.fields.filter((f) => f.value !== f.loaded || !f.inSync)) {
-        for (const t of [f, ...(f.also || [])]) {
-          await apiJson(valueUrl(t.moduleId, t.key), {
-            method: "PUT",
-            headers: { "Content-Type": "application/json", "Accept": "application/json" },
-            body: JSON.stringify(f.value),
-          });
-        }
+        for (const t of [f, ...(f.also || [])]) await put(t.moduleId, t.key, f.value);
+        for (const d of f.derived) await put(d.moduleId, d.key, derivedValue(f, d));
         f.loaded = f.value;
         f.inSync = true;
       }
