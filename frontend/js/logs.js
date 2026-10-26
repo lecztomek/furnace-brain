@@ -58,20 +58,23 @@
       .replaceAll("'", "&#039;");
   };
 
+  // e.g. "26.10 18:00:04" - short, fits a phone
+  const fmt = (d) => d.toLocaleString("pl-PL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
   const formatTs = (item) => {
     // Preferujemy ts_iso z backendu (z CSV routera), fallback na ts
     if (item?.ts_iso) {
       const d = new Date(item.ts_iso);
-      if (!isNaN(d.getTime())) return d.toLocaleString();
+      if (!isNaN(d.getTime())) return fmt(d);
     }
     if (typeof item?.ts === "number") {
       const d = new Date(item.ts * 1000);
-      if (!isNaN(d.getTime())) return d.toLocaleString();
+      if (!isNaN(d.getTime())) return fmt(d);
     }
     if (item?.data_czas) {
       // jeśli backend zwraca data_czas
       const d = new Date(item.data_czas);
-      if (!isNaN(d.getTime())) return d.toLocaleString();
+      if (!isNaN(d.getTime())) return fmt(d);
       return String(item.data_czas);
     }
     return "--";
@@ -201,8 +204,8 @@
       // CSV router /logs/recent zwykle nie zwraca payload.ts — robimy "teraz"
       const tsText =
         typeof payload?.ts === "number"
-          ? new Date(payload.ts * 1000).toLocaleString()
-          : virtualNow().toLocaleString();
+          ? fmt(new Date(payload.ts * 1000))
+          : fmt(virtualNow());
 
       // with a filter the backend searches only the current and previous hour of logs
       setPillsOk(levelApi || src ? "OK (ostatnie 1–2 h)" : "OK", tsText);

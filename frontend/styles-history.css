@@ -1335,3 +1335,33 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
   height: 22px;
   accent-color: #f97316;
 }
+
+/* ===== Phone (portrait): compact range bar, menu button in the bottom
+   right corner so it doesn't cover the chart ===== */
+@media (max-width: 640px) {
+  .burger-btn {
+    position: fixed;
+    left: auto;
+    right: 10px;
+    top: auto;
+    bottom: 40px;
+    transform: none;
+    width: 52px;
+    height: 46px;
+    font-size: 28px;
+    background: rgba(17, 24, 39, 0.9);
+  }
+
+  .history-toolbar { padding: 6px; gap: 4px; }
+  .history-toolbar-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+  .history-group-label { display: none; }
+  .history-range-btn { padding: 6px 10px; font-size: 13px; letter-spacing: 0.04em; }
+  .history-compare { font-size: 13px; }
+  .history-refresh-group { margin-left: auto; }
+  .history-chart-wrapper { min-height: 300px; padding: 6px; }
+}
