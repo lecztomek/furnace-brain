@@ -370,6 +370,12 @@ body {
   border-color: rgba(239, 68, 68, 0.35);
 }
 
+.log-row.level-ALARM .log-level,
+.log-popup.level-ALARM .log-level {
+  background: rgba(239, 68, 68, 0.55);
+  border-color: rgba(248, 113, 113, 0.9);
+}
+
 .log-row.level-DEBUG .log-level,
 .log-popup.level-DEBUG .log-level {
   background: rgba(156, 163, 175, 0.16);

@@ -157,6 +157,18 @@ def create_logs_router(
             "items": items,
         }
 
+    @router.get("/meta")
+    def get_logs_meta():
+        """Levels and every possible source - for the filters on the logs page."""
+        from backend.config.modules_loader import load_module_descriptors
+        from backend.core.state import EventLevel
+
+        modules = [d.id for d in load_module_descriptors() if d.enabled]
+        return {
+            "levels": [lvl.name for lvl in EventLevel],
+            "sources": sorted(set(modules + ["kernel", "aux_runner"])),
+        }
+
     @router.get("/recent")
     def get_logs_recent(
         limit: int = Query(100, ge=1, le=2000),

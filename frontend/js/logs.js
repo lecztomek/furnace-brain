@@ -102,21 +102,9 @@
   };
 
   // ====== SOURCE SELECT ======
-  // every module (from the config API) + sources seen in the fetched logs, so a
-  // module with rare events (e.g. weather) can be picked even if it isn't in
-  // the latest N entries
-  let knownSources = ["kernel", "aux_runner"];
-
-  async function loadKnownSources() {
-    try {
-      const res = await fetch("/api/config/modules", { cache: "no-store" });
-      if (!res.ok) return;
-      const modules = await res.json();
-      knownSources = knownSources.concat((modules || []).map((m) => m?.id).filter(Boolean));
-    } catch {
-      // optional
-    }
-  }
+  // every possible source (from /logs/meta), not only the ones in the latest
+  // N entries - rare events (e.g. weather) must be selectable too
+  let knownSources = [];
 
   function fillSourcesSelect(items) {
     if (!elSource) return;
@@ -152,6 +140,10 @@
       if (!res.ok) return;
 
       const meta = await res.json();
+      if (Array.isArray(meta?.sources)) {
+        knownSources = meta.sources;
+        fillSourcesSelect([]);
+      }
       const levels = Array.isArray(meta?.levels) ? meta.levels : null;
       if (!levels || levels.length === 0) return;
 
@@ -369,7 +361,6 @@
   async function init() {
     bindUi();
     await loadMeta();  // opcjonalne
-    await loadKnownSources();
     await syncClockOffset();
     setInterval(syncClockOffset, 5000);
     await fetchLogs(); // jednorazowe wczytanie
