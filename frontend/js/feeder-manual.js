@@ -8,6 +8,7 @@
   const el = document.getElementById("feeder-manual");
   if (!el) return;
   const hintEl = el.querySelector(".feeder-manual__hint");
+  const knobEl = el.querySelector(".feeder-manual__knob");
 
   let mode = null;
   let feederOn = false;
@@ -30,6 +31,7 @@
     const on = mode === "MANUAL" && feederOn;
     const enabled = !busy && (mode === "OFF" || on);
     el.classList.toggle("is-on", on);
+    knobEl.setAttribute("cx", on ? "74" : "48");
     el.classList.toggle("is-disabled", !enabled);
     el.setAttribute("aria-checked", String(on));
     el.setAttribute("aria-disabled", String(!enabled));

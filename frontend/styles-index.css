@@ -220,24 +220,9 @@ body {
   fill: #f5f5f5;
 }
 
-/* "Ślimak ręcznie" switch on the fuel hopper (js/feeder-manual.js);
-   inside an svg foreignObject, so px here are diagram units */
+/* "Ślimak ręcznie" switch on the fuel hopper (js/feeder-manual.js), plain svg */
 .feeder-manual {
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  background: rgba(10, 18, 26, 0.9);
-  border: 2px solid #111;
-  border-radius: 18px;
-  color: #f5f5f5;
-  font-family: inherit;
   cursor: pointer;
-  user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -246,48 +231,37 @@ body {
   cursor: default;
 }
 
+.feeder-manual__bg {
+  fill: rgba(10, 18, 26, 0.9);
+  stroke: #111;
+  stroke-width: 2px;
+}
+
 .feeder-manual__label {
-  font-size: 17px;
+  fill: #f5f5f5;
+  font-size: 16px;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
-.feeder-manual__switch {
-  position: relative;
-  width: 56px;
-  height: 30px;
-  border-radius: 15px;
-  background: #374151;
-  border: 1px solid #4b5563;
-  transition: background 0.15s ease;
+.feeder-manual__track {
+  fill: #374151;
+  stroke: #4b5563;
+  stroke-width: 1px;
+}
+
+.feeder-manual.is-on .feeder-manual__track {
+  fill: #16a34a;
+  stroke: #22c55e;
 }
 
 .feeder-manual__knob {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #f5f5f5;
-  transition: transform 0.15s ease;
-}
-
-.feeder-manual.is-on .feeder-manual__switch {
-  background: #16a34a;
-  border-color: #22c55e;
-}
-
-.feeder-manual.is-on .feeder-manual__knob {
-  transform: translateX(26px);
+  fill: #f5f5f5;
 }
 
 .feeder-manual__hint {
-  color: #cbd5e1;
+  fill: #cbd5e1;
   font-size: 13px;
-  text-align: center;
-  line-height: 1.15;
 }
 
 /* same look as the mode badge */
@@ -785,7 +759,7 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
 
   .temp-stepper { margin-top: 4px; gap: 10px; }
   .temp-stepper__btn,
-  .temp-stepper__value { height: clamp(50px, 8.5vh, 72px); font-size: clamp(28px, 4.5vh, 40px); border-radius: 16px; }
+  .temp-stepper__value { height: clamp(44px, 8.5vh, 72px); font-size: clamp(26px, 4.5vh, 40px); border-radius: 16px; }
   .temp-stepper__unit { font-size: 18px; }
 
   .setpoint-field + .setpoint-field { margin-top: 8px; }
@@ -803,7 +777,7 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
   }
 
   .temp-hint { margin-top: 6px; font-size: 14px; min-height: 0; }
-  .temp-save { margin-top: 8px; height: clamp(46px, 7.5vh, 60px); }
+  .temp-save { margin-top: 8px; height: clamp(42px, 7.5vh, 60px); }
 }
 
 .setpoint-field__label {

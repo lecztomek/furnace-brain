@@ -9,11 +9,13 @@
   // A field with "also" is written to every listed module (one setting shared
   // by several regulators); it is read from the first one.
   // "label" overrides the schema label; "atLeast" keeps the field >= another
-  // field of the same popup (by "id").
+  // field of the same popup (by "id", which must come earlier in the list).
+  // "hint" replaces the range hint under the fields.
   const TARGETS = {
     boiler: {
       opener: "furnace-temp",
       title: "Zadana temp kotła",
+      hint: "praca ≤ przejście ≤ rozpalanie",
       fields: [
         {
           id: "work",
@@ -26,11 +28,18 @@
           ],
         },
         {
+          id: "switch",
+          label: "Przejście rozpalanie → praca",
+          moduleId: "mode",
+          key: "switch_temp",
+          atLeast: "work",
+        },
+        {
           id: "ignition",
-          label: "Rozpalanie (nie niżej niż praca)",
+          label: "Rozpalanie",
           moduleId: "power_ignition",
           key: "boiler_set_temp",
-          atLeast: "work",
+          atLeast: "switch",
         },
       ],
     },
@@ -219,10 +228,10 @@
       });
       const outOfSync = fields.filter((f) => !f.inSync);
       hintEl.textContent = outOfSync.length
-        ? `${rangeHint(fields)} • teraz różne: ${outOfSync
-            .map((f) => [f.loaded, ...f.others].map(fmt).join(" / "))
-            .join(", ")} - zapis ustawi wszystkie`
-        : rangeHint(fields);
+        ? `${(cfg.hint || rangeHint(fields))} • regulatory różne (${outOfSync
+            .map((f) => [f.loaded, ...f.others].map(fmt).join("/"))
+            .join(", ")}), zapis wyrówna`
+        : (cfg.hint || rangeHint(fields));
       btnSave.disabled = false;
     } catch (err) {
       console.error(err);
