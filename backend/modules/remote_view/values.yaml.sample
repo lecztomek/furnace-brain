@@ -1,0 +1,5 @@
+enabled: false
+state_every_s: 15.0
+history_every_s: 60.0
+slow_every_min: 10.0
+first_history_days: 2.0

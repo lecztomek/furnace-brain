@@ -33,6 +33,20 @@ Version numbers
   version number (= VERSION was not bumped)
 - a version that failed to start is remembered and skipped until prod changes
 
+Remote view of the furnace (read-only)
+- Render service furnace-brain-view (render.yaml) runs backend/viewer.py on the
+  prod branch: the same GUI, data pushed by the Pi; every change is ignored
+- on the Pi, /etc/furnace-brain.env:
+    FURNACE_BRAIN_VIEWER_URL=https://furnace-brain-view.onrender.com
+    FURNACE_BRAIN_VIEWER_TOKEN=<FURNACE_BRAIN_VIEWER_TOKEN from the Render dashboard>
+  then restart furnace-backend and enable "Podgląd zdalny" in the settings
+- the Pi only sends (gzip, every 15 s state / 60 s history and logs /
+  10 min statistics and settings) - nothing comes back to the furnace
+- optional viewing password: FURNACE_BRAIN_VIEWER_PASSWORD on Render (user "podglad")
+- free Render plan: 750 h/month for the whole account - the view running
+  24/7 uses almost all of it; switch it to a paid plan to keep the test
+  environment running too
+
 Settings (backend/modules/*/values.yaml) are not in git and deploys don't touch them.
 On startup the backend appends new fields from schema.yaml to the end of values.yaml.
 

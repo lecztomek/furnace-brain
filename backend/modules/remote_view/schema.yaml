@@ -1,0 +1,59 @@
+id: remote_view
+name: "Podgląd zdalny"
+description: "Wysyła dane pieca (stan, historię, logi, statystyki, ustawienia) na serwer podglądu tylko do odczytu. Adres i token serwera ustawia się w /etc/furnace-brain.env (FURNACE_BRAIN_VIEWER_URL, FURNACE_BRAIN_VIEWER_TOKEN). Z serwera nic nie wraca do pieca."
+
+groups:
+  - id: basic
+    label: "Podstawowe"
+  - id: advanced
+    label: "Częstotliwość"
+
+fields:
+  - key: enabled
+    label: "Wysyłanie danych"
+    type: bool
+    default: false
+    label_on: "WŁĄCZONE"
+    label_off: "WYŁĄCZONE"
+    group: basic
+
+  - key: state_every_s
+    label: "Stan pieca co"
+    type: number
+    unit: "s"
+    min: 5
+    max: 300
+    step: 5
+    default: 15
+    group: advanced
+
+  - key: history_every_s
+    label: "Historia i logi co"
+    type: number
+    unit: "s"
+    min: 30
+    max: 900
+    step: 30
+    default: 60
+    group: advanced
+
+  - key: slow_every_min
+    label: "Statystyki i ustawienia co"
+    type: number
+    unit: "min"
+    min: 5
+    max: 60
+    step: 5
+    default: 10
+    group: advanced
+
+  - key: first_history_days
+    label: "Historia na start"
+    type: number
+    unit: "dni"
+    min: 1
+    max: 14
+    step: 1
+    default: 2
+    group: advanced
+    description: "Ile historii wysłać, gdy serwer podglądu jest pusty (np. po restarcie)."

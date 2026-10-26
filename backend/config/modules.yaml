@@ -74,6 +74,11 @@ modules:
     enabled: true
     critical: false
 
+  - id: remote_view
+    path: backend.modules.remote_view:RemoteViewModule
+    enabled: true
+    critical: false
+
   - id: history
     path: backend.modules.history:HistoryModule
     enabled: true

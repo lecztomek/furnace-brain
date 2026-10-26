@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -r requirements.txt pytest pytest-timeout
+      - run: pip install -r requirements.txt pytest pytest-timeout httpx
       # test_mixer_module.py and test_stats_module.py are out of date with the code
       # (they were already failing) - disabled until fixed
       - run: >
