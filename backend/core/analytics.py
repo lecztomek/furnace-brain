@@ -22,10 +22,14 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from backend.core.csv_utils import no_nul
 
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 MAX_STEP_S = 60.0          # a row "covers" at most this long (2x the 30 s interval)
 GAP_S = 120.0              # a longer pause between rows is a gap in the data
 SETTLE_S = 20 * 60         # regulation quality: skip the first 20 min after entering WORK
+# temperature drops: settled WORK, boiler this far below the setpoint
+DROP_BELOW_C = 4.0
+DROP_MIN_S = 300.0         # shorter dips are not listed
+DROP_GAP_S = 120.0         # a short return above the line doesn't split a drop
 FULL_DAY_SHARE = 0.8       # days with less data don't go into the weather model
 
 AVG_KEYS = ("boiler", "radiators", "flue", "outside", "power", "fan", "feeder", "flue_work")
@@ -83,6 +87,10 @@ class DayAgg:
     energy_kwh: float = 0.0
     power_kw_max: float = 0.0  # highest 5 min average
     alarms: int = 0
+    # hour of day (settled WORK): [seconds, boiler*s, setpoint*s, power*s, power seconds, seconds below]
+    hours: List[List[float]] = field(default_factory=lambda: [[0.0] * 6 for _ in range(24)])
+    # drops below setpoint - DROP_BELOW_C: start, minutes, lowest temp, setpoint, power
+    drops: List[Dict[str, Any]] = field(default_factory=list)
 
     def avg(self, key: str) -> Optional[float]:
         w = self.weights.get(key, 0.0)
@@ -194,6 +202,20 @@ def aggregate_day(day: date, rows: List[Dict[str, str]], coal_kg: float = 0.0,
 
     prev_mode = None
     work_since: Optional[datetime] = None
+    drop: Optional[Dict[str, Any]] = None
+
+    def close_drop(d: Optional[Dict[str, Any]]) -> None:
+        if d and (d["last"] - d["start"]).total_seconds() + 30 >= DROP_MIN_S:
+            agg.drops.append({
+                "start": d["start"].isoformat(timespec="minutes"),
+                "minutes": round(((d["last"] - d["start"]).total_seconds() + 30) / 60),
+                "min_temp": round(d["min"], 1),
+                "setpoint": round(d["setpoint"], 1),
+                "power_before": None if d["power_before"] is None else round(d["power_before"]),
+                "power_max": None if d["power_max"] is None else round(d["power_max"]),
+            })
+
+    recent_power: List[float] = []
     for i, (ts, r) in enumerate(parsed):
         nxt = parsed[i + 1][0] if i + 1 < len(parsed) else None
         step = (nxt - ts).total_seconds() if nxt else 30.0
@@ -234,8 +256,35 @@ def aggregate_day(day: date, rows: List[Dict[str, str]], coal_kg: float = 0.0,
         setpoint = _float(r.get("zadana"))
         if setpoint is None:
             setpoint = fallback_setpoint
-        if mode == "WORK" and setpoint is not None and work_since is not None \
-                and (ts - work_since).total_seconds() >= SETTLE_S:
+        power = values["power"]
+        if power is not None:
+            recent_power = (recent_power + [power])[-60:]  # ~30 min of rows
+        settled = mode == "WORK" and setpoint is not None and work_since is not None \
+            and (ts - work_since).total_seconds() >= SETTLE_S
+        below = settled and boiler < setpoint - DROP_BELOW_C
+        if drop and (not settled or (ts - drop["last"]).total_seconds() > DROP_GAP_S) and not below:
+            close_drop(drop)
+            drop = None
+        if below:
+            if drop is None:
+                before = recent_power[:-1][-60:]
+                drop = {"start": ts, "last": ts, "min": boiler, "setpoint": setpoint, "power_max": power,
+                        "power_before": sum(before) / len(before) if before else None}
+            drop["last"] = ts
+            drop["min"] = min(drop["min"], boiler)
+            if power is not None:
+                drop["power_max"] = power if drop["power_max"] is None else max(drop["power_max"], power)
+        if settled:
+            hb = agg.hours[ts.hour]
+            hb[0] += w
+            hb[1] += boiler * w
+            hb[2] += setpoint * w
+            if power is not None:
+                hb[3] += power * w
+                hb[4] += w
+            if below:
+                hb[5] += w
+        if settled:
             err = boiler - setpoint
             agg.st_s += w
             agg.st_abs += abs(err) * w
@@ -244,6 +293,7 @@ def aggregate_day(day: date, rows: List[Dict[str, str]], coal_kg: float = 0.0,
             agg.st_in2 += w if abs(err) <= 2.0 else 0.0
             agg.st_over = max(agg.st_over, err)
             agg.st_under = max(agg.st_under, -err)
+    close_drop(drop)
     return agg
 
 
@@ -308,6 +358,40 @@ def summarize(days: List[DayAgg]) -> Dict[str, Any]:
             "kg_per_degree_day": _r(kg_per_degree_day(days), 3),
             "flue_loss_pct": _r(flue_loss_pct(avg("flue_work")), 1),
         },
+        "hourly": hourly_profile(days),
+        "drops": drops_list(days),
+    }
+
+
+def hourly_profile(days: List[DayAgg]) -> List[Dict[str, Any]]:
+    """Per hour of day (settled WORK): average boiler temp, setpoint, error, power, share below the drop line."""
+    out = []
+    for hour in range(24):
+        t = [sum(d.hours[hour][i] for d in days if len(d.hours) == 24) for i in range(6)]
+        secs = t[0]
+        out.append({
+            "hour": hour,
+            "hours": _r(secs / 3600),
+            "boiler": _r(t[1] / secs) if secs >= 600 else None,
+            "setpoint": _r(t[2] / secs) if secs >= 600 else None,
+            "error": _r((t[1] - t[2]) / secs, 2) if secs >= 600 else None,
+            "power": _r(t[3] / t[4]) if t[4] >= 600 else None,
+            "below_pct": _r(100 * t[5] / secs) if secs >= 600 else None,
+        })
+    return out
+
+
+def drops_list(days: List[DayAgg], limit: int = 50) -> Dict[str, Any]:
+    """Drops below the setpoint, newest first, and how many started in each hour."""
+    all_drops = [x for d in days for x in d.drops]
+    by_hour = [0] * 24
+    for x in all_drops:
+        by_hour[int(x["start"][11:13])] += 1
+    return {
+        "count": len(all_drops),
+        "below_c": DROP_BELOW_C,
+        "by_hour": by_hour,
+        "items": sorted(all_drops, key=lambda x: x["start"], reverse=True)[:limit],
     }
 
 

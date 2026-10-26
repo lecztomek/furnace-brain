@@ -77,3 +77,22 @@ def test_damaged_file_with_nul_bytes(tmp_path):
     p.write_bytes(b"data_czas;temp_pieca\n2026-10-25T10:00:00;55\n\x00\x00\x00\x002026-10-25T10:00:30;56\n")
     rows = history_rows(tmp_path, date(2026, 10, 25))
     assert [r["temp_pieca"] for r in rows] == ["55", "56"]
+
+
+def test_hourly_profile_and_drops():
+    """Evening dip below setpoint - 4 C is listed as a drop and shows in the hour profile."""
+    from backend.core.analytics import aggregate_day, hourly_profile, drops_list
+    rows = []
+    t = datetime(2026, 1, 10, 18, 0, 0)
+    while t < datetime(2026, 1, 10, 22, 0, 0):
+        temp = 56.0 if not (datetime(2026, 1, 10, 20, 10) <= t < datetime(2026, 1, 10, 20, 40)) else 51.0
+        rows.append({"data_czas": t.isoformat(), "temp_pieca": str(temp), "power": "60", "tryb_pracy": "WORK", "zadana": "57"})
+        t += timedelta(seconds=30)
+    day = aggregate_day(date(2026, 1, 10), rows)
+    assert len(day.drops) == 1
+    d = day.drops[0]
+    assert d["start"] == "2026-01-10T20:10" and d["minutes"] == 30 and d["min_temp"] == 51.0
+    prof = hourly_profile([day])
+    assert prof[20]["below_pct"] == 50.0 and prof[19]["below_pct"] == 0.0
+    assert prof[19]["error"] == -1.0
+    assert drops_list([day])["by_hour"][20] == 1
