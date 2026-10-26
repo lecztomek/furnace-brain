@@ -6,7 +6,34 @@
   const CONFIG_API_BASE = "/api/config";
 
   // ===== Targets: element on the diagram -> settings shown in the popup =====
+  // A field with "also" is written to every listed module (one setting shared
+  // by several regulators); it is read from the first one.
+  // "label" overrides the schema label; "atLeast" keeps the field >= another
+  // field of the same popup (by "id").
   const TARGETS = {
+    boiler: {
+      opener: "furnace-temp",
+      title: "Zadana temp kotła",
+      fields: [
+        {
+          id: "work",
+          label: "Praca (PID, fuzzy, predykcyjny)",
+          moduleId: "power_work",
+          key: "boiler_set_temp",
+          also: [
+            { moduleId: "power_work_fuzzy", key: "boiler_set_temp" },
+            { moduleId: "power_work_predictive", key: "boiler_set_temp" },
+          ],
+        },
+        {
+          id: "ignition",
+          label: "Rozpalanie (nie niżej niż praca)",
+          moduleId: "power_ignition",
+          key: "boiler_set_temp",
+          atLeast: "work",
+        },
+      ],
+    },
     radiators: {
       opener: "radiators-temp",
       title: "Ustaw temp grzejników",
@@ -84,6 +111,18 @@
     const step = Number(field.def.step ?? 1);
     field.value = roundToStep(clamp(v, min, max), step);
     field.valueEl.textContent = fmt(field.value);
+    applyConstraints();
+  }
+
+  function applyConstraints() {
+    if (!active) return;
+    active.fields.forEach((f) => {
+      const other = f.atLeast && active.fields.find((o) => o.id === f.atLeast);
+      if (other && other.value !== null && f.value !== null && f.value < other.value) {
+        f.value = other.value;
+        f.valueEl.textContent = fmt(f.value);
+      }
+    });
   }
 
   function renderField(field, withLabel) {
@@ -93,7 +132,7 @@
     if (withLabel) {
       const label = document.createElement("div");
       label.className = "setpoint-field__label";
-      label.textContent = field.def.label || field.key;
+      label.textContent = field.label || field.def.label || field.key;
       wrap.appendChild(label);
     }
 
@@ -129,13 +168,13 @@
   }
 
   function rangeHint(fields) {
-    return fields
-      .map((f) => {
-        const u = f.def.unit || "";
-        const name = fields.length > 1 ? `${f.def.label || f.key}: ` : "";
-        return `${name}${f.def.min}–${f.def.max}${u}, krok ${f.def.step ?? 1}${u}`;
-      })
-      .join(" • ");
+    const range = (f) => {
+      const u = f.def.unit || "";
+      return `${f.def.min}–${f.def.max}${u}, krok ${f.def.step ?? 1}${u}`;
+    };
+    const ranges = fields.map(range);
+    if (ranges.every((r) => r === ranges[0])) return `Zakres: ${ranges[0]}`;
+    return fields.map((f, i) => `${f.label || f.def.label || f.key}: ${ranges[i]}`).join(" • ");
   }
 
   async function openModal(cfg) {
@@ -160,7 +199,12 @@
           if (!Number.isFinite(num)) {
             throw new Error(`Backend zwrócił nie-liczbę dla ${f.moduleId}.${f.key}: ${JSON.stringify(data?.value)}`);
           }
-          return { ...f, def, value: null, loaded: num, valueEl: null };
+          // shared setting: are the other modules on the same value?
+          const others = await Promise.all(
+            (f.also || []).map((o) => apiJson(valueUrl(o.moduleId, o.key)).then((d) => Number(d?.value)))
+          );
+          const inSync = others.every((v) => v === num);
+          return { ...f, def, value: null, loaded: num, inSync, others, valueEl: null };
         })
       );
       if (active !== opened) return; // zamknięte w trakcie wczytywania
@@ -168,10 +212,17 @@
       active.fields = fields;
       fields.forEach((f) => {
         renderField(f, fields.length > 1);
-        setValue(f, f.loaded);
-        f.loaded = f.value;
+        const raw = f.loaded;
+        setValue(f, raw);
+        // what the backend has (rounded), so a value lifted by a constraint gets saved
+        f.loaded = roundToStep(clamp(raw, Number(f.def.min ?? -Infinity), Number(f.def.max ?? Infinity)), Number(f.def.step ?? 1));
       });
-      hintEl.textContent = rangeHint(fields);
+      const outOfSync = fields.filter((f) => !f.inSync);
+      hintEl.textContent = outOfSync.length
+        ? `${rangeHint(fields)} • teraz różne: ${outOfSync
+            .map((f) => [f.loaded, ...f.others].map(fmt).join(" / "))
+            .join(", ")} - zapis ustawi wszystkie`
+        : rangeHint(fields);
       btnSave.disabled = false;
     } catch (err) {
       console.error(err);
@@ -208,14 +259,17 @@
     btnSave.textContent = "Zapisywanie…";
 
     try {
-      // only changed fields
-      for (const f of active.fields.filter((f) => f.value !== f.loaded)) {
-        await apiJson(valueUrl(f.moduleId, f.key), {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", "Accept": "application/json" },
-          body: JSON.stringify(f.value),
-        });
+      // only changed fields (or shared ones whose modules differ)
+      for (const f of active.fields.filter((f) => f.value !== f.loaded || !f.inSync)) {
+        for (const t of [f, ...(f.also || [])]) {
+          await apiJson(valueUrl(t.moduleId, t.key), {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify(f.value),
+          });
+        }
         f.loaded = f.value;
+        f.inSync = true;
       }
       closeModal();
     } catch (err) {
