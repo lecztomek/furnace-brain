@@ -5,9 +5,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import csv
+import io
 import json
+import time
 from fastapi import APIRouter, HTTPException, Query
 from backend.core.csv_utils import no_nul
+
+
+SEARCH_BUDGET_S = 10.0  # a filtered search stops after this long
 
 
 def create_logs_router(
@@ -187,15 +192,24 @@ def create_logs_router(
         _ensure_dir()
 
         out: List[Dict[str, Any]] = []
+        # filter values as they appear between separators in a CSV line
+        needles = [f";{v};" for v in (level, source, type) if v]
+        deadline = time.monotonic() + SEARCH_BUDGET_S
+        partial = False
 
         # czytamy pliki od najnowszego
         for path in _iter_files_sorted(reverse=True):
+            if time.monotonic() > deadline:
+                partial = True  # months of logs on a Raspberry Pi - return what was found
+                break
             try:
-                with path.open("r", encoding="utf-8", newline="") as f:
-                    reader = csv.DictReader(no_nul(f), delimiter=";")
-                    rows = list(reader)
+                text = path.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
+            # cheap check first: most files have no entry of a rare source at all
+            if any(n not in text for n in needles):
+                continue
+            rows = list(csv.DictReader(no_nul(io.StringIO(text, newline="")), delimiter=";"))
 
             # od końca pliku (najnowsze wiersze zwykle na końcu)
             for row in reversed(rows):
@@ -221,6 +235,7 @@ def create_logs_router(
         return {
             "count": len(out),
             "items": out,
+            "partial": partial,
         }
 
     @router.get("/fields")
