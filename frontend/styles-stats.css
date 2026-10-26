@@ -1163,7 +1163,9 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
   gap: 10px;
 }
 
-.st2-tiles--big { grid-template-columns: repeat(3, 1fr); margin-bottom: 12px; }
+.st2-tiles--big { grid-template-columns: repeat(3, 1fr); margin-bottom: 10px; }
+.st2-tiles--energy { grid-template-columns: repeat(4, 1fr); margin-bottom: 12px; }
+.st2-tiles--energy .st2-value { color: #fde68a; }
 
 .st2-tile {
   display: flex;
@@ -1227,6 +1229,7 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
 
 @media (max-width: 700px) {
   .st2-tiles--big { grid-template-columns: 1fr 1fr; }
+  .st2-tiles--energy { grid-template-columns: 1fr 1fr; }
   .st2-check { grid-template-columns: 28px 1fr; }
   .st2-check__detail { grid-column: 2; }
 }

@@ -19,7 +19,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 MAX_STEP_S = 60.0          # a row "covers" at most this long (2x the 30 s interval)
 GAP_S = 120.0              # a longer pause between rows is a gap in the data
 SETTLE_S = 20 * 60         # regulation quality: skip the first 20 min after entering WORK
@@ -50,6 +50,7 @@ class DayAgg:
     st_under: float = 0.0
     coal_kg: float = 0.0
     energy_kwh: float = 0.0
+    power_kw_max: float = 0.0  # highest 5 min average
     alarms: int = 0
 
     def avg(self, key: str) -> Optional[float]:
@@ -90,8 +91,8 @@ def history_rows(history_dir: Path, day: date, prefix: str = "boiler") -> List[D
     return rows
 
 
-def coal_for_day(stats_dir: Path, day: date, prefix: str = "stats5m") -> Tuple[float, float]:
-    coal = energy = 0.0
+def coal_for_day(stats_dir: Path, day: date, prefix: str = "stats5m") -> Tuple[float, float, float]:
+    coal = energy = power_max = 0.0
     key = day.isoformat()
     # a bucket ending at 00:00 belongs to the previous day - also look one file ahead
     for d in (day, day + timedelta(days=1)):
@@ -103,7 +104,8 @@ def coal_for_day(stats_dir: Path, day: date, prefix: str = "stats5m") -> Tuple[f
                 if bucket_day == key:
                     coal += _float(r.get("coal_kg")) or 0.0
                     energy += _float(r.get("energy_kwh")) or 0.0
-    return coal, energy
+                    power_max = max(power_max, _float(r.get("power_kw")) or 0.0)
+    return coal, energy, power_max
 
 
 def alarms_for_day(events_dir: Path, day: date, prefix: str = "events") -> int:
@@ -117,8 +119,9 @@ def alarms_for_day(events_dir: Path, day: date, prefix: str = "events") -> int:
 
 def aggregate_day(day: date, rows: List[Dict[str, str]], coal_kg: float = 0.0,
                   energy_kwh: float = 0.0, alarms: int = 0,
-                  fallback_setpoint: Optional[float] = None) -> DayAgg:
-    agg = DayAgg(date=day.isoformat(), coal_kg=coal_kg, energy_kwh=energy_kwh, alarms=alarms)
+                  fallback_setpoint: Optional[float] = None, power_kw_max: float = 0.0) -> DayAgg:
+    agg = DayAgg(date=day.isoformat(), coal_kg=coal_kg, energy_kwh=energy_kwh, alarms=alarms,
+                 power_kw_max=power_kw_max)
     parsed = []
     for r in rows:
         try:
@@ -227,6 +230,9 @@ def summarize(days: List[DayAgg]) -> Dict[str, Any]:
         "coal_kg_per_day": _r(coal / covered_days, 2) if covered_days >= 0.04 else None,
         "coal_kg_per_hour": _r(coal / (secs / 3600), 3) if secs >= 3600 else None,
         "energy_kwh": _r(sum(d.energy_kwh for d in days), 1),
+        "energy_kwh_per_day": _r(sum(d.energy_kwh for d in days) / covered_days, 1) if covered_days >= 0.04 else None,
+        "power_kw_avg": _r(sum(d.energy_kwh for d in days) / (secs / 3600), 2) if secs >= 3600 else None,
+        "power_kw_max": _r(max((d.power_kw_max for d in days), default=0.0), 2),
         "avg": {k: _r(avg(k)) for k in AVG_KEYS},
         "boiler_max": _r(max((d.boiler_max for d in days if d.boiler_max is not None), default=None)),
         "mode_share": {m: _r(100 * s / secs) for m, s in sorted(mode_s.items())} if secs else {},
@@ -261,12 +267,15 @@ def linear_fit(points: List[Tuple[float, float]]) -> Optional[Dict[str, float]]:
 def weather_model(days: List[DayAgg]) -> Dict[str, Any]:
     full = [d for d in days if d.seconds >= FULL_DAY_SHARE * 86400 and d.avg("outside") is not None]
     coal_pts = [(d.avg("outside"), d.coal_kg / d.seconds * 86400) for d in full]
+    energy_pts = [(d.avg("outside"), d.energy_kwh / d.seconds * 86400) for d in full]
     power_pts = [(d.avg("outside"), d.avg("power")) for d in full if d.avg("power") is not None]
     return {
         "days_with_data": len(full),
         "days_needed": 5,
         "coal": {"fit": linear_fit(coal_pts),
                  "points": [{"date": d.date, "x": round(x, 1), "y": round(y, 2)} for d, (x, y) in zip(full, coal_pts)]},
+        "energy": {"fit": linear_fit(energy_pts),
+                   "points": [{"x": round(x, 1), "y": round(y, 1)} for x, y in energy_pts]},
         "power": {"fit": linear_fit(power_pts),
                   "points": [{"x": round(x, 1), "y": round(y, 1)} for x, y in power_pts]},
     }
@@ -370,9 +379,9 @@ class Analytics:
         key = d.isoformat()
         if d < today and key in self._cache:
             return DayAgg.from_dict(self._cache[key])
-        coal, energy = coal_for_day(self.stats_dir, d)
+        coal, energy, power_max = coal_for_day(self.stats_dir, d)
         agg = aggregate_day(d, history_rows(self.history_dir, d), coal, energy,
-                            alarms_for_day(self.events_dir, d), fallback_setpoint)
+                            alarms_for_day(self.events_dir, d), fallback_setpoint, power_max)
         if d < today:
             self._cache[key] = asdict(agg)
         return agg
@@ -406,6 +415,7 @@ class Analytics:
         daily = [{
             "date": x.date,
             "coal_kg": round(x.coal_kg, 2),
+            "energy_kwh": round(x.energy_kwh, 1),
             "hours": round(x.seconds / 3600, 1),
             "outside": _r(x.avg("outside")),
             "power": _r(x.avg("power")),

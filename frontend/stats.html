@@ -31,11 +31,17 @@
 
               <!-- WĘGIEL -->
               <section class="st2-card">
-                <h2>Węgiel</h2>
+                <h2>Węgiel i energia</h2>
                 <div class="st2-tiles st2-tiles--big">
                   <div class="st2-tile"><span class="st2-label">Zużyto</span><span class="st2-value" id="coal-total">--</span><span class="st2-unit">kg</span></div>
                   <div class="st2-tile"><span class="st2-label">Średnio na dobę</span><span class="st2-value" id="coal-day">--</span><span class="st2-unit">kg</span></div>
                   <div class="st2-tile"><span class="st2-label">Średnio na godzinę</span><span class="st2-value" id="coal-hour">--</span><span class="st2-unit">kg/h</span></div>
+                </div>
+                <div class="st2-tiles st2-tiles--energy">
+                  <div class="st2-tile"><span class="st2-label">Energia</span><span class="st2-value" id="energy-total">--</span><span class="st2-unit">kWh</span></div>
+                  <div class="st2-tile"><span class="st2-label">Energia na dobę</span><span class="st2-value" id="energy-day">--</span><span class="st2-unit">kWh</span></div>
+                  <div class="st2-tile"><span class="st2-label">Średnia moc cieplna</span><span class="st2-value" id="kw-avg">--</span><span class="st2-unit">kW</span></div>
+                  <div class="st2-tile"><span class="st2-label">Szczytowa moc (5 min)</span><span class="st2-value" id="kw-max">--</span><span class="st2-unit">kW</span></div>
                 </div>
                 <div class="st2-chart"><canvas id="chart-daily"></canvas></div>
                 <div class="st2-note" id="coal-note"></div>

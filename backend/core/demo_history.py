@@ -72,7 +72,7 @@ def _seed_day(rng: random.Random, day: date, back: int, hist_dir: Path, stats_di
         bucket["n"] += 1
         if bucket["n"] == 10:  # 5 min
             end = ts + timedelta(seconds=30)
-            kwh = bucket["coal"] * 29 / 3.6 * 0.8
+            kwh = bucket["coal"] * 29 / 3.6  # like the stats module: energy in the fuel
             stats_rows.setdefault(end.strftime("%Y%m%d_%H"), []).append([
                 end.isoformat(timespec="seconds"), f"{end.timestamp():.3f}", "300.000000",
                 f"{bucket['coal']:.6f}", f"{kwh:.6f}", f"{bucket['coal'] * 12:.6f}", f"{kwh * 12:.6f}",

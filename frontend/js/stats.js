@@ -27,10 +27,16 @@
     $("coal-total").textContent = num(p.coal_kg, 1);
     $("coal-day").textContent = num(p.coal_kg_per_day, 1);
     $("coal-hour").textContent = num(p.coal_kg_per_hour, 2);
+    $("energy-total").textContent = num(p.energy_kwh, 0);
+    $("energy-day").textContent = num(p.energy_kwh_per_day, 0);
+    $("kw-avg").textContent = num(p.power_kw_avg, 1);
+    $("kw-max").textContent = num(p.power_kw_max, 1);
     const kgph = report.settings?.feeder_kg_per_hour;
+    const mj = report.settings?.calorific_mj_per_kg;
     $("coal-note").textContent =
       `Okres: ${PERIOD_NAMES[period]}, dane z ${num(p.hours, 1)} h. ` +
-      (kgph ? `Kilogramy liczone z czasu pracy ślimaka × ${kgph} kg/h (ustawienie modułu Statystyki - warto skalibrować).` : "");
+      (kgph ? `Kilogramy liczone z czasu pracy ślimaka × ${kgph} kg/h (ustawienie modułu Statystyki - warto skalibrować). ` : "") +
+      (mj ? `Energia = węgiel × ${mj} MJ/kg (energia w opale, bez sprawności kotła).` : "");
 
     const a = p.avg || {};
     const modes = Object.entries(p.mode_share || {})
@@ -106,6 +112,7 @@
       $("weather-text").innerHTML =
         `Przy <b>0°C</b> spalasz ok. <b>${num(at0, 1)} kg</b> na dobę, przy <b>-10°C</b> ok. <b>${num(at0 - 10 * fit.slope, 1)} kg</b>. ` +
         `Każdy stopień chłodniej to <b>${perDeg >= 0 ? "+" : ""}${num(perDeg, 2)} kg</b> na dobę` +
+        (w.energy?.fit ? ` (<b>${-w.energy.fit.slope >= 0 ? "+" : ""}${num(-w.energy.fit.slope, 1)} kWh</b>; przy 0°C ok. <b>${num(w.energy.fit.intercept, 0)} kWh</b> na dobę)` : "") +
         (pfit ? ` i <b>${-pfit.slope >= 0 ? "+" : ""}${num(-pfit.slope, 1)}%</b> mocy` : "") +
         `. <span class="st2-muted">Na podstawie ${fit.n} dni, dopasowanie R² = ${num(fit.r2, 2)}.</span>`;
     }

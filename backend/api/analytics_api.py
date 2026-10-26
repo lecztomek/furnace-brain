@@ -43,6 +43,7 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore) -> APIRo
             )
         report["settings"] = {
             "feeder_kg_per_hour": setting("stats", "feeder_kg_per_hour", None),
+            "calorific_mj_per_kg": setting("stats", "calorific_mj_per_kg", None),
             "boiler_set_temp": setting("power_work", "boiler_set_temp", None),
         }
         return report
