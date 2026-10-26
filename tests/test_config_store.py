@@ -23,7 +23,7 @@ def make_store(tmp_path, values_text=None):
 
 
 def test_appends_only_missing_keys_and_keeps_user_lines(tmp_path):
-    user_text = "# moje ustawienia\ntarget_temp: 55.0\nenabled: false"
+    user_text = "# my settings\ntarget_temp: 55.0\nenabled: false"
     store, vpath = make_store(tmp_path, user_text)
 
     assert store.fill_missing_defaults() == {"demo": ["new_param"]}

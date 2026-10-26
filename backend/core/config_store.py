@@ -176,10 +176,10 @@ class ConfigStore:
 
     def fill_missing_defaults(self) -> Dict[str, List[str]]:
         """
-        Dopisuje do values.yaml pola ze schema, których tam jeszcze nie ma
-        (np. nowe ustawienie po aktualizacji). Istniejące linie zostają
-        nietknięte – nowe klucze są doklejane na końcu pliku.
-        Zwraca {module_id: [dodane klucze]}.
+        Appends schema fields that are missing from values.yaml (e.g. a new
+        setting after an update). Existing lines are left untouched - new keys
+        are added at the end of the file.
+        Returns {module_id: [added keys]}.
         """
         added_all: Dict[str, List[str]] = {}
 
@@ -204,11 +204,11 @@ class ConfigStore:
             if old_text and not old_text.endswith("\n"):
                 old_text += "\n"
             stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-            header = f"\n# dodane automatycznie {stamp} (domyślne ze schema.yaml)\n"
+            header = f"\n# added automatically {stamp} (defaults from schema.yaml)\n"
             body = yaml.safe_dump(missing, allow_unicode=True, sort_keys=False)
             vpath.write_text(old_text + header + body, encoding="utf-8")
 
-            logger.info("values.yaml [%s]: dopisano domyślne %s", mid, missing)
+            logger.info("values.yaml [%s]: added defaults %s", mid, missing)
             added_all[mid] = list(missing)
 
         return added_all

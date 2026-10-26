@@ -1,5 +1,5 @@
 [Unit]
-Description=Furnace Brain - automatyczna aktualizacja z brancha prod
+Description=Furnace Brain - automatic update from the prod branch
 After=network-online.target
 Wants=network-online.target
 

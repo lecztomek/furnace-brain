@@ -11,41 +11,41 @@ python -m pytest -q tests/test_stats_module.py
 deploy
 ======
 
-Jak to działa
-- main  -> środowisko testowe w chmurze (Render, symulator pieca), wdraża się samo
-           po każdym pushu, który przejdzie testy (render.yaml, .github/workflows/tests.yml)
-- prod  -> prawdziwy piec. Pi co 5 min sprawdza branch prod (furnace-update.timer)
-           i sam robi deploy/update.sh: kopia values.yaml, restart, sprawdzenie
-           czy backend wstał, a jak nie - powrót do poprzedniej wersji.
+How it works
+- main  -> cloud test environment (Render, simulated furnace), deployed automatically
+           on every push that passes the tests (render.yaml, .github/workflows/tests.yml)
+- prod  -> the real furnace. Every 5 min the Pi checks the prod branch (furnace-update.timer)
+           and runs deploy/update.sh: back up values.yaml, restart, check that the
+           backend came up - and if it didn't, roll back to the previous version.
 
-Wydanie na piec / powrót do starszej wersji
-- GitHub -> Actions -> "Wdróż na prod" -> Run workflow
-  - version = main                  -> wydaj to, co jest teraz na main
-  - version = prod-20261026-120000  -> powrót do wcześniejszego wdrożenia
-  - version = <hash commita>        -> dowolna wersja
-- każde wdrożenie dostaje tag prod-RRRRMMDD-GGMMSS, lista ostatnich jest
-  w podsumowaniu każdego uruchomienia workflow
-- wersja, która nie wstała, jest zapamiętywana i pomijana, dopóki prod się nie zmieni
+Releasing to the furnace / going back to an older version
+- GitHub -> Actions -> "Deploy to prod" -> Run workflow
+  - version = main                  -> release what is on main right now
+  - version = prod-20261026-120000  -> go back to an earlier deploy
+  - version = <commit hash>         -> any version
+- every deploy gets a prod-YYYYMMDD-HHMMSS tag; the most recent ones are listed
+  in the summary of each workflow run
+- a version that failed to start is remembered and skipped until prod changes
 
-Ustawienia (backend/modules/*/values.yaml) nie są w gicie i deploy ich nie rusza.
-Nowe pola ze schema.yaml backend sam dopisuje na końcu values.yaml przy starcie.
+Settings (backend/modules/*/values.yaml) are not in git and deploys don't touch them.
+On startup the backend appends new fields from schema.yaml to the end of values.yaml.
 
-Na Pi - ręcznie
-  deploy/update.sh --dry-run     # co by się zmieniło
-  deploy/update.sh --rollback    # awaryjnie: poprzednia wersja (do następnej zmiany prod)
-  deploy/update.sh --force       # ponów wersję, która wcześniej nie wstała
-  journalctl -u furnace-update -e   # logi automatycznych aktualizacji
+On the Pi - manually
+  deploy/update.sh --dry-run     # what would change
+  deploy/update.sh --rollback    # emergency: previous version (until the next prod change)
+  deploy/update.sh --force       # retry a version that previously failed to start
+  journalctl -u furnace-update -e   # automatic update logs
 
-Pierwsze przejście na git (jednorazowo, na Pi)
+Switching the Pi to git (one-time, on the Pi; the prod branch must exist)
   sudo apt install -y git
   cd /home/pi/furnace-brain
   git init -b main
   git remote add origin https://github.com/lecztomek/furnace-brain.git
   git fetch origin
-  git reset origin/prod          # pliki na dysku zostają, zmienia się tylko indeks
-  git status                     # czym Pi różni się od repo - przejrzyj!
+  git reset origin/prod          # files on disk stay as they are, only the index changes
+  git status                     # how the Pi differs from the repo - review it!
   git diff
-  git checkout -- .              # gdy różnice można wyrzucić
+  git checkout -- .              # once the differences can be discarded
   git checkout -B prod origin/prod
 
   sudo cp deploy/furnace-backend.service deploy/furnace-gateway.service \
@@ -54,8 +54,8 @@ Pierwsze przejście na git (jednorazowo, na Pi)
   sudo systemctl restart furnace-backend furnace-gateway
   sudo systemctl enable --now furnace-update.timer
 
-Pierwsza instalacja usług (nowe Pi)
-  create /etc/furnace-brain.env (wzór: deploy/furnace-brain.env.sample)
+First-time service install (new Pi)
+  create /etc/furnace-brain.env (template: deploy/furnace-brain.env.sample)
   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
   sudo systemctl enable --now furnace-backend.service furnace-gateway.service
 

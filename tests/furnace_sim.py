@@ -1,10 +1,10 @@
 """
-Uprząż do testów scenariuszy pieca: prawdziwy Kernel + moduły krytyczne
-z modules.yaml + symulator MockHardware, na zegarze przesuwanym ręcznie
-(godzina pracy pieca liczy się w kilka sekund).
+Harness for furnace scenario tests: the real Kernel + critical modules from
+modules.yaml + the MockHardware simulator, on a manually advanced clock
+(an hour of furnace operation runs in a few seconds).
 
-Każda symulacja dostaje własny katalog z ustawieniami (schema.yaml + values.yaml
-z domyślnymi ze schemy), więc lokalne values.yaml nie wpływają na wyniki.
+Each simulation gets its own settings directory (schema.yaml + values.yaml with
+schema defaults), so local values.yaml files don't affect the results.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ MODULES_DIR = Path(__file__).resolve().parents[1] / "backend" / "modules"
 
 @dataclass
 class Sample:
-    t: float  # sekundy od startu symulacji
+    t: float  # seconds since simulation start
     mode: BoilerMode
     boiler_temp: Optional[float]
     flue_gas_temp: Optional[float]
@@ -91,10 +91,10 @@ class FurnaceSim:
         self.module_errors: List[str] = []
         self._last_seq = 0
 
-    # --- sterowanie ---
+    # --- control ---
 
     def set_mode(self, mode: BoilerMode) -> None:
-        with self.store.locked() as st:  # tak samo jak POST /api/state/mode
+        with self.store.locked() as st:  # same as POST /api/state/mode
             st.mode = mode
 
     @property
@@ -121,7 +121,7 @@ class FurnaceSim:
                 return True
         return False
 
-    # --- odczyt ---
+    # --- readout ---
 
     @property
     def state(self):

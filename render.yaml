@@ -1,6 +1,6 @@
-# Środowisko testowe w chmurze (Render.com, plan darmowy).
-# Piec jest symulowany (MockHardware) - nic tu nie steruje prawdziwym sprzętem.
-# Każdy push na main, który przejdzie testy na GitHubie, wdraża się tu automatycznie.
+# Cloud test environment (Render.com, free plan).
+# The furnace is simulated (MockHardware) - nothing here drives real hardware.
+# Every push to main that passes the GitHub tests is deployed here automatically.
 services:
   - type: web
     name: furnace-brain-test
@@ -18,6 +18,6 @@ services:
         value: frontend
       - key: FURNACE_BRAIN_DATA_ROOT
         value: /tmp/furnace-brain
-      # czas symulacji płynie N razy szybciej niż rzeczywisty
+      # simulated time runs N times faster than real time
       - key: FURNACE_BRAIN_TIME_SCALE
         value: "10"

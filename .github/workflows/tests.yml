@@ -14,8 +14,8 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt pytest pytest-timeout
-      # test_mixer_module.py i test_stats_module.py są nieaktualne względem kodu
-      # (failowały już wcześniej) - wyłączone do czasu poprawienia
+      # test_mixer_module.py and test_stats_module.py are out of date with the code
+      # (they were already failing) - disabled until fixed
       - run: >
           python -m pytest -q --timeout=120
           --ignore=tests/test_mixer_module.py

@@ -1,5 +1,5 @@
 [Unit]
-Description=Furnace Brain - sprawdzaj co 5 minut, czy jest nowa wersja na prod
+Description=Furnace Brain - check every 5 minutes for a new version on prod
 
 [Timer]
 OnBootSec=3min

@@ -109,7 +109,7 @@ else:
 
 BACKEND_ROOT = Path(__file__).resolve().parent
 
-# nowe pola ze schema.yaml -> dopisz do values.yaml, zanim moduły wczytają ustawienia
+# new fields from schema.yaml -> append them to values.yaml before modules load their settings
 ConfigStore(
     BACKEND_ROOT / "modules",
     module_ids_in_order=[d.id for d in load_module_descriptors()],
@@ -294,7 +294,7 @@ app.include_router(manual_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
 
 
-# Środowisko testowe w chmurze: jeden proces serwuje też frontend (na Pi robi to gateway.py)
+# Cloud test environment: a single process also serves the frontend (on the Pi gateway.py does that)
 SERVE_FRONTEND_DIR = os.getenv("FURNACE_BRAIN_SERVE_FRONTEND")
 if SERVE_FRONTEND_DIR:
     from fastapi.staticfiles import StaticFiles
