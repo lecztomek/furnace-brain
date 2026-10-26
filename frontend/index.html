@@ -457,48 +457,48 @@
                      <!-- outside temperature: window with the sky (day/night set in js/panel-main.js) -->
                      <g id="outside-weather" class="outside-weather">
                         <defs>
-                           <linearGradient id="sky-day" x1="0" y1="0" x2="0" y2="1">
+                           <linearGradient id="sky-day" x1="-14" y1="0" x2="-14" y2="1">
                               <stop offset="0" stop-color="#38bdf8" />
                               <stop offset="1" stop-color="#bae6fd" />
                            </linearGradient>
-                           <linearGradient id="sky-night" x1="0" y1="0" x2="0" y2="1">
+                           <linearGradient id="sky-night" x1="-14" y1="0" x2="-14" y2="1">
                               <stop offset="0" stop-color="#0b1730" />
                               <stop offset="1" stop-color="#1e3a5f" />
                            </linearGradient>
                            <clipPath id="window-glass">
-                              <rect x="22" y="112" width="120" height="118" rx="8" />
+                              <rect x="8" y="112" width="120" height="140" rx="8" />
                            </clipPath>
                         </defs>
-                        <rect class="outside-weather__sky" x="22" y="112" width="120" height="118" rx="8" fill="url(#sky-day)" />
+                        <rect class="outside-weather__sky" x="8" y="112" width="120" height="140" rx="8" fill="url(#sky-day)" />
                         <g class="outside-weather__sun" clip-path="url(#window-glass)">
-                           <circle cx="106" cy="148" r="17" fill="#fbbf24" />
+                           <circle cx="92" cy="148" r="17" fill="#fbbf24" />
                            <g stroke="#fbbf24" stroke-width="4" stroke-linecap="round">
-                              <line x1="106" y1="120" x2="106" y2="125" />
-                              <line x1="106" y1="171" x2="106" y2="176" />
-                              <line x1="78" y1="148" x2="83" y2="148" />
-                              <line x1="129" y1="148" x2="134" y2="148" />
-                              <line x1="86" y1="128" x2="90" y2="132" />
-                              <line x1="122" y1="164" x2="126" y2="168" />
-                              <line x1="86" y1="168" x2="90" y2="164" />
-                              <line x1="122" y1="132" x2="126" y2="128" />
+                              <line x1="92" y1="120" x2="92" y2="125" />
+                              <line x1="92" y1="171" x2="92" y2="176" />
+                              <line x1="64" y1="148" x2="69" y2="148" />
+                              <line x1="115" y1="148" x2="120" y2="148" />
+                              <line x1="72" y1="128" x2="76" y2="132" />
+                              <line x1="108" y1="164" x2="112" y2="168" />
+                              <line x1="72" y1="168" x2="76" y2="164" />
+                              <line x1="108" y1="132" x2="112" y2="128" />
                            </g>
                         </g>
                         <g class="outside-weather__moon" clip-path="url(#window-glass)">
-                           <circle cx="106" cy="146" r="15" fill="#e5e7eb" />
-                           <circle cx="114" cy="140" r="13" fill="#0f2442" />
-                           <circle cx="54" cy="132" r="2" fill="#e5e7eb" />
-                           <circle cx="72" cy="160" r="1.6" fill="#e5e7eb" />
-                           <circle cx="40" cy="170" r="1.6" fill="#e5e7eb" />
+                           <circle cx="92" cy="146" r="15" fill="#e5e7eb" />
+                           <circle cx="100" cy="140" r="13" fill="#0f2442" />
+                           <circle cx="40" cy="132" r="2" fill="#e5e7eb" />
+                           <circle cx="58" cy="160" r="1.6" fill="#e5e7eb" />
+                           <circle cx="26" cy="170" r="1.6" fill="#e5e7eb" />
                         </g>
                         <!-- frame and mullions -->
-                        <rect x="22" y="112" width="120" height="118" rx="8" fill="none" stroke="#1D262D" stroke-width="8" />
-                        <line x1="82" y1="112" x2="82" y2="230" stroke="#1D262D" stroke-width="6" />
-                        <line x1="22" y1="178" x2="142" y2="178" stroke="#1D262D" stroke-width="6" />
-                        <rect x="14" y="226" width="136" height="10" rx="3" fill="#1D262D" />
+                        <rect x="8" y="112" width="120" height="140" rx="8" fill="none" stroke="#1D262D" stroke-width="8" />
+                        <line x1="68" y1="112" x2="68" y2="252" stroke="#1D262D" stroke-width="6" />
+                        <line x1="8" y1="184" x2="128" y2="184" stroke="#1D262D" stroke-width="6" />
+                        <rect x="0" y="248" width="136" height="10" rx="3" fill="#1D262D" />
                         <!-- temperature badge, like the other temperatures -->
                         <g id="outside-temp" class="temp-badge">
-                           <rect x="14" y="248" width="134" height="68" rx="30" />
-                           <text id="outside-temp-text" x="81" y="282" fill="#e5e7eb">--°C</text>
+                           <rect x="0" y="230" width="134" height="64" rx="30" />
+                           <text id="outside-temp-text" x="67" y="262" fill="#e5e7eb">--°C</text>
                         </g>
                      </g>
 
