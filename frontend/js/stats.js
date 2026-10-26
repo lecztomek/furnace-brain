@@ -9,6 +9,7 @@
   let report = null;
   let period = "d7";
   let dailyChart = null;
+  let effChart = null;
   let weatherChart = null;
 
   const num = (v, digits = 1) =>
@@ -67,6 +68,45 @@
           tile("Najniżej pod", num(r.max_under, 1), "°C"),
         ].join("")
       : `<div class="st2-empty">Za mało pracy w trybie PRACA w tym okresie (potrzeba min. 30 min).</div>`;
+  }
+
+  function renderEfficiency() {
+    const e = report.periods[period].efficiency || {};
+    const t = report.efficiency_trend || {};
+    const a = report.efficiency_assumptions || {};
+    const signed = (v, d = 0) => (v == null ? "--" : `${v > 0 ? "+" : ""}${num(v, d)}`);
+    $("eff-tiles").innerHTML = [
+      tile("Węgiel na stopniodzień", num(e.kg_per_degree_day, 2), `kg (${PERIOD_NAMES[period]})`),
+      tile("Stopniodni", num(e.degree_days, 0), `suma (${PERIOD_NAMES[period]})`),
+      tile("Zmiana tygodniowa", signed(t.change_pct), "% vs 3 tygodnie wcześniej"),
+      tile("Straty kominowe (szac.)", num(e.flue_loss_pct, 1), "% energii"),
+      tile("Straty: tydzień / wcześniej", `${num(t.recent_flue_loss_pct, 1)} / ${num(t.before_flue_loss_pct, 1)}`, "%"),
+    ].join("");
+    $("eff-note").textContent =
+      `Stopniodzień = o ile średnia doby była niższa niż ${num(a.degree_day_base_c, 0)}°C (dzień 3°C = 15 stopniodni). ` +
+      `Mniej kg na stopniodzień = sprawniej; wzrost przy podobnej pogodzie zwykle oznacza zabrudzony kocioł. ` +
+      `Straty kominowe ze wzoru Siegerta z temperatury spalin w pracy, przy założeniu ${num(a.co2_pct, 0)}% CO₂ ` +
+      `i ${num(a.room_c, 0)}°C w kotłowni - orientacyjnie, ważny jest trend.`;
+
+    const days = report.daily || [];
+    const data = {
+      labels: days.map((d) => d.date.slice(8, 10) + "." + d.date.slice(5, 7)),
+      datasets: [
+        { type: "line", label: "Węgiel na stopniodzień [kg]", data: days.map((d) => d.kg_per_degree_day), borderColor: "#f97316", backgroundColor: "#f97316", yAxisID: "y", tension: 0.3, pointRadius: 2, spanGaps: true },
+        { type: "line", label: "Straty kominowe [%]", data: days.map((d) => d.flue_loss_pct), borderColor: "#38bdf8", backgroundColor: "#38bdf8", yAxisID: "y2", tension: 0.3, pointRadius: 2, borderDash: [5, 4], spanGaps: true },
+      ],
+    };
+    const options = {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { labels: { color: "#e5e7eb" } } },
+      scales: {
+        x: { ticks: { color: "#9ca3af", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(255,255,255,0.05)" } },
+        y: { position: "left", beginAtZero: true, ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
+        y2: { position: "right", beginAtZero: true, ticks: { color: "#7dd3fc" }, grid: { display: false } },
+      },
+    };
+    if (effChart) { effChart.data = data; effChart.update(); }
+    else effChart = new Chart($("chart-efficiency"), { data, options });
   }
 
   function renderChecks() {
@@ -138,6 +178,7 @@
 
   function render() {
     renderPeriod();
+    renderEfficiency();
     renderChecks();
     renderDaily();
     renderWeather();
@@ -165,6 +206,7 @@
       if (!btn || !report) return;
       period = btn.dataset.period;
       renderPeriod();
+      renderEfficiency();
     });
     $("st2-refresh").addEventListener("click", () => load(true));
     load();

@@ -1,5 +1,7 @@
 from datetime import date, datetime, timedelta
 
+import pytest
+
 from backend.core.analytics import Analytics, aggregate_day, linear_fit, summarize
 from backend.core.demo_history import seed
 
@@ -54,3 +56,15 @@ def test_report_on_demo_data(tmp_path):
     # cached days give the same result
     again = Analytics(m / "history" / "data", m / "stats" / "data", m / "eventlog" / "data", m / "stats" / "data" / "cache.json")
     assert again.report(today, today - timedelta(days=60), 57.0)["periods"] == report["periods"]
+
+
+def test_efficiency_metrics():
+    from backend.core.analytics import DayAgg, flue_loss_pct, kg_per_degree_day
+
+    assert flue_loss_pct(120) == pytest.approx(7.5)        # (120-20) * (0.68/10 + 0.007)
+    day = DayAgg(date="2026-01-10", seconds=86400, coal_kg=30.0)
+    day.sums["outside"], day.weights["outside"] = 3.0 * 86400, 86400   # mean 3 °C -> 15 degree-days
+    assert kg_per_degree_day([day]) == pytest.approx(2.0)
+    warm = DayAgg(date="2026-01-11", seconds=86400, coal_kg=5.0)
+    warm.sums["outside"], warm.weights["outside"] = 17.0 * 86400, 86400  # 1 degree-day only
+    assert kg_per_degree_day([warm]) is None                          # too few degree-days

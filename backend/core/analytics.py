@@ -27,6 +27,34 @@ FULL_DAY_SHARE = 0.8       # days with less data don't go into the weather model
 
 AVG_KEYS = ("boiler", "radiators", "flue", "outside", "power", "fan", "feeder", "flue_work")
 
+# efficiency estimates
+HDD_BASE_C = 18.0          # degree-days: max(0, 18 - daily mean outside temperature)
+MIN_HDD = 3.0              # a period needs at least this many degree-days for kg/degree-day
+ROOM_C = 20.0              # boiler room (no sensor) for the flue loss
+SIEGERT_A1, SIEGERT_B = 0.68, 0.007   # Siegert coefficients for coal
+ASSUMED_CO2 = 10.0         # % CO2 in the flue gas - not measured, typical value
+
+
+def flue_loss_pct(flue_temp: Optional[float]) -> Optional[float]:
+    """Siegert flue gas loss [%] - an estimate (CO2 assumed, not measured)."""
+    if flue_temp is None:
+        return None
+    return max(0.0, (flue_temp - ROOM_C) * (SIEGERT_A1 / ASSUMED_CO2 + SIEGERT_B))
+
+
+def degree_days(day: "DayAgg") -> Optional[float]:
+    outside = day.avg("outside")
+    if outside is None:
+        return None
+    return max(0.0, HDD_BASE_C - outside) * day.seconds / 86400.0
+
+
+def kg_per_degree_day(days: List["DayAgg"]) -> Optional[float]:
+    pairs = [(d.coal_kg, degree_days(d)) for d in days]
+    hdd = sum(h for _, h in pairs if h is not None)
+    coal = sum(c for c, h in pairs if h is not None)
+    return coal / hdd if hdd >= MIN_HDD else None
+
 
 @dataclass
 class DayAgg:
@@ -241,6 +269,11 @@ def summarize(days: List[DayAgg]) -> Dict[str, Any]:
         "missing_boiler_rows": sum(d.missing_boiler for d in days),
         "alarms": sum(d.alarms for d in days),
         "regulation": regulation,
+        "efficiency": {
+            "degree_days": _r(sum(h for h in (degree_days(d) for d in days) if h is not None), 1),
+            "kg_per_degree_day": _r(kg_per_degree_day(days), 3),
+            "flue_loss_pct": _r(flue_loss_pct(avg("flue_work")), 1),
+        },
     }
 
 
@@ -283,8 +316,13 @@ def weather_model(days: List[DayAgg]) -> Dict[str, Any]:
 
 # ---------------------------------------------------------------- health checks
 
+def _avg_days(days: List[DayAgg], key: str) -> Optional[float]:
+    w = sum(d.weights.get(key, 0.0) for d in days)
+    return sum(d.sums.get(key, 0.0) for d in days) / w if w > 0 else None
+
+
 def checks(period: Dict[str, Any], model: Dict[str, Any], last_full_day: Optional[DayAgg],
-           overheat_temp: float = 80.0) -> List[Dict[str, str]]:
+           overheat_temp: float = 80.0, trend: Optional[Dict[str, Any]] = None) -> List[Dict[str, str]]:
     out: List[Dict[str, str]] = []
 
     def add(status: str, title: str, detail: str) -> None:
@@ -336,6 +374,12 @@ def checks(period: Dict[str, Any], model: Dict[str, Any], last_full_day: Optiona
             f"{reg['grade']}: {reg['within_2']:.0f}% czasu w ±2°C, średnio {reg['mean_abs_error']:.1f}°C od zadanej")
     else:
         add("info", "Regulacja temperatury", "za mało pracy w trybie PRACA w tym okresie")
+
+    change = (trend or {}).get("change_pct")
+    if change is not None:
+        add("warn" if change > 15 else "ok", "Efektywność (kg na stopniodzień)",
+            f"ostatni tydzień {trend['recent_kg_per_degree_day']:.2f} vs wcześniej {trend['before_kg_per_degree_day']:.2f} "
+            f"({change:+.0f}%)" + (" - kocioł pali więcej przy tej samej pogodzie: czyszczenie?" if change > 15 else ""))
 
     fit = (model.get("coal") or {}).get("fit")
     if fit and last_full_day and last_full_day.avg("outside") is not None and last_full_day.seconds > 0:
@@ -421,12 +465,29 @@ class Analytics:
             "power": _r(x.avg("power")),
             "boiler": _r(x.avg("boiler")),
             "within_2": _r(100 * x.st_in2 / x.st_s) if x.st_s >= 1800 else None,
+            # efficiency per day only for (nearly) full days - a partial day skews it
+            "kg_per_degree_day": _r(kg_per_degree_day([x]), 3) if x.seconds >= FULL_DAY_SHARE * 86400 else None,
+            "flue_loss_pct": _r(flue_loss_pct(x.avg("flue_work")), 1) if x.seconds >= FULL_DAY_SHARE * 86400 else None,
         } for x in since(today - timedelta(days=29))]
+
+        # efficiency trend: last 7 full days against the 3 weeks before
+        recent = [x for x in full_days if x.date >= (today - timedelta(days=7)).isoformat()]
+        before = [x for x in full_days if (today - timedelta(days=30)).isoformat() <= x.date < (today - timedelta(days=7)).isoformat()]
+        k_recent, k_before = kg_per_degree_day(recent), kg_per_degree_day(before)
+        trend = {
+            "recent_kg_per_degree_day": _r(k_recent, 3),
+            "before_kg_per_degree_day": _r(k_before, 3),
+            "change_pct": _r(100 * (k_recent - k_before) / k_before) if k_recent and k_before else None,
+            "recent_flue_loss_pct": _r(flue_loss_pct(_avg_days(recent, "flue_work")), 1),
+            "before_flue_loss_pct": _r(flue_loss_pct(_avg_days(before, "flue_work")), 1),
+        }
         return {
             "today": today.isoformat(),
             "season_start": season_start.isoformat(),
             "periods": periods,
             "daily": daily,
             "weather": model,
-            "checks": checks(periods["d7"], model, full_days[-1] if full_days else None, overheat_temp),
+            "efficiency_trend": trend,
+            "efficiency_assumptions": {"degree_day_base_c": HDD_BASE_C, "room_c": ROOM_C, "co2_pct": ASSUMED_CO2},
+            "checks": checks(periods["d7"], model, full_days[-1] if full_days else None, overheat_temp, trend),
         }
