@@ -7,6 +7,8 @@ from collections import deque
 from datetime import datetime, date, timedelta
 import csv
 
+import math
+
 import yaml  # pip install pyyaml
 try:
     from zoneinfo import ZoneInfo  # Python 3.9+
@@ -26,10 +28,11 @@ from backend.core.csv_utils import no_nul
 
 SECONDS_5M = 300.0
 MJ_TO_KWH = 1.0 / 3.6  # 1 kWh = 3.6 MJ
-# current heat output for the main page: coal fed over the last minutes
-# (feeder cycles last a minute or more - a shorter window would jump)
-NOW_WINDOW_S = 600.0
-NOW_MIN_S = 120.0  # after a start: no value until 2 minutes are known
+# current coal use / heat output for the main page: measured over whole
+# feeder cycles (start of one feeding to the start of the next) - a time
+# window jumped by a whole feeding portion whenever one entered or left it
+NOW_TAU_S = 300.0     # smoothing of the per-cycle values
+NOW_IDLE_S = 600.0    # feeder not run for this long -> 0 kg/h
 
 # rolling windows (liczone z zamkniętych bucketów 5m)
 BUCKETS_1H = 12                 # 12 * 5m
@@ -199,9 +202,15 @@ class StatsModule(ModuleInterface):
         self._day_key: Optional[str] = None
         self._day_acc = _DayAcc()
 
-        # coal fed per tick over the last NOW_WINDOW_S: (ts_mono, kg)
-        self._recent_feed: deque = deque()
-        self._recent_since: Optional[float] = None
+        # feeder cycles for the current coal use
+        self._cyc_start: Optional[float] = None   # start of the current cycle (feeder switched on)
+        self._cyc_kg = 0.0                        # coal fed since then
+        self._cyc_last_len: Optional[float] = None
+        self._rate_ema: Optional[float] = None    # kg/h, smoothed over cycles
+        self._feed_prev_on = False
+        self._feed_last_on: Optional[float] = None
+        self._feed_since: Optional[float] = None
+        self._feed_now = 0.0
 
         # bootstrap z dysku
         self._bootstrap_from_disk()
@@ -292,22 +301,41 @@ class StatsModule(ModuleInterface):
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
     def _track_recent_feed(self, now_mono: float, dt: float, feeder_on: bool) -> None:
-        if self._recent_since is None:
-            self._recent_since = now_mono - dt
-        if feeder_on and self._config.feeder_kg_per_hour > 0:
-            self._recent_feed.append((now_mono, self._config.feeder_kg_per_hour * dt / 3600.0))
-        while self._recent_feed and self._recent_feed[0][0] < now_mono - NOW_WINDOW_S:
-            self._recent_feed.popleft()
-        self._recent_now = now_mono
+        if self._feed_since is None:
+            self._feed_since = now_mono - dt
+        self._feed_now = now_mono
+        if feeder_on and not self._feed_prev_on:
+            # a new cycle starts: the finished one gives one value
+            if self._cyc_start is not None:
+                length = now_mono - self._cyc_start
+                if length > 0:
+                    rate = self._cyc_kg / length * 3600.0
+                    a = 1.0 - math.exp(-length / NOW_TAU_S)
+                    self._rate_ema = rate if self._rate_ema is None else self._rate_ema + a * (rate - self._rate_ema)
+                    self._cyc_last_len = length
+            self._cyc_start = now_mono
+            self._cyc_kg = 0.0
+        if feeder_on:
+            self._feed_last_on = now_mono
+            if self._config.feeder_kg_per_hour > 0:
+                self._cyc_kg += self._config.feeder_kg_per_hour * dt / 3600.0
+        self._feed_prev_on = feeder_on
 
     def _coal_kgph_now(self) -> Optional[float]:
-        """Coal burned [kg/h]: fed in the last 10 minutes (feeder time x feeder kg/h)."""
-        if self._recent_since is None or self._config.feeder_kg_per_hour <= 0:
+        """Coal burned [kg/h], measured over whole feeder cycles and smoothed (~5 min)."""
+        if self._config.feeder_kg_per_hour <= 0 or self._feed_since is None:
             return None
-        window = min(NOW_WINDOW_S, self._recent_now - self._recent_since)
-        if window < NOW_MIN_S:
-            return None
-        return sum(k for _, k in self._recent_feed) / (window / 3600.0)
+        now = self._feed_now
+        if now - (self._feed_last_on if self._feed_last_on is not None else self._feed_since) >= NOW_IDLE_S:
+            return 0.0  # the feeder hasn't run for 10 min
+        if self._rate_ema is None:
+            return None  # no full feeder cycle yet
+        rate = self._rate_ema
+        # feeder stopped (or slowed down): the open cycle is longer than usual - follow it down
+        open_len = now - (self._cyc_start if self._cyc_start is not None else now)
+        if self._cyc_last_len and open_len > 1.5 * self._cyc_last_len:
+            rate = min(rate, self._cyc_kg / open_len * 3600.0)
+        return rate
 
     def _power_kw_now(self) -> Optional[float]:
         """Heat output [kW] from the coal fed in the last 10 minutes (calorific value x feeder time)."""
