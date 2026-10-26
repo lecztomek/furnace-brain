@@ -21,6 +21,7 @@ body {
 
 .app {
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -925,6 +926,7 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
 
 .app{
   height: 100vh !important;
+  height: 100dvh !important;
   display: flex !important;
   flex-direction: column !important;
 }
