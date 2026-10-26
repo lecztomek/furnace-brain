@@ -7,12 +7,13 @@ from typing import Any, Dict, List, Optional
 import csv
 import io
 import json
-import time
 from fastapi import APIRouter, HTTPException, Query
 from backend.core.csv_utils import no_nul
 
 
-SEARCH_BUDGET_S = 10.0  # a filtered search stops after this long
+# log files are per hour - never parse the whole log (months on the Pi)
+FILTERED_MAX_FILES = 2   # with a level/source/type filter: current + previous hour (at least 1 h back)
+RECENT_MAX_FILES = 24    # without a filter: until `limit` entries, at most 24 hours
 
 
 def create_logs_router(
@@ -194,13 +195,11 @@ def create_logs_router(
         out: List[Dict[str, Any]] = []
         # filter values as they appear between separators in a CSV line
         needles = [f";{v};" for v in (level, source, type) if v]
-        deadline = time.monotonic() + SEARCH_BUDGET_S
-        partial = False
+        max_files = FILTERED_MAX_FILES if needles else RECENT_MAX_FILES
 
         # czytamy pliki od najnowszego
-        for path in _iter_files_sorted(reverse=True):
-            if time.monotonic() > deadline:
-                partial = True  # months of logs on a Raspberry Pi - return what was found
+        for n, path in enumerate(_iter_files_sorted(reverse=True)):
+            if n >= max_files:
                 break
             try:
                 text = path.read_text(encoding="utf-8", errors="replace")
@@ -235,7 +234,7 @@ def create_logs_router(
         return {
             "count": len(out),
             "items": out,
-            "partial": partial,
+            "hours": max_files,  # how far back it searched
         }
 
     @router.get("/fields")

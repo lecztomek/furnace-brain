@@ -154,12 +154,18 @@
   async function logsRecent(q) {
     const limit = Math.min(Math.max(parseInt(q.get("limit") || "100", 10) || 100, 1), 2000);
     const level = q.get("level"), source = q.get("source"), type = q.get("type");
-    const days = Object.keys((await fb("logs", { shallow: "true" }, 30 * 1000)) || {}).sort().reverse();
+    let days = Object.keys((await fb("logs", { shallow: "true" }, 30 * 1000)) || {}).sort().reverse();
+    // with a filter only the newest 2 hours, like on the Pi (backend/api/logs_api.py)
+    const filtered = !!(level || source || type);
+    let cutoff = 0;
+    if (filtered) days = days.slice(0, 2);
     const out = [];
     for (const day of days) {
       const obj = (await fb(`logs/${day}`, null, 15 * 1000)) || {};
       const items = Object.keys(obj).sort().reverse().map((k) => parse(obj[k]));
+      if (filtered && !cutoff && items.length) cutoff = items[0].ts - 2 * 3600;
       for (const item of items) {
+        if (filtered && item.ts < cutoff) return { count: out.length, items: out };
         if (level && item.level !== level) continue;
         if (source && item.source !== source) continue;
         if (type && item.type !== type) continue;

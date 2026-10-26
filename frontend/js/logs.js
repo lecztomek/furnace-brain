@@ -204,8 +204,8 @@
           ? new Date(payload.ts * 1000).toLocaleString()
           : virtualNow().toLocaleString();
 
-      // partial = the backend stopped searching older files (time limit)
-      setPillsOk(payload?.partial ? "OK (przeszukano najnowsze logi)" : "OK", tsText);
+      // with a filter the backend searches only the current and previous hour of logs
+      setPillsOk(levelApi || src ? "OK (ostatnie 1–2 h)" : "OK", tsText);
 
       // uzupełnij źródła (z pobranych danych)
       fillSourcesSelect(currentItems);

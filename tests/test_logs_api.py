@@ -20,18 +20,25 @@ def _client(tmp_path):
     return TestClient(app)
 
 
-def test_filter_by_source_and_level(tmp_path):
+def test_filter_searches_only_newest_hour(tmp_path):
+    c = _client(tmp_path)
+    # "weather" is only in the 02:00 file - older than the newest hour
+    assert c.get("/api/logs/recent?source=weather").json()["items"] == []
+    items = c.get("/api/logs/recent?source=blower&limit=100").json()["items"]
+    assert {i["message"].split("/")[0] for i in items} == {"m 9", "m 8"}
+
+
+def test_filter_by_source_and_level(tmp_path, monkeypatch):
+    monkeypatch.setattr(logs_api, "FILTERED_MAX_FILES", 100)
     c = _client(tmp_path)
     items = c.get("/api/logs/recent?source=weather").json()["items"]
     assert [(i["source"], i["message"]) for i in items] == [("weather", "a;b")]
     assert c.get("/api/logs/recent?source=weather&level=INFO").json()["items"] == []
     recent = c.get("/api/logs/recent?limit=3").json()
     assert [i["message"] for i in recent["items"]] == ["m 9/4", "m 9/3", "m 9/2"]
-    assert recent["partial"] is False
 
 
-def test_time_budget(tmp_path, monkeypatch):
+def test_unfiltered_stops_at_24_files(tmp_path, monkeypatch):
+    monkeypatch.setattr(logs_api, "RECENT_MAX_FILES", 2)
     c = _client(tmp_path)
-    monkeypatch.setattr(logs_api, "SEARCH_BUDGET_S", -1.0)
-    body = c.get("/api/logs/recent?source=nothing").json()
-    assert body["items"] == [] and body["partial"] is True
+    assert len(c.get("/api/logs/recent?limit=2000").json()["items"]) == 10
