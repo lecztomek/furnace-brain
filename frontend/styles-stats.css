@@ -1227,3 +1227,11 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
   .st2-check { grid-template-columns: 28px 1fr; }
   .st2-check__detail { grid-column: 2; }
 }
+
+/* "Regulacja w ciągu doby": hour profile chart and the list of drops */
+.st2-chart--tall { height: 260px; }
+.st2-subhead { font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: #e5e7eb; margin: 14px 0 6px; }
+.st2-drops table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.st2-drops th { text-align: left; color: #9ca3af; font-weight: 600; padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.12); }
+.st2-drops td { padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #e5e7eb; white-space: nowrap; }
+.st2-drops td.bad { color: #f87171; font-weight: 700; }

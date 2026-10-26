@@ -11,6 +11,7 @@
   let dailyChart = null;
   let effChart = null;
   let weatherChart = null;
+  let hourlyChart = null;
 
   const num = (v, digits = 1) =>
     v === null || v === undefined ? "--" : Number(v).toLocaleString("pl-PL", { maximumFractionDigits: digits, minimumFractionDigits: digits });
@@ -109,6 +110,55 @@
     else effChart = new Chart($("chart-efficiency"), { data, options });
   }
 
+  // hour-of-day profile (when the boiler doesn't keep up) and the list of drops
+  function renderHourly() {
+    const p = report.periods[period];
+    const hours = p.hourly || [];
+    const drops = p.drops || { count: 0, items: [], by_hour: [] };
+    const data = {
+      labels: hours.map((h) => `${h.hour}`),
+      datasets: [
+        { type: "line", label: "Zadana [°C]", data: hours.map((h) => h.setpoint), borderColor: "#9ca3af", borderDash: [6, 4], pointRadius: 0, yAxisID: "y", spanGaps: true },
+        { type: "line", label: "Kocioł średnio [°C]", data: hours.map((h) => h.boiler), borderColor: "#f97316", backgroundColor: "#f97316", pointRadius: 2, tension: 0.3, yAxisID: "y", spanGaps: true },
+        { type: "bar", label: `Czas poniżej zadanej −${num(drops.below_c ?? 4, 0)}°C [%]`, data: hours.map((h) => h.below_pct), backgroundColor: "rgba(248, 113, 113, 0.7)", yAxisID: "y2" },
+        { type: "line", label: "Moc średnio [%]", data: hours.map((h) => h.power), borderColor: "#38bdf8", backgroundColor: "#38bdf8", pointRadius: 0, tension: 0.3, yAxisID: "y2", spanGaps: true },
+      ],
+    };
+    const options = {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { labels: { color: "#e5e7eb", boxWidth: 14 } } },
+      scales: {
+        x: { title: { display: true, text: "Godzina", color: "#9ca3af" }, ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } },
+        y: { position: "left", ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
+        y2: { position: "right", beginAtZero: true, suggestedMax: 100, ticks: { color: "#7dd3fc" }, grid: { display: false } },
+      },
+    };
+    if (hourlyChart) { hourlyChart.data = data; hourlyChart.update(); }
+    else hourlyChart = new Chart($("chart-hourly"), { data, options });
+
+    const worst = hours.filter((h) => h.below_pct != null).sort((a, b) => b.below_pct - a.below_pct)[0];
+    $("hourly-note").textContent =
+      `Średnio dla każdej godziny doby (${PERIOD_NAMES[period]}), tylko PRACA. ` +
+      (worst && worst.below_pct > 0
+        ? `Najgorzej o ${worst.hour}:00–${worst.hour + 1}:00: ${num(worst.below_pct, 0)}% czasu ponad ${num(drops.below_c ?? 4, 0)}°C poniżej zadanej, średnio ${num(worst.error, 1)}°C od zadanej.`
+        : "Bez wyraźnych spadków.");
+
+    $("drops-head").textContent = `Spadki temperatury (${drops.count})`;
+    if (!drops.items.length) {
+      $("drops").innerHTML = `<div class="st2-empty">Brak spadków ponad ${num(drops.below_c ?? 4, 0)}°C poniżej zadanej w tym okresie.</div>`;
+      return;
+    }
+    const rows = drops.items.slice(0, 15).map((d) => {
+      const dt = new Date(d.start);
+      const when = dt.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit" }) + " " + d.start.slice(11, 16);
+      const deficit = d.setpoint - d.min_temp;
+      return `<tr><td>${when}</td><td>${d.minutes} min</td><td class="${deficit >= 6 ? "bad" : ""}">${num(d.min_temp, 1)}°C</td>` +
+        `<td>${num(d.setpoint, 0)}°C</td><td>${d.power_before ?? "--"}% → ${d.power_max ?? "--"}%</td></tr>`;
+    }).join("");
+    $("drops").innerHTML =
+      `<table><thead><tr><th>Kiedy</th><th>Trwał</th><th>Najniżej</th><th>Zadana</th><th>Moc przed → maks.</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
   function renderChecks() {
     $("checks").innerHTML = report.checks
       .map((c) => `<li class="st2-check st2-check--${c.status}"><span class="st2-check__icon">${STATUS_ICONS[c.status] || "•"}</span><span class="st2-check__title">${c.title}</span><span class="st2-check__detail">${c.detail}</span></li>`)
@@ -178,6 +228,7 @@
 
   function render() {
     renderPeriod();
+    renderHourly();
     renderEfficiency();
     renderChecks();
     renderDaily();
@@ -206,6 +257,7 @@
       if (!btn || !report) return;
       period = btn.dataset.period;
       renderPeriod();
+      renderHourly();
       renderEfficiency();
     });
     $("st2-refresh").addEventListener("click", () => load(true));
