@@ -29,6 +29,8 @@ from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 
+from backend.core.downsample import downsample
+
 KEEP_DAYS = 14
 MAX_PUSH_BYTES = 64 * 1024 * 1024  # after decompression
 STALE_AFTER_S = 120
@@ -185,13 +187,17 @@ def history_fields():
 
 @app.get("/api/history/data")
 def history_data(from_ts: datetime = Query(...), to_ts: datetime = Query(...),
-                 fields: Optional[List[str]] = Query(None)):
+                 fields: Optional[List[str]] = Query(None), max_points: Optional[int] = Query(None, ge=10, le=20000)):
     lo, hi = from_ts.isoformat(timespec="seconds"), to_ts.isoformat(timespec="seconds")
     with store.lock:
         rows = [r for r in store.history if lo <= r["data_czas"] <= hi]
     if fields:
         rows = [{"data_czas": r["data_czas"], **{k: r[k] for k in fields if k in r}} for r in rows]
-    return {"from_ts": from_ts.isoformat(), "to_ts": to_ts.isoformat(), "count": len(rows), "items": rows}
+    raw_count = len(rows)
+    if max_points:
+        rows = downsample(rows, max_points)
+    return {"from_ts": from_ts.isoformat(), "to_ts": to_ts.isoformat(), "count": len(rows),
+            "raw_count": raw_count, "items": rows}
 
 
 @app.get("/api/logs/meta")

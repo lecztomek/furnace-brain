@@ -1319,3 +1319,19 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
   z-index: 1200;
 }
 
+
+/* "porównaj z wczoraj" toggle (js/history.js) */
+.history-compare {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.history-compare input {
+  width: 22px;
+  height: 22px;
+  accent-color: #f97316;
+}

@@ -13,6 +13,7 @@
     temp_spalin: "Temp. spalin",
     tryb_pracy: "Tryb pracy",
     temp_zewn: "Temp. zewnętrzna",
+    zadana: "Zadana kotła",
     dmuchawa: "Dmuchawa [%]",
     slimak: "Ślimak [% czasu]",
   };
@@ -25,6 +26,7 @@
     temp_spalin: "#ef4444",     // czerwony
     tryb_pracy: "#eab308",      // żółty
     temp_zewn: "#a855f7",       // fioletowy
+    zadana: "#fde68a",          // jasny żółty (linia odniesienia)
     dmuchawa: "#facc15",        // jasnożółty
     slimak: "#94a3b8",          // szary
   };
@@ -205,6 +207,11 @@
     );
   }
 
+  // more points than this (e.g. 7 days) -> the backend averages them in time buckets
+  const MAX_POINTS = 900;
+  const DAY_MS = 24 * 3600 * 1000;
+  let lastRawCount = 0;
+
   async function fetchHistoryData(fromDate, toDate) {
     const from = isoNoMs(fromDate);
     const to = isoNoMs(toDate);
@@ -213,6 +220,7 @@
     const params = new URLSearchParams({
       from_ts: from,
       to_ts: to,
+      max_points: String(MAX_POINTS),
     });
 
     // Zawsze wysyłamy jakieś pola (poza data_czas)
@@ -231,7 +239,26 @@
     }
 
     const data = await res.json();
+    lastRawCount = data.raw_count ?? (data.items || []).length;
     return data.items || [];
+  }
+
+  // join points only across short pauses; a real gap in the data stays empty
+  function gapLimitMs() {
+    const rangeMs = currentFrom && currentTo ? currentTo - currentFrom : 0;
+    return Math.max(3 * 60 * 1000, (4 * rangeMs) / MAX_POINTS);
+  }
+
+  function compareWithYesterday() {
+    return !!document.getElementById("history-compare")?.checked;
+  }
+
+  function fmtAxisTime(ms) {
+    const d = new Date(ms);
+    const pad = (n) => String(n).padStart(2, "0");
+    const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const rangeMs = currentFrom && currentTo ? currentTo - currentFrom : 0;
+    return rangeMs > DAY_MS ? `${pad(d.getDate())}.${pad(d.getMonth() + 1)} ${hm}` : hm;
   }
 
   // mapowanie trybu pracy na liczbę
@@ -248,69 +275,81 @@
     return null;
   }
 
-  function buildChartData(items) {
-    if (!Array.isArray(items)) items = [];
-
-    const labels = items.map((row) => {
-      const ts = row.data_czas || "";
-      const parts = ts.split("T");
-      const timePart = parts[1] || parts[0] || "";
-      return timePart.substring(0, 5); // HH:MM
+  // points {x: time in ms, y}; shiftMs moves yesterday's data onto today's axis
+  function seriesPoints(items, field, shiftMs = 0) {
+    return items.map((row) => {
+      const x = new Date(row.data_czas).getTime() + shiftMs;
+      const raw = row[field];
+      if (field === "tryb_pracy") return { x, y: mapModeToNumber(raw) };
+      if (raw === "" || raw === undefined || raw === null) return { x, y: null };
+      const n = Number(raw);
+      return { x, y: Number.isNaN(n) ? null : n };
     });
+  }
+
+  function buildChartData(items, yesterdayItems) {
+    if (!Array.isArray(items)) items = [];
 
     const fields = getSelectedFields();
     const datasets = [];
 
     fields.forEach((field) => {
-      const values = items.map((row) => {
-        const raw = row[field];
-
-        if (field === "tryb_pracy") {
-          return mapModeToNumber(raw);
-        }
-
-        if (raw === "" || raw === undefined || raw === null) return null;
-
-        const n = Number(raw);
-        if (Number.isNaN(n)) return null;
-        return n;
-      });
+      const data = seriesPoints(items, field);
 
       // jeśli cała seria to null -> nie dodajemy datasetu
-      const hasAnyValue = values.some((v) => v !== null);
-      if (!hasAnyValue) return;
+      if (!data.some((p) => p.y !== null)) return;
 
       const isMode = field === "tryb_pracy";
 
       datasets.push({
         label: FIELD_LABELS[field] || field,
-        data: values,
+        data,
         borderColor: FIELD_COLORS[field] || undefined,
         backgroundColor: FIELD_COLORS[field] || undefined,
         borderWidth: 3,
         radius: 0,
-        spanGaps: true,
+        spanGaps: gapLimitMs(),
         tension: 0.2,
         yAxisID: isMode ? "y_mode" : "y",
       });
+
+      // the same series from 24 h earlier, dashed and dimmed
+      if (yesterdayItems && !isMode) {
+        const prev = seriesPoints(yesterdayItems, field, DAY_MS);
+        if (prev.some((p) => p.y !== null)) {
+          datasets.push({
+            label: `${FIELD_LABELS[field] || field} (wczoraj)`,
+            data: prev,
+            borderColor: (FIELD_COLORS[field] || "#9ca3af") + "88",
+            backgroundColor: (FIELD_COLORS[field] || "#9ca3af") + "88",
+            borderWidth: 2,
+            borderDash: [6, 4],
+            radius: 0,
+            spanGaps: gapLimitMs(),
+            tension: 0.2,
+            yAxisID: "y",
+          });
+        }
+      }
     });
 
-    return { labels, datasets };
+    return { datasets };
   }
 
-  function renderChart(items) {
+  function renderChart(items, yesterdayItems) {
     const ctx = document.getElementById("history-chart");
     if (!ctx) return;
 
-    const { labels, datasets } = buildChartData(items);
+    const { datasets } = buildChartData(items, yesterdayItems);
 
     // GLOBALNE ustawienia Chart.js – większe fonty na tablet
     Chart.defaults.font.size = 14;
     Chart.defaults.color = "#e5e7eb";
 
     if (historyChart) {
-      historyChart.data.labels = labels;
       historyChart.data.datasets = datasets;
+      historyChart.options.scales.x.min = currentFrom.getTime();
+      historyChart.options.scales.x.max = currentTo.getTime();
       historyChart.update();
       return;
     }
@@ -318,7 +357,6 @@
     historyChart = new Chart(ctx, {
       type: "line",
       data: {
-        labels,
         datasets,
       },
       options: {
@@ -336,21 +374,20 @@
             bodyFont: { size: 14 },
             titleFont: { size: 14, weight: "bold" },
             callbacks: {
-              title: (items) => {
-                if (!items.length) return "";
-                const idx = items[0].dataIndex;
-                const ts = items[0].chart.data.labels[idx];
-                return `Godzina: ${ts}`;
-              },
+              title: (items) => (items.length ? `Godzina: ${fmtAxisTime(items[0].parsed.x)}` : ""),
             },
           },
         },
         scales: {
           x: {
+            type: "linear",
+            min: currentFrom.getTime(),
+            max: currentTo.getTime(),
             ticks: {
               maxRotation: 0,
               autoSkip: true,
               autoSkipPadding: 12,
+              callback: (value) => fmtAxisTime(value),
               font: {
                 size: 14,
               },
@@ -399,16 +436,26 @@
       setStatus("Ładowanie danych historii...");
 
       const items = await fetchHistoryData(currentFrom, currentTo);
+      const rawCount = lastRawCount;
+      let yesterday = null;
+      if (compareWithYesterday()) {
+        yesterday = await fetchHistoryData(
+          new Date(currentFrom.getTime() - DAY_MS),
+          new Date(currentTo.getTime() - DAY_MS)
+        );
+      }
       if (!items.length) {
         setStatus("Brak danych w wybranym zakresie.");
       } else {
+        const averaged = rawCount > items.length ? ` (uśrednione z ${rawCount})` : "";
         setStatus(
-          `Załadowano ${items.length} punktów (${formatDateTimeLabel(
+          `Załadowano ${items.length} punktów${averaged} (${formatDateTimeLabel(
             currentFrom
-          )} – ${formatDateTimeLabel(currentTo)}).`
+          )} – ${formatDateTimeLabel(currentTo)})` +
+            (yesterday ? ` • wczoraj: ${yesterday.length} punktów, linia przerywana.` : ".")
         );
       }
-      renderChart(items);
+      renderChart(items, yesterday);
     } catch (err) {
       console.error(err);
       setStatus(
@@ -447,6 +494,11 @@
     container.addEventListener("change", () => {
       reloadHistoryWithCurrentWindow();
     });
+  }
+
+  function initCompareToggle() {
+    const box = document.getElementById("history-compare");
+    if (box) box.addEventListener("change", reloadHistoryWithCurrentWindow);
   }
 
   function initRefreshButton() {
@@ -488,6 +540,7 @@
       initRangeButtons();
       initWindowButtons();
       initRefreshButton();
+      initCompareToggle();
 
       const fields = await fetchFields();
       buildSeriesCheckboxes(fields);

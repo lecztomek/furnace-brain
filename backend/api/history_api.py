@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional
 import csv
 from fastapi import APIRouter, HTTPException, Query
 
+from backend.core.downsample import downsample
+
 
 def create_history_router(
     base_dir: Path,
@@ -43,6 +45,10 @@ def create_history_router(
                 "Jeśli brak – zwracane są wszystkie pola."
             ),
         ),
+        max_points: Optional[int] = Query(
+            None, ge=10, le=20000,
+            description="Gdy punktów jest więcej - uśrednianie w przedziałach czasu (szybkie długie zakresy).",
+        ),
     ):
         """
         Zwraca dane historyczne z plików CSV w zadanym zakresie czasu.
@@ -67,7 +73,13 @@ def create_history_router(
 
         # Przechodzimy po wszystkich plikach z prefixem, sortujemy po nazwie
         # (co mniej więcej odpowiada porządkowi czasowemu).
+        # files are per hour (<prefix>_YYYYMMDD_HH.csv) - skip the ones outside the range
+        first_hour = from_ts.strftime("%Y%m%d_%H")
+        last_hour = to_ts.strftime("%Y%m%d_%H")
         for path in sorted(history_path.glob(f"{file_prefix}_*.csv")):
+            hour = path.stem[len(file_prefix) + 1:]
+            if len(hour) == 11 and not (first_hour <= hour <= last_hour):
+                continue
             try:
                 with path.open("r", encoding="utf-8", newline="") as f:
                     reader = csv.DictReader(f, delimiter=";")
@@ -102,10 +114,15 @@ def create_history_router(
                 # (na razie tylko przeskakujemy ten plik).
                 continue
 
+        raw_count = len(items)
+        if max_points:
+            items = downsample(items, max_points)
+
         return {
             "from_ts": from_ts.isoformat(),
             "to_ts": to_ts.isoformat(),
             "count": len(items),
+            "raw_count": raw_count,
             "items": items,
         }
 

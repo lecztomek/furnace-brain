@@ -145,10 +145,10 @@
 
   // ---------- data ----------
 
-  async function load() {
+  async function load(fresh = false) {
     $("st2-status").textContent = "Wczytywanie…";
     try {
-      const res = await fetch(REPORT_URL, { cache: "no-store" });
+      const res = await fetch(fresh ? `${REPORT_URL}?fresh=1` : REPORT_URL, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       report = await res.json();
       render();
@@ -166,7 +166,7 @@
       period = btn.dataset.period;
       renderPeriod();
     });
-    $("st2-refresh").addEventListener("click", load);
+    $("st2-refresh").addEventListener("click", () => load(true));
     load();
   });
 })();

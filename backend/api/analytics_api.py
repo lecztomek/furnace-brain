@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from datetime import date
 from pathlib import Path
 
@@ -20,6 +21,8 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore) -> APIRo
         cache_path=modules / "stats" / "data" / "analytics_days.json",
     )
     lock = threading.Lock()  # one report at a time (cache file)
+    cached: dict = {"at": 0.0, "report": None}
+    REUSE_S = 60  # a fresh report is reused for a minute
 
     def setting(module_id: str, key: str, default):
         try:
@@ -28,8 +31,14 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore) -> APIRo
             return default
 
     @router.get("/report")
-    def get_report():
+    def get_report(fresh: bool = False):
         """Coal, averages, regulation quality, checks and the weather model."""
+        with lock:
+            if not fresh and cached["report"] is not None and time.time() - cached["at"] < REUSE_S:
+                return cached["report"]
+        return build_report()
+
+    def build_report():
         today = date.today()
         month = int(setting("stats", "season_start_month", 9))
         day = int(setting("stats", "season_start_day", 1))
@@ -46,6 +55,19 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore) -> APIRo
             "calorific_mj_per_kg": setting("stats", "calorific_mj_per_kg", None),
             "boiler_set_temp": setting("power_work", "boiler_set_temp", None),
         }
+        with lock:
+            cached["report"], cached["at"] = report, time.time()
         return report
+
+    def warm_up():
+        # past days are read once in the background after start-up, so the
+        # first visit of the statistics page doesn't wait for months of CSV
+        time.sleep(20)
+        try:
+            build_report()
+        except Exception:  # pylint: disable=broad-except
+            pass
+
+    threading.Thread(target=warm_up, daemon=True, name="analytics_warm_up").start()
 
     return router
