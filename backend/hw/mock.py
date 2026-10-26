@@ -30,8 +30,8 @@ class _ThermalState:
     Temperatura w °C, paliwo w kg.
     """
     boiler_temp: float = 40.0        # °C – woda w kotle (~50 l)
-    return_temp: float = 35.0        # °C – powrót z instalacji
-    radiators_temp: float = 30.0     # °C – woda w obiegu CO (~150 l)
+    return_temp: float = 15.0        # °C – powrót z instalacji
+    radiators_temp: float = 15.0     # °C – woda w obiegu CO (~150 l)
     cwu_temp: float = 35.0           # °C – zasobnik CWU (np. 120 l)
     flue_gas_temp: float = 30.0      # °C – temp. spalin (w dymnicy, przy kotle)
     hopper_temp: float = 25.0        # °C – zasobnik / podajnik
