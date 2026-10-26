@@ -21,29 +21,42 @@ document.addEventListener("DOMContentLoaded", () => {
     if (version !== loadedVersion && !typing) window.location.reload();
   }
 
-  // "⚠ Brak nowych danych" when the control loop's timestamp stops changing
+  // warning sign "Brak nowych danych" when the control loop's timestamp stops changing
   // (backend stuck or down; in the remote view: the Pi stopped sending)
   const STALE_S = window.FURNACE_VIEWER_DB ? 90 : 30;
   let lastTs = null;
   let lastChangeMs = Date.now();
   let staleEl = null;
 
-  function showStale(text) {
+  // big warning sign (like a road sign) over the hot water tank on the left,
+  // how long there's no data written inside it
+  function showStale(text, short) {
     if (!text) {
       if (staleEl) staleEl.style.display = "none";
       return;
     }
     if (!staleEl) {
+      const style = document.createElement("style");
+      style.textContent =
+        "@keyframes stale-pulse{0%,100%{opacity:1}50%{opacity:.6}}" +
+        ".stale-sign{position:fixed;left:16%;top:45%;z-index:3000;pointer-events:none;" +
+        "width:min(180px,34vh);filter:drop-shadow(0 3px 8px rgba(0,0,0,.65));animation:stale-pulse 2s ease-in-out infinite}" +
+        ".stale-sign svg{display:block;width:100%;height:auto}";
+      document.head.appendChild(style);
       staleEl = document.createElement("div");
+      staleEl.className = "stale-sign";
       staleEl.setAttribute("role", "alert");
-      staleEl.style.cssText =
-        "position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:3000;pointer-events:none;" +
-        "background:#b91c1c;color:#fff;font:700 16px/1.2 system-ui,sans-serif;padding:8px 16px;" +
-        "border-radius:999px;box-shadow:0 2px 10px rgba(0,0,0,.5);white-space:nowrap;max-width:94vw;" +
-        "overflow:hidden;text-overflow:ellipsis";
+      staleEl.innerHTML =
+        '<svg viewBox="0 0 100 90">' +
+        '<path d="M50 5 L96 85 L4 85 Z" fill="#fde047" stroke="#dc2626" stroke-width="7" stroke-linejoin="round"/>' +
+        '<rect x="45" y="24" width="10" height="27" rx="4" fill="#111"/>' +
+        '<circle cx="50" cy="58" r="5.5" fill="#111"/>' +
+        '<text x="50" y="77" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="800" fill="#111"></text></svg>';
       document.body.appendChild(staleEl);
     }
-    staleEl.textContent = text;
+    staleEl.querySelector("text").textContent = short;
+    staleEl.setAttribute("aria-label", text);
+    staleEl.title = text;
     staleEl.style.display = "block";
   }
 
@@ -63,7 +76,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const since = lastTs !== null ? new Date(lastTs * 1000) : new Date(lastChangeMs);
     const mins = Math.max(1, Math.round((ageS !== null && ageS > silentS ? ageS : silentS) / 60));
     const hhmm = since.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
-    showStale(`⚠ Brak nowych danych od ${hhmm} (${mins} min)`);
+    const short = mins < 60 ? `${mins} min` : mins < 48 * 60 ? `${Math.round(mins / 60)} h` : `${Math.round(mins / 1440)} dni`;
+    showStale(`Brak nowych danych od ${hhmm} (${mins} min)`, short);
   }
 
   async function syncClockOffset() {
