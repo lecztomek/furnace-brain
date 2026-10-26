@@ -102,12 +102,28 @@
   };
 
   // ====== SOURCE SELECT ======
+  // every module (from the config API) + sources seen in the fetched logs, so a
+  // module with rare events (e.g. weather) can be picked even if it isn't in
+  // the latest N entries
+  let knownSources = ["kernel", "aux_runner"];
+
+  async function loadKnownSources() {
+    try {
+      const res = await fetch("/api/config/modules", { cache: "no-store" });
+      if (!res.ok) return;
+      const modules = await res.json();
+      knownSources = knownSources.concat((modules || []).map((m) => m?.id).filter(Boolean));
+    } catch {
+      // optional
+    }
+  }
+
   function fillSourcesSelect(items) {
     if (!elSource) return;
 
     const current = elSource.value || "";
     const sources = Array.from(
-      new Set((items || []).map((x) => x?.source).filter(Boolean))
+      new Set(knownSources.concat((items || []).map((x) => x?.source).filter(Boolean)))
     ).sort();
 
     elSource.innerHTML = "";
@@ -173,6 +189,9 @@
 
     // jeśli Twoje /logs/recent (CSV router) wspiera te filtry – zostawiamy:
     if (levelApi) url.searchParams.set("level", levelApi);
+    // source filtered by the backend, so older entries of a module are found too
+    const src = elSource ? elSource.value : "";
+    if (src) url.searchParams.set("source", src);
 
     setPillsOk("pobieranie…", "--");
 
@@ -333,8 +352,8 @@
     if (elLevel) elLevel.addEventListener("change", fetchLogs);
     if (elLimit) elLimit.addEventListener("change", fetchLogs);
 
-    // Źródło => lokalnie
-    if (elSource) elSource.addEventListener("change", applyLocalFilterAndRender);
+    // Źródło => fetch (backend filters, searching all logs)
+    if (elSource) elSource.addEventListener("change", fetchLogs);
 
     // Wyczyść => reset level + source i fetch
     if (elClear) {
@@ -350,6 +369,7 @@
   async function init() {
     bindUi();
     await loadMeta();  // opcjonalne
+    await loadKnownSources();
     await syncClockOffset();
     setInterval(syncClockOffset, 5000);
     await fetchLogs(); // jednorazowe wczytanie
