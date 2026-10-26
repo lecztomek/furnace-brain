@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core.kernel import Kernel
 from .core.aux_runner import AuxRunner
-from .config.modules_loader import load_modules_split
+from .config.modules_loader import load_modules_split, load_module_descriptors
 
 from .api.state_api import create_state_router
 from .api.config_api import create_config_router
@@ -107,6 +107,14 @@ else:
     run_id = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     run_root = DATA_ROOT / "sim_runs" / run_id
 
+BACKEND_ROOT = Path(__file__).resolve().parent
+
+# nowe pola ze schema.yaml -> dopisz do values.yaml, zanim moduły wczytają ustawienia
+ConfigStore(
+    BACKEND_ROOT / "modules",
+    module_ids_in_order=[d.id for d in load_module_descriptors()],
+).fill_missing_defaults()
+
 critical_modules, aux_modules = load_modules_split(data_root=run_root)
 
 store = StateStore(event_buffer_size=1000)
@@ -124,7 +132,6 @@ aux_runner = AuxRunner(store=store, modules=aux_modules)
 # --- CONFIG STORE ---
 
 all_modules = critical_modules + aux_modules
-BACKEND_ROOT = Path(__file__).resolve().parent
 config_store = ConfigStore(
         BACKEND_ROOT / "modules",
         module_ids_in_order=[m.id for m in all_modules],
@@ -286,3 +293,9 @@ app.include_router(state_router, prefix="/api")
 app.include_router(manual_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
 
+
+# Środowisko testowe w chmurze: jeden proces serwuje też frontend (na Pi robi to gateway.py)
+SERVE_FRONTEND_DIR = os.getenv("FURNACE_BRAIN_SERVE_FRONTEND")
+if SERVE_FRONTEND_DIR:
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory=SERVE_FRONTEND_DIR, html=True), name="frontend")

@@ -14,7 +14,7 @@ Group=pi
 WorkingDirectory=/home/pi/furnace-brain
 EnvironmentFile=/etc/furnace-brain.env
 
-ExecStart=/usr/bin/python3 /home/pi/furnace-brain/scripts/gateway.py ${FRONT_DIR} ${BACKEND_HOST} ${BACKEND_PORT} ${GATEWAY_PORT} ${GATEWAY_BIND}
+ExecStart=/usr/bin/python3 /home/pi/furnace-brain/deploy/gateway.py ${FRONT_DIR} ${BACKEND_HOST} ${BACKEND_PORT} ${GATEWAY_PORT} ${GATEWAY_BIND}
 Restart=on-failure
 RestartSec=2
 

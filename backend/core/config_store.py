@@ -3,7 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+import datetime as dt
+import logging
 import yaml
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -168,6 +173,45 @@ class ConfigStore:
             yaml.safe_dump(raw_values, f, allow_unicode=True)
 
         return validated_value
+
+    def fill_missing_defaults(self) -> Dict[str, List[str]]:
+        """
+        Dopisuje do values.yaml pola ze schema, których tam jeszcze nie ma
+        (np. nowe ustawienie po aktualizacji). Istniejące linie zostają
+        nietknięte – nowe klucze są doklejane na końcu pliku.
+        Zwraca {module_id: [dodane klucze]}.
+        """
+        added_all: Dict[str, List[str]] = {}
+
+        for mid in self._module_ids_in_order:
+            if not self._schema_path(mid).exists():
+                continue
+            fields = self.get_schema(mid).get("fields", [])
+            raw_values = self._load_raw_values(mid)
+
+            missing: Dict[str, Any] = {}
+            for field in fields:
+                key = field["key"]
+                if key in raw_values or field.get("default") is None:
+                    continue
+                missing[key] = self._validate_single_value(field, field["default"])
+
+            if not missing:
+                continue
+
+            vpath = self._values_path(mid)
+            old_text = vpath.read_text(encoding="utf-8") if vpath.exists() else ""
+            if old_text and not old_text.endswith("\n"):
+                old_text += "\n"
+            stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+            header = f"\n# dodane automatycznie {stamp} (domyślne ze schema.yaml)\n"
+            body = yaml.safe_dump(missing, allow_unicode=True, sort_keys=False)
+            vpath.write_text(old_text + header + body, encoding="utf-8")
+
+            logger.info("values.yaml [%s]: dopisano domyślne %s", mid, missing)
+            added_all[mid] = list(missing)
+
+        return added_all
 
     def _load_raw_values(self, module_id: str) -> Dict[str, Any]:
         """Ładuje surowe values.yaml (bez defaultów)."""

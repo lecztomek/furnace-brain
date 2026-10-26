@@ -1,0 +1,23 @@
+# Środowisko testowe w chmurze (Render.com, plan darmowy).
+# Piec jest symulowany (MockHardware) - nic tu nie steruje prawdziwym sprzętem.
+# Każdy push na main, który przejdzie testy na GitHubie, wdraża się tu automatycznie.
+services:
+  - type: web
+    name: furnace-brain-test
+    runtime: python
+    plan: free
+    branch: main
+    autoDeployTrigger: checksPass
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/state/current
+    envVars:
+      - key: FURNACE_BRAIN_HW_RPI
+        value: "0"
+      - key: FURNACE_BRAIN_SERVE_FRONTEND
+        value: frontend
+      - key: FURNACE_BRAIN_DATA_ROOT
+        value: /tmp/furnace-brain
+      # czas symulacji płynie N razy szybciej niż rzeczywisty
+      - key: FURNACE_BRAIN_TIME_SCALE
+        value: "10"
