@@ -924,25 +924,6 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
     background: rgba(17, 24, 39, 0.9);
   }
 
-  .config-root { padding: 0.3rem; }
-  .config-tabs-header {
-    flex-wrap: nowrap;
-    flex-shrink: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-    gap: 0.35rem;
-    padding-bottom: 0.35rem;
-    margin-bottom: 0.35rem;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .config-tabs-header::-webkit-scrollbar { display: none; }
-  .config-tab-button {
-    flex-shrink: 0;
-    padding: 0.4rem 0.8rem;
-    font-size: 0.78rem;
-    letter-spacing: 0.06em;
-  }
   .config-tabs-body { padding: 0.15rem; }
 
   /* label on its own line (full text), controls under it */
@@ -957,4 +938,35 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
 
   /* save button on the left - the menu button is in the bottom right corner */
   .config-actions { justify-content: flex-start; }
+}
+
+/* ===== Phone and short screens (800x480 panel, tablet in landscape):
+   modules as one horizontally scrolled row of tabs, so the chosen module's
+   settings get the rest of the screen ===== */
+@media (max-width: 640px), (max-height: 700px) {
+  .config-root { padding: 0.3rem; }
+  .config-tabs-header {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 0.35rem;
+    padding-bottom: 0.35rem;
+    margin-bottom: 0.35rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .config-tabs-header::-webkit-scrollbar { display: none; }
+  /* faded right edge: there are more modules to scroll to */
+  .config-tabs-header {
+    -webkit-mask-image: linear-gradient(to right, #000 88%, transparent);
+    mask-image: linear-gradient(to right, #000 88%, transparent);
+    padding-right: 2.5rem;
+  }
+  .config-tab-button {
+    flex-shrink: 0;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+  }
 }

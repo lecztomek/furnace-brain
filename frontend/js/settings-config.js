@@ -165,6 +165,18 @@ async function initConfigUI() {
   setStatus("Konfiguracja załadowana.");
 }
 
+// the tabs row scrolls sideways on small screens - let the mouse wheel do it too
+document.addEventListener("DOMContentLoaded", () => {
+  const header = document.getElementById("config-tabs-header");
+  if (!header) return;
+  header.addEventListener("wheel", (e) => {
+    if (header.scrollWidth > header.clientWidth && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      header.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  }, { passive: false });
+});
+
 function activateTab(moduleId) {
   document
     .querySelectorAll(".config-tab-button")
