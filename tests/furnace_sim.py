@@ -3,8 +3,9 @@ Harness for furnace scenario tests: the real Kernel + critical modules from
 modules.yaml + the MockHardware simulator, on a manually advanced clock
 (an hour of furnace operation runs in a few seconds).
 
-Each simulation gets its own settings directory (schema.yaml + values.yaml with
-schema defaults), so local values.yaml files don't affect the results.
+Each simulation gets its own settings directory (schema.yaml + values.yaml.sample,
+the rest filled with schema defaults), so local values.yaml files don't affect
+the results.
 """
 from __future__ import annotations
 
@@ -49,6 +50,7 @@ class FurnaceSim:
         values: Optional[Dict[str, Dict[str, Any]]] = None,
         seed: int = 1,
         tick_s: float = 1.0,
+        use_samples: bool = True,
     ) -> None:
         self.tick_s = tick_s
         self.clock = SimClock(auto=False, start_ts=1_766_000_000.0)
@@ -64,8 +66,14 @@ class FurnaceSim:
             mdir = modules_root / d.id
             mdir.mkdir(parents=True)
             shutil.copy(MODULES_DIR / d.id / "schema.yaml", mdir / "schema.yaml")
+            module_values: Dict[str, Any] = {}
+            sample = MODULES_DIR / d.id / "values.yaml.sample"
+            if use_samples and sample.exists():
+                module_values.update(yaml.safe_load(sample.read_text(encoding="utf-8")) or {})
             if values and d.id in values:
-                (mdir / "values.yaml").write_text(yaml.safe_dump(values[d.id]), encoding="utf-8")
+                module_values.update(values[d.id])
+            if module_values:
+                (mdir / "values.yaml").write_text(yaml.safe_dump(module_values), encoding="utf-8")
         ConfigStore(modules_root, [d.id for d in descriptors]).fill_missing_defaults()
 
         modules = []

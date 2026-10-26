@@ -386,6 +386,8 @@ class WorkFuzzyPowerModule(ModuleInterface):
 
     def _fuzzify_error(self, e: float) -> Dict[str, float]:
         c = self._config
+        # outer sets saturate: beyond the universe e is still "big", not "nothing"
+        e = min(max(e, c.e_nb_b), c.e_pb_c)
         return {
             "NB": self._trapmf(e, c.e_nb_a, c.e_nb_b, c.e_nb_c, c.e_nb_d),
             "NS": self._trimf(e, c.e_ns_a, c.e_ns_b, c.e_ns_c),
@@ -396,6 +398,7 @@ class WorkFuzzyPowerModule(ModuleInterface):
 
     def _fuzzify_rate(self, r: float) -> Dict[str, float]:
         c = self._config
+        r = min(max(r, c.r_fall_b), c.r_rise_c)
         return {
             "FALL": self._trapmf(r, c.r_fall_a, c.r_fall_b, c.r_fall_c, c.r_fall_d),
             "STABLE": self._trimf(r, c.r_stable_a, c.r_stable_b, c.r_stable_c),
@@ -430,6 +433,8 @@ class WorkFuzzyPowerModule(ModuleInterface):
         high_a = fmid + w
         high_b = fmax
         high_c = fmax + w
+
+        f = max(f, low_c)
 
         vh_start = fmax + float(c.flue_vhigh_margin_C)
         vh_a = vh_start
