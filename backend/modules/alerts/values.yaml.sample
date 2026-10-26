@@ -1,0 +1,6 @@
+enabled: false
+forward_alarms: true
+flue_alarm_enabled: true
+flue_below_c: 40.0
+power_above_pct: 70.0
+repeat_min: 5.0

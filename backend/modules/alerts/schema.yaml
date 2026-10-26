@@ -1,0 +1,69 @@
+id: alerts
+name: "Powiadomienia"
+description: "Alarmy na telefon przez darmową aplikację ntfy (bez konta). Temat ustawia się w /etc/furnace-brain.env (FURNACE_BRAIN_NTFY_TOPIC), w aplikacji ntfy trzeba zasubskrybować ten sam temat. Po włączeniu przychodzi wiadomość testowa."
+
+groups:
+  - id: basic
+    label: "Podstawowe"
+  - id: flue
+    label: "Zimne spaliny (stojący ślimak)"
+
+fields:
+  - key: enabled
+    label: "Powiadomienia na telefon"
+    type: bool
+    default: false
+    label_on: "WŁĄCZONE"
+    label_off: "WYŁĄCZONE"
+    group: basic
+
+  - key: forward_alarms
+    label: "Alarmy sterownika"
+    type: bool
+    default: true
+    label_on: "WYSYŁAJ"
+    label_off: "NIE WYSYŁAJ"
+    group: basic
+    description: "Przegrzanie kotła, przegrzanie zasobnika, brak odczytu czujników - to samo co ALARM w logach (ten sam rodzaj najwyżej co 5 min)."
+
+  - key: flue_alarm_enabled
+    label: "Alarm zimnych spalin"
+    type: bool
+    default: true
+    label_on: "WŁĄCZONY"
+    label_off: "WYŁĄCZONY"
+    group: flue
+    description: "W trybie PRACA: spaliny zimne mimo dużej mocy = węgiel nie dochodzi do paleniska (stoi ślimak, zawiesił się węgiel). Na danych z zeszłego sezonu wykrył 10 z 11 wygaszeń, ok. 3 alarmy w tygodniu."
+
+  - key: flue_below_c
+    label: "Spaliny poniżej"
+    type: number
+    unit: "°C"
+    min: 20
+    max: 80
+    step: 1
+    default: 40
+    group: flue
+    description: "Średnia z 5 minut."
+
+  - key: power_above_pct
+    label: "Przy mocy co najmniej"
+    type: number
+    unit: "%"
+    min: 0
+    max: 100
+    step: 5
+    default: 70
+    group: flue
+    description: "Średnia z 10 minut. Przy małej mocy zimne spaliny są normalne."
+
+  - key: repeat_min
+    label: "Przypominaj co"
+    type: number
+    unit: "min"
+    min: 1
+    max: 60
+    step: 1
+    default: 5
+    group: flue
+    description: "Dopóki problem trwa. Po ustąpieniu przychodzi wiadomość OK."
