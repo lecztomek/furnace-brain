@@ -148,6 +148,13 @@ function applyState(state) {
   const power = (outputs.power_percent != null) ? Math.round(outputs.power_percent) : 0;
   setIfChanged(prev, "power", power, FurnaceUI.power.setPercent);
 
+  // heat output from the coal fed (calorific value x feeder time, last 10 min)
+  const kw = state.power_kw == null ? "-- kW" : `${state.power_kw.toFixed(1).replace(".", ",")} kW`;
+  setIfChanged(prev, "power_kw", kw, (v) => {
+    const el = document.getElementById("power-kw-text");
+    if (el) el.textContent = v;
+  });
+
   // --- alarm/status tylko jeśli się zmieniło ---
   const alarmText = state.alarm_active
     ? `ALARM: ${state.alarm_message || "Nieznany błąd"}`

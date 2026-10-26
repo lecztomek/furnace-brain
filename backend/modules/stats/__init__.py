@@ -26,6 +26,10 @@ from backend.core.csv_utils import no_nul
 
 SECONDS_5M = 300.0
 MJ_TO_KWH = 1.0 / 3.6  # 1 kWh = 3.6 MJ
+# current heat output for the main page: coal fed over the last minutes
+# (feeder cycles last a minute or more - a shorter window would jump)
+NOW_WINDOW_S = 600.0
+NOW_MIN_S = 120.0  # after a start: no value until 2 minutes are known
 
 # rolling windows (liczone z zamkniętych bucketów 5m)
 BUCKETS_1H = 12                 # 12 * 5m
@@ -195,6 +199,10 @@ class StatsModule(ModuleInterface):
         self._day_key: Optional[str] = None
         self._day_acc = _DayAcc()
 
+        # coal fed per tick over the last NOW_WINDOW_S: (ts_mono, kg)
+        self._recent_feed: deque = deque()
+        self._recent_since: Optional[float] = None
+
         # bootstrap z dysku
         self._bootstrap_from_disk()
 
@@ -227,6 +235,7 @@ class StatsModule(ModuleInterface):
             return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
         feeder_on = bool(system_state.outputs.feeder_on)
+        self._track_recent_feed(now_mono, dt_total, feeder_on)
 
         # kotwica do przeliczenia bucket_end_mono -> wall-clock
         anchor_wall = float(now)
@@ -281,6 +290,25 @@ class StatsModule(ModuleInterface):
         self._publish(now, system_state, enabled=True)
 
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
+
+    def _track_recent_feed(self, now_mono: float, dt: float, feeder_on: bool) -> None:
+        if self._recent_since is None:
+            self._recent_since = now_mono - dt
+        if feeder_on and self._config.feeder_kg_per_hour > 0:
+            self._recent_feed.append((now_mono, self._config.feeder_kg_per_hour * dt / 3600.0))
+        while self._recent_feed and self._recent_feed[0][0] < now_mono - NOW_WINDOW_S:
+            self._recent_feed.popleft()
+        self._recent_now = now_mono
+
+    def _power_kw_now(self) -> Optional[float]:
+        """Heat output [kW] from the coal fed in the last 10 minutes (calorific value x feeder time)."""
+        if self._recent_since is None or self._config.calorific_mj_per_kg <= 0:
+            return None
+        window = min(NOW_WINDOW_S, self._recent_now - self._recent_since)
+        if window < NOW_MIN_S:
+            return None
+        kg = sum(k for _, k in self._recent_feed)
+        return kg * self._config.calorific_mj_per_kg * MJ_TO_KWH / (window / 3600.0)
 
     def _refresh_paths(self, create: bool = False) -> None:
         """
@@ -947,6 +975,7 @@ class StatsModule(ModuleInterface):
             "ts_iso": ts_iso,
             "feeder_kg_per_hour": float(self._config.feeder_kg_per_hour),
             "calorific_mj_per_kg": float(self._config.calorific_mj_per_kg),
+            "power_kw_now": self._power_kw_now(),
         }
 
         pack("5m", a5, payload)

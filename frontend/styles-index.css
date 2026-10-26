@@ -822,3 +822,6 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
 #radiators-temp:hover rect { filter: brightness(1.08); }
 #radiators-temp:active rect { transform: scale(0.995); transform-origin: center; }
 
+
+/* heat output badge under the power percent (index.html #power-kw) */
+#power-kw text { font-size: 34px; fill: #fbbf24; }

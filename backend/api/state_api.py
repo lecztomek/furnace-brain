@@ -84,6 +84,8 @@ def create_state_router(
                 "alarm_relay_on": out.alarm_relay_on,
                 "power_percent": out.power_percent,
             },
+            # heat output from the coal fed in the last 10 min (stats module), None = unknown
+            "power_kw": (s.runtime.get("stats") or {}).get("power_kw_now"),
             "modules": {
                 mid: {
                     "health": status.health.name,
