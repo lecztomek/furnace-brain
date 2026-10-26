@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 import yaml
 
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
+from backend.core.problems import ProblemTracker, describe_error
 from backend.core.state import (
     Event,
     EventLevel,
@@ -74,6 +75,7 @@ class WeatherModule(ModuleInterface):
         self._fetched_at: Optional[float] = None
         self._error: Optional[str] = None
         self._pending_events: List[Event] = []
+        self._problems = ProblemTracker(self.id, "Pogoda")
 
     @property
     def id(self) -> str:
@@ -92,7 +94,7 @@ class WeatherModule(ModuleInterface):
             start = not self._fetching and wall >= self._next_attempt
             if start:
                 self._fetching = True
-            events, self._pending_events = self._pending_events, []
+            events, self._pending_events = self._pending_events + self._problems.take_events(), []
             runtime = {
                 "temp": self._temp,
                 "fetched_at": self._fetched_at,
@@ -115,28 +117,26 @@ class WeatherModule(ModuleInterface):
             error = None
         except Exception as exc:  # pylint: disable=broad-except
             temp = None
-            error = f"{type(exc).__name__}: {exc}"
+            error = describe_error(exc, "Open-Meteo (api.open-meteo.com)")
 
         wall = time.time()
         with self._lock:
             self._fetching = False
-            was_ok = self._error is None and self._fetched_at is not None
+            first = self._fetched_at is None
             if error is None:
-                if not was_ok:
+                if first:
                     self._pending_events.append(self._event(
                         EventLevel.INFO, "WEATHER_OK",
                         f"Pogoda: {temp:.1f}°C ({self._config.location_name})", {"temp": temp},
                     ))
+                self._problems.ok("pobieranie temperatury", "WEATHER_OK")
                 self._temp = temp
                 self._fetched_at = wall
                 self._error = None
                 self._next_attempt = wall + self._config.refresh_min * 60.0
             else:
-                if self._error is None:
-                    self._pending_events.append(self._event(
-                        EventLevel.WARNING, "WEATHER_FETCH_ERROR",
-                        f"Nie udało się pobrać pogody: {error}", {"error": error},
-                    ))
+                # what failed and why; repeated every 30 min while it lasts
+                self._problems.failed("pobieranie temperatury", error, "WEATHER_FETCH_ERROR")
                 self._error = error
                 self._next_attempt = wall + self._config.retry_min * 60.0
 

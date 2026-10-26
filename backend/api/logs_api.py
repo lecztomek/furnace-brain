@@ -173,7 +173,7 @@ def create_logs_router(
         modules = [d.id for d in load_module_descriptors() if d.enabled]
         return {
             "levels": [lvl.name for lvl in EventLevel],
-            "sources": sorted(set(modules + ["kernel", "aux_runner"])),
+            "sources": sorted(set(modules + ["kernel", "aux_runner", "api"])),
         }
 
     @router.get("/recent")

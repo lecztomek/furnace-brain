@@ -99,7 +99,9 @@ def _push_cycle(mod):
     cursors = mod._fb_get("cursors") or {}
     patch = {"state": json.dumps(mod._get("/api/state/current")), "manual": json.dumps(mod._get("/api/manual/current"))}
     patch.update(mod._increments(cursors))
-    patch.update(mod._slow())
+    patch.update(mod._slow_report())
+    patch.update(mod._slow_config())
+    patch.update(mod._slow_history5m())
     patch["cursors"] = cursors
     mod._fb_patch(patch)
     mod._cleanup()
@@ -203,3 +205,38 @@ def test_shim_returns_local_api_shapes(setup):
     # writes ignored, real values returned
     assert out["write"] == {"key": "boiler_set_temp", "value": 60}
     assert out["mode"] == STATE
+
+
+def test_failing_part_is_logged_and_skipped(setup, monkeypatch):
+    """A broken endpoint is named in the log with the server's answer; the state still goes out."""
+    import threading as th
+    mod, fb, _ = setup
+    real_do_get = LocalApi.do_GET
+
+    def broken(self):
+        if self.path.startswith("/api/analytics/report"):
+            body = b'{"detail": "ValueError: zly plik"}'
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        real_do_get(self)
+
+    monkeypatch.setattr(LocalApi, "do_GET", broken)
+    key = "k" * 24  # the worker needs a key of 20+ characters
+    mod._key = key
+    mod._config.enabled = True
+    mod._config.state_every_s = 1
+    t = th.Thread(target=mod._run, daemon=True)
+    t.start()
+    import time as tm
+    deadline = tm.time() + 15
+    while tm.time() < deadline and "config" not in (fb.root.get("furnace", {}).get(key) or {}):
+        tm.sleep(0.2)
+    mod._config.enabled = False
+    data = fb.root["furnace"][key]
+    assert json.loads(data["state"]) == STATE           # the state went out
+    assert "config" in data and "report" not in data   # other parts too, only the report is missing
+    msgs = [e.message for e in mod._problems.take_events()]
+    assert any("statystyki" in m and "/api/analytics/report" in m and "HTTP 500" in m and "zly plik" in m for m in msgs), msgs

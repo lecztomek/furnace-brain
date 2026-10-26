@@ -6,7 +6,7 @@ import time
 import datetime as dt
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.kernel import Kernel
@@ -213,6 +213,34 @@ app = FastAPI(
     title="Sterownik kotła",
     version="0.1.0",
 )
+
+# Any unexpected error in the API goes to the logs page with its cause (the
+# Pi's system journal may not be available - the logs page is what's seen
+# remotely). The same error on the same path is logged at most every 10 min.
+_api_error_logged: dict = {}
+
+
+@app.exception_handler(Exception)
+async def log_unhandled_api_error(request: Request, exc: Exception):
+    import traceback
+    from fastapi.responses import JSONResponse
+    from backend.core.state import Event, EventLevel
+
+    error = f"{type(exc).__name__}: {exc}"
+    where = f"{request.method} {request.url.path}"
+    key = (where, error)
+    now = time.time()
+    if now - _api_error_logged.get(key, 0.0) >= 600:
+        _api_error_logged[key] = now
+        tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
+        store.publish_events([Event(
+            ts=now, source="api", level=EventLevel.ERROR, type="API_ERROR",
+            message=f"Błąd API {where}: {error}",
+            data={"path": request.url.path, "error": error, "traceback": "".join(tb[-6:])[-3000:]},
+        )])
+    logger.exception("API error %s", where)
+    return JSONResponse(status_code=500, content={"detail": error})
+
 
 app.add_middleware(
     CORSMiddleware,

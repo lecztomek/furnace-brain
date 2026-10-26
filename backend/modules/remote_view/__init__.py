@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
+from backend.core.problems import ProblemTracker, describe_error
 from backend.core.state import Event, EventLevel, ModuleStatus, PartialOutputs, Sensors, SystemState
 
 PAGES_URL = "https://lecztomek.github.io/furnace-brain/"
@@ -46,6 +47,10 @@ def js(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
 
+class Described(Exception):
+    """An error whose message already says what failed and why."""
+
+
 def time_key(data_czas: str) -> str:
     return data_czas[11:19].replace(":", "")  # "2026-10-26T10:30:00" -> "103000"
 
@@ -72,8 +77,7 @@ class RemoteViewModule(ModuleInterface):
 
         self._lock = threading.Lock()
         self._thread: Optional[threading.Thread] = None
-        self._events: List[Event] = []
-        self._error: Optional[str] = None
+        self._problems = ProblemTracker(self.id, "Podgląd zdalny")
         self._last_ok: Optional[float] = None
 
     @property
@@ -92,9 +96,9 @@ class RemoteViewModule(ModuleInterface):
             self._thread = threading.Thread(target=self._run, daemon=True, name="remote_view")
             self._thread.start()
         with self._lock:
-            events, self._events = self._events, []
+            events = self._problems.take_events()
             runtime = {"configured": self._configured, "enabled": self._config.enabled,
-                       "last_ok": self._last_ok, "error": self._error}
+                       "last_ok": self._last_ok, "problems": self._problems.failing()}
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status, runtime=runtime)
 
     # ---------- worker thread ----------
@@ -102,42 +106,68 @@ class RemoteViewModule(ModuleInterface):
     def _run(self) -> None:
         if len(self._key) < 20:
             # Firebase rules (viewer/firebase-rules.json) don't allow reading short keys
-            self._fail(ValueError("FURNACE_BRAIN_VIEWER_KEY musi mieć co najmniej 20 znaków"))
+            self._failed("konfiguracja", "FURNACE_BRAIN_VIEWER_KEY w /etc/furnace-brain.env musi mieć co najmniej 20 znaków")
             return
         cursors: Optional[Dict[str, Any]] = None
         next_state = next_history = next_slow = 0.0
         while True:
-            if not self._config.enabled:
-                time.sleep(5)
-                continue
             now = time.time()
+            if not self._config.enabled or now < next_state:
+                time.sleep(1 if self._config.enabled else 5)
+                continue
+            # the state is the essential part - without it nothing is sent
             try:
                 if cursors is None:
                     cursors = self._fb_get("cursors") or {}
-                if now >= next_state:
-                    patch: Dict[str, Any] = {
-                        "state": js(self._get("/api/state/current")),
-                        "manual": js(self._get("/api/manual/current")),
-                        "updated_at": now,
-                    }
-                    if now >= next_history:
-                        patch.update(self._increments(cursors))
-                        next_history = now + self._config.history_every_s
-                    if now >= next_slow:
-                        patch.update(self._slow())
-                        self._cleanup()
-                        next_slow = now + self._config.slow_every_min * 60
-                    patch["cursors"] = cursors
-                    self._fb_patch(patch)
-                    next_state = now + self._config.state_every_s
-                    self._ok()
-                time.sleep(1)
+                patch: Dict[str, Any] = {
+                    "state": js(self._get("/api/state/current")),
+                    "manual": js(self._get("/api/manual/current")),
+                    "updated_at": now,
+                }
+                self._succeeded("stan pieca")
             except Exception as exc:  # pylint: disable=broad-except
-                self._fail(exc)
-                cursors = None          # re-read what Firebase really has
-                next_state = time.time() + 60  # back off
+                self._failed("stan pieca", self._describe(exc))
+                cursors, next_state = None, now + 60
+                continue
+
+            # the other parts: a failing one is skipped and logged, the rest still goes
+            if now >= next_history:
+                new_cursors = dict(cursors)
+                part = self._part("historia i logi", lambda: self._increments(new_cursors))
+                if part is not None:
+                    patch.update(part)
+                    cursors = new_cursors
+                next_history = now + self._config.history_every_s
+            if now >= next_slow:
+                for name, fn in (("statystyki", self._slow_report),
+                                 ("ustawienia", self._slow_config),
+                                 ("historia 5 min", self._slow_history5m),
+                                 ("usuwanie starych danych", self._cleanup)):
+                    part = self._part(name, fn)
+                    if part:
+                        patch.update(part)
+                next_slow = now + self._config.slow_every_min * 60
+
+            patch["cursors"] = cursors
+            try:
+                self._fb_patch(patch)
+                self._succeeded("wysyłanie do Firebase")
+                self._ok()
+                next_state = now + self._config.state_every_s
+            except Exception as exc:  # pylint: disable=broad-except
+                self._failed("wysyłanie do Firebase", self._describe(exc))
+                cursors = None                 # re-read what Firebase really has
+                next_state = now + 60          # back off
                 next_history = next_slow = 0.0
-                time.sleep(5)
+
+    def _part(self, name: str, fn) -> Optional[Dict[str, Any]]:
+        try:
+            out = fn()
+        except Exception as exc:  # pylint: disable=broad-except
+            self._failed(name, self._describe(exc))
+            return None
+        self._succeeded(name)
+        return out or {}
 
     def _increments(self, cursors: Dict[str, Any]) -> Dict[str, Any]:
         """New history rows and log entries since the cursors (updated in place)."""
@@ -165,19 +195,21 @@ class RemoteViewModule(ModuleInterface):
             cursors["logs"] = logs[-1]["ts"]
         return out
 
-    def _slow(self) -> Dict[str, Any]:
+    def _slow_report(self) -> Dict[str, Any]:
+        return {"report": js(self._get("/api/analytics/report"))}
+
+    def _slow_config(self) -> Dict[str, Any]:
         modules = self._get("/api/config/modules")
-        out: Dict[str, Any] = {
-            "config/modules": js(modules),
-            "logs_meta": js(self._get("/api/logs/meta")),
-            "report": js(self._get("/api/analytics/report")),
-        }
+        out: Dict[str, Any] = {"config/modules": js(modules), "logs_meta": js(self._get("/api/logs/meta"))}
         for m in modules:
             mid = urllib.parse.quote(m["id"])
             out[f"config/schemas/{m['id']}"] = js(self._get(f"/api/config/schema/{mid}"))
             out[f"config/values/{m['id']}"] = js(self._get(f"/api/config/values/{mid}"))
+        return out
 
+    def _slow_history5m(self) -> Dict[str, Any]:
         # 5 min averages per day for long ranges (7 days = ~2000 points instead of ~20000)
+        out: Dict[str, Any] = {}
         have = self._fb_get("history5m", shallow=True) or {}
         today = date.today()
         for back in range(int(self._config.keep_days)):
@@ -190,18 +222,22 @@ class RemoteViewModule(ModuleInterface):
                 out[f"history5m/{d}"] = {time_key(r["data_czas"]): js(r) for r in items}
         return out
 
-    def _cleanup(self) -> None:
+    def _cleanup(self) -> Dict[str, Any]:
         oldest = (date.today() - timedelta(days=int(self._config.keep_days))).isoformat()
         for node in ("history", "history5m", "logs"):
             for day in (self._fb_get(node, shallow=True) or {}):
                 if day < oldest:
                     self._fb_request("DELETE", f"{node}/{day}")
+        return {}
 
     # ---------- HTTP ----------
 
     def _get(self, path: str) -> Any:
-        with urllib.request.urlopen(self._local + path, timeout=30) as resp:
-            return json.load(resp)
+        try:
+            with urllib.request.urlopen(self._local + path, timeout=60) as resp:
+                return json.load(resp)
+        except Exception as exc:  # pylint: disable=broad-except
+            raise Described(describe_error(exc, f"lokalne API {path.split('?')[0]}")) from exc
 
     def _fb_url(self, path: str, **params: str) -> str:
         query = urllib.parse.urlencode({"auth": self._secret, **params})
@@ -211,8 +247,12 @@ class RemoteViewModule(ModuleInterface):
         data = None if body is None else json.dumps(body, separators=(",", ":")).encode("utf-8")
         req = urllib.request.Request(self._fb_url(path, **params), data=data, method=method,
                                      headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            return json.load(resp)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                return json.load(resp)
+        except Exception as exc:  # pylint: disable=broad-except
+            # never the URL itself - it carries the secret
+            raise Described(describe_error(exc, f"Firebase {method} /{path}")) from exc
 
     def _fb_get(self, path: str, shallow: bool = False) -> Any:
         return self._fb_request("GET", path, **({"shallow": "true"} if shallow else {}))
@@ -224,28 +264,33 @@ class RemoteViewModule(ModuleInterface):
             data=json.dumps(patch, separators=(",", ":")).encode("utf-8"),
             method="PATCH", headers={"Content-Type": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            resp.read()
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                resp.read()
+        except Exception as exc:  # pylint: disable=broad-except
+            raise Described(describe_error(exc, "Firebase PATCH (zapis danych)")) from exc
 
     # ---------- status events ----------
 
+    @staticmethod
+    def _describe(exc: BaseException) -> str:
+        return str(exc) if isinstance(exc, Described) else describe_error(exc)
+
     def _ok(self) -> None:
         with self._lock:
-            if self._error is not None or self._last_ok is None:
-                self._events.append(Event(
+            if self._last_ok is None:
+                self._problems.events.append(Event(
                     ts=time.time(), source=self.id, level=EventLevel.INFO, type="REMOTE_VIEW_OK",
                     message=f"Podgląd zdalny: wysyłam dane, link: {PAGES_URL}#k=<FURNACE_BRAIN_VIEWER_KEY>", data={}))
-            self._error = None
             self._last_ok = time.time()
 
-    def _fail(self, exc: Exception) -> None:
-        error = f"{type(exc).__name__}: {exc}".replace(self._secret, "***") if self._secret else str(exc)
+    def _failed(self, part: str, message: str) -> None:
         with self._lock:
-            if self._error is None:
-                self._events.append(Event(ts=time.time(), source=self.id, level=EventLevel.WARNING,
-                                          type="REMOTE_VIEW_ERROR", message=f"Podgląd zdalny: błąd wysyłania: {error}",
-                                          data={"error": error}))
-            self._error = error
+            self._problems.failed(part, message, "REMOTE_VIEW_ERROR")
+
+    def _succeeded(self, part: str) -> None:
+        with self._lock:
+            self._problems.ok(part, "REMOTE_VIEW_OK")
 
     # ---------- config ----------
 
