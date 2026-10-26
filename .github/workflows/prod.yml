@@ -103,5 +103,6 @@ jobs:
   view:
     needs: deploy
     uses: ./.github/workflows/pages.yml
+    secrets: inherit
     with:
       ref: prod

@@ -42,11 +42,21 @@ jobs:
       - name: Build site
         id: build
         env:
-          DB: ${{ vars.VIEWER_FIREBASE_URL }}
+          # a repository variable (or, if added there by mistake, a secret)
+          DB_VAR: ${{ vars.VIEWER_FIREBASE_URL }}
+          DB_SECRET: ${{ secrets.VIEWER_FIREBASE_URL }}
         run: |
+          DB="${DB_VAR:-$DB_SECRET}"
+          DB="$(printf '%s' "$DB" | tr -d '[:space:]"'"'"'')"   # spaces, newlines, quotes
+          DB="${DB%/}"
           if [[ "$DB" != https://* ]]; then
             # not set up yet - don't fail "Deploy to prod" because of it
-            echo "::warning::Remote view skipped: set the repository variable VIEWER_FIREBASE_URL (Firebase Realtime Database URL)"
+            if [[ -z "$DB_VAR$DB_SECRET" ]]; then
+              seen="nothing (no variable or secret named VIEWER_FIREBASE_URL)"
+            else
+              seen="'${DB:0:12}...' (${#DB} characters) - must start with https://"
+            fi
+            echo "::warning::Remote view skipped: VIEWER_FIREBASE_URL - got $seen"
             exit 0
           fi
           cp -r src/frontend site
