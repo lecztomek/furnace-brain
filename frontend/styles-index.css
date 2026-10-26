@@ -203,6 +203,21 @@ body {
 }
 
 /* version + uptime in the top-left corner of the diagram */
+/* pencil badge on tappable parts of the diagram (js/tap-hints.js) */
+.tap-hint {
+  cursor: pointer;
+}
+
+.tap-hint circle {
+  fill: #f59e0b;
+  stroke: #111;
+  stroke-width: 3px;
+}
+
+.tap-hint path {
+  fill: #111;
+}
+
 /* same look as the mode badge */
 .app-info {
   position: absolute;
