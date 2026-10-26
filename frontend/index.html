@@ -522,13 +522,7 @@
           </div>
 
           <div class="modal__body">
-            <div class="temp-stepper">
-              <button id="temp-minus" class="temp-stepper__btn" type="button">−</button>
-              <div class="temp-stepper__value">
-                <span id="temp-value">--</span><span class="temp-stepper__unit">°C</span>
-              </div>
-              <button id="temp-plus" class="temp-stepper__btn" type="button">+</button>
-            </div>
+            <div id="temp-fields"></div>
 
             <div class="temp-hint" id="temp-hint"></div>
 
@@ -547,7 +541,7 @@
           </div>
 
           <div class="modal__body">
-            <div style="text-align:center; font-weight:700; margin-bottom:8px;">Czas podawania</div>
+            <div class="setpoint-field__label">Czas podawania</div>
             <div class="temp-stepper">
               <button id="feeder-on-minus" class="temp-stepper__btn" type="button">−</button>
               <div class="temp-stepper__value">
@@ -556,7 +550,7 @@
               <button id="feeder-on-plus" class="temp-stepper__btn" type="button">+</button>
             </div>
 
-            <div style="text-align:center; font-weight:700; margin:16px 0 8px;">Przerwa podawania</div>
+            <div class="setpoint-field__label feeder-second-label">Przerwa podawania</div>
             <div class="temp-stepper">
               <button id="feeder-off-minus" class="temp-stepper__btn" type="button">−</button>
               <div class="temp-stepper__value">
@@ -565,16 +559,16 @@
               <button id="feeder-off-plus" class="temp-stepper__btn" type="button">+</button>
             </div>
 
-            <div style="display:flex; flex-direction:column; gap:10px; margin-top:18px;">
-              <button class="temp-stepper__btn feeder-preset-btn" type="button" data-feed-on="8" data-feed-off="56" style="font-size: 28px;">
+            <div class="feeder-presets">
+              <button class="temp-stepper__btn feeder-preset-btn" type="button" data-feed-on="8" data-feed-off="56">
                 Czysty groszek — 8s / 56s
               </button>
 
-              <button class="temp-stepper__btn feeder-preset-btn" type="button" data-feed-on="8" data-feed-off="48" style="font-size: 28px;">
+              <button class="temp-stepper__btn feeder-preset-btn" type="button" data-feed-on="8" data-feed-off="48">
                 Zrębki 30% + groszek — 8s / 48s
               </button>
 
-              <button class="temp-stepper__btn feeder-preset-btn" type="button" data-feed-on="8" data-feed-off="35" style="font-size: 28px;">
+              <button class="temp-stepper__btn feeder-preset-btn" type="button" data-feed-on="8" data-feed-off="35">
                 Zrębki — 8s / 35s
               </button>
             </div>

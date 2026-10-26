@@ -605,6 +605,9 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
 .modal__card {
   position: relative;
   width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
   border-radius: 22px;
   background: #111b22;
   border: 1px solid #2c3b47;
@@ -681,6 +684,62 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
   font-size: 22px;
   opacity: 0.85;
   font-weight: 800;
+}
+
+.setpoint-field + .setpoint-field {
+  margin-top: 16px;
+}
+
+.feeder-second-label {
+  margin-top: 16px;
+}
+
+.feeder-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.feeder-presets .feeder-preset-btn {
+  font-size: 28px;
+}
+
+/* short screens (tablets, 800x480 panel): popups must fit without scrolling */
+@media (max-height: 900px) {
+  .modal__card { padding: 10px 14px; }
+  .modal__header { padding: 2px 4px 8px; }
+  .modal__title { font-size: 20px; }
+  .modal__close { padding: 4px 10px; }
+  .modal__body { padding: 8px 4px 4px; }
+
+  .temp-stepper { margin-top: 4px; gap: 10px; }
+  .temp-stepper__btn,
+  .temp-stepper__value { height: clamp(50px, 8.5vh, 72px); font-size: clamp(28px, 4.5vh, 40px); border-radius: 16px; }
+  .temp-stepper__unit { font-size: 18px; }
+
+  .setpoint-field + .setpoint-field { margin-top: 8px; }
+  .setpoint-field__label { margin-bottom: 4px; }
+  .feeder-second-label { margin-top: 8px; }
+
+  .feeder-presets { flex-direction: row; gap: 8px; margin-top: 10px; }
+  .feeder-presets .feeder-preset-btn {
+    flex: 1;
+    height: auto;
+    min-height: clamp(46px, 7vh, 64px);
+    padding: 6px;
+    font-size: clamp(14px, 2.2vh, 18px);
+    line-height: 1.2;
+  }
+
+  .temp-hint { margin-top: 6px; font-size: 14px; min-height: 0; }
+  .temp-save { margin-top: 8px; height: clamp(46px, 7.5vh, 60px); }
+}
+
+.setpoint-field__label {
+  text-align: center;
+  font-weight: 700;
+  margin-bottom: 8px;
 }
 
 .temp-hint {

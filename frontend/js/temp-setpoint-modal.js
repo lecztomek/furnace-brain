@@ -1,5 +1,36 @@
+// Setpoint popup for the main page: tap an element of the diagram, adjust
+// one or more settings with -/+ and save. Ranges, steps, units and labels
+// come from the module's schema.yaml, so the popup can't offer a value the
+// backend would reject.
 (() => {
   const CONFIG_API_BASE = "/api/config";
+
+  // ===== Targets: element on the diagram -> settings shown in the popup =====
+  const TARGETS = {
+    radiators: {
+      opener: "radiators-temp",
+      title: "Ustaw temp grzejników",
+      fields: [{ moduleId: "mixer", key: "target_temp" }],
+    },
+    pump_co: {
+      opener: "pump-co",
+      title: "Pompa CO",
+      fields: [{ moduleId: "pump_co", key: "boiler_on_temp" }],
+    },
+    pump_cwu: {
+      opener: "pump-cwu",
+      title: "Pompa CWU",
+      fields: [{ moduleId: "pump_cwu", key: "boiler_on_temp" }],
+    },
+    blower: {
+      opener: "blower",
+      title: "Dmuchawa",
+      fields: [
+        { moduleId: "blower", key: "cycle_time_s" },
+        { moduleId: "blower", key: "base_fan_percent" },
+      ],
+    },
+  };
 
   // ===== Helpers =====
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -10,120 +41,137 @@
     return Math.round(v * inv) / inv;
   };
 
-  async function apiGetSingle(moduleId, key) {
-    const url = `${CONFIG_API_BASE}/value/${encodeURIComponent(moduleId)}/${encodeURIComponent(key)}`;
-    const res = await fetch(url, {
-      method: "GET",
-      headers: { "Accept": "application/json" },
-    });
+  const fmt = (v) => String(Math.round(v * 100) / 100);
+
+  async function apiJson(url, options = {}) {
+    const res = await fetch(url, { headers: { "Accept": "application/json" }, ...options });
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
-      throw new Error(`GET ${url} -> ${res.status} ${txt}`);
+      throw new Error(`${options.method || "GET"} ${url} -> ${res.status} ${txt}`);
     }
-    const data = await res.json();
-    return data?.value;
+    return res.json();
   }
 
-  async function apiSetSingle(moduleId, key, value) {
-    const url = `${CONFIG_API_BASE}/value/${encodeURIComponent(moduleId)}/${encodeURIComponent(key)}`;
-    const res = await fetch(url, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify(value),
-    });
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      throw new Error(`PUT ${url} -> ${res.status} ${txt}`);
+  const schemaCache = {};
+  async function fieldDef(moduleId, key) {
+    if (!schemaCache[moduleId]) {
+      schemaCache[moduleId] = apiJson(`${CONFIG_API_BASE}/schema/${encodeURIComponent(moduleId)}`);
     }
-    const data = await res.json();
-    return data?.value;
+    const schema = await schemaCache[moduleId];
+    const def = (schema.fields || []).find((f) => f.key === key);
+    if (!def) throw new Error(`Brak pola ${moduleId}.${key} w schema`);
+    return def;
+  }
+
+  function valueUrl(moduleId, key) {
+    return `${CONFIG_API_BASE}/value/${encodeURIComponent(moduleId)}/${encodeURIComponent(key)}`;
   }
 
   // ===== Modal elements =====
   const modal = document.getElementById("temp-modal");
-  const tempValueEl = document.getElementById("temp-value");
+  const fieldsEl = document.getElementById("temp-fields");
   const hintEl = document.getElementById("temp-hint");
-  const btnMinus = document.getElementById("temp-minus");
-  const btnPlus = document.getElementById("temp-plus");
   const btnSave = document.getElementById("temp-save");
   const titleEl = document.getElementById("temp-modal-title");
 
-  const radiatorsOpener = document.getElementById("radiators-temp");
-  const radiatorsSetpointText = document.getElementById("radiators-setpoint-text");
-
   // ===== State =====
-  let activeKey = null;
-  let current = null; // null = jeszcze nie wczytano
+  let active = null; // { cfg, fields: [{ moduleId, key, def, value, loaded, valueEl }] }
   let isSaving = false;
 
-  // ===== Targets =====
-  const TARGETS = {
-    radiators_setpoint: {
-      title: "Ustaw temp grzejników",
-      min: 10,
-      max: 80,
-      step: 0.5,
-
-      moduleId: "mixer",
-      configKey: "target_temp",
-
-      openerEl: radiatorsOpener,
-
-      // TYLKO backend. Jak się nie uda -> błąd, bez defaultów.
-      read: async () => {
-        const v = await apiGetSingle("mixer", "target_temp");
-        const num = Number(v);
-        if (!Number.isFinite(num)) {
-          throw new Error(
-            `Backend zwrócił nie-liczbę dla mixer.target_temp: ${JSON.stringify(v)}`
-          );
-        }
-        return num;
-      },
-
-      write: (v) => {
-        // format: pokaż 1 miejsce po przecinku tylko gdy potrzeba
-        const s = (Math.round(v * 2) / 2).toString(); // 0.5 kroki
-        if (radiatorsSetpointText) {
-          radiatorsSetpointText.textContent = `${s}°C`;
-        } else {
-          hintEl.textContent = `Ustawiono (GUI): ${s}°C`;
-        }
-      }
-    }
-  };
-
-  // ===== Modal functions =====
-  function setModalValue(v, cfg) {
-    const clamped = clamp(v, cfg.min, cfg.max);
-    const stepped = roundToStep(clamped, cfg.step);
-    current = stepped;
-
-    // wyświetlanie: 0.5 ma sens pokazać bez trailing .0, np. 45 zamiast 45.0
-    const display = (Math.round(stepped * 2) / 2).toString();
-    tempValueEl.textContent = display;
-    hintEl.textContent = `Zakres: ${cfg.min}–${cfg.max}°C, krok: ${cfg.step}°C`;
+  function setValue(field, v) {
+    const min = Number(field.def.min ?? -Infinity);
+    const max = Number(field.def.max ?? Infinity);
+    const step = Number(field.def.step ?? 1);
+    field.value = roundToStep(clamp(v, min, max), step);
+    field.valueEl.textContent = fmt(field.value);
   }
 
-  async function openModal(key) {
-    const cfg = TARGETS[key];
-    if (!cfg) return;
+  function renderField(field, withLabel) {
+    const wrap = document.createElement("div");
+    wrap.className = "setpoint-field";
 
-    activeKey = key;
+    if (withLabel) {
+      const label = document.createElement("div");
+      label.className = "setpoint-field__label";
+      label.textContent = field.def.label || field.key;
+      wrap.appendChild(label);
+    }
+
+    const stepper = document.createElement("div");
+    stepper.className = "temp-stepper";
+
+    const minus = document.createElement("button");
+    minus.type = "button";
+    minus.className = "temp-stepper__btn";
+    minus.textContent = "−";
+
+    const valueBox = document.createElement("div");
+    valueBox.className = "temp-stepper__value";
+    field.valueEl = document.createElement("span");
+    field.valueEl.textContent = "--";
+    const unit = document.createElement("span");
+    unit.className = "temp-stepper__unit";
+    unit.textContent = field.def.unit || "";
+    valueBox.append(field.valueEl, unit);
+
+    const plus = document.createElement("button");
+    plus.type = "button";
+    plus.className = "temp-stepper__btn";
+    plus.textContent = "+";
+
+    const step = Number(field.def.step ?? 1);
+    minus.addEventListener("click", () => field.value !== null && setValue(field, field.value - step));
+    plus.addEventListener("click", () => field.value !== null && setValue(field, field.value + step));
+
+    stepper.append(minus, valueBox, plus);
+    wrap.appendChild(stepper);
+    fieldsEl.appendChild(wrap);
+  }
+
+  function rangeHint(fields) {
+    return fields
+      .map((f) => {
+        const u = f.def.unit || "";
+        const name = fields.length > 1 ? `${f.def.label || f.key}: ` : "";
+        return `${name}${f.def.min}–${f.def.max}${u}, krok ${f.def.step ?? 1}${u}`;
+      })
+      .join(" • ");
+  }
+
+  async function openModal(cfg) {
+    active = { cfg, fields: [] };
     titleEl.textContent = cfg.title;
-
-    // placeholder zanim dojdzie backend
-    current = null;
-    tempValueEl.textContent = "--";
+    fieldsEl.innerHTML = "";
     hintEl.textContent = "Wczytywanie…";
     btnSave.disabled = true; // dopóki nie ma wartości, nie zapisujemy
 
     modal.classList.remove("hidden");
     window.addEventListener("keydown", onEsc);
 
+    const opened = active;
     try {
-      const initial = await cfg.read();
-      setModalValue(initial, cfg);
+      const fields = await Promise.all(
+        cfg.fields.map(async (f) => {
+          const [def, data] = await Promise.all([
+            fieldDef(f.moduleId, f.key),
+            apiJson(valueUrl(f.moduleId, f.key)),
+          ]);
+          const num = Number(data?.value);
+          if (!Number.isFinite(num)) {
+            throw new Error(`Backend zwrócił nie-liczbę dla ${f.moduleId}.${f.key}: ${JSON.stringify(data?.value)}`);
+          }
+          return { ...f, def, value: null, loaded: num, valueEl: null };
+        })
+      );
+      if (active !== opened) return; // zamknięte w trakcie wczytywania
+
+      active.fields = fields;
+      fields.forEach((f) => {
+        renderField(f, fields.length > 1);
+        setValue(f, f.loaded);
+        f.loaded = f.value;
+      });
+      hintEl.textContent = rangeHint(fields);
       btnSave.disabled = false;
     } catch (err) {
       console.error(err);
@@ -135,8 +183,7 @@
 
   function closeModal() {
     modal.classList.add("hidden");
-    activeKey = null;
-    current = null;
+    active = null;
     isSaving = false;
     btnSave.disabled = false;
     btnSave.textContent = "Zapisz";
@@ -153,40 +200,23 @@
     if (close) closeModal();
   });
 
-  btnMinus.addEventListener("click", () => {
-    if (!activeKey) return;
-    const cfg = TARGETS[activeKey];
-    if (current === null) return; // jeszcze nie wczytano
-    setModalValue(current - cfg.step, cfg);
-  });
-
-  btnPlus.addEventListener("click", () => {
-    if (!activeKey) return;
-    const cfg = TARGETS[activeKey];
-    if (current === null) return; // jeszcze nie wczytano
-    setModalValue(current + cfg.step, cfg);
-  });
-
   btnSave.addEventListener("click", async () => {
-    if (!activeKey) return;
-    if (isSaving) return;
-
-    const cfg = TARGETS[activeKey];
-    if (current === null) return;
+    if (!active || isSaving || !active.fields.length) return;
 
     isSaving = true;
     btnSave.disabled = true;
     btnSave.textContent = "Zapisywanie…";
 
     try {
-      const saved = await apiSetSingle(cfg.moduleId, cfg.configKey, current);
-      const num = Number(saved);
-      if (!Number.isFinite(num)) {
-        throw new Error(`Backend zwrócił nie-liczbę po zapisie: ${JSON.stringify(saved)}`);
+      // only changed fields
+      for (const f of active.fields.filter((f) => f.value !== f.loaded)) {
+        await apiJson(valueUrl(f.moduleId, f.key), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify(f.value),
+        });
+        f.loaded = f.value;
       }
-
-      const finalValue = roundToStep(clamp(num, cfg.min, cfg.max), cfg.step);
-      cfg.write(finalValue);
       closeModal();
     } catch (err) {
       console.error(err);
@@ -198,13 +228,13 @@
   });
 
   // ===== Wire openers =====
-  Object.entries(TARGETS).forEach(([key, cfg]) => {
-    if (!cfg.openerEl) {
-      console.warn(`Brak openerEl dla targetu: ${key}`);
+  Object.values(TARGETS).forEach((cfg) => {
+    const el = document.getElementById(cfg.opener);
+    if (!el) {
+      console.warn(`Brak elementu #${cfg.opener} dla okna "${cfg.title}"`);
       return;
     }
-    cfg.openerEl.style.cursor = "pointer";
-    cfg.openerEl.addEventListener("click", () => openModal(key));
+    el.style.cursor = "pointer";
+    el.addEventListener("click", () => openModal(cfg));
   });
 })();
-
