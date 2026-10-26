@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, asdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import time
@@ -88,6 +90,23 @@ class WorkPowerConfig:
     # limiter szybkości zmian mocy w WORK
     max_slew_rate_percent_per_min: float = 0.0  # 0.0 = wyłączony
 
+    # --- improvements from the 2025/26 season data (all off by default) ---
+    # classic integral with anti-windup instead of the leaky one: with the
+    # leaky integral the boiler settles (kp + ki*window) x error below the
+    # setpoint - about 1.5 C on this boiler
+    integral_classic: bool = False
+    # extra power while the boiler temperature falls fast (e.g. baths in the
+    # evening): the fall shows ~20 min before the error is large
+    rate_boost_enabled: bool = False
+    rate_boost_window_s: float = 240.0   # slope measured over this time
+    rate_boost_deadband: float = 0.1     # C/min - normal fluctuations stay below
+    rate_boost_gain: float = 150.0       # % power per C/min of fall above the deadband
+    rate_boost_max: float = 30.0         # % at most
+    # higher setpoint in the evening: a heat buffer before the baths
+    evening_boost_degC: float = 0.0      # 0 = off
+    evening_boost_from: str = "19:00"
+    evening_boost_to: str = "22:00"
+
     # --- PERSIST STANU (jak history) ---
     state_dir: str = "data"  # względnie do katalogu modułu
     state_file: str = "power_work_state.yaml"
@@ -152,6 +171,12 @@ class WorkPowerModule(ModuleInterface):
         # Slew rate timestamp
         self._last_power_ts: Optional[float] = None
 
+        # boiler temperature samples for the fall rate: (ts_mono, temp)
+        self._temp_samples: deque = deque()
+        self._rate_boost: float = 0.0
+        self._rate_boost_peak: float = 0.0
+        self._now_wall: float = time.time()
+
         # Restore
         self._restored_state_meta: Optional[Dict[str, Any]] = None
         self._try_restore_state_from_disk()
@@ -172,12 +197,14 @@ class WorkPowerModule(ModuleInterface):
         boiler_temp = sensors.boiler_temp
         mode_enum = system_state.mode
         in_work = (mode_enum == BoilerMode.WORK)
+        self._now_wall = float(now)
 
         prev_power = self._power
         prev_in_work = self._last_in_work
 
         # CZAS KONTROLNY: monotonic z SystemState (nie zależy od zmiany czasu/NTP)
         now_ctrl = float(getattr(system_state, "ts_mono", now))
+        self._sample_temp(now_ctrl, boiler_temp)
 
         enabled_now = bool(self._config.enabled)
         if enabled_now != self._last_enabled:
@@ -276,9 +303,14 @@ class WorkPowerModule(ModuleInterface):
 
         power = base_power
 
+        # Fast fall of the boiler temperature -> extra power right away
+        boost = self._compute_rate_boost()
+        self._log_rate_boost(now, boost, boiler_temp, events)
+        power += boost
+
         # Korekta przegrzania
         if boiler_temp is not None:
-            t_set = self._config.boiler_set_temp
+            t_set = self._setpoint()
             start = max(self._config.overtemp_start_degC, 0.0)
 
             if boiler_temp > t_set + start:
@@ -330,7 +362,7 @@ class WorkPowerModule(ModuleInterface):
                     type="WORK_POWER_LEVEL_CHANGED",
                     message=(
                         f"power_work: {prev_power:.1f}% → {self._power:.1f}% "
-                        f"(T_kotła={boiler_temp:.1f}°C, zadana={self._config.boiler_set_temp:.1f}°C)"
+                        f"(T_kotła={boiler_temp:.1f}°C, zadana={self._setpoint():.1f}°C)"
                         if boiler_temp is not None
                         else f"power_work: {prev_power:.1f}% → {self._power:.1f}% (brak T_kotła)"
                     ),
@@ -338,7 +370,8 @@ class WorkPowerModule(ModuleInterface):
                         "prev_power": prev_power,
                         "power": self._power,
                         "boiler_temp": boiler_temp,
-                        "boiler_set_temp": self._config.boiler_set_temp,
+                        "boiler_set_temp": self._setpoint(),
+                        "rate_boost": self._rate_boost,
                     },
                 )
             )
@@ -373,7 +406,7 @@ class WorkPowerModule(ModuleInterface):
         Jeden krok PID-a – z oknem całki integral_window_s.
         UWAGA: now_ctrl = czas monotoniczny (SystemState.ts_mono).
         """
-        error = self._config.boiler_set_temp - boiler_temp
+        error = self._setpoint() - boiler_temp
 
         if self._last_tick_ts is None:
             dt = None
@@ -382,8 +415,10 @@ class WorkPowerModule(ModuleInterface):
             if dt <= 0:
                 dt = None
 
+        if dt is not None and self._config.integral_classic:
+            self._integrate_classic(error, dt)
         # Część I z "oknem czasowym" – leaky integrator
-        if dt is not None:
+        elif dt is not None:
             window = max(self._config.integral_window_s, 1.0)
             decay = 1.0 - dt / window
             if decay < 0.0:
@@ -409,11 +444,91 @@ class WorkPowerModule(ModuleInterface):
 
         return power
 
+    def _integrate_classic(self, error: float, dt: float) -> None:
+        """
+        Plain integral (no forgetting) with anti-windup: it doesn't grow while
+        the output is already at max power and the boiler is still too cold
+        (or at min power and too hot), and the I term stays within +-max power.
+        """
+        candidate = self._integral + error * dt
+        if self._config.ki > 0:
+            out = self._config.kp * error + self._config.ki * candidate + self._rate_boost
+            saturated = (out > self._config.max_power and error > 0) or (out < self._config.min_power and error < 0)
+            if not saturated:
+                self._integral = candidate
+            limit = max(self._config.max_power, 1.0) / self._config.ki
+            self._integral = max(-limit, min(limit, self._integral))
+
+    # ---------- setpoint / fall rate ----------
+
+    def _setpoint(self) -> float:
+        """Setpoint, raised in the evening window when evening_boost_degC > 0."""
+        base = self._config.boiler_set_temp
+        extra = self._config.evening_boost_degC
+        if extra <= 0:
+            return base
+        now = datetime.fromtimestamp(self._now_wall).strftime("%H:%M")
+        start, end = self._config.evening_boost_from, self._config.evening_boost_to
+        inside = (start <= now < end) if start <= end else (now >= start or now < end)
+        return base + extra if inside else base
+
+    def _sample_temp(self, now_ctrl: float, boiler_temp: Optional[float]) -> None:
+        if boiler_temp is None:
+            return
+        if self._temp_samples and now_ctrl - self._temp_samples[-1][0] < 5.0:
+            return  # one sample per 5 s is plenty for minutes-long trends
+        self._temp_samples.append((now_ctrl, float(boiler_temp)))
+        window = max(self._config.rate_boost_window_s, 30.0)
+        while self._temp_samples and self._temp_samples[0][0] < now_ctrl - window:
+            self._temp_samples.popleft()
+
+    def _fall_rate(self) -> Optional[float]:
+        """Least-squares slope of the boiler temperature [C/min], None until the window is filled."""
+        pts = self._temp_samples
+        window = max(self._config.rate_boost_window_s, 30.0)
+        if len(pts) < 6 or pts[-1][0] - pts[0][0] < 0.75 * window:
+            return None
+        n = len(pts)
+        mt = sum(t for t, _ in pts) / n
+        mv = sum(v for _, v in pts) / n
+        den = sum((t - mt) ** 2 for t, _ in pts)
+        if den <= 0:
+            return None
+        return 60.0 * sum((t - mt) * (v - mv) for t, v in pts) / den
+
+    def _compute_rate_boost(self) -> float:
+        boost = 0.0
+        if self._config.rate_boost_enabled:
+            slope = self._fall_rate()
+            if slope is not None:
+                fall = -slope - max(self._config.rate_boost_deadband, 0.0)
+                if fall > 0:
+                    boost = min(self._config.rate_boost_gain * fall, max(self._config.rate_boost_max, 0.0))
+        self._rate_boost = boost
+        return boost
+
+    def _log_rate_boost(self, now: float, boost: float, boiler_temp: Optional[float], events: List[Event]) -> None:
+        if boost > 0 and self._rate_boost_peak == 0:
+            events.append(Event(
+                ts=now, source=self.id, level=EventLevel.INFO, type="WORK_POWER_RATE_BOOST_ON",
+                message=f"power_work: szybki spadek temperatury - dodatkowa moc +{boost:.0f}% (T_kotła={boiler_temp}°C)",
+                data={"boost": boost, "boiler_temp": boiler_temp, "slope": self._fall_rate()},
+            ))
+        if boost > 0:
+            self._rate_boost_peak = max(self._rate_boost_peak, boost)
+        elif self._rate_boost_peak > 0:
+            events.append(Event(
+                ts=now, source=self.id, level=EventLevel.INFO, type="WORK_POWER_RATE_BOOST_OFF",
+                message=f"power_work: koniec dodatkowej mocy (maks. +{self._rate_boost_peak:.0f}%)",
+                data={"peak": self._rate_boost_peak, "boiler_temp": boiler_temp},
+            ))
+            self._rate_boost_peak = 0.0
+
     def _track_to_power(self, now_ctrl: float, boiler_temp: float, actual_power: float) -> None:
         """
         Tryb śledzenia (bumpless transfer) – czas monotoniczny.
         """
-        error = self._config.boiler_set_temp - boiler_temp
+        error = self._setpoint() - boiler_temp
 
         # Aktualizujemy czas i błąd, żeby _pid_step miał później sensowne dt
         self._last_tick_ts = now_ctrl
@@ -637,6 +752,8 @@ class WorkPowerModule(ModuleInterface):
         if "max_slew_rate_percent_per_min" in values:
             self._config.max_slew_rate_percent_per_min = float(values["max_slew_rate_percent_per_min"])
 
+        self._apply_boost_values(values)
+
         # persist: katalog/pliki/limity
         if "state_dir" in values:
             # (ZMIANA: zostawiamy w configu jak było, ale ścieżka i tak pochodzi z data_root)
@@ -697,8 +814,22 @@ class WorkPowerModule(ModuleInterface):
             if field_name in data:
                 setattr(self._config, field_name, str(data[field_name]))
 
+        self._apply_boost_values(data)
+
         # (ZMIANA: katalog nie zależy od state_dir; aktualizujemy tylko plik)
         self._state_path = self._state_dir / self._config.state_file
+
+    def _apply_boost_values(self, values: Dict[str, Any]) -> None:
+        for name in ("integral_classic", "rate_boost_enabled"):
+            if name in values:
+                setattr(self._config, name, bool(values[name]))
+        for name in ("rate_boost_window_s", "rate_boost_deadband", "rate_boost_gain",
+                     "rate_boost_max", "evening_boost_degC"):
+            if name in values:
+                setattr(self._config, name, float(values[name]))
+        for name in ("evening_boost_from", "evening_boost_to"):
+            if name in values:
+                setattr(self._config, name, str(values[name]).strip())
 
     def _save_config_to_file(self) -> None:
         data = asdict(self._config)
