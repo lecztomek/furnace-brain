@@ -58,14 +58,6 @@
       .replaceAll("'", "&#039;");
   };
 
-  const safeJson = (obj) => {
-    try {
-      return JSON.stringify(obj ?? {}, null, 2);
-    } catch {
-      return "{}";
-    }
-  };
-
   const formatTs = (item) => {
     // Preferujemy ts_iso z backendu (z CSV routera), fallback na ts
     if (item?.ts_iso) {
@@ -263,27 +255,74 @@
       msg.className = "log-msg";
       msg.textContent = it?.message ?? "";
 
-      const details = document.createElement("div");
-      details.className = "log-details";
-      details.innerHTML = `
-        <div style="margin-bottom:8px; opacity:.95;">
-          <strong>Typ:</strong> ${escapeHtml(it?.type ?? "--")}
-        </div>
-        <pre>${escapeHtml(safeJson(it?.data))}</pre>
-      `;
-
       row.appendChild(ts);
       row.appendChild(level);
       row.appendChild(src);
       row.appendChild(msg);
-      row.appendChild(details);
 
-      row.addEventListener("click", () => {
-        row.classList.toggle("is-expanded");
-      });
+      row.addEventListener("click", () => openDetails(it, lvlUi));
 
       elList.appendChild(row);
     }
+  }
+
+  // ====== DETAILS POPUP ======
+  const elPopup = document.getElementById("log-popup");
+
+  function formatValue(v) {
+    if (v === null || v === undefined) return "--";
+    if (typeof v === "number") return String(Math.round(v * 100) / 100);
+    if (typeof v === "object") return JSON.stringify(v);
+    return String(v);
+  }
+
+  function openDetails(it, lvlUi) {
+    if (!elPopup) return;
+    const card = elPopup.querySelector(".log-popup");
+    card.className = `modal__card log-popup level-${lvlUi}`;
+
+    elPopup.querySelector("#log-popup-level").textContent = lvlUi || "--";
+    elPopup.querySelector("#log-popup-ts").textContent = formatTs(it);
+    elPopup.querySelector("#log-popup-src").textContent = it?.source ?? "--";
+    elPopup.querySelector("#log-popup-type").textContent = it?.type ?? "--";
+    elPopup.querySelector("#log-popup-msg").textContent = it?.message ?? "";
+
+    // event data as key/value rows ("seq" is an internal counter)
+    const table = elPopup.querySelector("#log-popup-data");
+    table.innerHTML = "";
+    const data = it?.data && typeof it.data === "object" ? it.data : null;
+    const entries = data ? Object.entries(data).filter(([k]) => k !== "seq") : [];
+    if (!entries.length) {
+      table.innerHTML = `<div class="log-popup__empty">brak dodatkowych danych</div>`;
+    }
+    for (const [key, value] of entries) {
+      const k = document.createElement("div");
+      k.className = "log-popup__key";
+      k.textContent = key;
+      const v = document.createElement("div");
+      v.className = "log-popup__value";
+      v.textContent = formatValue(value);
+      table.append(k, v);
+    }
+
+    elPopup.classList.remove("hidden");
+    window.addEventListener("keydown", onPopupEsc);
+  }
+
+  function closeDetails() {
+    if (!elPopup) return;
+    elPopup.classList.add("hidden");
+    window.removeEventListener("keydown", onPopupEsc);
+  }
+
+  function onPopupEsc(e) {
+    if (e.key === "Escape") closeDetails();
+  }
+
+  if (elPopup) {
+    elPopup.addEventListener("click", (e) => {
+      if (e.target?.getAttribute?.("data-close")) closeDetails();
+    });
   }
 
   // ====== EVENTS (BRAK POLLINGU) ======

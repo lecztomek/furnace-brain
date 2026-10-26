@@ -122,7 +122,7 @@
 
               <!-- stopka/legend (opcjonalnie) -->
               <div class="logs-hint">
-                Tip: kliknij wpis, żeby rozwinąć szczegóły (stacktrace / dane).
+                Tip: kliknij wpis, żeby zobaczyć szczegóły.
               </div>
             </div>
           </div>
@@ -203,6 +203,28 @@
       class="menu-overlay"
       aria-label="Zamknij menu"
     ></label>
+
+    <!-- POPUP SZCZEGÓŁÓW WPISU -->
+    <div id="log-popup" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="log-popup-msg">
+      <div class="modal__overlay" data-close="1"></div>
+      <div class="modal__card log-popup">
+        <div class="modal__header">
+          <div class="log-popup__head">
+            <span id="log-popup-level" class="log-level">--</span>
+            <span id="log-popup-ts" class="log-popup__ts">--</span>
+          </div>
+          <button class="modal__close" type="button" aria-label="Zamknij" data-close="1">✕</button>
+        </div>
+        <div class="modal__body">
+          <div id="log-popup-msg" class="log-popup__msg"></div>
+          <div class="log-popup__meta">
+            <span>Źródło: <strong id="log-popup-src">--</strong></span>
+            <span>Typ: <strong id="log-popup-type">--</strong></span>
+          </div>
+          <div id="log-popup-data" class="log-popup__data"></div>
+        </div>
+      </div>
+    </div>
 
     <script src="js/side-clock.js"></script>
     <script src="js/mode-control.js"></script>

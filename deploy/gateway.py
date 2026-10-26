@@ -44,6 +44,13 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(data)
         conn.close()
 
+    def end_headers(self):
+        # static files: browsers revalidate every time, so after a deploy the
+        # tablet never mixes cached old files with new ones (unchanged = 304)
+        if not self.path.startswith("/api/"):
+            self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
+
     def do_OPTIONS(self):
         if self.path.startswith("/api/"):
             return self._proxy()

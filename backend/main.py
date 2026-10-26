@@ -305,4 +305,12 @@ app.include_router(config_router, prefix="/api")
 SERVE_FRONTEND_DIR = os.getenv("FURNACE_BRAIN_SERVE_FRONTEND")
 if SERVE_FRONTEND_DIR:
     from fastapi.staticfiles import StaticFiles
-    app.mount("/", StaticFiles(directory=SERVE_FRONTEND_DIR, html=True), name="frontend")
+
+    class NoCacheStaticFiles(StaticFiles):
+        # browsers revalidate every time, so a new version is never mixed with cached old files
+        async def get_response(self, path, scope):
+            response = await super().get_response(path, scope)
+            response.headers["Cache-Control"] = "no-cache"
+            return response
+
+    app.mount("/", NoCacheStaticFiles(directory=SERVE_FRONTEND_DIR, html=True), name="frontend")
