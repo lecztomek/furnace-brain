@@ -877,12 +877,6 @@ html, body {
     gap: 12px;
   }
 
-  .side-menu {
-    position: static !important;
-    width: 100% !important;
-    height: auto !important;
-  }
-
   .diagram-wrapper,
   .stats-v2,
   .stats-v2-top,

@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from backend.core.state import SystemState
 from backend.core.state_store import StateStore
+from backend.core.csv_utils import no_nul
 
 
 def create_stats_router(
@@ -102,7 +103,7 @@ def create_stats_router(
         for path in reversed(paths):
             try:
                 with path.open("r", encoding="utf-8", newline="") as f:
-                    reader = csv.DictReader(f, delimiter=";")
+                    reader = csv.DictReader(no_nul(f), delimiter=";")
                     for row in reader:
                         ts_str = (row.get("ts_end_iso") or "").strip()
                         if not ts_str:
@@ -290,7 +291,7 @@ def create_stats_router(
         for path in sorted(stats_path.glob(f"{file_prefix_5m}_*.csv")):
             try:
                 with path.open("r", encoding="utf-8", newline="") as f:
-                    reader = csv.DictReader(f, delimiter=";")
+                    reader = csv.DictReader(no_nul(f), delimiter=";")
                     for row in reader:
                         ts_str = (row.get("ts_end_iso") or "").strip()
                         if not ts_str:
@@ -338,7 +339,7 @@ def create_stats_router(
         for path in sorted(stats_path.glob(f"{file_prefix_5m}_*.csv")):
             try:
                 with path.open("r", encoding="utf-8", newline="") as f:
-                    reader = csv.reader(f, delimiter=";")
+                    reader = csv.reader(no_nul(f), delimiter=";")
                     header = next(reader, None)
                     if header:
                         return {"fields": header}
@@ -378,7 +379,7 @@ def create_stats_router(
 
         try:
             with daily_path.open("r", encoding="utf-8", newline="") as f:
-                reader = csv.DictReader(f, delimiter=";")
+                reader = csv.DictReader(no_nul(f), delimiter=";")
                 for row in reader:
                     d_str = (row.get("date") or "").strip()
                     if not d_str:
@@ -424,7 +425,7 @@ def create_stats_router(
 
         try:
             with daily_path.open("r", encoding="utf-8", newline="") as f:
-                reader = csv.reader(f, delimiter=";")
+                reader = csv.reader(no_nul(f), delimiter=";")
                 header = next(reader, None)
                 if not header:
                     return {"fields": []}

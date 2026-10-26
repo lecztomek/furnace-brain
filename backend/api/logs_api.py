@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 import csv
 import json
 from fastapi import APIRouter, HTTPException, Query
+from backend.core.csv_utils import no_nul
 
 
 def create_logs_router(
@@ -119,7 +120,7 @@ def create_logs_router(
         for path in _iter_files_sorted(reverse=False):
             try:
                 with path.open("r", encoding="utf-8", newline="") as f:
-                    reader = csv.DictReader(f, delimiter=";")
+                    reader = csv.DictReader(no_nul(f), delimiter=";")
                     for row in reader:
                         parsed = _parse_row(row)
                         if not parsed:
@@ -191,7 +192,7 @@ def create_logs_router(
         for path in _iter_files_sorted(reverse=True):
             try:
                 with path.open("r", encoding="utf-8", newline="") as f:
-                    reader = csv.DictReader(f, delimiter=";")
+                    reader = csv.DictReader(no_nul(f), delimiter=";")
                     rows = list(reader)
             except OSError:
                 continue
@@ -232,7 +233,7 @@ def create_logs_router(
         for path in _iter_files_sorted(reverse=False):
             try:
                 with path.open("r", encoding="utf-8", newline="") as f:
-                    reader = csv.reader(f, delimiter=";")
+                    reader = csv.reader(no_nul(f), delimiter=";")
                     header = next(reader, None)
                     if header:
                         return {"fields": header}

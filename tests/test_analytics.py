@@ -68,3 +68,12 @@ def test_efficiency_metrics():
     warm = DayAgg(date="2026-01-11", seconds=86400, coal_kg=5.0)
     warm.sums["outside"], warm.weights["outside"] = 17.0 * 86400, 86400  # 1 degree-day only
     assert kg_per_degree_day([warm]) is None                          # too few degree-days
+
+
+def test_damaged_file_with_nul_bytes(tmp_path):
+    """A power cut leaves NUL bytes in a CSV - rows around them are still read."""
+    from backend.core.analytics import history_rows
+    p = tmp_path / "boiler_20261025_10.csv"
+    p.write_bytes(b"data_czas;temp_pieca\n2026-10-25T10:00:00;55\n\x00\x00\x00\x002026-10-25T10:00:30;56\n")
+    rows = history_rows(tmp_path, date(2026, 10, 25))
+    assert [r["temp_pieca"] for r in rows] == ["55", "56"]

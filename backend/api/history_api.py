@@ -8,6 +8,7 @@ import csv
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.core.downsample import downsample
+from backend.core.csv_utils import no_nul
 
 
 def create_history_router(
@@ -82,7 +83,7 @@ def create_history_router(
                 continue
             try:
                 with path.open("r", encoding="utf-8", newline="") as f:
-                    reader = csv.DictReader(f, delimiter=";")
+                    reader = csv.DictReader(no_nul(f), delimiter=";")
                     for row in reader:
                         ts_str = row.get("data_czas")
                         if not ts_str:
@@ -145,7 +146,7 @@ def create_history_router(
         for path in sorted(history_path.glob(f"{file_prefix}_*.csv")):
             try:
                 with path.open("r", encoding="utf-8", newline="") as f:
-                    header = next(csv.reader(f, delimiter=";"), None) or []
+                    header = next(csv.reader(no_nul(f), delimiter=";"), None) or []
             except OSError:
                 continue
             fields.extend(h for h in header if h not in fields)

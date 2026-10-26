@@ -20,6 +20,7 @@ from dataclasses import asdict, dataclass, field, fields
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from backend.core.csv_utils import no_nul
 
 CACHE_VERSION = 2
 MAX_STEP_S = 60.0          # a row "covers" at most this long (2x the 30 s interval)
@@ -107,10 +108,10 @@ def _float(v: Any) -> Optional[float]:
 
 def _rows(path: Path) -> Iterable[Dict[str, str]]:
     try:
-        with path.open("r", encoding="utf-8", newline="") as f:
-            yield from csv.DictReader(f, delimiter=";")
-    except OSError:
-        return
+        with path.open("r", encoding="utf-8", errors="replace", newline="") as f:
+            yield from csv.DictReader(no_nul(f), delimiter=";")
+    except (OSError, csv.Error):
+        return  # a damaged file must not break the whole report
 
 
 def files_by_day(directory: Path, prefix: str) -> Dict[str, List[Path]]:

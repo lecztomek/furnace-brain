@@ -22,6 +22,7 @@ from backend.core.state import (
     SystemState,
     PartialOutputs,
 )
+from backend.core.csv_utils import no_nul
 
 SECONDS_5M = 300.0
 MJ_TO_KWH = 1.0 / 3.6  # 1 kWh = 3.6 MJ
@@ -496,7 +497,7 @@ class StatsModule(ModuleInterface):
     def _daily_has_date(self, day_key: str) -> bool:
         try:
             with self._daily_path.open("r", encoding="utf-8", newline="") as f:
-                r = csv.DictReader(f, delimiter=";")
+                r = csv.DictReader(no_nul(f), delimiter=";")
                 for row in r:
                     if (row.get("date") or "").strip() == day_key:
                         return True
@@ -617,7 +618,7 @@ class StatsModule(ModuleInterface):
             return
         try:
             with self._daily_path.open("r", encoding="utf-8", newline="") as f:
-                r = csv.DictReader(f, delimiter=";")
+                r = csv.DictReader(no_nul(f), delimiter=";")
                 for row in r:
                     d = (row.get("date") or "").strip()
                     if not d:
@@ -656,7 +657,7 @@ class StatsModule(ModuleInterface):
         for p in reversed(files):
             try:
                 with p.open("r", encoding="utf-8", newline="") as f:
-                    r = csv.DictReader(f, delimiter=";")
+                    r = csv.DictReader(no_nul(f), delimiter=";")
                     for row in r:
                         ts_end_unix = float(row.get("ts_end_unix") or 0.0)
                         ts_end_iso = (row.get("ts_end_iso") or "").strip()
