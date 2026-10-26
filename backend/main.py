@@ -24,6 +24,7 @@ from backend.core.state_store import StateStore
 
 from backend.core.clock import RealClock, SimClock
 from backend.core.version import detect_version
+from backend.core.mode_file import ModeFile
 
 from .core.config_store import ConfigStore
 import faulthandler
@@ -136,6 +137,14 @@ kernel = Kernel(
 
 aux_runner = AuxRunner(store=store, modules=aux_modules)
 
+# the mode survives restarts (updates, power cuts) - saved on every change
+mode_file = ModeFile(run_root / "mode_state.json")
+restored_mode = mode_file.load()
+if restored_mode is not None:
+    with store.locked() as st:
+        st.mode = restored_mode
+    logger.info("Mode restored after restart: %s", restored_mode.name)
+
 # --- CONFIG STORE ---
 
 all_modules = critical_modules + aux_modules
@@ -174,6 +183,9 @@ def control_loop(stop_event: threading.Event) -> None:
             kernel.step()
         except Exception as exc:  # pylint: disable=broad-except
             print(f"[CONTROL LOOP ERROR] {type(exc).__name__}: {exc}")
+        with store.locked() as st:
+            mode_now = st.mode
+        mode_file.save_if_changed(mode_now)
         elapsed = time.time() - start
         remaining = max(0.0, TICK_INTERVAL - elapsed)
         # wait zamiast time.sleep -> szybka reakcja na sygnał stop

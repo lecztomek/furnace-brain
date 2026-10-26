@@ -56,6 +56,14 @@ Remote view of the furnace (read-only)
   5. run "Deploy to prod" (or the "Remote view (GitHub Pages)" workflow) -
      it publishes the GUI of the prod version
 
+Mode after a restart (update, power cut)
+- the boiler mode is saved to $FURNACE_BRAIN_DATA_ROOT/mode_state.json on every
+  change and restored at start-up: STOP stays STOP, PRACA stays PRACA,
+  ROZPALANIE stays ROZPALANIE; RĘCZNY becomes STOP (manual outputs, e.g. the
+  feeder switched on by hand, never come back by themselves)
+- no file (first start) = PRACA, as before
+- during a restart (~10 s) the outputs keep their last state
+
 Settings (backend/modules/*/values.yaml) are not in git and deploys don't touch them.
 On startup the backend appends new fields from schema.yaml to the end of values.yaml.
 
