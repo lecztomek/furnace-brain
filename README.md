@@ -68,7 +68,7 @@ On the Pi - manually
 Switching the Pi to git (one-time, on the Pi; the prod branch must exist)
   sudo apt install -y git
   cd /home/pi/furnace-brain
-  git init -b main
+  git init                       # (older git on the Pi has no -b)
   git remote add origin https://github.com/lecztomek/furnace-brain.git
   git fetch origin
   git reset origin/prod          # files on disk stay as they are, only the index changes
