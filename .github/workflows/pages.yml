@@ -1,0 +1,71 @@
+name: Remote view (GitHub Pages)
+
+# Publishes the GUI of the version running on the furnace (prod branch) as the
+# remote read-only view. Data comes from Firebase (Pi module "Podgląd zdalny"),
+# viewer/viewer-shim.js answers the GUI's /api requests and ignores changes.
+# Runs after every "Deploy to prod" and on demand.
+# Setup: Settings -> Pages -> Source: GitHub Actions;
+#        Settings -> Secrets and variables -> Actions -> Variables:
+#        VIEWER_FIREBASE_URL = https://<project>-default-rtdb.<region>.firebasedatabase.app
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: prod
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency: pages
+
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      # viewer files from this workflow's commit, GUI from the furnace's version
+      - uses: actions/checkout@v4
+        with:
+          path: tools
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || 'prod' }}
+          path: src
+
+      - name: Build site
+        id: build
+        env:
+          DB: ${{ vars.VIEWER_FIREBASE_URL }}
+        run: |
+          if [[ "$DB" != https://* ]]; then
+            # not set up yet - don't fail "Deploy to prod" because of it
+            echo "::warning::Remote view skipped: set the repository variable VIEWER_FIREBASE_URL (Firebase Realtime Database URL)"
+            exit 0
+          fi
+          cp -r src/frontend site
+          cp tools/viewer/viewer-shim.js site/js/
+          printf 'window.FURNACE_VIEWER_DB = %s;\n' "$(jq -Rn --arg v "$DB" '$v')" > site/js/viewer-config.js
+          # both scripts go before everything else in <head>
+          for f in site/*.html; do
+            sed -i '0,/<head>/s//<head>\n    <script src="js\/viewer-config.js"><\/script>\n    <script src="js\/viewer-shim.js"><\/script>/' "$f"
+            grep -q viewer-shim.js "$f" || { echo "::error::no <head> in $f"; exit 1; }
+          done
+          echo "Version: $(cat src/VERSION 2>/dev/null)" >> "$GITHUB_STEP_SUMMARY"
+          echo "ready=1" >> "$GITHUB_OUTPUT"
+
+      - if: steps.build.outputs.ready
+        uses: actions/configure-pages@v5
+      - if: steps.build.outputs.ready
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - if: steps.build.outputs.ready
+        id: deploy
+        uses: actions/deploy-pages@v4

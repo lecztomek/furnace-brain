@@ -1,0 +1,11 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "furnace": {
+      "$key": {
+        ".read": "$key.length >= 20"
+      }
+    }
+  }
+}

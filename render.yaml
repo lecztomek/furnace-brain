@@ -2,25 +2,6 @@
 # The furnace is simulated (MockHardware) - nothing here drives real hardware.
 # Every push to main that passes the GitHub tests is deployed here automatically.
 services:
-  # remote read-only view of the real furnace (backend/viewer.py); follows the
-  # prod branch, so its GUI matches the version running on the Pi. The Pi's
-  # "Podgląd zdalny" module pushes the data here.
-  - type: web
-    name: furnace-brain-view
-    runtime: python
-    plan: free
-    branch: prod
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn backend.viewer:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /api/viewer/health
-    envVars:
-      # copy this value to FURNACE_BRAIN_VIEWER_TOKEN in /etc/furnace-brain.env on the Pi
-      - key: FURNACE_BRAIN_VIEWER_TOKEN
-        generateValue: true
-      # optional password for viewing (user "podglad"); set it in the dashboard
-      - key: FURNACE_BRAIN_VIEWER_PASSWORD
-        sync: false
-
   - type: web
     name: furnace-brain-test
     runtime: python

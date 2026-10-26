@@ -19,6 +19,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency: prod
 
@@ -96,3 +98,10 @@ jobs:
             git for-each-ref --sort=-v:refname --count=10 \
               --format='- `%(refname:short)` — %(subject)' 'refs/tags/v*'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # remote read-only view shows the GUI of the version now on the furnace
+  view:
+    needs: deploy
+    uses: ./.github/workflows/pages.yml
+    with:
+      ref: prod

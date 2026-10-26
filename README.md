@@ -34,18 +34,27 @@ Version numbers
 - a version that failed to start is remembered and skipped until prod changes
 
 Remote view of the furnace (read-only)
-- Render service furnace-brain-view (render.yaml) runs backend/viewer.py on the
-  prod branch: the same GUI, data pushed by the Pi; every change is ignored
-- on the Pi, /etc/furnace-brain.env:
-    FURNACE_BRAIN_VIEWER_URL=https://furnace-brain-view.onrender.com
-    FURNACE_BRAIN_VIEWER_TOKEN=<FURNACE_BRAIN_VIEWER_TOKEN from the Render dashboard>
-  then restart furnace-backend and enable "Podgląd zdalny" in the settings
-- the Pi only sends (gzip, every 15 s state / 60 s history and logs /
-  10 min statistics and settings) - nothing comes back to the furnace
-- optional viewing password: FURNACE_BRAIN_VIEWER_PASSWORD on Render (user "podglad")
-- free Render plan: 750 h/month for the whole account - the view running
-  24/7 uses almost all of it; switch it to a paid plan to keep the test
-  environment running too
+- the GUI of the prod version on GitHub Pages, data from Firebase Realtime
+  Database (free Spark plan); every change in the GUI is ignored
+  (viewer/viewer-shim.js answers the GUI's /api requests from Firebase)
+- the Pi's "Podgląd zdalny" module (backend/modules/remote_view) only sends:
+  state every 15 s, history and logs every 60 s, statistics, settings and
+  5 min averaged history every 10 min; data older than 14 days is deleted
+- link: https://lecztomek.github.io/furnace-brain/#k=<FURNACE_BRAIN_VIEWER_KEY>
+  (the key is the password - anyone with the link can view)
+- setup, once:
+  1. console.firebase.google.com -> add project -> Build -> Realtime Database
+     -> create (europe-west1, locked mode); Rules: paste viewer/firebase-rules.json
+  2. Project settings -> Service accounts -> Database secrets -> show the secret
+  3. on the Pi, /etc/furnace-brain.env:
+       FURNACE_BRAIN_VIEWER_FIREBASE_URL=https://<project>-default-rtdb.europe-west1.firebasedatabase.app
+       FURNACE_BRAIN_VIEWER_FIREBASE_SECRET=<database secret>
+       FURNACE_BRAIN_VIEWER_KEY=<random, at least 20 characters: openssl rand -hex 16>
+     then restart furnace-backend and enable "Podgląd zdalny" in the settings
+  4. GitHub: Settings -> Pages -> Source: GitHub Actions; Settings -> Secrets
+     and variables -> Actions -> Variables: VIEWER_FIREBASE_URL = the URL above
+  5. run "Deploy to prod" (or the "Remote view (GitHub Pages)" workflow) -
+     it publishes the GUI of the prod version
 
 Settings (backend/modules/*/values.yaml) are not in git and deploys don't touch them.
 On startup the backend appends new fields from schema.yaml to the end of values.yaml.

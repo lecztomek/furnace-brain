@@ -1,6 +1,6 @@
 id: remote_view
 name: "Podgląd zdalny"
-description: "Wysyła dane pieca (stan, historię, logi, statystyki, ustawienia) na serwer podglądu tylko do odczytu. Adres i token serwera ustawia się w /etc/furnace-brain.env (FURNACE_BRAIN_VIEWER_URL, FURNACE_BRAIN_VIEWER_TOKEN). Z serwera nic nie wraca do pieca."
+description: "Wysyła dane pieca (stan, historię, logi, statystyki, ustawienia) do bazy Firebase dla podglądu tylko do odczytu na GitHub Pages (https://lecztomek.github.io/furnace-brain/#k=KLUCZ). Dane połączenia ustawia się w /etc/furnace-brain.env (FURNACE_BRAIN_VIEWER_FIREBASE_URL, FURNACE_BRAIN_VIEWER_FIREBASE_SECRET, FURNACE_BRAIN_VIEWER_KEY). Z podglądu nic nie wraca do pieca."
 
 groups:
   - id: basic
@@ -56,4 +56,15 @@ fields:
     step: 1
     default: 2
     group: advanced
-    description: "Ile historii wysłać, gdy serwer podglądu jest pusty (np. po restarcie)."
+    description: "Ile historii wysłać, gdy baza podglądu jest pusta."
+
+  - key: keep_days
+    label: "Przechowuj dane"
+    type: number
+    unit: "dni"
+    min: 3
+    max: 30
+    step: 1
+    default: 14
+    group: advanced
+    description: "Starsze dane są usuwane z bazy (darmowy plan Firebase: 1 GB)."
