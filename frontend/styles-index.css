@@ -199,6 +199,27 @@ body {
   color: #e5e7eb;
   display: flex;
   align-items: center;
+  gap: 12px;
+}
+
+.status-bar .app-info {
+  margin-left: auto;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 600px) {
+  .status-bar {
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+  .status-bar .app-info {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
 }
 
 .menu-btn {

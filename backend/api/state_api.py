@@ -20,7 +20,11 @@ MODE_DISPLAY = {
 POWER_REGULATORS = ("power_work", "power_work_fuzzy", "power_work_predictive")
 
 
-def create_state_router(store: StateStore, config_store: ConfigStore | None = None) -> APIRouter:
+def create_state_router(
+    store: StateStore,
+    config_store: ConfigStore | None = None,
+    app_info: dict | None = None,
+) -> APIRouter:
     router = APIRouter(prefix="/state", tags=["state"])
 
     def _enabled_power_regulators() -> list[str]:
@@ -47,6 +51,7 @@ def create_state_router(store: StateStore, config_store: ConfigStore | None = No
             "mode": s.mode.name,
             "mode_display": MODE_DISPLAY.get(s.mode, s.mode.name.lower()),
             "power_regulators": _enabled_power_regulators(),
+            "app": app_info or {},
             "alarm_active": s.alarm_active,
             "alarm_message": s.alarm_message,
             "sensors": {

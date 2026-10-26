@@ -47,6 +47,7 @@ async function fetchState() {
 
     const data = await response.json();
     updateUIFromState(data);
+    showAppInfo(data.app);
 
     // status na sukces (jeśli chcesz, możesz to usunąć żeby nie spamowało)
     FurnaceUI.ui.setStatus(`OK${stamp()}`);
@@ -58,6 +59,32 @@ async function fetchState() {
   } finally {
     inFlight = false;
   }
+}
+
+// "wersja prod-20261026-120000 • działa od 26.10 08:45 (2 h 13 min)"
+function showAppInfo(app) {
+  const el = document.getElementById("app-info");
+  if (!el || !app) return;
+  const parts = [];
+  if (app.version) parts.push(`wersja ${app.version}`);
+  if (app.started_at) {
+    const started = new Date(app.started_at * 1000);
+    const date = started.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit" });
+    const time = started.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", hour12: false });
+    parts.push(`działa od ${date} ${time} (${fmtUptime(Date.now() / 1000 - app.started_at)})`);
+  }
+  el.textContent = parts.join(" • ");
+  el.title = el.textContent;
+}
+
+function fmtUptime(seconds) {
+  const s = Math.max(0, Math.floor(seconds));
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d} d ${h} h`;
+  if (h > 0) return `${h} h ${m} min`;
+  return `${m} min`;
 }
 
 let raf = null;

@@ -22,6 +22,7 @@ from backend.api.logs_api import create_logs_router
 from backend.core.state_store import StateStore
 
 from backend.core.clock import RealClock, SimClock
+from backend.core.version import detect_version
 
 from .core.config_store import ConfigStore
 import faulthandler
@@ -242,7 +243,13 @@ async def on_shutdown() -> None:
 
 # --- ROUTERY ---
 
-state_router = create_state_router(store=store, config_store=config_store)
+APP_INFO = {
+    "version": detect_version(BACKEND_ROOT.parent),
+    "started_at": time.time(),  # wall clock, also in simulation
+}
+logger.info("Furnace Brain version %s", APP_INFO["version"])
+
+state_router = create_state_router(store=store, config_store=config_store, app_info=APP_INFO)
 manual_router = create_manual_router(store=store)
 config_router = create_config_router(
     config_store=config_store,
