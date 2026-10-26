@@ -155,6 +155,13 @@ function applyState(state) {
     if (el) el.textContent = v;
   });
 
+  // coal burned now (same 10 min window)
+  const kgph = state.coal_kgph == null ? "-- kg/h" : `${state.coal_kgph.toFixed(1).replace(".", ",")} kg/h`;
+  setIfChanged(prev, "coal_kgph", kgph, (v) => {
+    const el = document.getElementById("coal-kgph-text");
+    if (el) el.textContent = v;
+  });
+
   // --- alarm/status tylko jeśli się zmieniło ---
   const alarmText = state.alarm_active
     ? `ALARM: ${state.alarm_message || "Nieznany błąd"}`

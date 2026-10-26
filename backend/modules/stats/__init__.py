@@ -300,15 +300,21 @@ class StatsModule(ModuleInterface):
             self._recent_feed.popleft()
         self._recent_now = now_mono
 
-    def _power_kw_now(self) -> Optional[float]:
-        """Heat output [kW] from the coal fed in the last 10 minutes (calorific value x feeder time)."""
-        if self._recent_since is None or self._config.calorific_mj_per_kg <= 0:
+    def _coal_kgph_now(self) -> Optional[float]:
+        """Coal burned [kg/h]: fed in the last 10 minutes (feeder time x feeder kg/h)."""
+        if self._recent_since is None or self._config.feeder_kg_per_hour <= 0:
             return None
         window = min(NOW_WINDOW_S, self._recent_now - self._recent_since)
         if window < NOW_MIN_S:
             return None
-        kg = sum(k for _, k in self._recent_feed)
-        return kg * self._config.calorific_mj_per_kg * MJ_TO_KWH / (window / 3600.0)
+        return sum(k for _, k in self._recent_feed) / (window / 3600.0)
+
+    def _power_kw_now(self) -> Optional[float]:
+        """Heat output [kW] from the coal fed in the last 10 minutes (calorific value x feeder time)."""
+        kgph = self._coal_kgph_now()
+        if kgph is None or self._config.calorific_mj_per_kg <= 0:
+            return None
+        return kgph * self._config.calorific_mj_per_kg * MJ_TO_KWH
 
     def _refresh_paths(self, create: bool = False) -> None:
         """
@@ -976,6 +982,7 @@ class StatsModule(ModuleInterface):
             "feeder_kg_per_hour": float(self._config.feeder_kg_per_hour),
             "calorific_mj_per_kg": float(self._config.calorific_mj_per_kg),
             "power_kw_now": self._power_kw_now(),
+            "coal_kgph_now": self._coal_kgph_now(),
         }
 
         pack("5m", a5, payload)

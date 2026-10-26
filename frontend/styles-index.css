@@ -825,3 +825,4 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
 
 /* heat output badge next to the power percent (index.html #power-kw) */
 #power-kw text { font-size: 40px; fill: #fbbf24; }
+#coal-kgph text { font-size: 30px; fill: #fdba74; }

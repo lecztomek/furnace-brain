@@ -14,6 +14,7 @@ def test_power_from_feeder_time(tmp_path):
         m._track_recent_feed(t, 0.5, feeder_on=(i % 40) < 10)
     # 10 kg/h * 25 % * 29 MJ/kg / 3.6 = 20.1 kW
     assert abs(m._power_kw_now() - 20.14) < 0.3
+    assert abs(m._coal_kgph_now() - 2.5) < 0.05  # 10 kg/h * 25 %
 
 
 def test_unknown_at_start_and_without_calorific(tmp_path):

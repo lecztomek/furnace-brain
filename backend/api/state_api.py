@@ -86,6 +86,8 @@ def create_state_router(
             },
             # heat output from the coal fed in the last 10 min (stats module), None = unknown
             "power_kw": (s.runtime.get("stats") or {}).get("power_kw_now"),
+            # coal burned [kg/h], same 10 min window
+            "coal_kgph": (s.runtime.get("stats") or {}).get("coal_kgph_now"),
             "modules": {
                 mid: {
                     "health": status.health.name,
