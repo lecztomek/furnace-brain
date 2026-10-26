@@ -32,3 +32,15 @@ fields:
     group: basic
     description: >
       hour = jeden plik na godzinę, day = jeden plik na dzień.
+
+  - key: compact
+    label: "Skrócone logi"
+    type: bool
+    default: true
+    label_on: "WŁĄCZONE"
+    label_off: "WYŁĄCZONE"
+    group: basic
+    description: >
+      Zawór mieszający: jeden wpis na ruch. Dmuchawa i ślimak: podsumowanie co
+      15 minut zamiast wpisu przy każdej zmianie. Wyłącz, żeby zapisywać wszystko
+      (np. do diagnozowania). Sterowanie działa tak samo w obu przypadkach.

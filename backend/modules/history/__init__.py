@@ -69,6 +69,11 @@ class HistoryModule(ModuleInterface):
         # Stan wewnętrzny: ostatni zapis wg czasu monotonicznego
         self._last_write_mono: Optional[float] = None
 
+        # blower / feeder averaged over the interval between rows (sampled every aux tick)
+        self._fan_sum = 0.0
+        self._feeder_on = 0
+        self._samples = 0
+
     @property
     def id(self) -> str:
         return "history"
@@ -84,6 +89,10 @@ class HistoryModule(ModuleInterface):
 
 
         now_mono: float = system_state.ts_mono
+
+        self._fan_sum += float(system_state.outputs.fan_power or 0)
+        self._feeder_on += 1 if system_state.outputs.feeder_on else 0
+        self._samples += 1
 
         interval = float(self._config.interval_sec)
         should_write = (
@@ -102,6 +111,7 @@ class HistoryModule(ModuleInterface):
             try:
                 self._write_row(log_now, sensors, system_state)  # zapis czasu wall-clock do CSV
                 self._last_write_mono = now_mono
+                self._fan_sum, self._feeder_on, self._samples = 0.0, 0, 0
             except Exception as exc:
                 events.append(
                     Event(
@@ -149,6 +159,9 @@ class HistoryModule(ModuleInterface):
         temp_grzejnikow = sensors.radiators_temp
         temp_spalin = sensors.flue_gas_temp
         temp_zewn = sensors.outside_temp
+        n = max(self._samples, 1)
+        dmuchawa = round(self._fan_sum / n, 1)          # average fan power [%]
+        slimak = round(100.0 * self._feeder_on / n, 1)   # share of time feeding [%]
 
         mode = system_state.mode
         tryb_pracy = mode.name if mode is not None else None
@@ -172,6 +185,8 @@ class HistoryModule(ModuleInterface):
                         "temp_spalin",
                         "tryb_pracy",
                         "temp_zewn",
+                        "dmuchawa",
+                        "slimak",
                     ]
                 )
 
@@ -184,6 +199,8 @@ class HistoryModule(ModuleInterface):
                     temp_spalin if temp_spalin is not None else "",
                     tryb_pracy if tryb_pracy is not None else "",
                     temp_zewn if temp_zewn is not None else "",
+                    dmuchawa,
+                    slimak,
                 ]
             )
 

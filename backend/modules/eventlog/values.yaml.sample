@@ -1,3 +1,4 @@
 log_dir: "data"
 file_prefix: "events"
 rotate: "hour"
+compact: true

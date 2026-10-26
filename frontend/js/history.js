@@ -13,6 +13,8 @@
     temp_spalin: "Temp. spalin",
     tryb_pracy: "Tryb pracy",
     temp_zewn: "Temp. zewnętrzna",
+    dmuchawa: "Dmuchawa [%]",
+    slimak: "Ślimak [% czasu]",
   };
 
   // Kolory serii – dla czytelności
@@ -23,6 +25,8 @@
     temp_spalin: "#ef4444",     // czerwony
     tryb_pracy: "#eab308",      // żółty
     temp_zewn: "#a855f7",       // fioletowy
+    dmuchawa: "#facc15",        // jasnożółty
+    slimak: "#94a3b8",          // szary
   };
 
   // Opisy wartości dla osi trybu
@@ -171,8 +175,8 @@
       checkbox.type = "checkbox";
       checkbox.value = field;
 
-      // domyślnie: wszystkie oprócz trybu są włączone
-      checkbox.checked = field !== "tryb_pracy";
+      // domyślnie: wszystkie oprócz trybu, dmuchawy i ślimaka są włączone
+      checkbox.checked = !["tryb_pracy", "dmuchawa", "slimak"].includes(field);
 
       const span = document.createElement("span");
       span.className = "history-series-label";

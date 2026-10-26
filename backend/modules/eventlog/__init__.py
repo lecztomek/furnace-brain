@@ -10,6 +10,7 @@ import yaml  # pip install pyyaml
 
 from pathlib import Path
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
+from backend.modules.eventlog.digest import LogDigest
 from backend.core.state import (
     Event,
     EventLevel,
@@ -30,10 +31,12 @@ class EventLogConfig:
     log_dir        – katalog na pliki CSV.
     file_prefix    – prefiks nazwy pliku.
     rotate         – rotacja plików: "hour" albo "day".
+    compact        – skrócone logi zaworu/dmuchawy/ślimaka (patrz digest.py).
     """
     log_dir: str = "data"
     file_prefix: str = "events"
     rotate: str = "hour"  # "hour" | "day"
+    compact: bool = True
 
 class EventLogModule(ModuleInterface):
     """
@@ -64,6 +67,8 @@ class EventLogModule(ModuleInterface):
         # >>> TU ZMIANA: katalog logów pochodzi z data_root, a nie z configa
         self._log_dir = (self._data_root / "modules" / self.id).resolve() / "data"
 
+        self._digest = LogDigest()
+
         # opcjonalnie: twarde wykrycie starego log_dir w configu
         if getattr(self._config, "log_dir", None) not in (None, "", "data"):
             raise ValueError(
@@ -86,6 +91,8 @@ class EventLogModule(ModuleInterface):
 
         # bierzemy snapshot eventów dostępnych w state (to jest poprzedni tick)
         pending = list(system_state.recent_events or [])
+        if self._config.compact:
+            pending = self._digest.process(pending, now, system_state.mode, system_state.outputs)
 
         if pending:
             try:
@@ -200,12 +207,16 @@ class EventLogModule(ModuleInterface):
             "log_dir": self._config.log_dir,
             "file_prefix": self._config.file_prefix,
             "rotate": self._config.rotate,
+            "compact": self._config.compact,
         }
 
     def set_config_values(self, values: Dict[str, Any], persist: bool = True) -> None:
+        # the log directory always comes from data_root (see __init__) - not from the config
         if "log_dir" in values:
             self._config.log_dir = str(values["log_dir"])
-            self._log_dir = (self._base_path / self._config.log_dir).resolve()
+
+        if "compact" in values:
+            self._config.compact = bool(values["compact"])
 
         if "file_prefix" in values:
             self._config.file_prefix = str(values["file_prefix"])
@@ -221,7 +232,6 @@ class EventLogModule(ModuleInterface):
 
     def reload_config_from_file(self) -> None:
         self._load_config_from_file()
-        self._log_dir = (self._base_path / self._config.log_dir).resolve()
 
     def _load_config_from_file(self) -> None:
         if not self._config_path.exists():
@@ -236,6 +246,8 @@ class EventLogModule(ModuleInterface):
         if "rotate" in data:
             rot = str(data["rotate"]).lower()
             self._config.rotate = rot if rot in ("hour", "day") else "hour"
+        if "compact" in data:
+            self._config.compact = bool(data["compact"])
 
     def _save_config_to_file(self) -> None:
         data = asdict(self._config)
