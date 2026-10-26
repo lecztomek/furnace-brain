@@ -69,6 +69,11 @@ modules:
     enabled: true
     critical: true
 
+  - id: weather
+    path: backend.modules.weather:WeatherModule
+    enabled: true
+    critical: false
+
   - id: history
     path: backend.modules.history:HistoryModule
     enabled: true

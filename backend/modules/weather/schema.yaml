@@ -1,0 +1,79 @@
+id: weather
+name: "Pogoda"
+description: "Temperatura zewnętrzna z Open-Meteo (bez klucza API) dla podanej lokalizacji. Używana, gdy nie ma czujnika zewnętrznego; zapisywana w historii."
+
+groups:
+  - id: basic
+    label: "Lokalizacja"
+  - id: advanced
+    label: "Pobieranie"
+
+fields:
+  - key: enabled
+    label: "Pobieranie pogody"
+    type: bool
+    default: true
+    label_on: "WŁĄCZONE"
+    label_off: "WYŁĄCZONE"
+    group: basic
+
+  - key: location_name
+    label: "Nazwa miejsca"
+    type: text
+    default: "Nowy Sącz"
+    group: basic
+    description: "Tylko do wyświetlania - o pogodzie decydują współrzędne."
+
+  - key: latitude
+    label: "Szerokość geograficzna"
+    type: number
+    unit: "°"
+    min: 45
+    max: 56
+    step: 0.01
+    default: 49.62
+    group: basic
+    description: "Nowy Sącz: 49.62"
+
+  - key: longitude
+    label: "Długość geograficzna"
+    type: number
+    unit: "°"
+    min: 13
+    max: 25
+    step: 0.01
+    default: 20.69
+    group: basic
+    description: "Nowy Sącz: 20.69"
+
+  - key: refresh_min
+    label: "Odświeżanie"
+    type: number
+    unit: "min"
+    min: 15
+    max: 120
+    step: 5
+    default: 15
+    group: advanced
+    description: "Open-Meteo aktualizuje dane co 15 minut - częściej nie ma sensu."
+
+  - key: max_age_min
+    label: "Maksymalny wiek danych"
+    type: number
+    unit: "min"
+    min: 15
+    max: 360
+    step: 15
+    default: 60
+    group: advanced
+    description: "Starsza temperatura nie jest używana (np. gdy nie ma internetu)."
+
+  - key: retry_min
+    label: "Ponowienie po błędzie"
+    type: number
+    unit: "min"
+    min: 1
+    max: 30
+    step: 1
+    default: 5
+    group: advanced

@@ -148,6 +148,7 @@ class HistoryModule(ModuleInterface):
         power = system_state.outputs.power_percent
         temp_grzejnikow = sensors.radiators_temp
         temp_spalin = sensors.flue_gas_temp
+        temp_zewn = sensors.outside_temp
 
         mode = system_state.mode
         tryb_pracy = mode.name if mode is not None else None
@@ -170,6 +171,7 @@ class HistoryModule(ModuleInterface):
                         "temp_grzejnikow",
                         "temp_spalin",
                         "tryb_pracy",
+                        "temp_zewn",
                     ]
                 )
 
@@ -181,6 +183,7 @@ class HistoryModule(ModuleInterface):
                     temp_grzejnikow if temp_grzejnikow is not None else "",
                     temp_spalin if temp_spalin is not None else "",
                     tryb_pracy if tryb_pracy is not None else "",
+                    temp_zewn if temp_zewn is not None else "",
                 ]
             )
 

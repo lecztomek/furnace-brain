@@ -122,16 +122,17 @@ def create_history_router(
                 detail=f"Katalog historii nie istnieje: {history_path}",
             )
 
+        # union of the headers, so columns added later (e.g. temp_zewn) show up
+        # even when the oldest files don't have them
+        fields: List[str] = []
         for path in sorted(history_path.glob(f"{file_prefix}_*.csv")):
             try:
                 with path.open("r", encoding="utf-8", newline="") as f:
-                    reader = csv.reader(f, delimiter=";")
-                    header = next(reader, None)
-                    if header:
-                        return {"fields": header}
+                    header = next(csv.reader(f, delimiter=";"), None) or []
             except OSError:
                 continue
+            fields.extend(h for h in header if h not in fields)
 
-        return {"fields": []}
+        return {"fields": fields}
 
     return router

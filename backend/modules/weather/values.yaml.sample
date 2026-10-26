@@ -1,0 +1,7 @@
+enabled: true
+location_name: "Nowy Sącz"
+latitude: 49.62
+longitude: 20.69
+refresh_min: 15.0
+max_age_min: 60.0
+retry_min: 5.0

@@ -184,7 +184,9 @@ class MockHardware(HardwareInterface):
             cwu_temp=s.cwu_temp,
             flue_gas_temp=s.flue_gas_temp,
             hopper_temp=s.hopper_temp,
-            outside_temp=s.outside_temp,
+            # no outside sensor, like the real furnace - outside_temp comes from
+            # the weather module (the simulation's physics keeps its own value)
+            outside_temp=None,
             stb_triggered=s.stb_triggered,
             door_open=s.door_open,
         )

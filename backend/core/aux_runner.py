@@ -62,6 +62,7 @@ class AuxRunner:
         state.recent_events = base_events
 
         updated_statuses: Dict[str, ModuleStatus] = {}
+        runtime_updates: Dict[str, Dict] = {}
 
         # ZMIANA: zbieramy wszystkie eventy z AUX (zwrócone + wyjątki)
         events_to_publish: List[Event] = []
@@ -84,6 +85,8 @@ class AuxRunner:
                 if result.events:
                     events_to_publish.extend(result.events)
                     events_to_show_now.extend(result.events)
+                if getattr(result, "runtime", None) is not None:
+                    runtime_updates[mid] = result.runtime
 
             except Exception as exc:  # pylint: disable=broad-except
                 duration = time.time() - start
@@ -109,6 +112,8 @@ class AuxRunner:
         with self._store.locked() as st:
             for mid, status in updated_statuses.items():
                 st.modules[mid] = status
+            for mid, data in runtime_updates.items():
+                st.runtime[mid] = data
 
             # ZMIANA: pokaż od razu eventy z AUX w /api/state (do czasu kolejnego ticka kernela)
             if events_to_show_now:

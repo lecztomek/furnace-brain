@@ -12,6 +12,7 @@
     temp_grzejnikow: "Temp. grzejników",
     temp_spalin: "Temp. spalin",
     tryb_pracy: "Tryb pracy",
+    temp_zewn: "Temp. zewnętrzna",
   };
 
   // Kolory serii – dla czytelności
@@ -21,6 +22,7 @@
     temp_grzejnikow: "#3b82f6", // niebieski
     temp_spalin: "#ef4444",     // czerwony
     tryb_pracy: "#eab308",      // żółty
+    temp_zewn: "#a855f7",       // fioletowy
   };
 
   // Opisy wartości dla osi trybu

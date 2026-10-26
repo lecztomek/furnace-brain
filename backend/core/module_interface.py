@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from typing_extensions import Protocol
 
 from backend.core.state import (
@@ -22,6 +22,9 @@ class ModuleTickResult:
     partial_outputs: PartialOutputs   # None = nie ruszaj, wartość = ustaw (nawet False/0)
     events: List[Event]
     status: ModuleStatus
+    # aux modules only: data published as SystemState.runtime[<module id>]
+    # (aux modules tick on a snapshot, so they can't write the state directly)
+    runtime: Optional[Dict[str, Any]] = None
 
 
 class ModuleInterface(Protocol):
