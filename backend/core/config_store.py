@@ -3,12 +3,35 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+import copy
 import datetime as dt
 import logging
 import yaml
 
 
 logger = logging.getLogger(__name__)
+
+# C parser when libyaml is available - the pure Python one is very slow on the Pi
+_YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+_yaml_cache: Dict[str, Tuple[int, int, Any]] = {}
+
+
+def read_yaml(path: Path) -> Any:
+    """
+    Parsed YAML file, re-read only when the file changes (mtime/size).
+    The state API asks for settings on every GUI poll - parsing ~20 files
+    each time took seconds on a Raspberry Pi 3 and requests piled up.
+    Returns a copy, so callers may modify it.
+    """
+    st = path.stat()
+    key = str(path)
+    hit = _yaml_cache.get(key)
+    if hit is None or hit[0] != st.st_mtime_ns or hit[1] != st.st_size:
+        with path.open("r", encoding="utf-8") as f:
+            data = yaml.load(f, Loader=_YAML_LOADER) or {}
+        hit = (st.st_mtime_ns, st.st_size, data)
+        _yaml_cache[key] = hit
+    return copy.deepcopy(hit[2])
 
 
 @dataclass
@@ -22,6 +45,10 @@ class ConfigStore:
     def __init__(self, base_dir: Path, module_ids_in_order: List[str]):
         self.modules_root = base_dir
         self._module_ids_in_order = module_ids_in_order
+
+    @property
+    def module_ids(self) -> List[str]:
+        return list(self._module_ids_in_order)
 
     # ---------- Ścieżki pomocnicze ----------
 
@@ -44,8 +71,7 @@ class ConfigStore:
             description = None
 
             if schema_path.exists():
-                with schema_path.open("r", encoding="utf-8") as f:
-                    data = yaml.safe_load(f) or {}
+                data = read_yaml(schema_path)
                 name = data.get("name")
                 description = data.get("description")
 
@@ -63,9 +89,7 @@ class ConfigStore:
         path = self._schema_path(module_id)
         if not path.exists():
             raise KeyError(f"Unknown module '{module_id}' (schema not found: {path})")
-        with path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-        return data
+        return read_yaml(path)
 
     def get_values(self, module_id: str) -> Dict[str, Any]:
         """
@@ -77,8 +101,7 @@ class ConfigStore:
 
         vpath = self._values_path(module_id)
         if vpath.exists():
-            with vpath.open("r", encoding="utf-8") as f:
-                raw_values = yaml.safe_load(f) or {}
+            raw_values = read_yaml(vpath)
         else:
             raw_values = {}
 
@@ -130,6 +153,7 @@ class ConfigStore:
         vpath.parent.mkdir(parents=True, exist_ok=True)
         with vpath.open("w", encoding="utf-8") as f:
             yaml.safe_dump(validated, f, allow_unicode=True)
+        _yaml_cache.pop(str(vpath), None)
 
         return validated
 
@@ -176,6 +200,7 @@ class ConfigStore:
         vpath.parent.mkdir(parents=True, exist_ok=True)
         with vpath.open("w", encoding="utf-8") as f:
             yaml.safe_dump(raw_values, f, allow_unicode=True)
+        _yaml_cache.pop(str(vpath), None)
 
         return validated_value
 
@@ -212,6 +237,7 @@ class ConfigStore:
             header = f"\n# added automatically {stamp} (defaults from schema.yaml)\n"
             body = yaml.safe_dump(missing, allow_unicode=True, sort_keys=False)
             vpath.write_text(old_text + header + body, encoding="utf-8")
+            _yaml_cache.pop(str(vpath), None)
 
             logger.info("values.yaml [%s]: added defaults %s", mid, missing)
             added_all[mid] = list(missing)
@@ -222,8 +248,7 @@ class ConfigStore:
         """Ładuje surowe values.yaml (bez defaultów)."""
         vpath = self._values_path(module_id)
         if vpath.exists():
-            with vpath.open("r", encoding="utf-8") as f:
-                return yaml.safe_load(f) or {}
+            return read_yaml(vpath)
         return {}
 
     # ---------- Walidacja pojedynczej wartości ----------

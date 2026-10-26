@@ -14,6 +14,8 @@ from __future__ import annotations
 import csv
 import json
 import math
+import os
+import time
 from dataclasses import asdict, dataclass, field, fields
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -111,20 +113,45 @@ def _rows(path: Path) -> Iterable[Dict[str, str]]:
         return
 
 
-def history_rows(history_dir: Path, day: date, prefix: str = "boiler") -> List[Dict[str, str]]:
+def files_by_day(directory: Path, prefix: str) -> Dict[str, List[Path]]:
+    """
+    {"YYYYMMDD": [files]} for <prefix>_YYYYMMDD*.csv - the directory is listed
+    once per report instead of once per day (thousands of files on the Pi).
+    """
+    out: Dict[str, List[Path]] = {}
+    try:
+        names = os.listdir(directory)
+    except OSError:
+        return out
+    start = len(prefix) + 1
+    for name in sorted(names):
+        if name.startswith(prefix + "_") and name.endswith(".csv"):
+            out.setdefault(name[start:start + 8], []).append(directory / name)
+    return out
+
+
+def _day_files(directory: Path, prefix: str, d: date, index: Optional[Dict[str, List[Path]]]) -> List[Path]:
+    if index is not None:
+        return index.get(f"{d:%Y%m%d}", [])
+    return sorted(directory.glob(f"{prefix}_{d:%Y%m%d}*.csv"))
+
+
+def history_rows(history_dir: Path, day: date, prefix: str = "boiler",
+                 index: Optional[Dict[str, List[Path]]] = None) -> List[Dict[str, str]]:
     rows: List[Dict[str, str]] = []
-    for path in sorted(history_dir.glob(f"{prefix}_{day:%Y%m%d}_*.csv")):
+    for path in _day_files(history_dir, prefix, day, index):
         rows.extend(_rows(path))
     rows.sort(key=lambda r: r.get("data_czas") or "")
     return rows
 
 
-def coal_for_day(stats_dir: Path, day: date, prefix: str = "stats5m") -> Tuple[float, float, float]:
+def coal_for_day(stats_dir: Path, day: date, prefix: str = "stats5m",
+                 index: Optional[Dict[str, List[Path]]] = None) -> Tuple[float, float, float]:
     coal = energy = power_max = 0.0
     key = day.isoformat()
     # a bucket ending at 00:00 belongs to the previous day - also look one file ahead
     for d in (day, day + timedelta(days=1)):
-        for path in sorted(stats_dir.glob(f"{prefix}_{d:%Y%m%d}_*.csv")):
+        for path in _day_files(stats_dir, prefix, d, index):
             for r in _rows(path):
                 end = r.get("ts_end_iso") or ""
                 ts = _float(r.get("ts_end_unix"))
@@ -136,9 +163,15 @@ def coal_for_day(stats_dir: Path, day: date, prefix: str = "stats5m") -> Tuple[f
     return coal, energy, power_max
 
 
-def alarms_for_day(events_dir: Path, day: date, prefix: str = "events") -> int:
+def alarms_for_day(events_dir: Path, day: date, prefix: str = "events",
+                   index: Optional[Dict[str, List[Path]]] = None) -> int:
     n = 0
-    for path in sorted(events_dir.glob(f"{prefix}_{day:%Y%m%d}*.csv")):
+    for path in _day_files(events_dir, prefix, day, index):
+        try:
+            if "ALARM" not in path.read_text(encoding="utf-8", errors="replace").upper():
+                continue  # most files have no alarm - skip parsing them
+        except OSError:
+            continue
         n += sum(1 for r in _rows(path) if (r.get("level") or "").upper() == "ALARM")
     return n
 
@@ -419,25 +452,36 @@ class Analytics:
         except OSError:
             pass
 
-    def day(self, d: date, today: date, fallback_setpoint: Optional[float]) -> DayAgg:
+    def day(self, d: date, today: date, fallback_setpoint: Optional[float],
+            indexes: Optional[Dict[str, Dict[str, List[Path]]]] = None) -> DayAgg:
         key = d.isoformat()
         if d < today and key in self._cache:
             return DayAgg.from_dict(self._cache[key])
-        coal, energy, power_max = coal_for_day(self.stats_dir, d)
-        agg = aggregate_day(d, history_rows(self.history_dir, d), coal, energy,
-                            alarms_for_day(self.events_dir, d), fallback_setpoint, power_max)
+        ix = indexes or {}
+        coal, energy, power_max = coal_for_day(self.stats_dir, d, index=ix.get("stats"))
+        agg = aggregate_day(d, history_rows(self.history_dir, d, index=ix.get("history")), coal, energy,
+                            alarms_for_day(self.events_dir, d, index=ix.get("events")), fallback_setpoint, power_max)
         if d < today:
             self._cache[key] = asdict(agg)
         return agg
 
     def report(self, today: date, season_start: date, fallback_setpoint: Optional[float] = None,
-               overheat_temp: float = 80.0) -> Dict[str, Any]:
+               overheat_temp: float = 80.0, pause_s: float = 0.0) -> Dict[str, Any]:
+        """pause_s: pause after each day read from files (background warm-up on the Pi)."""
         first = min(season_start, today - timedelta(days=29))
         days: List[DayAgg] = []
         cached_before = len(self._cache)
+        indexes = {
+            "history": files_by_day(self.history_dir, "boiler"),
+            "stats": files_by_day(self.stats_dir, "stats5m"),
+            "events": files_by_day(self.events_dir, "events"),
+        }
         d = first
         while d <= today:
-            agg = self.day(d, today, fallback_setpoint)
+            from_files = not (d < today and d.isoformat() in self._cache)
+            agg = self.day(d, today, fallback_setpoint, indexes)
+            if from_files and pause_s:
+                time.sleep(pause_s)
             if agg.rows or agg.coal_kg:
                 days.append(agg)
             d += timedelta(days=1)

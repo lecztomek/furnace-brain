@@ -38,7 +38,7 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore) -> APIRo
                 return cached["report"]
         return build_report()
 
-    def build_report():
+    def build_report(pause_s: float = 0.0):
         today = date.today()
         month = int(setting("stats", "season_start_month", 9))
         day = int(setting("stats", "season_start_day", 1))
@@ -49,6 +49,7 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore) -> APIRo
                 season_start=season,
                 fallback_setpoint=setting("power_work", "boiler_set_temp", None),
                 overheat_temp=float(setting("overheat", "boiler_trip_temp", 80.0)),
+                pause_s=pause_s,
             )
         report["settings"] = {
             "feeder_kg_per_hour": setting("stats", "feeder_kg_per_hour", None),
@@ -61,10 +62,11 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore) -> APIRo
 
     def warm_up():
         # past days are read once in the background after start-up, so the
-        # first visit of the statistics page doesn't wait for months of CSV
+        # first visit of the statistics page doesn't wait for months of CSV;
+        # pauses between days leave the CPU to the rest (Raspberry Pi)
         time.sleep(20)
         try:
-            build_report()
+            build_report(pause_s=0.5)
         except Exception:  # pylint: disable=broad-except
             pass
 

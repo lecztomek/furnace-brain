@@ -1,6 +1,8 @@
 # backend/api/state_api.py
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, HTTPException
 
 from backend.core.config_store import ConfigStore
@@ -27,10 +29,15 @@ def create_state_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/state", tags=["state"])
 
+    regulators_cache = {"at": 0.0, "value": []}
+
     def _enabled_power_regulators() -> list[str]:
+        # the GUI polls the state every second - settings are read at most every few seconds
         if config_store is None:
             return []
-        loaded = {m.id for m in config_store.list_modules()}
+        if time.monotonic() - regulators_cache["at"] < 5.0:
+            return list(regulators_cache["value"])
+        loaded = set(config_store.module_ids)
         enabled = []
         for mid in POWER_REGULATORS:
             if mid not in loaded:
@@ -40,7 +47,8 @@ def create_state_router(
                     enabled.append(mid)
             except (KeyError, ValueError):
                 enabled.append(mid)  # no "enabled" field = always on
-        return enabled
+        regulators_cache.update(at=time.monotonic(), value=enabled)
+        return list(enabled)
 
     def _serialize_state(s: SystemState) -> dict:
         sens = s.sensors
