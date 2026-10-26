@@ -208,14 +208,15 @@ body {
   cursor: pointer;
 }
 
+/* colours of the mode / version badges */
 .tap-hint circle {
-  fill: #f59e0b;
-  stroke: #111;
-  stroke-width: 3px;
+  fill: rgba(10, 18, 26, 0.9);
+  stroke: #cbd5e1;
+  stroke-width: 1.5px;
 }
 
 .tap-hint path {
-  fill: #111;
+  fill: #f5f5f5;
 }
 
 /* same look as the mode badge */

@@ -3,7 +3,7 @@
 (function () {
   const SVG_NS = "http://www.w3.org/2000/svg";
   const TAPPABLE = ["#radiators-temp", "#auger"];
-  const RADIUS = 24; // svg units
+  const RADIUS = 12; // svg units
   const PENCIL =
     "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41" +
     "l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z";
