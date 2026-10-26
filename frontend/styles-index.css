@@ -220,7 +220,7 @@ body {
   fill: #f5f5f5;
 }
 
-/* "Ślimak ręcznie" switch on the fuel hopper (js/feeder-manual.js), plain svg */
+/* "Ślimak ręcznie" / "Dmuchawa ręcznie" switches (js/manual-switches.js), plain svg */
 .feeder-manual {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
