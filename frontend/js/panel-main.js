@@ -48,6 +48,7 @@ async function fetchState() {
     const data = await response.json();
     updateUIFromState(data);
     showAppInfo(data.app);
+    document.dispatchEvent(new CustomEvent("furnace:state", { detail: data }));
 
     // status na sukces (jeśli chcesz, możesz to usunąć żeby nie spamowało)
     FurnaceUI.ui.setStatus(`OK${stamp()}`);

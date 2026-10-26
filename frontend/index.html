@@ -443,6 +443,14 @@
                            TRYB: --
                         </text>
                      </g>
+                     <!-- "Ślimak ręcznie" switch on the fuel hopper, above the feeder (js/feeder-manual.js) -->
+                     <foreignObject x="306" y="336" width="122" height="104">
+                        <div xmlns="http://www.w3.org/1999/xhtml" id="feeder-manual" class="feeder-manual is-disabled" role="switch" aria-checked="false" tabindex="0">
+                           <span class="feeder-manual__label">Ręcznie</span>
+                           <span class="feeder-manual__switch"><span class="feeder-manual__knob"></span></span>
+                           <span class="feeder-manual__hint">tylko w STOP</span>
+                        </div>
+                     </foreignObject>
                   </svg>
                </div>
             </section>
@@ -588,6 +596,7 @@
 	    <script src="js/mode-control.js"></script>
       <script src="js/panel-main.js"></script>
       <script src="js/tap-hints.js"></script>
+      <script src="js/feeder-manual.js"></script>
    </body>
 </html>
 
