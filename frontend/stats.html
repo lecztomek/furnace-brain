@@ -14,162 +14,58 @@
 
         <section class="diagram-wrapper">
           <div class="diagram placeholder stats-container">
-            <div class="stats-v2">
+            <div class="st2" id="st2">
 
-              <!-- header -->
-              <div class="stats-v2-head">
-                <div class="stats-v2-title">
-                  <div class="stats-v2-title-big">STATYSTYKI SPALANIA</div>
+              <div class="st2-head">
+                <div class="st2-title">STATYSTYKI</div>
+                <div class="st2-periods" id="st2-periods">
+                  <button type="button" data-period="today">Dziś</button>
+                  <button type="button" data-period="yesterday">Wczoraj</button>
+                  <button type="button" data-period="d7" class="active">7 dni</button>
+                  <button type="button" data-period="d30">30 dni</button>
+                  <button type="button" data-period="season">Sezon</button>
                 </div>
-
-                <div class="stats-v2-meta">
-                  <div class="pill">
-                    <span class="pill-label">Status:</span>
-                    <span id="stats-status" class="pill-value">--</span>
-                  </div>
-                  <div class="pill">
-                    <span class="pill-label">Ostatni odczyt:</span>
-                    <span id="stats-ts" class="pill-value">--</span>
-                  </div>
-
-                  <div class="history-toolbar-group history-refresh-group">
-                    <button
-                      type="button"
-                      id="stats-refresh-btn"
-                      class="history-refresh-btn"
-                      title="Odśwież statystyki"
-                    >
-                      <svg class="history-refresh-icon" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M4.5 4.5v5.25h5.25M19.5 19.5v-5.25h-5.25"
-                              fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M5.636 18.364A8.25 8.25 0 0 0 19.5 12
-                                 M18.364 5.636A8.25 8.25 0 0 0 4.5 12"
-                              fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
+                <button type="button" class="st2-refresh" id="st2-refresh" title="Odśwież">⟳</button>
               </div>
+              <div class="st2-status" id="st2-status">Wczytywanie…</div>
 
-              <!-- BIG NUMBER + CHART -->
-              <div class="stats-v2-top">
-                <div class="stats-v2-now">
-                  <div class="stats-v2-now-label">OBECNIE</div>
-                  <div class="stats-v2-now-value">
-                    <span id="burn-now" class="stats-v2-now-num">--</span>
-                    <span class="stats-v2-now-unit">kg/h</span>
-                  </div>
-                  <div class="stats-v2-now-sub">
-                    W ostatnich 5 min: <span id="coal-now-5m">--</span> kg
-                  </div>
+              <!-- WĘGIEL -->
+              <section class="st2-card">
+                <h2>Węgiel</h2>
+                <div class="st2-tiles st2-tiles--big">
+                  <div class="st2-tile"><span class="st2-label">Zużyto</span><span class="st2-value" id="coal-total">--</span><span class="st2-unit">kg</span></div>
+                  <div class="st2-tile"><span class="st2-label">Średnio na dobę</span><span class="st2-value" id="coal-day">--</span><span class="st2-unit">kg</span></div>
+                  <div class="st2-tile"><span class="st2-label">Średnio na godzinę</span><span class="st2-value" id="coal-hour">--</span><span class="st2-unit">kg/h</span></div>
                 </div>
+                <div class="st2-chart"><canvas id="chart-daily"></canvas></div>
+                <div class="st2-note" id="coal-note"></div>
+              </section>
 
-                <div class="stats-v2-chart">
-                  <svg id="burn-line" viewBox="0 0 560 180" class="burn-line" aria-label="Wykres spalania kg/h"></svg>
-                  <div class="burn-xlabels" id="burn-xlabels"></div>
-                </div>
-              </div>
+              <!-- PRACA PIECA -->
+              <section class="st2-card">
+                <h2>Praca pieca</h2>
+                <div class="st2-tiles" id="work-tiles"></div>
+              </section>
 
-              <div class="stats-v2-divider"></div>
+              <!-- REGULACJA -->
+              <section class="st2-card">
+                <h2>Jak trzyma temperaturę <span class="st2-grade" id="reg-grade"></span></h2>
+                <div class="st2-tiles" id="reg-tiles"></div>
+                <div class="st2-note">Liczone w trybie PRACA, bez pierwszych 20 minut po wejściu w pracę, względem zadanej z tego momentu.</div>
+              </section>
 
-              <!-- TOTALS -->
-<!-- TOTALS -->
-<div class="stats-v2-bottom">
-  <div class="stats-v2-bottom-head">
-    <div class="stats-v2-bottom-title">ZUŻYCIE OPAŁU</div>
-  </div>
+              <!-- KONTROLA -->
+              <section class="st2-card">
+                <h2>Czy wszystko działa? <span class="st2-sub">ostatnie 7 dni</span></h2>
+                <ul class="st2-checks" id="checks"></ul>
+              </section>
 
-  <div class="totals-row">
-    <div class="total-card">
-      <div class="total-card-top">5 MIN</div>
-      <svg id="spark-5m" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
-      <div class="total-card-val"><span id="coal-5m">--</span> <span class="u">kg</span></div>
-    </div>
-
-    <div class="total-card">
-      <div class="total-card-top">1 GODZ</div>
-      <svg id="spark-1h" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
-      <div class="total-card-val"><span id="coal-1h">--</span> <span class="u">kg</span></div>
-    </div>
-
-    <div class="total-card">
-      <div class="total-card-top">4 GODZ</div>
-      <svg id="spark-4h" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
-      <div class="total-card-val"><span id="coal-4h">--</span> <span class="u">kg</span></div>
-    </div>
-
-    <div class="total-card">
-      <div class="total-card-top">24 GODZ</div>
-      <svg id="spark-24h" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
-      <div class="total-card-val"><span id="coal-24h">--</span> <span class="u">kg</span></div>
-    </div>
-
-    <div class="total-card">
-      <div class="total-card-top">7 DNI</div>
-      <svg id="spark-7d" viewBox="0 0 120 34" class="sparkline" aria-hidden="true"></svg>
-      <div class="total-card-val"><span id="coal-7d">--</span> <span class="u">kg</span></div>
-    </div>
-  </div>
-
-  <div class="stats-v2-divider"></div>
-
-  <div class="stats-v2-bottom-head">
-    <div class="stats-v2-bottom-title">PODSUMOWANIE</div>
-  </div>
-
-  <div class="totals-row">
-    <div class="total-card">
-      <div class="total-card-top">ŚR. MOC DZIŚ</div>
-      <details class="hint">
-        <summary aria-label="Podpowiedź">?</summary>
-        <div class="hint-pop">Średnia moc (kW) policzona z dzisiejszych danych (calendar.today.power_kw_avg).</div>
-      </details>
-      <div class="total-card-val"><span id="sum-active-today">--</span> <span class="u">kW</span></div>
-    </div>
-
-    <div class="total-card">
-      <div class="total-card-top">ŚR. SPALANIE DZIŚ</div>
-      <details class="hint">
-        <summary aria-label="Podpowiedź">?</summary>
-        <div class="hint-pop">Średnie spalanie (kg/h) policzone z dzisiejszych danych.</div>
-      </details>
-      <div class="total-card-val"><span id="sum-burn-today">--</span> <span class="u">kg/h</span></div>
-    </div>
-
-    <div class="total-card">
-      <div class="total-card-top">ZUŻYCIE DZIŚ</div>
-      <details class="hint">
-        <summary aria-label="Podpowiedź">?</summary>
-        <div class="hint-pop">Suma zużytego opału dzisiaj (kg).</div>
-      </details>
-      <div class="total-card-val"><span id="sum-coal-today">--</span> <span class="u">kg</span></div>
-    </div>
-
-<div class="total-card">
-  <div class="total-card-top">STABILNOŚĆ 1H</div>
-  <details class="hint">
-    <summary aria-label="Podpowiedź">?</summary>
-    <div class="hint-pop">Im mniej %, tym stabilniej. Gauge pokazuje stabilność (odwrócone), a liczba to % rozrzutu.</div>
-  </details>
-
-  <div class="total-card-val">
-    <svg id="gauge-stab-1h" width="140" height="86" viewBox="0 0 140 86" aria-label="Stabilność 1h"></svg>
-  </div>
-</div>
-
-
-<div class="total-card">
-  <div class="total-card-top">STABILNOŚĆ DZIŚ</div>
-  <details class="hint">
-    <summary aria-label="Podpowiedź">?</summary>
-    <div class="hint-pop">Im mniej %, tym stabilniej. Gauge pokazuje stabilność (odwrócone), a liczba to % rozrzutu.</div>
-  </details>
-
-  <div class="total-card-val">
-    <svg id="gauge-stab-today" width="140" height="86" viewBox="0 0 140 86" aria-label="Stabilność dziś"></svg>
-  </div>
-</div>
-
+              <!-- POGODA -->
+              <section class="st2-card">
+                <h2>Zależność od pogody</h2>
+                <div class="st2-weather-text" id="weather-text"></div>
+                <div class="st2-chart st2-chart--square"><canvas id="chart-weather"></canvas></div>
+              </section>
 
             </div>
           </div>
@@ -243,6 +139,7 @@
     <label for="nav-toggle" class="menu-overlay" aria-label="Zamknij menu"></label>
     <script src="js/side-clock.js"></script>
     <script src="js/furnace-ui-utils.js"></script>
+    <script src="js/chart.js"></script>
     <script src="js/stats.js"></script>
     <script src="js/mode-control.js"></script>
   </body>

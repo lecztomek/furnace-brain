@@ -22,6 +22,9 @@ services:
         value: frontend
       - key: FURNACE_BRAIN_DATA_ROOT
         value: /tmp/furnace-brain
+      # past days of demo data for the statistics page (simulator only)
+      - key: FURNACE_BRAIN_DEMO_DAYS
+        value: "30"
       # simulated time runs N times faster than real time
       - key: FURNACE_BRAIN_TIME_SCALE
         value: "10"

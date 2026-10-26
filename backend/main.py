@@ -19,6 +19,7 @@ from backend.api.history_api import create_history_router
 from backend.api.manual_api import create_manual_router
 from backend.api.stats_api import create_stats_router
 from backend.api.logs_api import create_logs_router
+from backend.api.analytics_api import create_analytics_router
 from backend.core.state_store import StateStore
 
 from backend.core.clock import RealClock, SimClock
@@ -107,6 +108,11 @@ if is_rpi:
 else:
     run_id = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     run_root = DATA_ROOT / "sim_runs" / run_id
+
+    # test environment: past days of demo data for the statistics page
+    if os.getenv("FURNACE_BRAIN_DEMO_DAYS"):
+        from backend.core.demo_history import seed as seed_demo_history
+        seed_demo_history(run_root, int(os.getenv("FURNACE_BRAIN_DEMO_DAYS", "0")))
 
 BACKEND_ROOT = Path(__file__).resolve().parent
 
@@ -296,6 +302,7 @@ app.include_router(
         file_prefix="boiler"
     ), prefix="/api")
     
+app.include_router(create_analytics_router(data_root=API_ROOT, config_store=config_store), prefix="/api")
 app.include_router(state_router, prefix="/api")
 app.include_router(manual_router, prefix="/api")
 app.include_router(config_router, prefix="/api")

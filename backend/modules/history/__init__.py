@@ -159,6 +159,7 @@ class HistoryModule(ModuleInterface):
         temp_grzejnikow = sensors.radiators_temp
         temp_spalin = sensors.flue_gas_temp
         temp_zewn = sensors.outside_temp
+        zadana = self._work_setpoint()
         n = max(self._samples, 1)
         dmuchawa = round(self._fan_sum / n, 1)          # average fan power [%]
         slimak = round(100.0 * self._feeder_on / n, 1)   # share of time feeding [%]
@@ -187,6 +188,7 @@ class HistoryModule(ModuleInterface):
                         "temp_zewn",
                         "dmuchawa",
                         "slimak",
+                        "zadana",
                     ]
                 )
 
@@ -201,8 +203,19 @@ class HistoryModule(ModuleInterface):
                     temp_zewn if temp_zewn is not None else "",
                     dmuchawa,
                     slimak,
+                    zadana if zadana is not None else "",
                 ]
             )
+
+    def _work_setpoint(self) -> Optional[float]:
+        """Current WORK boiler setpoint (power_work settings) - for the regulation stats."""
+        try:
+            from backend.core.config_store import ConfigStore
+
+            store = ConfigStore(self._base_path.parent, ["power_work"])
+            return float(store.get_value("power_work", "boiler_set_temp"))
+        except Exception:  # pylint: disable=broad-except
+            return None
 
     # ---------- CONFIG (schema + values) ----------
 
