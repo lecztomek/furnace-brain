@@ -167,6 +167,7 @@ class Kernel:
             st.ts_mono = now_mono
     
             combined_outputs: Outputs = self._copy_outputs(st.outputs)
+            power_sources: List[str] = []
     
             for mid, module in self._modules.items():
                 start = self._clock.time()
@@ -185,6 +186,8 @@ class Kernel:
                     status.last_updated = now
     
                     combined_outputs = self._merge_outputs(combined_outputs, result.partial_outputs)
+                    if result.partial_outputs.power_percent is not None:
+                        power_sources.append(mid)
                     all_events.extend(result.events)
     
                 except Exception as exc:
@@ -218,6 +221,7 @@ class Kernel:
     
             self._hardware.apply_outputs(final_outputs)
             st.outputs = final_outputs
+            st.power_sources = power_sources
     
             # dotychczasowe zachowanie: eventy z ostatniego ticka
             st.recent_events = all_events

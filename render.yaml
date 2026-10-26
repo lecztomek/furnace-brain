@@ -12,7 +12,7 @@ services:
     # on every redeploy/sleep - the free plan has no persistent disk)
     buildCommand: >-
       pip install -r requirements.txt &&
-      for f in backend/modules/*/values.yaml.sample; do cp -n "$f" "${f%.sample}"; done
+      for f in backend/modules/*/values.yaml.sample; do [ -e "${f%.sample}" ] || cp "$f" "${f%.sample}"; done
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/state/current
     envVars:

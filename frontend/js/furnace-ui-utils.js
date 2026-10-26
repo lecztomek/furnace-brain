@@ -62,9 +62,12 @@
     return Math.min(max, Math.max(min, num));
   }
 
+  // longer texts are cut so they fit the badge; the full text is in the tooltip
+  const MODE_MAX_CHARS = 24;
   function formatMode(mode) {
     if (!mode) return "TRYB: --";
-    return `TRYB: ${String(mode).toUpperCase()}`;
+    const text = `TRYB: ${String(mode).toUpperCase()}`;
+    return text.length > MODE_MAX_CHARS ? text.slice(0, MODE_MAX_CHARS - 1) + "…" : text;
   }
   function formatTemp(v) {
     if (v == null) return "--°C";
@@ -236,7 +239,16 @@
   function setMode(mode) {
     ensureSvgRefs();
     uiState.mode = mode ?? null;
-    if (els.modeText) els.modeText.textContent = formatMode(uiState.mode);
+    if (els.modeText) {
+      els.modeText.textContent = formatMode(uiState.mode);
+      const badge = els.modeText.parentNode;
+      let title = badge.querySelector("title");
+      if (!title) {
+        title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        badge.prepend(title);
+      }
+      title.textContent = mode ? `Tryb: ${mode}` : "";
+    }
   }
 
   function updateFireFromTemp(valueC) {

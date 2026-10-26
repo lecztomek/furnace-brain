@@ -26,6 +26,7 @@ def create_state_router(store: StateStore) -> APIRouter:
             "ts": s.ts,
             "mode": s.mode.name,
             "mode_display": MODE_DISPLAY.get(s.mode, s.mode.name.lower()),
+            "power_sources": list(s.power_sources),
             "alarm_active": s.alarm_active,
             "alarm_message": s.alarm_message,
             "sensors": {

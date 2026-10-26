@@ -104,7 +104,7 @@ function applyState(state) {
   const fan = outputs.fan_power == null ? 0 : Math.round(outputs.fan_power);
   setIfChanged(prev.outputs, "fan", fan, FurnaceUI.blower.setPower);
 
-  const modeDisplay = state.mode_display || state.mode || "nieznany";
+  const modeDisplay = modeLabel(state);
   setIfChanged(prev, "mode", modeDisplay, FurnaceUI.ui.setMode);
 
   const power = (outputs.power_percent != null) ? Math.round(outputs.power_percent) : 0;
@@ -119,6 +119,22 @@ function applyState(state) {
     prev.alarm = alarmText;
     if (alarmText) FurnaceUI.ui.setStatus(alarmText);
   }
+}
+
+// short names of the power regulators shown next to the WORK mode
+const POWER_SOURCE_LABELS = {
+  power_work: "PID",
+  power_work_fuzzy: "FUZZY",
+  power_work_predictive: "PRED",
+};
+
+// e.g. "praca (PID, FUZZY)" - regulators that set the power in the last tick,
+// in execution order (the last one wins)
+function modeLabel(state) {
+  const base = state.mode_display || state.mode || "nieznany";
+  if (state.mode !== "WORK") return base;
+  const sources = (state.power_sources || []).map((id) => POWER_SOURCE_LABELS[id] || id);
+  return sources.length ? `${base} (${sources.join(", ")})` : base;
 }
 
 function startPolling(ms = 5000) {

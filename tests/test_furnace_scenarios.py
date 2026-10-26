@@ -42,6 +42,8 @@ def test_cold_start_in_work_reaches_setpoint(tmp_path, fuzzy_enabled):
     target = boiler_set_temp(sim)
 
     sim.run(10 * MIN, sample_every_s=1)
+    assert ("power_work_fuzzy" in sim.state.power_sources) == fuzzy_enabled
+    assert "power_work" in sim.state.power_sources
     first = sim.samples
     assert sum(s.power for s in first) / len(first) > 50, "power stays low with a cold boiler"
 

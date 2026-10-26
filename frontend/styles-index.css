@@ -295,7 +295,7 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 32px; /* ten sam rozmiar co dla temperatur */
+  font-size: 26px;
   text-anchor: middle;           /* środek prostokąta (x=210) */
 }
 
