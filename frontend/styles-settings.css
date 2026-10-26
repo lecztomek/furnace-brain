@@ -906,3 +906,55 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
 }
 
 
+
+/* ===== Phone (portrait): modules as one horizontally scrolled row of tabs,
+   the settings of the chosen module take the rest of the screen; menu
+   button in the bottom right corner ===== */
+@media (max-width: 640px) {
+  .burger-btn {
+    position: fixed;
+    left: auto;
+    right: 10px;
+    top: auto;
+    bottom: 40px;
+    transform: none;
+    width: 52px;
+    height: 46px;
+    font-size: 28px;
+    background: rgba(17, 24, 39, 0.9);
+  }
+
+  .config-root { padding: 0.3rem; }
+  .config-tabs-header {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 0.35rem;
+    padding-bottom: 0.35rem;
+    margin-bottom: 0.35rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .config-tabs-header::-webkit-scrollbar { display: none; }
+  .config-tab-button {
+    flex-shrink: 0;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+  }
+  .config-tabs-body { padding: 0.15rem; }
+
+  /* label on its own line (full text), controls under it */
+  .config-field-main { flex-wrap: wrap; gap: 0.2rem 0.5rem; }
+  .config-field-label {
+    flex: 1 0 100%;
+    white-space: normal;
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+  }
+  .config-field-controls { margin-left: auto; }
+
+  /* save button on the left - the menu button is in the bottom right corner */
+  .config-actions { justify-content: flex-start; }
+}

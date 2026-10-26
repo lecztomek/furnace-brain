@@ -173,6 +173,10 @@ function activateTab(moduleId) {
         "active",
         btn.dataset.moduleId === moduleId
       );
+      // phone: the tabs are one scrolled row - keep the chosen one visible
+      if (btn.dataset.moduleId === moduleId && btn.scrollIntoView) {
+        btn.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
     });
 
   document
