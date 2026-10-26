@@ -107,11 +107,16 @@ class ConfigStore:
         field_map = {f["key"]: f for f in fields}
 
         validated: Dict[str, Any] = {}
+        current = self._load_raw_values(module_id)
 
         # Przechodzimy po polach ze schemy – ignorujemy dodatkowe klucze w new_values.
+        # Fields missing from new_values keep their current value (not the default),
+        # so saving a few fields never resets the rest.
         for key, field in field_map.items():
             if key in new_values:
                 raw_value = new_values[key]
+            elif key in current:
+                raw_value = current[key]
             else:
                 raw_value = field.get("default")
 

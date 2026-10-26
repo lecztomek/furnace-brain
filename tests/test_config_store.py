@@ -50,3 +50,13 @@ def test_creates_values_file_when_missing(tmp_path):
     assert yaml.safe_load(vpath.read_text(encoding="utf-8")) == {
         "target_temp": 40.0, "enabled": True, "new_param": 7.5,
     }
+
+
+def test_set_values_keeps_fields_not_sent(tmp_path):
+    store, vpath = make_store(tmp_path, "target_temp: 55.0\nenabled: false\nnew_param: 1.0\n")
+
+    store.set_values("demo", {"target_temp": 60.0})
+
+    assert yaml.safe_load(vpath.read_text(encoding="utf-8")) == {
+        "target_temp": 60.0, "enabled": False, "new_param": 1.0,
+    }

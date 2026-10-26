@@ -2,7 +2,7 @@ boiler_set_temp: 56.0
 boiler_temp_filter_tau_s: 15.0
 dropout_err_off_degC: 4.0
 ema_tau_s: 1200.0
-enabled: true
+enabled: false
 learn_gate_err_degC: 1.5
 learn_max_span_degC: 1.5
 learn_min_samples: 30.0

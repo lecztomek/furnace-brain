@@ -4,6 +4,8 @@
 const CONFIG_API_BASE = "/api/config";
 
 const configState = {};
+// values as loaded from the backend - saving sends only fields that differ
+const loadedState = {};
 const schemaCache = {};
 const modulesById = {};
 
@@ -255,6 +257,8 @@ function renderField(moduleId, key, def, rawValue) {
 
   if (!configState[moduleId]) configState[moduleId] = {};
   configState[moduleId][key] = value;
+  if (!loadedState[moduleId]) loadedState[moduleId] = {};
+  loadedState[moduleId][key] = value;
 
   const field = document.createElement("div");
   field.className = "config-field";
@@ -458,7 +462,12 @@ async function saveModuleConfig(moduleId, saveButtonEl) {
       `Zapisywanie konfiguracji modułu ${moduleId}...`
     );
 
-    const body = configState[moduleId] || {};
+    // only fields changed on this page, so a stale page can't overwrite other settings
+    const current = configState[moduleId] || {};
+    const loaded = loadedState[moduleId] || {};
+    const body = Object.fromEntries(
+      Object.entries(current).filter(([key, value]) => loaded[key] !== value)
+    );
     const saved = await fetchJson(
       `${CONFIG_API_BASE}/values/${moduleId}`,
       {
@@ -471,6 +480,7 @@ async function saveModuleConfig(moduleId, saveButtonEl) {
     );
 
     configState[moduleId] = { ...(saved || {}) };
+    loadedState[moduleId] = { ...(saved || {}) };
 
     const moduleName =
       (modulesById[moduleId] &&

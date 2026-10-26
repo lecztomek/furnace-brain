@@ -1,5 +1,5 @@
 enabled: true
-boiler_set_temp: 56.0
+boiler_set_temp: 57.0
 integral_window_s: 600.0
 kd: 0.0
 ki: 0.045
