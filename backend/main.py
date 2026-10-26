@@ -242,7 +242,7 @@ async def on_shutdown() -> None:
 
 # --- ROUTERY ---
 
-state_router = create_state_router(store=store)
+state_router = create_state_router(store=store, config_store=config_store)
 manual_router = create_manual_router(store=store)
 config_router = create_config_router(
     config_store=config_store,

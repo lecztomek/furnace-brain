@@ -128,12 +128,11 @@ const POWER_SOURCE_LABELS = {
   power_work_predictive: "PRED",
 };
 
-// e.g. "praca (PID, FUZZY)" - regulators that set the power in the last tick,
-// in execution order (the last one wins)
+// e.g. "praca (PID, FUZZY)" - every enabled power regulator
 function modeLabel(state) {
   const base = state.mode_display || state.mode || "nieznany";
   if (state.mode !== "WORK") return base;
-  const sources = (state.power_sources || []).map((id) => POWER_SOURCE_LABELS[id] || id);
+  const sources = (state.power_regulators || []).map((id) => POWER_SOURCE_LABELS[id] || id);
   return sources.length ? `${base} (${sources.join(", ")})` : base;
 }
 

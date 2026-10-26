@@ -187,8 +187,4 @@ class SystemState:
     
     runtime: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
-    # Modules that set power_percent in the last tick, in execution order
-    # (the last one wins):
-    power_sources: List[str] = field(default_factory=list)
-
     # Tu możesz dokładać kolejne pola, gdy GUI/API będzie czegoś potrzebować.

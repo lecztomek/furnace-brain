@@ -62,12 +62,16 @@
     return Math.min(max, Math.max(min, num));
   }
 
-  // longer texts are cut so they fit the badge; the full text is in the tooltip
+  // long texts drop the "TRYB:" prefix, then get cut to fit the badge;
+  // the full text is in the tooltip
   const MODE_MAX_CHARS = 24;
   function formatMode(mode) {
     if (!mode) return "TRYB: --";
-    const text = `TRYB: ${String(mode).toUpperCase()}`;
-    return text.length > MODE_MAX_CHARS ? text.slice(0, MODE_MAX_CHARS - 1) + "…" : text;
+    const upper = String(mode).toUpperCase();
+    const text = `TRYB: ${upper}`;
+    if (text.length <= MODE_MAX_CHARS) return text;
+    if (upper.length <= MODE_MAX_CHARS) return upper;
+    return upper.slice(0, MODE_MAX_CHARS - 1) + "…";
   }
   function formatTemp(v) {
     if (v == null) return "--°C";

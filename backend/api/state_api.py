@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
+from backend.core.config_store import ConfigStore
 from backend.core.state_store import StateStore
 from ..core.state import SystemState, BoilerMode
 
@@ -15,8 +16,27 @@ MODE_DISPLAY = {
 }
 
 
-def create_state_router(store: StateStore) -> APIRouter:
+# WORK power regulators, shown next to the mode when enabled
+POWER_REGULATORS = ("power_work", "power_work_fuzzy", "power_work_predictive")
+
+
+def create_state_router(store: StateStore, config_store: ConfigStore | None = None) -> APIRouter:
     router = APIRouter(prefix="/state", tags=["state"])
+
+    def _enabled_power_regulators() -> list[str]:
+        if config_store is None:
+            return []
+        loaded = {m.id for m in config_store.list_modules()}
+        enabled = []
+        for mid in POWER_REGULATORS:
+            if mid not in loaded:
+                continue
+            try:
+                if config_store.get_value(mid, "enabled"):
+                    enabled.append(mid)
+            except (KeyError, ValueError):
+                enabled.append(mid)  # no "enabled" field = always on
+        return enabled
 
     def _serialize_state(s: SystemState) -> dict:
         sens = s.sensors
@@ -26,7 +46,7 @@ def create_state_router(store: StateStore) -> APIRouter:
             "ts": s.ts,
             "mode": s.mode.name,
             "mode_display": MODE_DISPLAY.get(s.mode, s.mode.name.lower()),
-            "power_sources": list(s.power_sources),
+            "power_regulators": _enabled_power_regulators(),
             "alarm_active": s.alarm_active,
             "alarm_message": s.alarm_message,
             "sensors": {
