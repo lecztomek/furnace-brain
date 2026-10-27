@@ -20,6 +20,7 @@ from backend.api.manual_api import create_manual_router
 from backend.api.stats_api import create_stats_router
 from backend.api.logs_api import create_logs_router
 from backend.api.analytics_api import create_analytics_router
+from backend.api.service_api import create_service_router, LoopStats
 from backend.core.state_store import StateStore
 
 from backend.core.clock import RealClock, SimClock
@@ -179,6 +180,9 @@ def reload_any_module(module_id: str) -> None:
 
 # --- PĘTLE ---
 
+# step durations for the diagnostics page
+LOOP_STATS = {"control": LoopStats(0.5), "aux": LoopStats(2.0)}
+
 def control_loop(stop_event: threading.Event) -> None:
     TICK_INTERVAL = 0.5
     while not stop_event.is_set():
@@ -191,6 +195,7 @@ def control_loop(stop_event: threading.Event) -> None:
             mode_now = st.mode
         mode_file.save_if_changed(mode_now)
         elapsed = time.time() - start
+        LOOP_STATS["control"].add(elapsed)
         remaining = max(0.0, TICK_INTERVAL - elapsed)
         # wait zamiast time.sleep -> szybka reakcja na sygnał stop
         if stop_event.wait(timeout=remaining):
@@ -206,6 +211,7 @@ def aux_loop(stop_event: threading.Event) -> None:
         except Exception as exc:  # pylint: disable=broad-except
             print(f"[AUX LOOP ERROR] {type(exc).__name__}: {exc}")
         elapsed = time.time() - start
+        LOOP_STATS["aux"].add(elapsed)
         remaining = max(0.0, TICK_INTERVAL - elapsed)
         if stop_event.wait(timeout=remaining):
             break
@@ -304,6 +310,7 @@ manual_router = create_manual_router(store=store)
 config_router = create_config_router(
     config_store=config_store,
     reload_module_config=reload_any_module,
+    publish_events=store.publish_events,
 )
 
 API_ROOT = run_root
@@ -346,7 +353,9 @@ app.include_router(
         file_prefix="boiler"
     ), prefix="/api")
     
-app.include_router(create_analytics_router(data_root=API_ROOT, config_store=config_store), prefix="/api")
+app.include_router(create_analytics_router(data_root=API_ROOT, config_store=config_store, store=store), prefix="/api")
+app.include_router(create_service_router(store=store, config_store=config_store, data_root=API_ROOT,
+                                         app_info=APP_INFO, loop_stats=LOOP_STATS), prefix="/api")
 app.include_router(state_router, prefix="/api")
 app.include_router(manual_router, prefix="/api")
 app.include_router(config_router, prefix="/api")

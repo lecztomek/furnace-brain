@@ -3,16 +3,19 @@ from __future__ import annotations
 import json
 import threading
 import time
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
-from backend.core.analytics import Analytics
+from backend.core.analytics import Analytics, coal_forecast, forecast_model
 from backend.core.config_store import ConfigStore
+from backend.core.state_store import StateStore
 
 
-def create_analytics_router(data_root: Path, config_store: ConfigStore) -> APIRouter:
+def create_analytics_router(data_root: Path, config_store: ConfigStore,
+                            store: Optional[StateStore] = None) -> APIRouter:
     router = APIRouter(prefix="/analytics", tags=["analytics"])
     modules = data_root / "modules"
     analytics = Analytics(
@@ -58,6 +61,22 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore) -> APIRo
         if report is None:
             raise HTTPException(status_code=503, detail={"msg": "Liczę statystyki - spróbuj za chwilę", "progress": progress})
         return {**report, "stale": True, "progress": progress}
+
+    @router.get("/forecast")
+    def get_forecast():
+        """Weather for today and the next days with the coal, cost and heat it should take."""
+        with state_lock:
+            report = cached["report"]
+        points = (((report or {}).get("weather") or {}).get("coal") or {}).get("points") or []
+        model = forecast_model(points, date.today())
+        weather = (store.snapshot().runtime.get("weather") or {}) if store is not None else {}
+        price = setting("stats", "coal_price_pln_per_t", 0) or 0
+        calorific = setting("stats", "calorific_mj_per_kg", None)
+        out = coal_forecast(weather.get("forecast"), model, datetime.now(), float(price),
+                            float(calorific) if calorific else None)
+        out["price_pln_per_t"] = price
+        out["outside_now"] = weather.get("temp")
+        return out
 
     def start_background_build(pause_s: float = 0.0) -> None:
         if building.is_set():

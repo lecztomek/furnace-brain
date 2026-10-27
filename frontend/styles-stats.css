@@ -1311,3 +1311,35 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
 @media (max-width: 640px) {
   .st2-card .st2-tiles { grid-template-columns: 1fr 1fr; }
 }
+
+/* forecast tab */
+.fc-tomorrow { display: grid; grid-template-columns: minmax(220px, 1fr) 2fr; gap: 14px; align-items: center; }
+.fc-sky { display: flex; align-items: center; gap: 14px; }
+.fc-icon { font-size: 76px; line-height: 1; }
+.fc-temps { font-size: 22px; color: #93c5fd; }
+.fc-temps b { font-size: 48px; color: #f9fafb; font-weight: 900; }
+.fc-sky-text { color: #cbd5e1; font-size: 15px; margin-top: 2px; }
+.fc-hero { margin: 0; grid-template-columns: repeat(3, 1fr); }
+.fc-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.fc-day {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 12px 10px; border-radius: 14px; background: #0d151b; border: 1px solid #233241; text-align: center;
+}
+.fc-day.is-tomorrow { border-color: #f97316; }
+.fc-day__name { font-size: 18px; font-weight: 800; display: flex; flex-direction: column; }
+.fc-day__name span { font-size: 12px; font-weight: 500; color: #9ca3af; }
+.fc-day__icon { font-size: 44px; line-height: 1.1; }
+.fc-day__temps { font-size: 16px; color: #93c5fd; }
+.fc-day__temps b { color: #f9fafb; font-size: 22px; }
+.fc-day__coal { font-size: 26px; font-weight: 800; color: #fdba74; }
+.fc-day__cost { font-size: 16px; font-weight: 700; color: #fde68a; min-height: 1em; }
+.fc-day__more { font-size: 12px; color: #9ca3af; }
+@media (max-width: 700px) {
+  .fc-tomorrow { grid-template-columns: 1fr; }
+  .fc-icon { font-size: 60px; }
+  .fc-hero { grid-template-columns: repeat(3, 1fr); }
+  .fc-hero .st2-value { font-size: 26px; }
+  .fc-days { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .fc-day { padding: 8px 4px; }
+  .fc-day__coal { font-size: 20px; }
+}

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sterownik kotła – Serwis</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles-stats.css" />
+    <link rel="stylesheet" href="styles-service.css" />
+        <link rel="icon" href="icon.svg" type="image/svg+xml" />
+      <link rel="apple-touch-icon" href="icon-180.png" />
+      <link rel="manifest" href="manifest.json" />
+      <meta name="theme-color" content="#1f2937" />
+</head>
+  <body>
+      <input id="nav-toggle" class="nav-toggle" type="checkbox" />
+      <label for="nav-toggle" class="burger-btn" aria-label="Menu">☰</label>
+      <main class="layout">
+
+        <section class="diagram-wrapper">
+          <div class="diagram placeholder stats-container">
+            <div class="st2" id="sv">
+
+              <div class="st2-head">
+                <div class="st2-title">SERWIS</div>
+                <button type="button" class="st2-refresh" id="sv-refresh" title="Odśwież">⟳</button>
+              </div>
+              <div class="st2-tabs" id="sv-tabs" role="tablist">
+                <button type="button" data-tab="tuning" class="active">Strojenie</button>
+                <button type="button" data-tab="diag">Diagnostyka Pi</button>
+              </div>
+              <div class="st2-status" id="sv-status">Wczytywanie…</div>
+
+              <!-- STROJENIE: OCENA -->
+              <section class="st2-card" data-tab="tuning">
+                <h2>Jak chodzi piec <span class="sv-verdict" id="tn-verdict"></span></h2>
+                <div class="st2-hero" id="tn-hero"></div>
+                <div class="st2-note" id="tn-hero-note"></div>
+              </section>
+
+              <!-- STROJENIE: PID NA ŻYWO -->
+              <section class="st2-card" data-tab="tuning">
+                <h2>PID teraz</h2>
+                <div class="sv-chain" id="tn-live"></div>
+                <div class="st2-note" id="tn-live-note"></div>
+              </section>
+
+              <!-- STROJENIE: SUGESTIE -->
+              <section class="st2-card" data-tab="tuning">
+                <h2>Co poprawić</h2>
+                <ul class="sv-advice" id="tn-items"></ul>
+              </section>
+
+              <!-- STROJENIE: ZMIANY USTAWIEŃ -->
+              <section class="st2-card" data-tab="tuning">
+                <h2>Zmiany ustawień i ich skutek</h2>
+                <div class="sv-changes" id="tn-changes"></div>
+                <div class="st2-note">Porównanie 12 h pracy przed zmianą i 12 h po niej (bez pierwszych 30 min i 2 h po rozpaleniu).</div>
+              </section>
+
+              <!-- DIAGNOSTYKA -->
+              <section class="st2-card" data-tab="diag">
+                <h2>Stan <span class="sv-verdict" id="dg-verdict"></span></h2>
+                <div id="dg-groups"></div>
+              </section>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- PRAWA KOLUMNA: MENU (BEZ ZMIAN) -->
+        <aside class="side-menu">
+          <div class="side-clock">
+            <div id="side-clock-time" class="side-clock-time">--:--</div>
+          </div>
+
+          <div class="menu-grid">
+            <a class="menu-btn" data-view="panel" href="index.html">
+              <span class="menu-icon">🏠</span>
+              <span class="menu-label">PANEL 1</span>
+            </a>
+
+            <a class="menu-btn" data-view="manual" href="manual.html">
+              <span class="menu-icon">🛠️</span>
+              <span class="menu-label">TRYB RĘCZNY</span>
+            </a>
+
+            <a class="menu-btn" data-view="ignite" href="#">
+              <span class="menu-icon">🔥</span>
+              <span class="menu-label">ROZPALANIE</span>
+            </a>
+
+            <a class="menu-btn" data-view="work" style="display: none" href="#">
+              <span class="menu-icon">🔥</span>
+              <span class="menu-label">PRACA</span>
+            </a>
+
+            <a class="menu-btn" data-view="add-fuel" href="add-fuel.html" style="display: none;">
+              <span class="menu-icon">➕</span>
+              <span class="menu-label">DOŁÓŻ OPAŁ</span>
+            </a>
+
+            <a class="menu-btn" data-view="settings" href="settings.html">
+              <span class="menu-icon">⚙️</span>
+              <span class="menu-label">USTAWIENIA</span>
+            </a>
+
+            <a class="menu-btn" data-view="stats" href="stats.html">
+              <span class="menu-icon">📊</span>
+              <span class="menu-label">STATYSTYKI</span>
+            </a>
+
+            <a class="menu-btn active" data-view="service" href="service.html">
+              <span class="menu-icon">🔧</span>
+              <span class="menu-label">SERWIS</span>
+            </a>
+			
+            <a class="menu-btn" data-view="logs" href="logs.html">
+              <span class="menu-icon">🧾</span>
+              <span class="menu-label">LOGI</span>
+            </a>
+			
+		    <a class="menu-btn danger" data-view="emergency" href="#">
+			  <span class="menu-icon">⚠️</span>
+              <span class="menu-label">STOP</span>
+            </a>
+          </div>
+        </aside>
+
+      </main>
+
+      <footer class="status-bar">
+        <span id="status-text"></span>
+      </footer>
+    </div>
+    <label for="nav-toggle" class="menu-overlay" aria-label="Zamknij menu"></label>
+    <script src="js/side-clock.js"></script>
+    <script src="js/furnace-ui-utils.js"></script>
+    <script src="js/service.js"></script>
+    <script src="js/mode-control.js"></script>
+  </body>
+</html>
+

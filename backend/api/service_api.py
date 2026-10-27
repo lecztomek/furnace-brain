@@ -1,0 +1,330 @@
+"""
+Service page: tuning advice (PID, feeder, blower) and the Raspberry Pi
+diagnostics (temperature, power supply, disk, memory, control loop timing,
+internet, data recording, sensors and modules).
+"""
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import threading
+import time
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
+
+from fastapi import APIRouter
+
+from backend.core.config_store import ConfigStore
+from backend.core.state_store import StateStore
+from backend.core.tuning import TuningReport
+
+TUNING_MODULES = ("power_work", "feeder", "blower", "mixer", "mode", "pump_co", "overheat", "flameout")
+TUNING_REUSE_S = 300
+
+SENSOR_NAMES = {"boiler_temp": "Kocioł", "radiators_temp": "Grzejniki", "hopper_temp": "Podajnik",
+                "flue_gas_temp": "Spaliny", "outside_temp": "Zewnętrzna"}
+
+# vcgencmd get_throttled bits
+THROTTLE_BITS = {
+    0: "za niskie napięcie zasilania TERAZ",
+    1: "ograniczona częstotliwość procesora TERAZ",
+    2: "procesor zwolniony TERAZ",
+    3: "limit temperatury TERAZ",
+    16: "było za niskie napięcie zasilania",
+    17: "było ograniczenie częstotliwości",
+    18: "procesor był zwalniany",
+    19: "był osiągnięty limit temperatury",
+}
+
+
+def _read(path: str) -> Optional[str]:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def _run(cmd: List[str]) -> Optional[str]:
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=3).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def _item(status: str, label: str, value: str, note: str = "") -> Dict[str, str]:
+    return {"status": status, "label": label, "value": value, "note": note}
+
+
+def _ago(ts: Optional[float], now: float) -> str:
+    if not ts:
+        return "nigdy"
+    s = max(0, int(now - ts))
+    if s < 90:
+        return f"{s} s temu"
+    if s < 5400:
+        return f"{s // 60} min temu"
+    if s < 2 * 86400:
+        return f"{s // 3600} h temu"
+    return f"{s // 86400} dni temu"
+
+
+def _duration(seconds: float) -> str:
+    s = max(0, int(seconds))
+    d, h, m = s // 86400, s % 86400 // 3600, s % 3600 // 60
+    if d:
+        return f"{d} d {h} h"
+    return f"{h} h {m} min" if h else f"{m} min"
+
+
+def _gb(n: float) -> str:
+    return f"{n / 1e9:.1f}".replace(".", ",") + " GB"
+
+
+def _newest_mtime(directory: Path) -> Optional[float]:
+    try:
+        return max((e.stat().st_mtime for e in os.scandir(directory) if e.is_file()), default=None)
+    except OSError:
+        return None
+
+
+class LoopStats:
+    """Duration of the control / aux loop steps over the last 10 min (filled by main.py)."""
+
+    WINDOW_S = 600
+
+    def __init__(self, interval_s: float) -> None:
+        self.interval_s = interval_s
+        self._lock = threading.Lock()
+        self._samples: List[tuple] = []  # (wall ts, duration s)
+
+    def add(self, duration_s: float) -> None:
+        now = time.time()
+        with self._lock:
+            self._samples.append((now, duration_s))
+            while self._samples and now - self._samples[0][0] > self.WINDOW_S:
+                self._samples.pop(0)
+
+    def summary(self) -> Dict[str, Any]:
+        with self._lock:
+            d = [x for _, x in self._samples]
+        if not d:
+            return {"count": 0}
+        return {"count": len(d), "avg_ms": 1000 * sum(d) / len(d), "max_ms": 1000 * max(d),
+                "late": sum(1 for x in d if x > self.interval_s)}
+
+
+def create_service_router(store: StateStore, config_store: ConfigStore, data_root: Path,
+                          app_info: Dict[str, Any], loop_stats: Dict[str, LoopStats],
+                          clock: Callable[[], float] = time.time) -> APIRouter:
+    router = APIRouter(prefix="/service", tags=["service"])
+    modules_dir = data_root / "modules"
+    tuning = TuningReport(history_dir=modules_dir / "history" / "data",
+                          events_dir=modules_dir / "eventlog" / "data")
+    lock = threading.Lock()
+    cached: Dict[str, Any] = {"at": 0.0, "report": None}
+
+    def settings() -> Dict[str, Dict[str, Any]]:
+        out = {}
+        for mid in TUNING_MODULES:
+            try:
+                out[mid] = config_store.get_values(mid)
+            except (KeyError, ValueError, OSError):
+                out[mid] = {}
+        return out
+
+    def live(s: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+        """The PID chain right now: deviation -> P + I -> power -> feeder rhythm and blower."""
+        st = store.snapshot()
+        pid = st.runtime.get("power_work") or {}
+        power = st.outputs.power_percent
+        fd, bl = s.get("feeder") or {}, s.get("blower") or {}
+        feed = None
+        try:
+            if power is not None and power > float(fd.get("min_power_to_feed", 0)):
+                off = float(fd["feed_off_base_s"]) * 100.0 / max(float(power), 0.1)
+                off = max(float(fd.get("min_pause_s", 0)), min(float(fd.get("max_pause_s", 1e9)), off))
+                feed = {"on_s": float(fd["feed_on_base_s"]), "off_s": off}
+        except (KeyError, TypeError, ValueError):
+            feed = None
+        fan_on = None
+        try:
+            if power is not None and power > float(bl.get("min_power_to_blow", 0)):
+                fan_on = min(100.0, float(power))
+        except (TypeError, ValueError):
+            pass
+        return {
+            "mode": st.mode.name,
+            "boiler": st.sensors.boiler_temp,
+            "setpoint": (s.get("power_work") or {}).get("boiler_set_temp"),
+            "pid": pid if st.mode.name == "WORK" else {},
+            "power": power,
+            "feeder": feed,
+            "fan_percent": bl.get("base_fan_percent"),
+            "fan_duty_pct": fan_on,
+            "fan_cycle_s": bl.get("cycle_time_s"),
+            "fan_now": st.outputs.fan_power,
+        }
+
+    @router.get("/tuning")
+    def get_tuning(fresh: bool = False):
+        s = settings()
+        with lock:
+            if fresh or cached["report"] is None or clock() - cached["at"] > TUNING_REUSE_S:
+                cached["report"] = tuning.build(s)
+                cached["at"] = clock()
+            report = cached["report"]
+        return {**report, "settings": s, "live": live(s)}
+
+    @router.get("/diagnostics")
+    def get_diagnostics():
+        now = clock()
+        st = store.snapshot()
+        groups: List[Dict[str, Any]] = []
+
+        # --- Raspberry Pi ---
+        pi: List[Dict[str, str]] = []
+        raw = _read("/sys/class/thermal/thermal_zone0/temp")
+        if raw:
+            t = int(raw.strip()) / 1000.0
+            pi.append(_item("ok" if t < 65 else "warn" if t < 80 else "bad", "Temperatura procesora",
+                            f"{t:.0f}°C", "" if t < 65 else "Pi się grzeje - sprawdź wentylację obudowy"))
+        thr = _run(["vcgencmd", "get_throttled"])
+        if thr and "=" in thr:
+            try:
+                bits = int(thr.split("=")[1], 16)
+                now_bits = [THROTTLE_BITS[b] for b in (0, 1, 2, 3) if bits & (1 << b)]
+                past = [THROTTLE_BITS[b] for b in (16, 17, 18, 19) if bits & (1 << b)]
+                if now_bits:
+                    pi.append(_item("bad", "Zasilanie", ", ".join(now_bits), "Słaby zasilacz lub kabel USB - wymień"))
+                elif past:
+                    pi.append(_item("warn", "Zasilanie", ", ".join(past) + " (od startu Pi)",
+                                    "Spadki napięcia psują kartę SD - rozważ lepszy zasilacz"))
+                else:
+                    pi.append(_item("ok", "Zasilanie", "bez spadków napięcia od startu Pi"))
+            except (ValueError, IndexError):
+                pass
+        try:
+            l1, l5, _ = os.getloadavg()
+            cores = os.cpu_count() or 1
+            pi.append(_item("ok" if l5 < cores else "warn", "Obciążenie procesora",
+                            f"{l1:.2f} / {l5:.2f} (1 / 5 min, rdzeni: {cores})".replace(".", ",")))
+        except OSError:
+            pass
+        mem = _read("/proc/meminfo")
+        if mem:
+            info = {ln.split(":")[0]: int(ln.split()[1]) for ln in mem.splitlines() if ln.split()[1:2]}
+            total, avail = info.get("MemTotal", 0) * 1024, info.get("MemAvailable", 0) * 1024
+            if total:
+                pi.append(_item("ok" if avail > 100e6 else "warn" if avail > 40e6 else "bad", "Pamięć RAM",
+                                f"wolne {avail / 1e6:.0f} z {total / 1e6:.0f} MB"))
+        status = _read("/proc/self/status")
+        if status:
+            rss = next((ln.split()[1] for ln in status.splitlines() if ln.startswith("VmRSS")), None)
+            if rss:
+                pi.append(_item("ok", "Pamięć sterownika", f"{int(rss) / 1024:.0f} MB"))
+        up = _read("/proc/uptime")
+        if up:
+            secs = float(up.split()[0])
+            pi.append(_item("ok", "Pi działa od", _duration(secs)))
+        ntp = _run(["timedatectl", "show", "-p", "NTPSynchronized", "--value"])
+        if ntp in ("yes", "no"):
+            pi.append(_item("ok" if ntp == "yes" else "warn", "Zegar",
+                            "zsynchronizowany z internetem" if ntp == "yes" else "niezsynchronizowany",
+                            "" if ntp == "yes" else "Godziny w statystykach mogą być przesunięte"))
+        groups.append({"title": "Raspberry Pi", "items": pi})
+
+        # --- disks ---
+        disks: List[Dict[str, str]] = []
+        seen = set()
+        for label, path in (("Karta SD (system)", "/"), ("Dane (pendrive)", str(data_root))):
+            try:
+                u = shutil.disk_usage(path)
+                dev = os.stat(path).st_dev
+            except OSError:
+                continue
+            if dev in seen:
+                continue
+            seen.add(dev)
+            free_pct = 100 * u.free / u.total if u.total else 0
+            disks.append(_item("ok" if free_pct > 20 else "warn" if free_pct > 5 else "bad", label,
+                               f"wolne {_gb(u.free)} z {_gb(u.total)} ({free_pct:.0f}%)"))
+        for label, sub in (("Zapis historii", "history"), ("Zapis logów", "eventlog"), ("Zapis statystyk", "stats")):
+            m = _newest_mtime(modules_dir / sub / "data")
+            limit = 600 if sub == "stats" else 180
+            disks.append(_item("ok" if m and now - m < limit else "warn", label, f"ostatnio {_ago(m, now)}",
+                               "" if m and now - m < limit else "Nic się nie zapisuje - sprawdź pendrive"))
+        groups.append({"title": "Dyski i zapis danych", "items": disks})
+
+        # --- controller ---
+        ctl: List[Dict[str, str]] = []
+        started = app_info.get("started_at")
+        ctl.append(_item("ok", "Wersja", str(app_info.get("version") or "--")))
+        ctl.append(_item("ok", "Sterownik działa od", _duration(now - started) if started else "--"))
+        for key, label in (("control", "Pętla sterowania"), ("aux", "Pętla pomocnicza")):
+            ls = loop_stats.get(key)
+            if ls is None:
+                continue
+            sm = ls.summary()
+            if not sm.get("count"):
+                continue
+            late = sm["late"]
+            ctl.append(_item("ok" if late == 0 else "warn" if late < 20 else "bad", label,
+                             f"średnio {sm['avg_ms']:.0f} ms, najdłużej {sm['max_ms']:.0f} ms"
+                             + (f", spóźniona {late}× (10 min)" if late else ""),
+                             "" if late == 0 else f"krok dłuższy niż {ls.interval_s:g} s - Pi nie wyrabia"))
+        for mid, ms in sorted(st.modules.items()):
+            if ms.health.name != "OK":
+                ctl.append(_item("bad", f"Moduł {mid}", ms.health.name, ms.last_error or ""))
+        if not any(i["label"].startswith("Moduł ") for i in ctl):
+            ctl.append(_item("ok", "Moduły", f"{len(st.modules)} pracuje bez błędów"))
+        groups.append({"title": "Sterownik", "items": ctl})
+
+        # --- internet ---
+        net: List[Dict[str, str]] = []
+        w = st.runtime.get("weather") or {}
+        if w:
+            ok = w.get("fetched_at") and now - w["fetched_at"] < 3600
+            net.append(_item("ok" if ok else "warn", "Pogoda (internet)",
+                             f"pobrana {_ago(w.get('fetched_at'), now)}"
+                             + (f", {w['temp']:.1f}°C".replace(".", ",") if w.get("temp") is not None else ""),
+                             w.get("error") or ""))
+        rv = st.runtime.get("remote_view") or {}
+        if rv.get("enabled") and rv.get("configured"):
+            ok = rv.get("last_ok") and now - rv["last_ok"] < 300
+            problems = "; ".join(f"{k}: {v}" for k, v in (rv.get("problems") or {}).items())
+            net.append(_item("ok" if ok and not problems else "warn", "Podgląd zdalny (Firebase)",
+                             f"wysłane {_ago(rv.get('last_ok'), now)}", problems))
+        elif rv:
+            net.append(_item("info", "Podgląd zdalny (Firebase)", "wyłączony"))
+        groups.append({"title": "Internet", "items": net})
+
+        # --- sensors ---
+        sens: List[Dict[str, str]] = []
+        safety = st.runtime.get("safety") or {}
+        missing = set(safety.get("missing") or [])
+        last_missing = safety.get("last_missing") or {}
+        episodes = safety.get("episodes") or {}
+        for key, label in SENSOR_NAMES.items():
+            v = getattr(st.sensors, key, None)
+            n = episodes.get(key, 0)
+            note = f"gubił odczyt {n}× od startu, ostatnio {_ago(last_missing.get(key), now)}" if n else ""
+            if key in missing or (v is None and key != "outside_temp"):
+                sens.append(_item("bad", label, "brak odczytu", note))
+            elif v is None:
+                sens.append(_item("warn", label, "brak (pogoda niepobrana)"))
+            else:
+                sens.append(_item("warn" if n else "ok", label, f"{v:.1f}°C".replace(".", ","), note))
+        groups.append({"title": "Czujniki", "items": sens})
+
+        worst = "ok"
+        for g in groups:
+            for i in g["items"]:
+                if i["status"] == "bad":
+                    worst = "bad"
+                elif i["status"] == "warn" and worst == "ok":
+                    worst = "warn"
+        return {"generated_at": now, "status": worst, "groups": groups}
+
+    return router

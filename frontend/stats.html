@@ -26,6 +26,7 @@
               </div>
               <div class="st2-tabs" id="st2-tabs" role="tablist">
                 <button type="button" data-tab="usage" class="active">Zużycie</button>
+                <button type="button" data-tab="forecast">Prognoza</button>
                 <button type="button" data-tab="work">Praca</button>
                 <button type="button" data-tab="efficiency">Sprawność</button>
                 <button type="button" data-tab="checks">Kontrola</button>
@@ -48,6 +49,23 @@
                 <h3 class="st2-chart-title">Węgiel w każdym miesiącu: ten sezon obok zeszłego</h3>
                 <div class="st2-chart st2-chart--big"><canvas id="chart-seasons"></canvas></div>
                 <div class="st2-note" id="season-note"></div>
+              </section>
+
+              <!-- PROGNOZA -->
+              <section class="st2-card" data-tab="forecast">
+                <h2 id="fc-title">Jutro</h2>
+                <div class="fc-tomorrow" id="fc-tomorrow"></div>
+              </section>
+
+              <section class="st2-card" data-tab="forecast">
+                <h2>Najbliższe dni</h2>
+                <div class="fc-days" id="fc-days"></div>
+              </section>
+
+              <section class="st2-card" data-tab="forecast">
+                <h2>Następne 48 godzin</h2>
+                <div class="st2-chart st2-chart--big"><canvas id="chart-forecast"></canvas></div>
+                <div class="st2-note" id="fc-note"></div>
               </section>
 
               <!-- PRACA PIECA -->
@@ -142,9 +160,9 @@
               <span class="menu-label">STATYSTYKI</span>
             </a>
 
-            <a class="menu-btn" data-view="history" href="history.html">
-              <span class="menu-icon">📈</span>
-              <span class="menu-label">HISTORIA</span>
+            <a class="menu-btn" data-view="service" href="service.html">
+              <span class="menu-icon">🔧</span>
+              <span class="menu-label">SERWIS</span>
             </a>
 			
             <a class="menu-btn" data-view="logs" href="logs.html">

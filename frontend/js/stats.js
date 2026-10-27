@@ -15,6 +15,8 @@
   let weatherChart = null;
   let hourlyChart = null;
   let seasonChart = null;
+  let forecastChart = null;
+  let forecast = null;
   const MONTHS = ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"];
 
   // coal price from the Statistics settings (0 = no costs)
@@ -361,6 +363,112 @@
     renderWeather();
   }
 
+  // ---------- forecast: weather for the next days and the coal it should take ----------
+
+  // WMO weather codes (Open-Meteo)
+  function weatherLook(code) {
+    const c = Number(code);
+    if (c === 0) return ["☀️", "bezchmurnie"];
+    if (c === 1) return ["🌤️", "przeważnie pogodnie"];
+    if (c === 2) return ["⛅", "częściowe zachmurzenie"];
+    if (c === 3) return ["☁️", "pochmurno"];
+    if (c === 45 || c === 48) return ["🌫️", "mgła"];
+    if (c >= 51 && c <= 55) return ["🌦️", "mżawka"];
+    if (c === 56 || c === 57 || c === 66 || c === 67) return ["🧊", "marznący deszcz"];
+    if (c >= 61 && c <= 65) return ["🌧️", c === 65 ? "ulewa" : "deszcz"];
+    if ((c >= 71 && c <= 77) || c === 85 || c === 86) return ["🌨️", c === 75 || c === 86 ? "śnieżyca" : "śnieg"];
+    if (c >= 80 && c <= 82) return ["🌦️", "przelotny deszcz"];
+    if (c >= 95) return ["⛈️", c > 95 ? "burza z gradem" : "burza"];
+    return ["🌡️", ""];
+  }
+  const DAY_NAMES = ["niedziela", "poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota"];
+  function dayName(iso, i) {
+    const d = new Date(iso + "T12:00:00");
+    const label = i === 0 ? "Dziś" : i === 1 ? "Jutro" : i === 2 ? "Pojutrze" : DAY_NAMES[d.getDay()];
+    return { label, sub: `${DAY_NAMES[d.getDay()]} ${iso.slice(8, 10)}.${iso.slice(5, 7)}` };
+  }
+  const temp = (v) => (v == null ? "--" : `${num(Math.round(v) + 0, 0)}°`);  // + 0: no "-0°"
+
+  function renderForecast() {
+    if (!forecast) return;
+    const f = forecast;
+    const zl = (v) => (v == null ? "--" : num(v, v < 10 ? 2 : 0));
+    if (!f.available) {
+      $("fc-tomorrow").innerHTML = `<div class="st2-empty">Brak prognozy pogody - sprawdź internet i moduł Pogoda (Ustawienia). Pobierana co godzinę.</div>`;
+      $("fc-days").innerHTML = "";
+      $("fc-note").textContent = "";
+      return;
+    }
+    const days = f.days || [];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const idx = (d) => Math.round((new Date(d + "T12:00:00") - new Date(today + "T12:00:00")) / 86400000);
+    const tomorrow = days.find((d) => idx(d.date) === 1) || days[0];
+    if (tomorrow) {
+      const [icon, text] = weatherLook(tomorrow.code);
+      $("fc-title").textContent = `Jutro • ${dayName(tomorrow.date, 1).sub}`;
+      $("fc-tomorrow").innerHTML = `
+        <div class="fc-sky"><span class="fc-icon">${icon}</span>
+          <div><div class="fc-temps"><b>${temp(tomorrow.tmax)}</b> <span>${temp(tomorrow.tmin)}</span></div>
+          <div class="fc-sky-text">${text}${tomorrow.wind_max != null ? ` • wiatr do ${num(tomorrow.wind_max, 0)} km/h` : ""}</div></div></div>
+        <div class="st2-hero fc-hero">
+          ${tile("Węgiel", tomorrow.coal_kg == null ? "--" : `${num(tomorrow.coal_kg, 0)}<small>kg</small>`, "")}
+          ${tile("Koszt", tomorrow.cost_pln == null ? "--" : `${zl(tomorrow.cost_pln)}<small>zł</small>`, "", "st2-tile--cost")}
+          ${tile("Średnio", tomorrow.power_kw == null ? "--" : `${num(tomorrow.power_kw, 1)}<small>kW</small>`, tomorrow.energy_kwh == null ? "" : `${num(tomorrow.energy_kwh, 0)} kWh ciepła`)}
+        </div>`;
+    }
+    $("fc-days").innerHTML = days.map((d) => {
+      const [icon, text] = weatherLook(d.code);
+      const n = dayName(d.date, idx(d.date));
+      return `<div class="fc-day ${idx(d.date) === 1 ? "is-tomorrow" : ""}">
+        <div class="fc-day__name">${n.label}<span>${d.partial ? `reszta dnia (${d.hours} h)` : n.sub}</span></div>
+        <div class="fc-day__icon" title="${text}">${icon}</div>
+        <div class="fc-day__temps"><b>${temp(d.tmax)}</b> / ${temp(d.tmin)}</div>
+        <div class="fc-day__coal">${d.coal_kg == null ? "--" : `${num(d.coal_kg, 0)} kg`}</div>
+        <div class="fc-day__cost">${d.cost_pln == null ? "" : `${zl(d.cost_pln)} zł`}</div>
+        <div class="fc-day__more">${d.rain_pct ? `opady ${d.rain_pct}%` : text}</div>
+      </div>`;
+    }).join("");
+
+    const hours = f.hours || [];
+    const labels = hours.map((h) => (h.time.slice(11, 13) === "00" ? `${h.time.slice(8, 10)}.${h.time.slice(5, 7)}` : `${Number(h.time.slice(11, 13))}:00`));
+    const options = baseOptions(true);
+    options.scales.y = { position: "right", beginAtZero: true, grid: { display: false },
+      ticks: { color: "#fdba74", font: { size: 13 }, callback: (v) => `${num(v, 1)} kg` } };
+    options.scales.yt = { position: "left", grid: { color: "rgba(255,255,255,0.08)" },
+      ticks: { color: "#93c5fd", font: { size: 13 }, callback: (v) => `${num(v, 0)}°C` } };
+    options.plugins.tooltip = { callbacks: { label: (ctx) => ctx.dataset.yAxisID === "yt"
+      ? `Temperatura: ${num(ctx.parsed.y, 1)}°C` : `Węgiel: ${num(ctx.parsed.y, 2)} kg/h` } };
+    forecastChart = draw(forecastChart, "chart-forecast", {
+      labels,
+      datasets: [
+        { type: "line", label: "Temperatura [°C]", yAxisID: "yt", data: hours.map((h) => h.temp), borderColor: "#60a5fa", backgroundColor: "#60a5fa" },
+        { type: "bar", label: "Węgiel [kg/h]", yAxisID: "y", data: hours.map((h) => h.kg), backgroundColor: "rgba(249, 115, 22, 0.55)", borderRadius: 3 },
+      ],
+    }, options);
+
+    const m = f.model || {};
+    let model = "Za mało dni pracy pieca, żeby przewidzieć spalanie (potrzeba min. 5 dni z różną pogodą).";
+    if (m.method === "fit") {
+      model = `Spalanie z ${m.days} dni pracy pieca: przy 0°C ok. ${num(m.intercept, 1)} kg na dobę, każdy stopień mrozu +${num(-m.slope, 2)} kg.`;
+    } else if (m.method === "degree_days") {
+      model = `Spalanie z ${m.days} dni pracy pieca: ${num(m.kg_per_degree_day, 2)} kg na stopniodzień (18°C minus średnia temperatura).`;
+    }
+    const at = f.fetched_at ? new Date(f.fetched_at * 1000).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }) : "--";
+    $("fc-note").textContent = `${model} Prognoza Open-Meteo dla: ${f.location || "--"} (pobrana ${at}). Koszt przy ${num(f.price_pln_per_t, 0)} zł/t.`;
+  }
+
+  async function loadForecast() {
+    try {
+      const res = await fetch("/api/analytics/forecast", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      forecast = await res.json();
+      renderForecast();
+    } catch (err) {
+      $("fc-tomorrow").innerHTML = `<div class="st2-empty">Nie udało się wczytać prognozy: ${err.message}</div>`;
+    }
+  }
+
   // ---------- sub-pages ----------
 
   function showTab(tab) {
@@ -368,7 +476,7 @@
     document.querySelectorAll("#st2-tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     document.querySelectorAll(".st2-card[data-tab]").forEach((c) => c.classList.toggle("is-hidden", c.dataset.tab !== tab));
     // charts drawn while hidden have no size - redraw the visible ones
-    [dailyChart, seasonChart, hourlyChart, effChart, weatherChart].forEach((c) => c && c.resize());
+    [dailyChart, seasonChart, hourlyChart, effChart, weatherChart, forecastChart].forEach((c) => c && c.resize());
     try { localStorage.setItem("stats-tab", tab); } catch (err) { /* private mode */ }
   }
 
@@ -417,7 +525,7 @@
       markRanges();
       ({ usage: renderUsage, work: renderWork, eff: renderEfficiency })[g.dataset.scope]();
     }));
-    $("st2-refresh").addEventListener("click", () => load(true));
+    $("st2-refresh").addEventListener("click", () => { load(true); loadForecast(); });
     $("st2-tabs").addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-tab]");
       if (btn) showTab(btn.dataset.tab);
@@ -426,5 +534,8 @@
     try { saved = localStorage.getItem("stats-tab"); } catch (err) { /* private mode */ }
     showTab(saved || "usage");
     load();
+    // the model behind the forecast comes from the report - asked again once it is fresh
+    loadForecast();
+    setTimeout(loadForecast, 20000);
   });
 })();

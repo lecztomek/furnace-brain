@@ -128,3 +128,33 @@ def test_seasons_and_forecast():
     f = season_forecast(days, start, date(2026, 10, 20))
     assert f["used_kg"] == 200.0 and f["kg_per_degree_day"] == 1.0
     assert f["forecast_kg"] == 200 + f["degree_days_left"] and f["degree_days_left"] > 2500
+
+
+def test_forecast_model_uses_days_the_furnace_ran():
+    from backend.core.analytics import forecast_model, coal_per_day_at
+    today = date(2026, 11, 20)
+    pts = [{"date": f"2026-11-{d:02d}", "x": t, "y": 25 - 1.1 * t} for d, t in zip(range(1, 11), [-5, -3, -1, 0, 2, 4, 6, 1, -2, 3])]
+    pts += [{"date": "2026-11-11", "x": 12.0, "y": 0.0}]   # furnace off - not in the model
+    m = forecast_model(pts, today)
+    assert m["method"] == "fit" and m["days"] == 10
+    assert abs(coal_per_day_at(m, 0) - 25) < 0.1
+    assert coal_per_day_at(m, 40) == 0.0                    # never negative
+    few = forecast_model(pts[:3], today)                    # not enough days for a line
+    assert few["method"] == "degree_days"
+
+
+def test_coal_forecast_per_day_with_cost():
+    from datetime import datetime
+    from backend.core.analytics import coal_forecast
+    model = {"method": "fit", "intercept": 24.0, "slope": -1.0}
+    hourly = [{"time": f"2026-11-{10 + h // 24}T{h % 24:02d}:00", "temp": -2.0 if h >= 24 else 6.0, "code": 3}
+              for h in range(48)]
+    fc = coal_forecast({"hourly": hourly, "daily": [{"date": "2026-11-11", "tmin": -4, "tmax": 0, "code": 71}]},
+                       model, datetime(2026, 11, 10, 12, 30), price_pln_per_t=1200, calorific_mj_per_kg=27)
+    today, tomorrow = fc["days"]
+    assert today["partial"] and today["hours"] == 12                # from the current hour
+    assert today["coal_kg"] == 9.0                                   # 18 kg/day at 6°C for half a day
+    assert tomorrow["coal_kg"] == 26.0 and tomorrow["cost_pln"] == 31.2
+    assert tomorrow["tmin"] == -4 and tomorrow["code"] == 71        # the daily summary
+    assert tomorrow["energy_kwh"] == 195.0
+    assert coal_forecast(None, model, datetime(2026, 11, 10))["available"] is False

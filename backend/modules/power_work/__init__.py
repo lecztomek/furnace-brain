@@ -358,6 +358,7 @@ class WorkPowerModule(ModuleInterface):
 
         # W TRYBIE WORK nadpisujemy sygnał mocy kotła
         outputs.power_percent = self._power  # type: ignore[attr-defined]
+        self._publish(system_state, boiler_temp)
         self._last_in_work = in_work
 
         # persist stanu
@@ -424,6 +425,23 @@ class WorkPowerModule(ModuleInterface):
         self._last_tick_ts = now_ctrl
 
         return power
+
+    def _publish(self, system_state: SystemState, boiler_temp: Optional[float]) -> None:
+        """What the PID does now, for the service page: P and I parts, the trend, a frozen integral."""
+        error = None if boiler_temp is None else self._config.boiler_set_temp - boiler_temp
+        rate = self._rate
+        frozen = error is not None and self._config.integral_classic and (
+            (error > 0 and rate > RATE_DEADBAND) or (error < 0 and rate < -RATE_DEADBAND))
+        system_state.runtime["power_work"] = {
+            "error": error,
+            "p": None if error is None else self._config.kp * error,
+            "i": self._config.ki * self._integral,
+            "rate": rate,
+            "integral_frozen": bool(frozen),
+            "power": self._power,
+            "overtemp": boiler_temp is not None
+            and boiler_temp > self._config.boiler_set_temp + max(self._config.overtemp_start_degC, 0.0),
+        }
 
     def _set_ki(self, ki: float) -> None:
         """New ki without a power jump: the integral is rescaled so that the I part stays the same."""

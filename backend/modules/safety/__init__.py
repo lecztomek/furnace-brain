@@ -59,6 +59,10 @@ class SafetyModule(ModuleInterface):
         self._config = config or SafetyConfig()
         self._load_config_from_file()
 
+        # for the diagnostics page: when each sensor last lost its reading and how often (since start)
+        self._last_missing: Dict[str, float] = {}
+        self._episodes: Dict[str, int] = {}
+
         # pamięć stanu braków, żeby robić eventy na zboczu
         self._missing_prev: Dict[str, bool] = {
             "boiler_temp": False,
@@ -118,6 +122,9 @@ class SafetyModule(ModuleInterface):
                 )
                 # reset repeat timera przy zmianie (monotonic)
                 self._last_repeat_ts[key] = now_ctrl
+                if is_missing:
+                    self._last_missing[key] = now
+                    self._episodes[key] = self._episodes.get(key, 0) + 1
 
         # --- Eventy okresowe (wciąż brakuje) ---
         repeat_s = max(5.0, float(self._config.repeat_warning_s))
@@ -175,7 +182,9 @@ class SafetyModule(ModuleInterface):
         # zapamiętanie stanu na następny tick
         self._missing_prev = missing
         # for the warning sign on the main page
-        system_state.runtime["safety"] = {"missing": [k for k, v in missing.items() if v]}
+        system_state.runtime["safety"] = {"missing": [k for k, v in missing.items() if v],
+                                          "last_missing": dict(self._last_missing),
+                                          "episodes": dict(self._episodes)}
 
         return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
 

@@ -49,6 +49,35 @@ def fetch_open_meteo(latitude: float, longitude: float, timeout_s: float = 10.0)
     return float(data["current"]["temperature_2m"])
 
 
+FORECAST_REFRESH_S = 3600.0   # the forecast changes slowly - once an hour is plenty
+FORECAST_DAYS = 3
+
+
+def fetch_open_meteo_forecast(latitude: float, longitude: float, timeout_s: float = 15.0) -> Dict[str, Any]:
+    """Hourly and daily forecast for today and the next days (local time)."""
+    query = urllib.parse.urlencode({
+        "latitude": latitude, "longitude": longitude,
+        "hourly": "temperature_2m,weather_code,wind_speed_10m,precipitation_probability",
+        "daily": "temperature_2m_max,temperature_2m_min,weather_code",
+        "forecast_days": FORECAST_DAYS, "timezone": "Europe/Warsaw",
+    })
+    with urllib.request.urlopen(f"{OPEN_METEO_URL}?{query}", timeout=timeout_s) as resp:
+        data = json.load(resp)
+    h, d = data["hourly"], data["daily"]
+
+    def col(block: Dict[str, Any], key: str, i: int) -> Any:
+        values = block.get(key) or []
+        return values[i] if i < len(values) else None
+
+    return {
+        "hourly": [{"time": t, "temp": col(h, "temperature_2m", i), "code": col(h, "weather_code", i),
+                    "wind": col(h, "wind_speed_10m", i), "rain_pct": col(h, "precipitation_probability", i)}
+                   for i, t in enumerate(h["time"])],
+        "daily": [{"date": t, "tmax": col(d, "temperature_2m_max", i), "tmin": col(d, "temperature_2m_min", i),
+                   "code": col(d, "weather_code", i)} for i, t in enumerate(d["time"])],
+    }
+
+
 class WeatherModule(ModuleInterface):
     """
     Aux module: fetches the outside temperature in a background thread (the
@@ -60,6 +89,7 @@ class WeatherModule(ModuleInterface):
         self,
         base_path: Path | None = None,
         fetcher: Callable[[float, float], float] | None = None,
+        forecast_fetcher: Callable[[float, float], Dict[str, Any]] | None = None,
     ) -> None:
         self._base_path = base_path or Path(__file__).resolve().parent
         self._schema_path = self._base_path / "schema.yaml"
@@ -68,6 +98,10 @@ class WeatherModule(ModuleInterface):
         self._load_config_from_file()
 
         self._fetcher = fetcher or fetch_open_meteo
+        # with a test fetcher and no forecast fetcher there is no forecast
+        self._forecast_fetcher = forecast_fetcher or (None if fetcher else fetch_open_meteo_forecast)
+        self._forecast: Optional[Dict[str, Any]] = None
+        self._forecast_next = 0.0         # wall clock
         self._lock = threading.Lock()
         self._fetching = False
         self._next_attempt = 0.0          # wall clock
@@ -101,6 +135,7 @@ class WeatherModule(ModuleInterface):
                 "valid_until": (self._fetched_at or 0.0) + self._config.max_age_min * 60.0,
                 "location": self._config.location_name,
                 "error": self._error,
+                "forecast": self._forecast,
             }
 
         if start:
@@ -121,7 +156,6 @@ class WeatherModule(ModuleInterface):
 
         wall = time.time()
         with self._lock:
-            self._fetching = False
             first = self._fetched_at is None
             if error is None:
                 if first:
@@ -139,6 +173,27 @@ class WeatherModule(ModuleInterface):
                 self._problems.failed("pobieranie temperatury", error, "WEATHER_FETCH_ERROR")
                 self._error = error
                 self._next_attempt = wall + self._config.retry_min * 60.0
+            forecast_due = self._forecast_fetcher is not None and wall >= self._forecast_next
+        if forecast_due:
+            self._fetch_forecast(latitude, longitude)
+        with self._lock:
+            self._fetching = False
+
+    def _fetch_forecast(self, latitude: float, longitude: float) -> None:
+        try:
+            forecast = self._forecast_fetcher(latitude, longitude)
+            error = None
+        except Exception as exc:  # pylint: disable=broad-except
+            forecast, error = None, describe_error(exc, "prognoza Open-Meteo")
+        wall = time.time()
+        with self._lock:
+            if error is None:
+                self._problems.ok("prognoza", "WEATHER_OK")
+                self._forecast = {**forecast, "fetched_at": wall, "location": self._config.location_name}
+                self._forecast_next = wall + FORECAST_REFRESH_S
+            else:
+                self._problems.failed("prognoza", error, "WEATHER_FETCH_ERROR")
+                self._forecast_next = wall + self._config.retry_min * 60.0
 
     def _event(self, level: EventLevel, type_: str, message: str, data: Dict[str, Any]) -> Event:
         return Event(ts=time.time(), source=self.id, level=level, type=type_, message=message, data=data)
@@ -164,6 +219,7 @@ class WeatherModule(ModuleInterface):
         self._load_config_from_file()
         with self._lock:
             self._next_attempt = 0.0  # e.g. new location - fetch right away
+            self._forecast_next = 0.0
 
     def _load_config_from_file(self) -> None:
         if not self._config_path.exists():

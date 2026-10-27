@@ -1,16 +1,27 @@
 # backend/api/config_api.py
 from __future__ import annotations
 
-from typing import Callable, Optional
+import time
+from typing import Any, Callable, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, Body
 
 from ..core.config_store import ConfigStore
+from ..core.state import Event, EventLevel
+
+
+def _short(v: Any) -> str:
+    if isinstance(v, bool):
+        return "wł." if v else "wył."
+    if isinstance(v, float) and v == int(v):
+        v = int(v)
+    return str(v).replace(".", ",") if isinstance(v, (int, float)) else str(v)
 
 
 def create_config_router(
     config_store: ConfigStore,
     reload_module_config: Optional[Callable[[str], None]] = None,
+    publish_events: Optional[Callable[[list], None]] = None,
 ) -> APIRouter:
     """
     Router z endpointami:
@@ -20,6 +31,24 @@ def create_config_router(
       PUT  /config/values/{module_id}
     """
     router = APIRouter(prefix="/config", tags=["config"])
+
+    def current(module_id: str) -> Dict[str, Any]:
+        try:
+            return dict(config_store.get_values(module_id))
+        except (KeyError, ValueError, OSError):
+            return {}
+
+    def log_changes(module_id: str, before: Dict[str, Any], after: Dict[str, Any]) -> None:
+        """SETTINGS_CHANGED with old -> new of every changed key (the service page compares before / after)."""
+        if publish_events is None:
+            return
+        changes = {k: [before.get(k), v] for k, v in after.items() if k in before and before.get(k) != v}
+        if not changes:
+            return
+        text = ", ".join(f"{k} {_short(o)} → {_short(n)}" for k, (o, n) in changes.items())
+        publish_events([Event(ts=time.time(), source="config", level=EventLevel.INFO, type="SETTINGS_CHANGED",
+                              message=f"Zmiana ustawień {module_id}: {text}",
+                              data={"module": module_id, "changes": changes})])
 
     @router.get("/modules")
     def list_config_modules():
@@ -56,6 +85,7 @@ def create_config_router(
         module_id: str,
         values: dict = Body(..., description="Mapa klucz->wartość zgodna z schema"),
     ):
+        before = current(module_id)
         try:
             validated = config_store.set_values(module_id, values)
         except KeyError:
@@ -72,6 +102,7 @@ def create_config_router(
                 # ale informujemy klienta (możesz też zrobić 500 jeśli wolisz)
                 raise HTTPException(status_code=500, detail=f"Config saved, but reload failed: {exc}") from exc
 
+        log_changes(module_id, before, validated)
         return validated
     
     @router.get("/value/{module_id}/{key}")
@@ -90,6 +121,7 @@ def create_config_router(
         key: str,
         value: object = Body(..., description="Pojedyncza wartość (np. liczba/tekst/bool)"),
     ):
+        before = current(module_id)
         try:
             validated_value = config_store.set_value(module_id, key, value)
         except KeyError as exc:
@@ -106,6 +138,7 @@ def create_config_router(
                     detail=f"Config saved, but reload failed: {exc}",
                 ) from exc
 
+        log_changes(module_id, before, {key: validated_value})
         return {"key": key, "value": validated_value}
 
     return router

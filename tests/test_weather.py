@@ -90,3 +90,18 @@ def test_kernel_uses_weather_as_outside_temp(tmp_path):
         st.runtime["weather"] = {"temp": -4.0, "valid_until": time.time() - 1}  # stale
     sim.run(5)
     assert sim.state.sensors.outside_temp is None
+
+
+def test_forecast_fetched_with_the_temperature_and_published(tmp_path):
+    forecast = {"hourly": [{"time": "2026-11-10T12:00", "temp": -3.0, "code": 71}], "daily": []}
+    calls = []
+    module = WeatherModule(base_path=tmp_path, fetcher=lambda lat, lon: 1.0,
+                           forecast_fetcher=lambda lat, lon: calls.append(1) or forecast)
+    tick_until_fetched(module, SystemState())
+    deadline = time.time() + 2
+    while module._fetching and time.time() < deadline:
+        time.sleep(0.01)
+    result = module.tick(time.time(), Sensors(), SystemState())
+    assert result.runtime["forecast"]["hourly"] == forecast["hourly"]
+    assert result.runtime["forecast"]["location"] == "Nowy Sącz"
+    assert calls == [1]      # once an hour, not with every 15 min temperature fetch

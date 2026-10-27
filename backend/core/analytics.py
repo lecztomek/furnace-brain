@@ -757,3 +757,82 @@ class Analytics:
                          if sum(x.seconds for x in prev_to_date) >= 86400 else None},
             "forecast": season_forecast(this, season_start, today),
         }
+
+
+# ---------------------------------------------------------------- forecast
+
+RUNNING_MIN_KG = 3.0       # a day with less coal: the furnace was (mostly) off - not in the model
+FORECAST_RECENT_DAYS = 60  # recent days describe the current settings best
+
+
+def forecast_model(points: List[Dict[str, Any]], today: date) -> Dict[str, Any]:
+    """
+    Coal per day against the outside temperature, from days the furnace ran
+    (weather model points: date, x = outside, y = kg/day). A straight line
+    when the days cover enough temperatures, else kg per degree-day.
+    """
+    running = [p for p in points if p.get("y") is not None and p["y"] >= RUNNING_MIN_KG and p.get("x") is not None]
+    recent = [p for p in running if p.get("date", "") >= (today - timedelta(days=FORECAST_RECENT_DAYS)).isoformat()]
+    use = recent if len(recent) >= 10 else running
+    fit = linear_fit([(p["x"], p["y"]) for p in use])
+    if fit and fit["slope"] < 0:
+        return {"method": "fit", "intercept": fit["intercept"], "slope": fit["slope"], "days": len(use),
+                "r2": fit["r2"]}
+    hdd = sum(max(0.0, HDD_BASE_C - p["x"]) for p in use)
+    if hdd >= MIN_HDD:
+        return {"method": "degree_days", "kg_per_degree_day": sum(p["y"] for p in use) / hdd, "days": len(use)}
+    return {"method": None, "days": len(use)}
+
+
+def coal_per_day_at(model: Dict[str, Any], outside: float) -> Optional[float]:
+    if model.get("method") == "fit":
+        return max(0.0, model["intercept"] + model["slope"] * outside)
+    if model.get("method") == "degree_days":
+        return model["kg_per_degree_day"] * max(0.0, HDD_BASE_C - outside)
+    return None
+
+
+def coal_forecast(forecast: Optional[Dict[str, Any]], model: Dict[str, Any], now: datetime,
+                  price_pln_per_t: float = 0.0, calorific_mj_per_kg: Optional[float] = None) -> Dict[str, Any]:
+    """Coal, cost and heat for the rest of today and the next days, hour by hour from the forecast."""
+    if not forecast or not forecast.get("hourly"):
+        return {"available": False, "model": model}
+    hour_start = now.replace(minute=0, second=0, microsecond=0)
+    hours = []
+    for h in forecast["hourly"]:
+        try:
+            t = datetime.fromisoformat(h["time"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if t < hour_start or h.get("temp") is None:
+            continue
+        per_day = coal_per_day_at(model, float(h["temp"]))
+        hours.append({"time": h["time"], "temp": h["temp"], "code": h.get("code"), "wind": h.get("wind"),
+                      "rain_pct": h.get("rain_pct"), "kg": None if per_day is None else per_day / 24})
+    daily_info = {d.get("date"): d for d in forecast.get("daily") or []}
+    days = []
+    for key in sorted({h["time"][:10] for h in hours}):
+        part = [h for h in hours if h["time"][:10] == key]
+        temps = [h["temp"] for h in part]
+        kg = None if any(h["kg"] is None for h in part) else sum(h["kg"] for h in part)
+        info = daily_info.get(key) or {}
+        kwh = kg * calorific_mj_per_kg / 3.6 if kg is not None and calorific_mj_per_kg else None
+        days.append({
+            "date": key,
+            "hours": len(part),
+            "partial": len(part) < 24,
+            "tmin": info.get("tmin") if len(part) >= 24 and info.get("tmin") is not None else min(temps),
+            "tmax": info.get("tmax") if len(part) >= 24 and info.get("tmax") is not None else max(temps),
+            "tavg": round(sum(temps) / len(temps), 1) + 0.0,
+            "code": info.get("code") if info.get("code") is not None else part[len(part) // 2].get("code"),
+            "wind_max": max((h["wind"] for h in part if h.get("wind") is not None), default=None),
+            "rain_pct": max((h["rain_pct"] for h in part if h.get("rain_pct") is not None), default=None),
+            "coal_kg": None if kg is None else round(kg, 1),
+            "cost_pln": None if kg is None or not price_pln_per_t else round(kg * price_pln_per_t / 1000, 2),
+            "energy_kwh": None if kwh is None else round(kwh, 1),
+            "power_kw": None if kwh is None else round(kwh / len(part), 2),
+        })
+    for h in hours:
+        h["kg"] = None if h["kg"] is None else round(h["kg"], 3)
+    return {"available": True, "model": model, "hours": hours[:48], "days": days,
+            "fetched_at": forecast.get("fetched_at"), "location": forecast.get("location")}
