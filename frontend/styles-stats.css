@@ -1278,3 +1278,36 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
     background: rgba(17, 24, 39, 0.9);
   }
 }
+
+
+/* simpler, bigger statistics (1.32) */
+.st2-hero {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.st2-hero .st2-tile { padding: 14px 16px; }
+.st2-hero .st2-label { font-size: 14px; }
+.st2-hero .st2-value { font-size: 44px; line-height: 1.1; color: #fdba74; }
+.st2-hero .st2-value small { font-size: 22px; color: #cbd5e1; font-weight: 700; margin-left: 4px; }
+.st2-hero .st2-unit { font-size: 14px; }
+.st2-hero .st2-tile--cost .st2-value { color: #fde68a; }
+.st2-hero .st2-tile--good .st2-value { color: #4ade80; }
+.st2-hero .st2-tile--bad .st2-value { color: #f87171; }
+.st2-chart-title { margin: 6px 0 4px; font-size: 16px; font-weight: 700; color: #e5e7eb; }
+.st2-chart--big { height: 300px; }
+@media (max-width: 640px) {
+  .st2-hero { grid-template-columns: 1fr 1fr; }
+  .st2-hero .st2-value { font-size: 32px; }
+  .st2-chart--big { height: 240px; }
+}
+
+.st2-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 8px; }
+.st2-card-head h2 { margin: 0; }
+.st2-range button { padding: 6px 14px; font-size: 15px; }
+
+.st2-drops { overflow-x: auto; }
+@media (max-width: 640px) {
+  .st2-card .st2-tiles { grid-template-columns: 1fr 1fr; }
+}

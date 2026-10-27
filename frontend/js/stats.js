@@ -7,7 +7,9 @@
 
   const $ = (id) => document.getElementById(id);
   let report = null;
-  let period = "d7";
+  // each card/tab has its own range (what doesn't depend on a range has none)
+  const periods = { usage: "d7", work: "today", eff: "d30" };
+  let period = "d7";   // the range of the card being drawn
   let dailyChart = null;
   let effChart = null;
   let weatherChart = null;
@@ -39,8 +41,27 @@
   const num = (v, digits = 1) =>
     v === null || v === undefined ? "--" : Number(v).toLocaleString("pl-PL", { maximumFractionDigits: digits, minimumFractionDigits: digits });
 
-  function tile(label, value, unit) {
-    return `<div class="st2-tile"><span class="st2-label">${label}</span><span class="st2-value">${value}</span><span class="st2-unit">${unit || ""}</span></div>`;
+  function tile(label, value, unit, cls = "") {
+    return `<div class="st2-tile ${cls}"><span class="st2-label">${label}</span><span class="st2-value">${value}</span><span class="st2-unit">${unit || ""}</span></div>`;
+  }
+
+  // one look for every chart: big labels, thick lines without dots, no legend
+  // unless there are two things to tell apart
+  function baseOptions(legend = false) {
+    return {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: "index", intersect: false },
+      elements: { point: { radius: 0, hoverRadius: 5 }, line: { borderWidth: 3, tension: 0.3 } },
+      plugins: { legend: { display: legend, labels: { color: "#e5e7eb", font: { size: 14 }, boxWidth: 16 } } },
+      scales: {
+        x: { ticks: { color: "#cbd5e1", font: { size: 13 }, maxRotation: 0, autoSkip: true, autoSkipPadding: 12 }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: "#cbd5e1", font: { size: 13 } }, grid: { color: "rgba(255,255,255,0.08)" } },
+      },
+    };
+  }
+  function draw(chart, id, data, options) {
+    if (chart) { chart.data = data; chart.options = options; chart.update(); return chart; }
+    return new Chart($(id), { data, options });
   }
 
   // ---------- chart range = the chosen period ----------
@@ -66,18 +87,20 @@
 
   // ---------- render ----------
 
-  function renderPeriod() {
-    const p = report.periods[period];
-    document.querySelectorAll("#st2-periods button").forEach((b) => b.classList.toggle("active", b.dataset.period === period));
+  function markRanges() {
+    document.querySelectorAll(".st2-range").forEach((g) =>
+      g.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.period === periods[g.dataset.scope])));
+  }
 
-    $("coal-total").textContent = num(p.coal_kg, 1);
-    $("coal-day").textContent = num(p.coal_kg_per_day, 1);
-    $("coal-hour").textContent = num(p.coal_kg_per_hour, 2);
-    $("cost-tiles").innerHTML = [
-      tile("Średnia moc cieplna", num(p.power_kw_avg, 1), "kW"),
-      ...(price()
-        ? [tile("Koszt", num(pln(p.coal_kg), 0), "zł"), tile("Koszt na dobę", num(pln(p.coal_kg_per_day), 1), "zł")]
-        : []),
+  function renderUsage() {
+    period = periods.usage;
+    const p = report.periods[period];
+
+    const perDayUnit = price() && p.coal_kg_per_day != null ? `kg na dobę • ${num(pln(p.coal_kg_per_day), 0)} zł` : "kg na dobę";
+    $("usage-hero").innerHTML = [
+      tile(`Węgiel (${PERIOD_NAMES[period]})`, num(p.coal_kg, p.coal_kg != null && p.coal_kg < 100 ? 1 : 0), "kg"),
+      ...(price() ? [tile("Koszt", num(pln(p.coal_kg), 0), "zł", "st2-tile--cost")] : []),
+      tile("Średnio", num(p.coal_kg_per_day, 1), perDayUnit),
     ].join("");
     const kgph = report.settings?.feeder_kg_per_hour;
     $("coal-note").textContent =
@@ -85,6 +108,12 @@
       (kgph ? `Kilogramy liczone z czasu pracy ślimaka × ${kgph} kg/h (ustawienie modułu Statystyki - warto skalibrować). ` : "") +
       (price() ? `Koszt przy cenie ${num(price(), 0)} zł/t.` : "Koszt w zł: wpisz cenę węgla w Ustawienia → Statystyki.");
 
+    renderDaily();
+  }
+
+  function renderWork() {
+    period = periods.work;
+    const p = report.periods[period];
     const a = p.avg || {};
     const modes = Object.entries(p.mode_share || {})
       .filter(([m]) => MODE_NAMES[m])
@@ -95,8 +124,7 @@
       tile("Kocioł", num(a.boiler), "°C"),
       tile("Grzejniki", num(a.radiators), "°C"),
       tile("Na zewnątrz", num(a.outside), "°C"),
-      tile("Rozpalenia", p.ignitions ?? "--", p.ignitions_per_day != null ? `${num(p.ignitions_per_day, 1)} na dobę` : ""),
-      tile("Czas w trybach", "", modes || "--"),
+      tile("Rozpalenia", p.ignitions ?? "--", modes ? `czas: ${modes}` : ""),
     ].join("");
 
     const r = p.regulation;
@@ -104,44 +132,41 @@
     $("reg-grade").className = "st2-grade" + (r ? ` grade-${r.grade.replace(/\s/g, "-")}` : "");
     $("reg-tiles").innerHTML = r
       ? [
-          tile("W ±2°C od zadanej", num(r.within_2, 0), "% czasu"),
-          tile("Średnio od zadanej", num(r.mean_abs_error, 1), "°C"),
-          tile("Najniżej pod", num(r.max_under, 1), "°C"),
+          tile("W normie (zadana ±2°C)", `${num(r.within_2, 0)}<small>%</small>`, "czasu pracy",
+               r.within_2 >= 80 ? "st2-tile--good" : r.within_2 < 60 ? "st2-tile--bad" : ""),
+          tile("Średnio od zadanej", `${num(r.mean_abs_error, 1)}<small>°C</small>`, `najniżej ${num(r.max_under, 1)}°C pod zadaną`),
         ].join("")
       : `<div class="st2-empty">Za mało pracy w trybie PRACA w tym okresie (potrzeba min. 30 min).</div>`;
+    renderHourly();
   }
 
   function renderEfficiency() {
+    period = periods.eff;
     const e = report.periods[period].efficiency || {};
     const t = report.efficiency_trend || {};
     const a = report.efficiency_assumptions || {};
     const signed = (v, d = 0) => (v == null ? "--" : `${v > 0 ? "+" : ""}${num(v, d)}`);
+    const ch = t.change_pct;
     $("eff-tiles").innerHTML = [
       tile("Węgiel na stopniodzień", num(e.kg_per_degree_day, 2), `kg (${PERIOD_NAMES[period]})`),
-      tile("Stopniodni", num(e.degree_days, 0), `suma (${PERIOD_NAMES[period]})`),
-      tile("Zmiana tygodniowa", signed(t.change_pct), "% vs 3 tygodnie wcześniej"),
+      tile("Ostatni tydzień", ch == null ? "--" : `${ch > 0 ? "▲" : "▼"} ${num(Math.abs(ch), 0)}<small>%</small>`,
+           ch == null ? "za mało dni z pogodą" : ch > 0 ? "więcej węgla niż wcześniej przy tej samej pogodzie" : "mniej węgla niż wcześniej przy tej samej pogodzie",
+           ch == null ? "" : ch > 10 ? "st2-tile--bad" : ch <= 0 ? "st2-tile--good" : ""),
     ].join("");
     $("eff-note").textContent =
       `Stopniodzień = o ile średnia doby była niższa niż ${num(a.degree_day_base_c, 0)}°C (dzień 3°C = 15 stopniodni). ` +
       `Mniej kg na stopniodzień = sprawniej; wzrost przy podobnej pogodzie zwykle oznacza zabrudzony kocioł.`;
 
-    const { rows: days, labels } = periodSeries(period === "today" || period === "yesterday" ? "d7" : period);
+    const { rows: days, labels } = periodSeries(period);
     const data = {
       labels,
-      datasets: [
-        { type: "line", label: "Węgiel na stopniodzień [kg]", data: days.map((d) => d.kg_per_degree_day), borderColor: "#f97316", backgroundColor: "#f97316", yAxisID: "y", tension: 0.3, pointRadius: 2, spanGaps: true },
-      ],
+      datasets: [{ type: "line", label: "kg na stopniodzień", data: days.map((d) => d.kg_per_degree_day), borderColor: "#f97316", backgroundColor: "#f97316", spanGaps: true }],
     };
-    const options = {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      plugins: { legend: { labels: { color: "#e5e7eb" } } },
-      scales: {
-        x: { ticks: { color: "#9ca3af", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(255,255,255,0.05)" } },
-        y: { position: "left", beginAtZero: true, ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
-      },
-    };
-    if (effChart) { effChart.data = data; effChart.update(); }
-    else effChart = new Chart($("chart-efficiency"), { data, options });
+    // nothing to draw without outside temperatures - say so instead of an empty chart
+    const any = days.some((d) => d.kg_per_degree_day != null);
+    $("eff-chart-box").style.display = any ? "" : "none";
+    $("eff-empty").style.display = any ? "none" : "";
+    effChart = draw(effChart, "chart-efficiency", data, baseOptions());
   }
 
   // hour-of-day profile (when the boiler doesn't keep up) and the list of drops
@@ -150,43 +175,47 @@
     const { hourly, rows: hours, labels } = periodSeries();
     const last24 = hourly;
     const drops = p.drops || { count: 0, items: [], by_hour: [] };
-    const unit = hourly ? "kWh/h" : "kWh/dobę";
+    const band = (d) => hours.map((h) => (h.setpoint == null || h.boiler == null ? null : h.setpoint + d));
     const data = {
       labels,
       datasets: [
-        { type: "line", label: "Zadana [°C]", data: hours.map((h) => h.setpoint), borderColor: "#9ca3af", borderDash: [6, 4], pointRadius: 0, yAxisID: "y", spanGaps: true },
-        { type: "line", label: "Kocioł w pracy [°C]", data: hours.map((h) => h.boiler), borderColor: "#f97316", backgroundColor: "#f97316", pointRadius: 3, tension: 0.3, yAxisID: "y", spanGaps: false },
-        { type: "bar", label: `Energia [${unit}]`, data: hours.map((h) => h.kwh), backgroundColor: "rgba(56, 189, 248, 0.35)", yAxisID: "y2" },
+        { type: "line", label: "zadana -2°C", data: band(-2), borderWidth: 0, pointHoverRadius: 0, spanGaps: true },
+        { type: "line", label: "zadana +2°C", data: band(2), borderWidth: 0, pointHoverRadius: 0, spanGaps: true,
+          fill: "-1", backgroundColor: "rgba(74, 222, 128, 0.22)" },
+        { type: "line", label: "Kocioł [°C]", data: hours.map((h) => h.boiler), borderColor: "#f97316", backgroundColor: "#f97316", spanGaps: false },
       ],
     };
-    const options = {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      plugins: { legend: { labels: { color: "#e5e7eb", boxWidth: 14 } } },
-      scales: {
-        x: { title: { display: true, text: period === "today" ? "Ostatnie 24 godziny" : period === "yesterday" ? "Wczoraj, godzina" : PERIOD_NAMES[period], color: "#9ca3af" }, ticks: { color: "#9ca3af", autoSkip: true, maxRotation: 0 }, grid: { color: "rgba(255,255,255,0.05)" } },
-        y: { position: "left", title: { display: true, text: "°C", color: "#fdba74" }, ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
-        y2: { position: "right", beginAtZero: true, title: { display: true, text: unit, color: "#7dd3fc" }, ticks: { color: "#7dd3fc" }, grid: { display: false } },
-      },
-    };
-    if (hourlyChart) { hourlyChart.data = data; hourlyChart.options = options; hourlyChart.update(); }
-    else hourlyChart = new Chart($("chart-hourly"), { data, options });
+    const options = baseOptions();
+    options.scales.y.beginAtZero = false;
+    options.scales.y.ticks.callback = (v) => `${v}°C`;
+    // some room around the band and the line, so the band doesn't fill the chart
+    const vals = hours.flatMap((h) => [h.boiler, h.setpoint != null ? h.setpoint - 2 : null, h.setpoint != null ? h.setpoint + 2 : null]).filter((v) => v != null);
+    if (vals.length) {
+      options.scales.y.suggestedMin = Math.floor(Math.min(...vals) - 2);
+      options.scales.y.suggestedMax = Math.ceil(Math.max(...vals) + 2);
+    }
+    options.plugins.tooltip = { filter: (item) => item.datasetIndex === 2, callbacks: { label: (ctx) => {
+      const h = hours[ctx.dataIndex] || {};
+      return `kocioł ${num(ctx.parsed.y, 1)}°C (zadana ${num(h.setpoint, 0)}°C)`;
+    } } };
+    $("hourly-title").textContent =
+      `Kocioł na tle normy (zielony pas = zadana ±2°C) - ${period === "today" ? "ostatnie 24 godziny" : period === "yesterday" ? "wczoraj, godzina po godzinie" : PERIOD_NAMES[period] + ", dzień po dniu"}`;
+    hourlyChart = draw(hourlyChart, "chart-hourly", data, options);
 
     // worst hour of day over the chosen period (average per hour of day)
     const worst = (p.hourly || []).filter((h) => h.below_pct != null).sort((a, b) => b.below_pct - a.below_pct)[0];
     $("hourly-note").textContent =
-      (hourly
-        ? `${period === "today" ? "Ostatnie 24 godziny" : "Wczoraj"}, godzina po godzinie: kocioł i zadana w pracy (puste godziny: piec nie pracował), energia z podanego węgla. `
-        : `${PERIOD_NAMES[period][0].toUpperCase()}${PERIOD_NAMES[period].slice(1)} dzień po dniu: kocioł i zadana w pracy, energia z podanego węgla. `) +
+      "Tylko czas w trybie PRACA (przerwy w linii: piec nie pracował). " +
       (worst && worst.below_pct > 0
         ? `Najgorsza godzina (${PERIOD_NAMES[period]}): ${worst.hour}:00–${worst.hour + 1}:00, ${num(worst.below_pct, 0)}% czasu ponad ${num(drops.below_c ?? 4, 0)}°C poniżej zadanej, średnio ${num(worst.error, 1)}°C od zadanej.`
         : `Bez wyraźnych spadków (${PERIOD_NAMES[period]}).`);
 
-    $("drops-head").textContent = `Spadki temperatury (${drops.count})`;
+    $("drops-head").textContent = drops.count ? `Spadki temperatury: ${drops.count} (ostatnie 5)` : "Spadki temperatury";
     if (!drops.items.length) {
       $("drops").innerHTML = `<div class="st2-empty">Brak spadków ponad ${num(drops.below_c ?? 4, 0)}°C poniżej zadanej w tym okresie.</div>`;
       return;
     }
-    const rows = drops.items.slice(0, 15).map((d) => {
+    const rows = drops.items.slice(0, 5).map((d) => {
       const dt = new Date(d.start);
       const when = dt.toLocaleDateString("pl-PL", { day: "2-digit", month: "2-digit" }) + " " + d.start.slice(11, 16);
       const deficit = d.setpoint - d.min_temp;
@@ -205,33 +234,30 @@
 
   function renderDaily() {
     const { hourly, rows, labels } = periodSeries();
-    const datasets = [
-      { type: "bar", label: hourly ? "Węgiel [kg/h]" : "Węgiel [kg/dobę]", data: rows.map((d) => d.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.75)", yAxisID: "y", coal: true },
-    ];
-    if (!hourly) {
-      datasets.push({ type: "line", label: "Na zewnątrz [°C]", data: rows.map((d) => d.outside), borderColor: "#a855f7", backgroundColor: "#a855f7", yAxisID: "y2", tension: 0.3, pointRadius: 2 });
-    }
-    const data = { labels, datasets };
-    const options = {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      plugins: { legend: { labels: { color: "#e5e7eb" } } },
-      scales: {
-        x: { ticks: { color: "#9ca3af", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(255,255,255,0.05)" } },
-        y: { position: "left", beginAtZero: true, ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
-        y2: { position: "right", ticks: { color: "#c4b5fd" }, grid: { display: false } },
-      },
+    const data = {
+      labels,
+      datasets: [{ type: "bar", label: "Węgiel", data: rows.map((d) => d.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.8)", borderRadius: 4 }],
     };
-    options.scales.y2.display = !hourly;
+    const options = baseOptions();
     coalAxisTicks(options.scales.y);
-    options.plugins.tooltip = coalTooltip;
-    if (dailyChart) { dailyChart.data = data; dailyChart.options = options; dailyChart.update(); }
-    else dailyChart = new Chart($("chart-daily"), { data, options });
+    options.plugins.tooltip = { callbacks: { label: (ctx) => {
+      const d = rows[ctx.dataIndex] || {};
+      const v = ctx.parsed.y;
+      return [`${num(v, v < 10 ? 2 : 1)} kg` + (price() ? ` • ${num(pln(v), v < 10 ? 2 : 0)} zł` : ""),
+              ...(d.kwh != null ? [`${num(d.kwh, 0)} kWh`] : []),
+              ...(!hourly && d.outside != null ? [`na dworze ${num(d.outside, 1)}°C`] : [])];
+    } } };
+    $("daily-title").textContent = hourly
+      ? `Węgiel w każdej godzinie - ${period === "today" ? "ostatnie 24 godziny" : "wczoraj"}`
+      : `Węgiel każdego dnia - ${PERIOD_NAMES[period]}`;
+    dailyChart = draw(dailyChart, "chart-daily", data, options);
   }
 
   function renderWeather() {
     const w = report.weather;
     const fit = w.coal.fit;
     const pfit = w.power.fit;
+    $("weather-chart-box").style.display = fit ? "" : "none";
     if (!fit) {
       $("weather-text").innerHTML =
         `Zbieram dane: <b>${w.days_with_data} z ${w.days_needed}</b> pełnych dni z temperaturą zewnętrzną ` +
@@ -248,7 +274,7 @@
     }
 
     const pts = w.coal.points.map((p) => ({ x: p.x, y: p.y }));
-    const datasets = [{ type: "scatter", label: "Dni", data: pts, backgroundColor: "rgba(249, 115, 22, 0.85)", pointRadius: 4 }];
+    const datasets = [{ type: "scatter", label: "Dni", data: pts, backgroundColor: "rgba(249, 115, 22, 0.85)", pointRadius: 5 }];
     if (fit && pts.length) {
       const xs = pts.map((p) => p.x);
       const lo = Math.min(...xs) - 1, hi = Math.max(...xs) + 1;
@@ -262,8 +288,8 @@
         y: { beginAtZero: true, title: { display: true, text: "Węgiel [kg/dobę]", color: "#9ca3af" }, ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
       },
     };
-    if (weatherChart) { weatherChart.data = { datasets }; weatherChart.update(); }
-    else weatherChart = new Chart($("chart-weather"), { data: { datasets }, options });
+    options.plugins.legend.display = false;
+    weatherChart = draw(weatherChart, "chart-weather", { datasets }, options);
   }
 
   // this season so far vs the previous one, month by month; forecast for the season
@@ -279,21 +305,19 @@
     const vsPrev = s.previous.coal_kg_to_date != null && s.previous.coal_kg_to_date > 0
       ? `${num(100 * (s.this.coal_kg - s.previous.coal_kg_to_date) / s.previous.coal_kg_to_date, 0)}% vs rok temu (${mass(s.previous.coal_kg_to_date).join(" ")})`
       : "rok temu w tym czasie: brak danych";
+    const zl = (kg) => (price() && kg != null ? ` • ${num(pln(kg), 0)} zł` : "");
     $("season-tiles").innerHTML = [
-      tile("Zużyto w sezonie", usedV, `${usedU} • ${vsPrev}`),
-      tile("Prognoza na cały sezon", fcV, f.forecast_kg != null ? `${fcU} (przy typowej pogodzie)` : "(za mało dni z pogodą)"),
-      ...(price()
-        ? [tile("Koszt sezonu", num(pln(s.this.coal_kg), 0), "zł do dziś"),
-           tile("Prognoza kosztu", num(pln(f.forecast_kg), 0), "zł za sezon")]
-        : []),
-      tile("Zeszły sezon", prevV, `${prevU} (z dni, z których są dane)`),
+      tile("Ten sezon do dziś", `${usedV}<small>${usedU}</small>`, `${zl(s.this.coal_kg).slice(3)}${zl(s.this.coal_kg) ? " • " : ""}${vsPrev}`),
+      tile("Prognoza na cały sezon", f.forecast_kg != null ? `${fcV}<small>${fcU}</small>` : "--",
+           f.forecast_kg != null ? `${zl(f.forecast_kg).slice(3)} przy typowej pogodzie` : "za mało dni z pogodą", "st2-tile--cost"),
+      tile("Zeszły sezon", `${prevV}<small>${prevU}</small>`, `${zl(s.previous.coal_kg).slice(3)} (z dni, z których są dane)`),
     ].join("");
     $("season-note").textContent =
       (f.forecast_kg != null
         ? `Prognoza: zużyte ${num(f.used_kg, 0)} kg + ${num(f.kg_per_degree_day, 2)} kg na stopniodzień (ostatnie ${f.based_on_days} pełnych dni) ` +
           `× ${num(f.degree_days_left, 0)} stopniodni do końca maja przy typowej pogodzie dla Nowego Sącza. `
         : "Prognoza pojawi się po kilku pełnych dniach z temperaturą zewnętrzną. ") +
-      "Słupki: węgiel w każdym miesiącu sezonu, ten sezon obok zeszłego.";
+      "";
 
     const months = s.this.months.map((m) => MONTHS[m.month - 1]);
     const data = {
@@ -303,27 +327,19 @@
         { type: "bar", label: `Sezon ${s.this.start.slice(0, 4)}/${String(Number(s.this.start.slice(0, 4)) + 1).slice(2)} [kg]`, data: s.this.months.map((m) => m.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.8)", coal: true },
       ],
     };
-    const options = {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      plugins: { legend: { labels: { color: "#e5e7eb" } } },
-      scales: {
-        x: { ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } },
-        y: { beginAtZero: true, ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
-      },
-    };
+    const options = baseOptions(true);
     coalAxisTicks(options.scales.y);
     options.plugins.tooltip = coalTooltip;
-    if (seasonChart) { seasonChart.data = data; seasonChart.options = options; seasonChart.update(); }
-    else seasonChart = new Chart($("chart-seasons"), { data, options });
+    seasonChart = draw(seasonChart, "chart-seasons", data, options);
   }
 
   function render() {
-    renderPeriod();
+    markRanges();
+    renderUsage();
     renderSeasons();
-    renderHourly();
+    renderWork();
     renderEfficiency();
     renderChecks();
-    renderDaily();
     renderWeather();
   }
 
@@ -376,15 +392,13 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    $("st2-periods").addEventListener("click", (e) => {
+    document.querySelectorAll(".st2-range").forEach((g) => g.addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-period]");
       if (!btn || !report) return;
-      period = btn.dataset.period;
-      renderPeriod();
-      renderDaily();
-      renderHourly();
-      renderEfficiency();
-    });
+      periods[g.dataset.scope] = btn.dataset.period;
+      markRanges();
+      ({ usage: renderUsage, work: renderWork, eff: renderEfficiency })[g.dataset.scope]();
+    }));
     $("st2-refresh").addEventListener("click", () => load(true));
     $("st2-tabs").addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-tab]");

@@ -22,13 +22,6 @@
 
               <div class="st2-head">
                 <div class="st2-title">STATYSTYKI</div>
-                <div class="st2-periods" id="st2-periods">
-                  <button type="button" data-period="today">Dziś</button>
-                  <button type="button" data-period="yesterday">Wczoraj</button>
-                  <button type="button" data-period="d7" class="active">7 dni</button>
-                  <button type="button" data-period="d30">30 dni</button>
-                  <button type="button" data-period="season">Sezon</button>
-                </div>
                 <button type="button" class="st2-refresh" id="st2-refresh" title="Odśwież">⟳</button>
               </div>
               <div class="st2-tabs" id="st2-tabs" role="tablist">
@@ -41,52 +34,52 @@
 
               <!-- WĘGIEL -->
               <section class="st2-card" data-tab="usage">
-                <h2>Węgiel</h2>
-                <div class="st2-tiles st2-tiles--big">
-                  <div class="st2-tile"><span class="st2-label">Zużyto</span><span class="st2-value" id="coal-total">--</span><span class="st2-unit">kg</span></div>
-                  <div class="st2-tile"><span class="st2-label">Średnio na dobę</span><span class="st2-value" id="coal-day">--</span><span class="st2-unit">kg</span></div>
-                  <div class="st2-tile"><span class="st2-label">Średnio na godzinę</span><span class="st2-value" id="coal-hour">--</span><span class="st2-unit">kg/h</span></div>
-                </div>
-                <div class="st2-tiles st2-tiles--energy" id="cost-tiles"></div>
-                <div class="st2-chart"><canvas id="chart-daily"></canvas></div>
+                <div class="st2-card-head"><h2>Ile węgla</h2><div class="st2-periods st2-range" data-scope="usage"><button type="button" data-period="today">Dziś</button><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
+                <div class="st2-hero" id="usage-hero"></div>
+                <h3 class="st2-chart-title" id="daily-title"></h3>
+                <div class="st2-chart st2-chart--big"><canvas id="chart-daily"></canvas></div>
                 <div class="st2-note" id="coal-note"></div>
               </section>
 
               <!-- SEZON -->
               <section class="st2-card" data-tab="usage">
                 <h2>Sezon</h2>
-                <div class="st2-tiles" id="season-tiles"></div>
-                <div class="st2-chart"><canvas id="chart-seasons"></canvas></div>
+                <div class="st2-hero" id="season-tiles"></div>
+                <h3 class="st2-chart-title">Węgiel w każdym miesiącu: ten sezon obok zeszłego</h3>
+                <div class="st2-chart st2-chart--big"><canvas id="chart-seasons"></canvas></div>
                 <div class="st2-note" id="season-note"></div>
               </section>
 
               <!-- PRACA PIECA -->
               <section class="st2-card" data-tab="work">
-                <h2>Praca pieca</h2>
+                <div class="st2-card-head"><h2>Praca pieca</h2><div class="st2-periods st2-range" data-scope="work"><button type="button" data-period="today">Dziś</button><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
                 <div class="st2-tiles" id="work-tiles"></div>
               </section>
 
               <!-- REGULACJA -->
               <section class="st2-card" data-tab="work">
                 <h2>Jak trzyma temperaturę <span class="st2-grade" id="reg-grade"></span></h2>
-                <div class="st2-tiles" id="reg-tiles"></div>
-                <div class="st2-note">Liczone w trybie PRACA, bez pierwszych 20 minut po wejściu w pracę, względem zadanej z tego momentu.</div>
+                <div class="st2-hero" id="reg-tiles"></div>
+                <h3 class="st2-chart-title" id="hourly-title"></h3>
+                <div class="st2-chart st2-chart--big"><canvas id="chart-hourly"></canvas></div>
+                <div class="st2-note" id="hourly-note"></div>
               </section>
 
-              <!-- REGULACJA W CIĄGU DOBY -->
+              <!-- SPADKI -->
               <section class="st2-card" data-tab="work">
-                <h2>Regulacja i energia</h2>
-                <div class="st2-chart st2-chart--tall"><canvas id="chart-hourly"></canvas></div>
-                <div class="st2-note" id="hourly-note"></div>
-                <h3 class="st2-subhead" id="drops-head">Spadki temperatury</h3>
+                <h2 id="drops-head">Spadki temperatury</h2>
                 <div class="st2-drops" id="drops"></div>
               </section>
 
               <!-- EFEKTYWNOŚĆ -->
               <section class="st2-card" data-tab="efficiency">
-                <h2>Efektywność</h2>
-                <div class="st2-tiles" id="eff-tiles"></div>
-                <div class="st2-chart"><canvas id="chart-efficiency"></canvas></div>
+                <div class="st2-card-head"><h2>Sprawność</h2><div class="st2-periods st2-range" data-scope="eff"><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
+                <div class="st2-hero" id="eff-tiles"></div>
+                <div class="st2-empty" id="eff-empty">Pojawi się po kilku pełnych dniach z temperaturą zewnętrzną (moduł Pogoda).</div>
+                <div id="eff-chart-box">
+                  <h3 class="st2-chart-title">Węgiel na stopniodzień - im niżej, tym sprawniej</h3>
+                  <div class="st2-chart st2-chart--big"><canvas id="chart-efficiency"></canvas></div>
+                </div>
                 <div class="st2-note" id="eff-note"></div>
               </section>
 
@@ -98,9 +91,9 @@
 
               <!-- POGODA -->
               <section class="st2-card" data-tab="efficiency">
-                <h2>Zależność od pogody</h2>
+                <h2>Zależność od pogody <span class="st2-sub">cały rok</span></h2>
                 <div class="st2-weather-text" id="weather-text"></div>
-                <div class="st2-chart st2-chart--square"><canvas id="chart-weather"></canvas></div>
+                <div class="st2-chart st2-chart--square" id="weather-chart-box"><canvas id="chart-weather"></canvas></div>
               </section>
 
             </div>
