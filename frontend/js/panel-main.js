@@ -52,7 +52,9 @@ async function fetchState() {
     document.dispatchEvent(new CustomEvent("furnace:state", { detail: data }));
 
     // status na sukces (jeśli chcesz, możesz to usunąć żeby nie spamowało)
-    FurnaceUI.ui.setStatus(`OK${stamp()}`);
+    // problems found by the controller (also in the warning sign) in words
+    const problems = (data.problems || []).map((p) => p.text);
+    FurnaceUI.ui.setStatus(problems.length ? `⚠ ${problems.join(" • ")}${stamp()}` : `OK${stamp()}`);
   } catch (err) {
     if (err?.name !== "AbortError") {
       console.error("Nie udało się pobrać stanu kotła:", err);

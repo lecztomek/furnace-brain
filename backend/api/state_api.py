@@ -50,6 +50,30 @@ def create_state_router(
         regulators_cache.update(at=time.monotonic(), value=enabled)
         return list(enabled)
 
+    SENSOR_NAMES = {"boiler_temp": "kotła", "radiators_temp": "grzejników", "hopper_temp": "podajnika",
+                    "flue_gas_temp": "spalin"}
+
+    def _problems(s: SystemState) -> list:
+        """What the warning sign on the main page shows, most important first."""
+        out = []
+        rt = s.runtime
+        fo = rt.get("flameout") or {}
+        if fo.get("at"):
+            at = time.strftime("%H:%M", time.localtime(fo["at"]))
+            out.append({"short": "WYGASŁ", "text": f"Piec wygasł o {at} (kocioł {fo.get('boiler_temp')}°C) - "
+                                                    "ślimak i dmuchawa zatrzymane, rozpal ponownie"})
+        oh = rt.get("overheat") or {}
+        if oh.get("boiler"):
+            out.append({"short": "GORĄCO", "text": f"Przegrzanie kotła ({s.sensors.boiler_temp}°C) - ślimak i dmuchawa wyłączone, pompy włączone"})
+        if oh.get("hopper"):
+            out.append({"short": "PODAJNIK", "text": f"Przegrzanie podajnika ({s.sensors.hopper_temp}°C) - możliwe cofanie żaru"})
+        for key in (rt.get("safety") or {}).get("missing") or []:
+            out.append({"short": "CZUJNIK", "text": f"Brak odczytu czujnika {SENSOR_NAMES.get(key, key)}"})
+        for mid, st in s.modules.items():
+            if st.health.name == "ERROR":
+                out.append({"short": "BŁĄD", "text": f"Moduł {mid}: {st.last_error or st.health.name}"})
+        return out
+
     def _serialize_state(s: SystemState) -> dict:
         sens = s.sensors
         out = s.outputs
@@ -90,6 +114,10 @@ def create_state_router(
             "coal_kgph": (s.runtime.get("stats") or {}).get("coal_kgph_now"),
             # radiators target in use: fixed, or from the heating curve (mixer module)
             "radiators": s.runtime.get("mixer") or {},
+            # flame-out alarm (furnace stopped), until it is started again
+            "flameout": s.runtime.get("flameout") or {},
+            # everything the warning sign on the main page shows
+            "problems": _problems(s),
             "modules": {
                 mid: {
                     "health": status.health.name,

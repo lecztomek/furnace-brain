@@ -85,6 +85,7 @@ class SafetyModule(ModuleInterface):
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
 
         if not bool(self._config.enabled):
+            system_state.runtime["safety"] = {"missing": []}
             return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
 
         # czas sterujący (odporny na DST/NTP); eventy/logi nadal na wall time (now)
@@ -173,6 +174,8 @@ class SafetyModule(ModuleInterface):
 
         # zapamiętanie stanu na następny tick
         self._missing_prev = missing
+        # for the warning sign on the main page
+        system_state.runtime["safety"] = {"missing": [k for k, v in missing.items() if v]}
 
         return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
 

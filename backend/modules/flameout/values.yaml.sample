@@ -1,0 +1,6 @@
+enabled: true
+boiler_below_temp: 40.0
+power_min_percent: 85.0
+window_min: 30.0
+rise_max_degC: 0.5
+flue_rise_max_degC: 1.0

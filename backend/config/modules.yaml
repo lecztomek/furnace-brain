@@ -4,6 +4,11 @@ modules:
     enabled: true
     critical: true
 
+  - id: flameout
+    path: backend.modules.flameout:FlameoutModule
+    enabled: true
+    critical: true
+
   - id: power_ignition
     path: backend.modules.power_ignition:IgnitionPowerModule
     enabled: true

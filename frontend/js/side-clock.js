@@ -71,7 +71,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // data older than 5 min already at page load (e.g. the Pi stopped long ago)
     const ageS = typeof lastTs === "number" ? now / 1000 - lastTs : null;
     if (silentS < STALE_S && !(ageS !== null && ageS > 300)) {
-      showStale(null);
+      // fresh data: the sign shows what the controller found (flame-out,
+      // overheating, a missing sensor, a module error), the first one inside it
+      const problems = (st && st.problems) || [];
+      if (problems.length) {
+        const more = problems.length > 1 ? ` +${problems.length - 1}` : "";
+        showStale(problems.map((p) => p.text).join("\n"), problems[0].short + more);
+      } else {
+        showStale(null);
+      }
       return;
     }
     const since = lastTs !== null ? new Date(lastTs * 1000) : new Date(lastChangeMs);

@@ -1,0 +1,72 @@
+id: flameout
+name: "Wygaszanie"
+description: >
+  Gdy piec wygaśnie w trybie PRACA, zatrzymuje ślimak i dmuchawę (tryb STOP) i zgłasza alarm,
+  zamiast podawać węgiel do zimnej retorty. Rozpalanie nie jest pilnowane.
+
+groups:
+  - id: basic
+    label: "Podstawowe"
+
+fields:
+  - key: enabled
+    label: "Wykrywanie wygaśnięcia"
+    type: bool
+    label_on: "WŁĄCZONE"
+    label_off: "WYŁĄCZONE"
+    default: true
+    group: basic
+
+  - key: boiler_below_temp
+    label: "Kocioł poniżej"
+    type: number
+    unit: "°C"
+    min: 25
+    max: 50
+    step: 1
+    default: 40
+    group: basic
+    description: "Uznajemy, że piec wygasł, gdy kocioł jest poniżej tej temperatury (i spełnione są pozostałe warunki)."
+
+  - key: power_min_percent
+    label: "Mimo mocy co najmniej"
+    type: number
+    unit: "%"
+    min: 50
+    max: 100
+    step: 1
+    default: 85
+    group: basic
+    description: "Średnia moc w tym czasie - sterownik próbował grzać, a temperatura nie rosła."
+
+  - key: window_min
+    label: "Przez"
+    type: number
+    unit: "min"
+    min: 10
+    max: 120
+    step: 5
+    default: 30
+    group: basic
+
+  - key: rise_max_degC
+    label: "Wzrost kotła w tym czasie najwyżej"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 5
+    step: 0.1
+    default: 0.5
+    group: basic
+    description: "Jeśli kocioł w tym czasie urósł więcej, ogień się podnosi - nie zatrzymujemy."
+
+  - key: flue_rise_max_degC
+    label: "Wzrost spalin w tym czasie najwyżej"
+    type: number
+    unit: "°C"
+    min: 0
+    max: 20
+    step: 0.5
+    default: 1
+    group: basic
+    description: "Jeśli spaliny w tym czasie urosły więcej, coś się pali - nie zatrzymujemy. Bez odczytu spalin warunek jest pomijany."

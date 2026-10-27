@@ -71,6 +71,10 @@ class OverheatModule(ModuleInterface):
     def id(self) -> str:
         return "overheat"
 
+    def _publish(self, system_state: SystemState) -> None:
+        # for the warning sign on the main page
+        system_state.runtime["overheat"] = {"boiler": self._boiler_active, "hopper": self._hopper_active}
+
     def tick(self, now: float, sensors: Sensors, system_state: SystemState) -> ModuleTickResult:
         events: List[Event] = []
         outputs = PartialOutputs()  # domyślnie nic nie zmieniamy
@@ -96,6 +100,7 @@ class OverheatModule(ModuleInterface):
                         data={"boiler_temp": t_boiler, "hopper_temp": t_hopper},
                     )
                 )
+            self._publish(system_state)
             return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
 
         # ---------- BOILER overheat (z histerezą) ----------
@@ -181,6 +186,7 @@ class OverheatModule(ModuleInterface):
 
         safety_active = self._boiler_active or self._hopper_active
         if not safety_active:
+            self._publish(system_state)
             return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
 
         # info: nadpisanie MANUAL (bezpieczeństwo)
@@ -229,6 +235,7 @@ class OverheatModule(ModuleInterface):
             outputs.mixer_open_on = False
             outputs.mixer_close_on = False
 
+        self._publish(system_state)
         return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
 
     # ---------- CONFIG (schema + values) ----------
