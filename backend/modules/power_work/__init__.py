@@ -425,6 +425,13 @@ class WorkPowerModule(ModuleInterface):
 
         return power
 
+    def _set_ki(self, ki: float) -> None:
+        """New ki without a power jump: the integral is rescaled so that the I part stays the same."""
+        old = self._config.ki
+        if old > 0 and ki > 0 and ki != old and hasattr(self, "_integral"):
+            self._integral *= old / ki
+        self._config.ki = ki
+
     def _integrate_classic(self, error: float, dt: float) -> None:
         """
         Plain integral with anti-windup: it doesn't grow while the output is
@@ -670,7 +677,7 @@ class WorkPowerModule(ModuleInterface):
         if "kp" in values:
             self._config.kp = float(values["kp"])
         if "ki" in values:
-            self._config.ki = float(values["ki"])
+            self._set_ki(float(values["ki"]))
         if "kd" in values:
             self._config.kd = float(values["kd"])
 
@@ -729,12 +736,13 @@ class WorkPowerModule(ModuleInterface):
             self._config.enabled = bool(data["enabled"])
         if "integral_classic" in data:
             self._config.integral_classic = bool(data["integral_classic"])
+        if "ki" in data:
+            self._set_ki(float(data["ki"]))
 
         # floaty
         for field_name in (
             "boiler_set_temp",
             "kp",
-            "ki",
             "kd",
             "integral_window_s",
             "min_power",

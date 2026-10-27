@@ -1,4 +1,5 @@
 """Classic PID integral: it must not wind up while the boiler is already heading for the setpoint."""
+import pytest
 import yaml
 
 from backend.core.state import BoilerMode, Sensors, SystemState
@@ -40,3 +41,17 @@ def test_integrates_while_standing_still(tmp_path):
     first = m._integral
     _run(m, st, t, 10, lambda t: 57.0)
     assert m._integral > first * 1.5      # stuck below the setpoint: the integral keeps pulling
+
+
+def test_changing_ki_in_the_gui_keeps_the_power(tmp_path):
+    m = _module(tmp_path)
+    st = SystemState(mode=BoilerMode.WORK)
+    t = _run(m, st, 0.0, 20, lambda t: 57.0)
+    i_part = m._config.ki * m._integral
+    # GUI writes values.yaml, the kernel reloads it
+    data = yaml.safe_load((tmp_path / "values.yaml").read_text())
+    data.update(kp=10.0, ki=0.005)
+    (tmp_path / "values.yaml").write_text(yaml.safe_dump(data))
+    m.reload_config_from_file()
+    assert m._config.ki == 0.005
+    assert m._config.ki * m._integral == pytest.approx(i_part)
