@@ -583,6 +583,7 @@ class Analytics:
     def __init__(self, history_dir: Path, stats_dir: Path, events_dir: Path, cache_path: Path) -> None:
         self.history_dir = history_dir
         self.stats_dir = stats_dir
+        self.progress: Dict[str, int] = {"done": 0, "total": 0}   # days read in the running build
         self.events_dir = events_dir
         self.cache_path = cache_path
         self._cache: Dict[str, Dict[str, Any]] = self._load_cache()
@@ -629,7 +630,9 @@ class Analytics:
             "events": files_by_day(self.events_dir, "events"),
         }
         d = first
+        self.progress = {"done": 0, "total": (today - first).days + 1}
         while d <= today:
+            self.progress["done"] = (d - first).days
             from_files = not (d < today and d.isoformat() in self._cache)
             agg = self.day(d, today, fallback_setpoint, indexes)
             if from_files and pause_s:

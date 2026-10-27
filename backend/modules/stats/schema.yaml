@@ -45,7 +45,7 @@ fields:
     min: 0
     max: 10000
     step: 10
-    default: 0
+    default: 1200
     group: basic
     description: "Do liczenia kosztu ogrzewania na stronie Statystyki. 0 = nie pokazuj kosztów."
 

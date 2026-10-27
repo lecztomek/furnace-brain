@@ -19,8 +19,9 @@ def _client(tmp_path, monkeypatch):
 def _wait_fresh(client, timeout=10):
     deadline = time.time() + timeout
     while time.time() < deadline:
-        body = client.get("/api/analytics/report").json()
-        if not body.get("stale"):
+        res = client.get("/api/analytics/report")
+        body = res.json()
+        if res.status_code == 200 and not body.get("stale"):
             return body
         time.sleep(0.05)
     raise AssertionError("no fresh report")
@@ -38,3 +39,28 @@ def test_report_survives_restart(tmp_path, monkeypatch):
     assert body["generated_at"] == report["generated_at"]   # the saved one, right away
     fresh = _wait_fresh(second)
     assert fresh["generated_at"] > report["generated_at"]   # then a new one
+
+
+def test_requests_never_wait_for_a_build(tmp_path, monkeypatch):
+    """A long build (the first one after an update on the Pi) must not hold the requests."""
+    from backend.core.analytics import Analytics
+    client = _client(tmp_path, monkeypatch)
+    first = _wait_fresh(client)                 # a report exists
+
+    real = Analytics.report
+
+    def slow(self, *a, **k):
+        time.sleep(2)
+        return real(self, *a, **k)
+
+    monkeypatch.setattr(Analytics, "report", slow)
+    t0 = time.time()
+    res = client.get("/api/analytics/report?fresh=1")   # refresh button: starts a build, doesn't wait
+    assert res.status_code == 200 and res.json()["stale"] and "progress" in res.json()
+    for _ in range(5):
+        assert client.get("/api/analytics/report").json()["generated_at"] == first["generated_at"]
+    assert time.time() - t0 < 1.0
+    deadline = time.time() + 10                                          # and then the new one
+    while client.get("/api/analytics/report").json()["generated_at"] == first["generated_at"]:
+        assert time.time() < deadline
+        time.sleep(0.1)

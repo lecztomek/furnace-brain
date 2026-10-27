@@ -299,12 +299,26 @@
     try { localStorage.setItem("stats-tab", tab); } catch (err) { /* private mode */ }
   }
 
+  // "120 z 420 dni (29%)" while a build reads the days
+  function progressText(p) {
+    if (!p || !p.total) return "";
+    return ` (${p.done} z ${p.total} dni, ${Math.round((100 * p.done) / p.total)}%)`;
+  }
+
   // ---------- data ----------
 
   async function load(fresh = false) {
     $("st2-status").textContent = "Wczytywanie…";
     try {
       const res = await fetch(fresh ? `${REPORT_URL}?fresh=1` : REPORT_URL, { cache: "no-store" });
+      if (res.status === 503) {
+        // the first report is still being built (after an update) - ask again soon
+        const pr = (await res.json().catch(() => ({})))?.detail?.progress;
+        $("st2-status").textContent = "Liczę statystyki (pierwszy raz po aktualizacji może to potrwać kilka minut)" + progressText(pr) + "…";
+        clearTimeout(load.retry);
+        load.retry = setTimeout(() => load(), 15000);
+        return;
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       report = await res.json();
       render();
@@ -312,7 +326,7 @@
       const hhmm = at.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
       // after a restart: the last saved report first, the fresh one comes a moment later
       $("st2-status").textContent = report.stale
-        ? `Stan na ${hhmm} • liczę aktualne…`
+        ? `Stan na ${hhmm} • liczę aktualne${progressText(report.progress)}…`
         : `Stan na ${hhmm} • sezon od ${report.season_start}`;
       clearTimeout(load.retry);
       if (report.stale) load.retry = setTimeout(() => load(), 10000);

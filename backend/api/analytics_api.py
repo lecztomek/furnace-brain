@@ -6,7 +6,7 @@ import time
 from datetime import date
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from backend.core.analytics import Analytics
 from backend.core.config_store import ConfigStore
@@ -21,7 +21,12 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore) -> APIRo
         events_dir=modules / "eventlog" / "data",
         cache_path=modules / "stats" / "data" / "analytics_days.json",
     )
-    lock = threading.Lock()  # one report at a time (cache file)
+    # build_lock: one report at a time (cache file) - held for the whole build,
+    # minutes on the Pi the first time; state_lock: only around `cached`, so a
+    # request never waits for a build (waiting requests would use up the
+    # server's threads and freeze the whole GUI)
+    build_lock = threading.Lock()
+    state_lock = threading.Lock()
     cached: dict = {"at": 0.0, "report": None}
     REUSE_S = 60  # a fresh report is reused for a minute
     # the last report survives restarts: shown at once (marked stale) while
@@ -42,15 +47,17 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore) -> APIRo
     @router.get("/report")
     def get_report(fresh: bool = False):
         """Coal, averages, regulation quality, checks and the weather model."""
-        with lock:
+        with state_lock:
             report, age = cached["report"], time.time() - cached["at"]
-        if not fresh and report is not None:
-            if age < REUSE_S:
-                return report
-            # an older report right away, the new one is built in the background
-            start_background_build()
-            return {**report, "stale": True}
-        return build_report()
+        # a request never builds the report itself and never waits for a build:
+        # it gets the last one (marked stale) and the build runs in the background
+        if report is not None and age < REUSE_S and not fresh:
+            return report
+        start_background_build()
+        progress = dict(analytics.progress)
+        if report is None:
+            raise HTTPException(status_code=503, detail={"msg": "Liczę statystyki - spróbuj za chwilę", "progress": progress})
+        return {**report, "stale": True, "progress": progress}
 
     def start_background_build(pause_s: float = 0.0) -> None:
         if building.is_set():
@@ -72,7 +79,7 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore) -> APIRo
         month = int(setting("stats", "season_start_month", 9))
         day = int(setting("stats", "season_start_day", 1))
         season = date(today.year if (today.month, today.day) >= (month, day) else today.year - 1, month, day)
-        with lock:
+        with build_lock:
             report = analytics.report(
                 today=today,
                 season_start=season,
@@ -87,7 +94,7 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore) -> APIRo
             "boiler_set_temp": setting("power_work", "boiler_set_temp", None),
         }
         report["generated_at"] = time.time()
-        with lock:
+        with state_lock:
             cached["report"], cached["at"] = report, time.time()
         try:
             tmp = report_path.with_suffix(".tmp")
