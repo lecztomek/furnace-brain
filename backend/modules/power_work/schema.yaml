@@ -102,6 +102,18 @@ fields:
     group: pid
     description: "Wzmocnienie części różniczkującej PID. Reaguje na szybkość zmian temperatury i pomaga wyhamować przed przeregulowaniem."
 
+  - key: integral_classic
+    label: "Całka bez zapominania"
+    type: bool
+    label_on: "WŁĄCZONA"
+    label_off: "WYŁĄCZONA"
+    default: true
+    group: pid
+    description: >
+      Włączona: całka pamięta cały błąd, więc piec trzyma zadaną (z ochroną przed
+      nawijaniem całki przy mocy min/maks). Wyłączona: stara całka z oknem czasowym,
+      przy której piec ustala się ok. 1–2°C poniżej zadanej.
+
   - key: integral_window_s
     label: "Okno czasowe całki"
     type: number
@@ -112,7 +124,7 @@ fields:
     default: 300
     group: pid
     description: >
-      Efektywne okno czasowe dla części całkującej. Im mniejsza wartość,
+      Tylko dla starej całki (całka bez zapominania wyłączona). Efektywne okno czasowe dla części całkującej. Im mniejsza wartość,
       tym szybciej regulator „zapomina” stare błędy i tym mniejszy windup.
 
   - key: overtemp_start_degC

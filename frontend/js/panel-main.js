@@ -265,10 +265,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!g || !t) return;
     const sec = Math.round(Number(rad.moves_30m_s));
     if (rad.moves_30m_s == null || isNaN(sec)) { t.textContent = "--"; g.setAttribute("class", "mixer-moves"); return; }
-    const arrow = rad.moving === "open" ? "▲" : rad.moving === "close" ? "▼" : "";
-    t.textContent = `${arrow}${sec > 0 ? "+" : sec < 0 ? "−" : ""}${Math.abs(sec)}s`;
+    t.textContent = `${sec > 0 ? "+" : sec < 0 ? "−" : ""}${Math.abs(sec)}s`;
     const dir = sec > 0 ? " is-open" : sec < 0 ? " is-close" : "";
-    g.setAttribute("class", `mixer-moves${dir}${rad.moving ? " is-moving" : ""}`);
+    g.setAttribute("class", `mixer-moves${dir}`);
   }
 
   refresh();

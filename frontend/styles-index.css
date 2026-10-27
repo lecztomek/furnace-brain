@@ -877,6 +877,4 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
 #mixer-moves text { font-size: 21px; font-weight: 800; text-anchor: middle; fill: #9ca3af; pointer-events: none; }
 #mixer-moves.is-open text { fill: #f97316; }
 #mixer-moves.is-close text { fill: #38bdf8; }
-#mixer-moves.is-moving text { animation: mixer-blink 1s ease-in-out infinite; }
-@keyframes mixer-blink { 50% { opacity: 0.35; } }
 #radiators-temp text.badge-sub { font-size: 20px; font-weight: 600; fill: #9ca3af; }

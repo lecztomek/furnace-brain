@@ -78,6 +78,10 @@ class WorkPowerConfig:
     kd: float = 0.0
 
     integral_window_s: float = 300.0
+    # Classic integral (no forgetting) with anti-windup. The leaky one settles
+    # (kp + ki*window) x error below the setpoint - about 1.5 C on this boiler
+    # in the 2025/26 season; the classic one holds the setpoint.
+    integral_classic: bool = True
 
     min_power: float = 10.0
     max_power: float = 100.0
@@ -382,8 +386,10 @@ class WorkPowerModule(ModuleInterface):
             if dt <= 0:
                 dt = None
 
+        if dt is not None and self._config.integral_classic:
+            self._integrate_classic(error, dt)
         # Część I z "oknem czasowym" – leaky integrator
-        if dt is not None:
+        elif dt is not None:
             window = max(self._config.integral_window_s, 1.0)
             decay = 1.0 - dt / window
             if decay < 0.0:
@@ -408,6 +414,23 @@ class WorkPowerModule(ModuleInterface):
         self._last_tick_ts = now_ctrl
 
         return power
+
+    def _integrate_classic(self, error: float, dt: float) -> None:
+        """
+        Plain integral with anti-windup: it doesn't grow while the output is
+        already at max power and the boiler is still too cold (or at min power
+        and too hot), and the I term stays within 0..max power.
+        """
+        candidate = self._integral + error * dt
+        if self._config.ki > 0:
+            out = self._config.kp * error + self._config.ki * candidate
+            saturated = (out > self._config.max_power and error > 0) or (out < self._config.min_power and error < 0)
+            if not saturated:
+                self._integral = candidate
+            hi = max(self._config.max_power, 1.0) / self._config.ki
+            self._integral = max(0.0, min(hi, self._integral))
+        else:
+            self._integral = candidate
 
     def _track_to_power(self, now_ctrl: float, boiler_temp: float, actual_power: float) -> None:
         """
@@ -623,6 +646,8 @@ class WorkPowerModule(ModuleInterface):
 
         if "integral_window_s" in values:
             self._config.integral_window_s = float(values["integral_window_s"])
+        if "integral_classic" in values:
+            self._config.integral_classic = bool(values["integral_classic"])
 
         if "min_power" in values:
             self._config.min_power = float(values["min_power"])
@@ -672,6 +697,8 @@ class WorkPowerModule(ModuleInterface):
 
         if "enabled" in data:
             self._config.enabled = bool(data["enabled"])
+        if "integral_classic" in data:
+            self._config.integral_classic = bool(data["integral_classic"])
 
         # floaty
         for field_name in (

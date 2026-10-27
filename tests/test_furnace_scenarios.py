@@ -104,3 +104,15 @@ def test_off_stops_feeder_and_fan(tmp_path):
     last = sim.samples[-60:]
     assert not any(s.feeder_on for s in last)
     assert all(s.fan_power == 0 for s in last)
+
+
+def test_work_settles_on_the_setpoint(tmp_path):
+    """Classic integral: the boiler settles on the setpoint, not ~1-2 C below (leaky integral)."""
+    sim = FurnaceSim(tmp_path)
+    sim.set_mode(BoilerMode.WORK)
+    target = boiler_set_temp(sim)
+
+    sim.run(120 * MIN)
+    sim.run(120 * MIN, sample_every_s=30)
+    temps = [s.boiler_temp for s in sim.samples_between(120 * MIN, 240 * MIN)]
+    assert abs(sum(temps) / len(temps) - target) < 0.6

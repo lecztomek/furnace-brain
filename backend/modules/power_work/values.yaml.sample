@@ -14,3 +14,4 @@ state_file: "power_work_state.yaml"
 state_save_interval_s: 30
 state_max_age_s: 900
 state_max_temp_delta_C: 5
+integral_classic: true
