@@ -21,9 +21,27 @@
   const price = () => Number(report.settings?.coal_price_pln_per_t) || 0;
   const pln = (kg) => (kg == null || !price() ? null : (kg / 1000) * price());
 
-  // coal axis with the cost under each value ("12 kg" / "14 zł") and tooltips with both
-  function coalAxisTicks(axis) {
-    axis.ticks = { ...(axis.ticks || {}), callback: (v) => (price() ? [`${num(v, 0)} kg`, `${num(pln(v), v > 0 && v < 10 ? 1 : 0)} zł`] : `${num(v, v < 10 ? 1 : 0)}`) };
+  // coal charts: kg on the left axis, the same scale in zł on the right one
+  function coalAxisTicks(axis, options) {
+    axis.ticks = { ...(axis.ticks || {}), callback: (v) => `${num(v, v > 0 && v < 10 ? 1 : 0)} kg` };
+    if (options && price()) {
+      options.scales.yzl = {
+        position: "right",
+        bounds: "data",          // exactly the converted kg range, not rounded up to "nice" ticks
+        grid: { display: false },
+        ticks: { color: "#fde68a", font: { size: 13 }, callback: (v) => `${num(v, v > 0 && v < 10 ? 1 : 0)} zł` },
+        // the kg axis range converted to zł, so both sides point at the same bar height
+        afterDataLimits: (scale) => {
+          const y = scale.chart.scales.y;
+          scale.min = (y.min / 1000) * price();
+          scale.max = (y.max / 1000) * price();
+        },
+        // the zł labels sit on the kg grid lines (30 kg | 36 zł)
+        afterBuildTicks: (scale) => {
+          scale.ticks = scale.chart.scales.y.ticks.map((t) => ({ value: (t.value / 1000) * price() }));
+        },
+      };
+    }
     return axis;
   }
   const coalTooltip = {
@@ -239,7 +257,7 @@
       datasets: [{ type: "bar", label: "Węgiel", data: rows.map((d) => d.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.8)", borderRadius: 4 }],
     };
     const options = baseOptions();
-    coalAxisTicks(options.scales.y);
+    coalAxisTicks(options.scales.y, options);
     options.plugins.tooltip = { callbacks: { label: (ctx) => {
       const d = rows[ctx.dataIndex] || {};
       const v = ctx.parsed.y;
@@ -328,7 +346,7 @@
       ],
     };
     const options = baseOptions(true);
-    coalAxisTicks(options.scales.y);
+    coalAxisTicks(options.scales.y, options);
     options.plugins.tooltip = coalTooltip;
     seasonChart = draw(seasonChart, "chart-seasons", data, options);
   }
