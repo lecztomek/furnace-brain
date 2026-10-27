@@ -147,19 +147,18 @@
 
   const CHECK_ICONS = [["Ciągłość", "database"], ["Czujnik", "sensor"], ["Temperatura zewn", "thermometer"], ["Przegrzanie", "flame"], ["Alarmy", "bell"],
     ["Rozpalenia", "flame"], ["Regulacja", "target"], ["Efektywność", "trendUp"], ["Zużycie", "cloudSun"], ["Brak danych", "hourglass"]];
-  const CHECK_WORD = { ok: "OK", warn: "Uwaga", bad: "Problem", info: "Info" };
-  // the checks of the statistics report (last 7 days): data, sensors, overheating, alarms, regulation, efficiency
+  // the checks of the statistics report (last 7 days): one small tile each, the problems explained below
   function renderChecks(report) {
     const list = report.checks || [];
     const worst = list.some((c) => c.status === "bad") ? "bad" : list.some((c) => c.status === "warn") ? "warn" : "ok";
-    verdict($("ck-verdict"), worst);
-    $("checks").innerHTML = list.map((c) => {
-      const icon = FBIcon((CHECK_ICONS.find(([k]) => c.title.startsWith(k)) || ["", "info"])[1]);
-      // OK: just the name (tap for the details); a problem: the details right away
-      return `<button type="button" class="${cardClass(c.status, c.title)}${c.status === "ok" ? "" : " is-open"}" data-key="${c.title}"><span class="sv-card__top"><span class="sv-card__icon">${icon}</span>` +
-        `<span class="sv-card__name">${c.title}</span><span class="sv-card__word">${CHECK_WORD[c.status] || ""}</span></span>` +
-        `<span class="sv-card__more">${c.detail}</span></button>`;
-    }).join("");
+    const good = list.filter((c) => c.status === "ok").length;
+    verdict($("ck-verdict"), worst, worst === "ok" ? `${good} z ${list.length} OK` : "");
+    $("checks").innerHTML = `<div class="sv-tiles sv-tiles--checks">${list.map((c) => {
+      const icon = (CHECK_ICONS.find(([k]) => c.title.startsWith(k)) || ["", "info"])[1];
+      return bigTile(icon, esc(c.label || c.title), esc(c.value || "--"), c.status);
+    }).join("")}</div>` + list.filter((c) => c.status === "warn" || c.status === "bad").map((c) =>
+      `<div class="sv-card sv-card--${c.status} is-open ck-problem"><span class="sv-card__top"><span class="sv-card__icon">${FBIcon(c.status === "bad" ? "stop" : "alert")}</span>` +
+      `<span class="sv-card__name">${esc(c.title)}</span></span><span class="sv-card__more">${esc(c.detail)}</span></div>`).join("");
   }
 
   // ---------------------------------------------------------------- loading

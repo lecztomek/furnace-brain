@@ -1412,12 +1412,9 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
   .st2-hero .sv-tile { padding: 10px 4px; }
   .st2-hero .sv-tile__val { font-size: 24px; }
   .st2-card .st2-tiles { grid-template-columns: 1fr 1fr; }
-  #checks { grid-template-columns: 1fr; gap: 8px; }
-  #checks .sv-card { padding: 8px 12px; }
 }
 .st2-sub { font-size: 15px; }
 .sv-card--ok .sv-card__more { color: #cbd5e1; }
-#checks .sv-card:not(.is-open) .sv-card__word { display: none; }
 
 /* ---- line icons (js/icons.js) in coloured chips ---- */
 .ic { width: 1em; height: 1em; display: inline-block; flex: none; }

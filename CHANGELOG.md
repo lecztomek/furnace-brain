@@ -3,6 +3,7 @@
 Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
 ## 1.35
+- Kontrola as small tiles (one number each); problems explained under them.
 - Remote view: Service page and the forecast work too (sent every 10 min).
 - README rewritten, this changelog added.
 - Line icons (Lucide style) instead of emoji on the service and statistics pages.

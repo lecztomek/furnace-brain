@@ -9,6 +9,7 @@
   background: #374151;
 }
 .sv-verdict:empty { display: none; }
+.sv-verdict { white-space: nowrap; }
 .sv-verdict--ok { background: #166534; }
 .sv-verdict--warn { background: #92400e; }
 .sv-verdict--bad { background: #991b1b; }
@@ -61,6 +62,12 @@
 .sv-row__label { color: #cbd5e1; }
 .sv-row__val { font-weight: 700; }
 
+/* checks: small tiles, problems explained under them */
+.sv-tiles--checks { grid-template-columns: repeat(3, 1fr); }
+.sv-tiles--checks .sv-tile { padding: 10px 6px; }
+.sv-tiles--checks .sv-tile__val { font-size: 26px; }
+.ck-problem { margin-top: 10px; cursor: default; }
+
 /* the status line under the tabs - readable too */
 #sv-status { font-size: 15px; }
 
@@ -68,6 +75,10 @@
   .sv-flow { display: grid; grid-template-columns: 1fr 1fr; }
   .sv-arrow { display: none; }
   .sv-tiles--diag { grid-template-columns: 1fr 1fr; }
+  .sv-tiles--checks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .sv-tiles--checks .sv-tile { padding: 8px 2px; }
+  .sv-tiles--checks .sv-tile__val { font-size: 22px; }
+  .sv-tiles--checks .sv-tile__icon { width: 40px; height: 40px; font-size: 22px; }
   .sv-tile__val { font-size: 26px; }
   .sv-step__val { font-size: 26px; }
   .sv-row { grid-template-columns: 14px 1fr; }

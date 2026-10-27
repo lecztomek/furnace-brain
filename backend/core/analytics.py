@@ -544,56 +544,68 @@ def checks(period: Dict[str, Any], model: Dict[str, Any], last_full_day: Optiona
            overheat_temp: float = 80.0, trend: Optional[Dict[str, Any]] = None) -> List[Dict[str, str]]:
     out: List[Dict[str, str]] = []
 
-    def add(status: str, title: str, detail: str) -> None:
-        out.append({"status": status, "title": title, "detail": detail})
+    # label / value: a short name and a number for the service page tile; detail: the full sentence
+    def add(status: str, title: str, detail: str, label: str = "", value: str = "") -> None:
+        out.append({"status": status, "title": title, "detail": detail, "label": label or title, "value": value})
+
+    def pl(v: float, nd: int = 1) -> str:
+        return f"{v:.{nd}f}".replace(".", ",")
 
     hours = period.get("hours") or 0
     if not hours:
-        add("info", "Brak danych", "Historia z tego okresu jest pusta.")
+        add("info", "Brak danych", "Historia z tego okresu jest pusta.", "Dane", "brak")
         return out
 
     gap = period.get("gap_hours") or 0
     share = 100 * gap / (hours + gap)
     add("ok" if share < 1 else "warn" if share < 5 else "bad", "Ciągłość danych",
-        f"przerwy w zapisie: {gap:.1f} h ({share:.1f}%)" if gap else "bez przerw w zapisie")
+        f"przerwy w zapisie: {gap:.1f} h ({share:.1f}%)" if gap else "bez przerw w zapisie",
+        "Zapis danych", f"{pl(100 - share, 0)}%")
 
     missing = period.get("missing_boiler_rows") or 0
     miss_pct = 100 * missing / max(period.get("rows") or 1, 1)
     add("ok" if miss_pct < 0.5 else "warn" if miss_pct < 5 else "bad", "Czujnik kotła",
-        "zawsze odczytany" if missing == 0 else f"brak odczytu w {missing} pomiarach ({miss_pct:.1f}%)")
+        "zawsze odczytany" if missing == 0 else f"brak odczytu w {missing} pomiarach ({miss_pct:.1f}%)",
+        "Czujnik kotła", "OK" if missing == 0 else f"−{missing}")
 
     outside = period["avg"].get("outside")
     add("ok" if outside is not None else "warn", "Temperatura zewnętrzna",
-        f"średnio {outside:.1f}°C" if outside is not None else "brak danych pogodowych (moduł Pogoda / internet)")
+        f"średnio {outside:.1f}°C" if outside is not None else "brak danych pogodowych (moduł Pogoda / internet)",
+        "Pogoda", f"{pl(outside)}°" if outside is not None else "brak")
 
     bmax = period.get("boiler_max")
     if bmax is not None:
         add("bad" if bmax >= overheat_temp else "warn" if bmax >= overheat_temp - 5 else "ok",
-            "Przegrzanie kotła", f"najwyżej {bmax:.1f}°C (próg ochrony {overheat_temp:.0f}°C)")
+            "Przegrzanie kotła", f"najwyżej {bmax:.1f}°C (próg ochrony {overheat_temp:.0f}°C)",
+            "Kocioł max", f"{pl(bmax, 0)}°")
 
     if period.get("alarms"):
-        add("bad", "Alarmy", f"{period['alarms']} alarmów w logach - sprawdź Logi (poziom ALARM)")
+        add("bad", "Alarmy", f"{period['alarms']} alarmów w logach - sprawdź Logi (poziom ALARM)", "Alarmy",
+            str(period["alarms"]))
     else:
-        add("ok", "Alarmy", "brak")
+        add("ok", "Alarmy", "brak", "Alarmy", "0")
 
     ipd = period.get("ignitions_per_day")
     if ipd is not None:
         add("warn" if ipd > 1.5 else "ok", "Rozpalenia",
-            f"{period['ignitions']} ({ipd:.1f} na dobę)" + (" - czy piec nie wygasa?" if ipd > 1.5 else ""))
+            f"{period['ignitions']} ({ipd:.1f} na dobę)" + (" - czy piec nie wygasa?" if ipd > 1.5 else ""),
+            "Rozpalenia", str(period["ignitions"]))
 
     reg = period.get("regulation")
     if reg:
         st = "ok" if reg["within_2"] >= 80 else "warn" if reg["within_2"] >= 60 else "bad"
         add(st, "Regulacja temperatury",
-            f"{reg['grade']}: {reg['within_2']:.0f}% czasu w ±2°C, średnio {reg['mean_abs_error']:.1f}°C od zadanej")
+            f"{reg['grade']}: {reg['within_2']:.0f}% czasu w ±2°C, średnio {reg['mean_abs_error']:.1f}°C od zadanej",
+            "W normie ±2°", f"{reg['within_2']:.0f}%")
     else:
-        add("info", "Regulacja temperatury", "za mało pracy w trybie PRACA w tym okresie")
+        add("info", "Regulacja temperatury", "za mało pracy w trybie PRACA w tym okresie", "W normie ±2°", "--")
 
     change = (trend or {}).get("change_pct")
     if change is not None:
         add("warn" if change > 15 else "ok", "Efektywność (kg na stopniodzień)",
             f"ostatni tydzień {trend['recent_kg_per_degree_day']:.2f} vs wcześniej {trend['before_kg_per_degree_day']:.2f} "
-            f"({change:+.0f}%)" + (" - kocioł pali więcej przy tej samej pogodzie: czyszczenie?" if change > 15 else ""))
+            f"({change:+.0f}%)" + (" - kocioł pali więcej przy tej samej pogodzie: czyszczenie?" if change > 15 else ""),
+            "Sprawność", f"{change:+.0f}%")
 
     fit = (model.get("coal") or {}).get("fit")
     if fit and last_full_day and last_full_day.avg("outside") is not None and last_full_day.seconds > 0:
@@ -603,7 +615,8 @@ def checks(period: Dict[str, Any], model: Dict[str, Any], last_full_day: Optiona
             diff = 100 * (actual - expected) / expected
             add("warn" if diff > 25 else "ok", "Zużycie względem pogody",
                 f"{last_full_day.date}: {actual:.1f} kg przy {last_full_day.avg('outside'):.1f}°C, "
-                f"oczekiwane ~{expected:.1f} kg ({diff:+.0f}%)" + (" - czas wyczyścić kocioł?" if diff > 25 else ""))
+                f"oczekiwane ~{expected:.1f} kg ({diff:+.0f}%)" + (" - czas wyczyścić kocioł?" if diff > 25 else ""),
+                "Zużycie / pogoda", f"{diff:+.0f}%")
     return out
 
 
