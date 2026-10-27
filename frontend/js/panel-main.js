@@ -236,3 +236,24 @@ document.addEventListener("DOMContentLoaded", () => {
   forceAllOnAtStart(); 
   startPolling(5000);
 });
+
+// radiators setpoint (mixer target) under the measured temperature - so a
+// change made in the popup is visible at once, before the water warms up
+(function () {
+  const el = document.getElementById("radiators-set-text");
+  if (!el) return;
+  async function refresh() {
+    try {
+      const r = await fetch("/api/config/value/mixer/target_temp", { cache: "no-store" });
+      if (!r.ok) return;
+      const v = Number((await r.json()).value);
+      if (!isNaN(v)) el.textContent = `zadana ${String(Math.round(v * 10) / 10).replace(".", ",")}°C`;
+    } catch (e) { /* keep the last value */ }
+  }
+  refresh();
+  setInterval(refresh, 10000);
+  // right after saving in the popup
+  document.addEventListener("click", (e) => {
+    if (e.target && e.target.closest && e.target.closest("#temp-save")) setTimeout(refresh, 800);
+  });
+})();

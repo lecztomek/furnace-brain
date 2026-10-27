@@ -843,3 +843,5 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
     background: rgba(17, 24, 39, 0.9);
   }
 }
+/* setpoint line under the radiators temperature (index.html #radiators-set-text) */
+#radiators-temp text.badge-sub { font-size: 20px; font-weight: 600; fill: #9ca3af; }

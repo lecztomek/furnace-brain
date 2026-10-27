@@ -404,8 +404,10 @@
                         <text id="fuel-in-tank-text" style="fill: #222;" x="320" y="345">135 kg</text>
                      </g>
                      <g id="radiators-temp" class="temp-badge">
-                        <rect x="920" y="160" width="140" height="80" rx="30" />
-                        <text id="radiators-temp-text" fill x="990" y="205">31°C</text>
+                        <!-- on the middle of the radiator; the setpoint under the measured temperature -->
+                        <rect x="891" y="296" width="140" height="100" rx="30" />
+                        <text id="radiators-temp-text" fill x="961" y="333">31°C</text>
+                        <text id="radiators-set-text" class="badge-sub" x="961" y="377">zadana --</text>
                      </g>
                      <g id="exhaust-temp" class="temp-badge">
                         <rect x="380" y="10" width="200" height="80" rx="30" style="fill: #ddd;" />
