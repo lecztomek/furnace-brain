@@ -81,7 +81,7 @@ class WorkPowerConfig:
     # Classic integral (no forgetting) with anti-windup. The leaky one settles
     # (kp + ki*window) x error below the setpoint - about 1.5 C on this boiler
     # in the 2025/26 season; the classic one holds the setpoint.
-    integral_classic: bool = False
+    integral_classic: bool = True
 
     min_power: float = 10.0
     max_power: float = 100.0
