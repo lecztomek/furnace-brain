@@ -78,3 +78,17 @@ def test_net_movement_last_30_min(tmp_path):
     rt = run(20.0, 25.0, False, True)        # closed for 5 s
     assert rt["moves_30m_s"] == 15.0 and rt["moves_30m_pct"] == 15 and rt["moving"] == "close"
     assert run(25.0, 31 * 60.0, False, False)["moves_30m_s"] == 0.0   # older than 30 min: gone
+
+
+def test_changed_curve_is_logged_with_the_new_target(tmp_path):
+    m = _module(tmp_path, curve_enabled=True, curve_at_0=29.0)
+    _tick(m, 0.0, 10.0)
+    (tmp_path / "values.yaml").write_text(yaml.safe_dump({"target_temp": 30.0, "curve_enabled": True, "curve_at_0": 30.0}))
+    m.reload_config_from_file()
+    rt, types = _tick(m, 1.0, 10.0)
+    assert "MIXER_CURVE_CHANGED" in types and rt["target"] == 25.5
+    _, types = _tick(m, 2.0, 10.0)
+    assert "MIXER_CURVE_CHANGED" not in types          # once
+    m.reload_config_from_file()                         # same values again: nothing new
+    _, types = _tick(m, 3.0, 10.0)
+    assert "MIXER_CURVE_CHANGED" not in types

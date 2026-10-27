@@ -667,6 +667,17 @@ class MixerModule(ModuleInterface):
         active = bool(self._config.curve_enabled) and avg is not None
         self._target = self.curve_target(avg) if active else self._config.target_temp
 
+        if active and self._curve_active and getattr(self, "_curve_changed", False):
+            c = self._config
+            events.append(Event(
+                ts=now, source=self.id, level=EventLevel.INFO, type="MIXER_CURVE_CHANGED",
+                message=(f"Krzywa grzewcza: nowe ustawienia - zadana {self._target:.1f}°C "
+                         f"(przy 0°C {c.curve_at_0:g}°C, nachylenie {c.curve_slope:g}, "
+                         f"na dworze średnio {avg:.1f}°C)"),
+                data={"target": self._target, "outside_avg": avg, "curve_at_0": c.curve_at_0,
+                      "curve_slope": c.curve_slope, "curve_min": c.curve_min, "curve_max": c.curve_max},
+            ))
+        self._curve_changed = False
         if self._config.curve_enabled and active != self._curve_active:
             events.append(Event(
                 ts=now, source=self.id, level=EventLevel.INFO if active else EventLevel.WARNING,
@@ -758,11 +769,18 @@ class MixerModule(ModuleInterface):
         self._apply_curve(data)
 
     def _apply_curve(self, values: Dict[str, Any]) -> None:
+        before = self._curve_settings()
         if "curve_enabled" in values:
             self._config.curve_enabled = bool(values["curve_enabled"])
         for name in ("curve_at_0", "curve_slope", "curve_min", "curve_max", "curve_avg_h"):
             if name in values:
                 setattr(self._config, name, float(values[name]))
+        if before != self._curve_settings():
+            self._curve_changed = True   # logged with the new target on the next tick
+
+    def _curve_settings(self) -> tuple:
+        c = self._config
+        return (c.curve_at_0, c.curve_slope, c.curve_min, c.curve_max, c.curve_avg_h)
 
     def _save_config_to_file(self) -> None:
         data = asdict(self._config)

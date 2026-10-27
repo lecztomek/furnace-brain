@@ -46,7 +46,7 @@
       .map(([m, v]) => `${MODE_NAMES[m]} ${num(v, 0)}%`)
       .join(", ");
     $("work-tiles").innerHTML = [
-      tile("Średnia moc", num(a.power, 0), "%"),
+      tile("Średnia moc", num(p.power_kw_avg, 1), a.power != null ? `kW (sterownik ${num(a.power, 0)}%)` : "kW"),
       tile("Kocioł", num(a.boiler), "°C"),
       tile("Grzejniki", num(a.radiators), "°C"),
       tile("Spaliny", num(a.flue, 0), "°C"),
@@ -113,8 +113,10 @@
   // hour-of-day profile (when the boiler doesn't keep up) and the list of drops
   function renderHourly() {
     const p = report.periods[period];
-    // "today": the last 24 hours one by one; longer periods: average per hour of day
-    const last24 = period === "today" && Array.isArray(p.last24) && p.last24.length ? p.last24 : null;
+    // always the last 24 hours one by one (from "today"); the period buttons
+    // change the drops table and the worst-hour note below
+    const t = report.periods.today || {};
+    const last24 = Array.isArray(t.last24) && t.last24.length ? t.last24 : null;
     const hours = last24 || p.hourly || [];
     const drops = p.drops || { count: 0, items: [], by_hour: [] };
     const data = {
@@ -138,14 +140,15 @@
     if (hourlyChart) { hourlyChart.data = data; hourlyChart.options = options; hourlyChart.update(); }
     else hourlyChart = new Chart($("chart-hourly"), { data, options });
 
-    const worst = hours.filter((h) => h.below_pct != null).sort((a, b) => b.below_pct - a.below_pct)[0];
+    // worst hour of day over the chosen period (average per hour of day)
+    const worst = (p.hourly || []).filter((h) => h.below_pct != null).sort((a, b) => b.below_pct - a.below_pct)[0];
     $("hourly-note").textContent =
       (last24
         ? "Ostatnie 24 godziny, godzina po godzinie, tylko PRACA (puste godziny: piec nie pracował). "
         : `Średnio dla każdej godziny doby (${PERIOD_NAMES[period]}), tylko PRACA. `) +
       (worst && worst.below_pct > 0
-        ? `Najgorzej o ${worst.hour}:00–${worst.hour + 1}:00: ${num(worst.below_pct, 0)}% czasu ponad ${num(drops.below_c ?? 4, 0)}°C poniżej zadanej, średnio ${num(worst.error, 1)}°C od zadanej.`
-        : "Bez wyraźnych spadków.");
+        ? `Najgorsza godzina (${PERIOD_NAMES[period]}): ${worst.hour}:00–${worst.hour + 1}:00, ${num(worst.below_pct, 0)}% czasu ponad ${num(drops.below_c ?? 4, 0)}°C poniżej zadanej, średnio ${num(worst.error, 1)}°C od zadanej.`
+        : `Bez wyraźnych spadków (${PERIOD_NAMES[period]}).`);
 
     $("drops-head").textContent = `Spadki temperatury (${drops.count})`;
     if (!drops.items.length) {

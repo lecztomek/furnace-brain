@@ -2,7 +2,6 @@ import pytest
 
 from backend.core.state import SystemState, Sensors, Outputs, BoilerMode, PartialOutputs
 
-# POPRAW, jeśli masz inną ścieżkę:
 from backend.modules.mixer import MixerModule
 
 
@@ -39,6 +38,7 @@ def apply_partial_outputs(st: SystemState, po: PartialOutputs | None):
 
 def tick(m: MixerModule, st: SystemState, now: float):
     st.ts = now
+    st.ts_mono = now  # the mixer times its pulses on the monotonic clock
     res = m.tick(now=now, sensors=st.sensors, system_state=st)
     apply_partial_outputs(st, getattr(res, "partial_outputs", None))
     open_on = bool(st.outputs.mixer_open_on)
@@ -114,8 +114,9 @@ def assert_never_open_and_close(hist):
 
 
 @pytest.fixture
-def mixer_module():
-    return MixerModule()
+def mixer_module(tmp_path):
+    # own settings directory: a local values.yaml must not change the results
+    return MixerModule(base_path=tmp_path)
 
 
 @pytest.fixture
