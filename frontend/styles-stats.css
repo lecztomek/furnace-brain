@@ -1235,3 +1235,20 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
 .st2-drops th { text-align: left; color: #9ca3af; font-weight: 600; padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.12); }
 .st2-drops td { padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #e5e7eb; white-space: nowrap; }
 .st2-drops td.bad { color: #f87171; font-weight: 700; }
+
+/* ===== Phone: the menu button in the bottom right corner - the same
+   place on every page ===== */
+@media (max-width: 640px) {
+  .burger-btn {
+    position: fixed;
+    left: auto;
+    right: 10px;
+    top: auto;
+    bottom: 40px;
+    transform: none;
+    width: 52px;
+    height: 46px;
+    font-size: 28px;
+    background: rgba(17, 24, 39, 0.9);
+  }
+}

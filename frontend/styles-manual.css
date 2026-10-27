@@ -716,3 +716,24 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
   z-index: 1200;
 }
 
+
+/* ===== Phone: the menu button in the bottom right corner - the same
+   place on every page ===== */
+@media (max-width: 640px) {
+  .burger-btn {
+    position: fixed;
+    left: auto;
+    right: 10px;
+    top: auto;
+    bottom: 40px;
+    transform: none;
+    width: 52px;
+    height: 46px;
+    font-size: 28px;
+    background: rgba(17, 24, 39, 0.9);
+  }
+
+  /* long names ("ZAWÓR MIESZAJĄCY – OTWÓRZ") wrap instead of pushing the switch off the screen */
+  .row-label { white-space: normal; min-width: 0; font-size: 0.9rem; }
+  .manual-row { padding: 10px 8px; }
+}

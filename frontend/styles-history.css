@@ -1365,3 +1365,14 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
   .history-refresh-group { margin-left: auto; }
   .history-chart-wrapper { min-height: 300px; padding: 6px; }
 }
+
+/* ===== Phone: the history page scrolls, so the series buttons under the
+   chart can be reached ===== */
+@media (max-width: 640px) {
+  .history-inner { overflow-y: auto; min-height: 0; padding-bottom: 60px; }
+  .history-chart-wrapper { flex: 0 0 300px; min-height: 300px; }
+  .history-series-bar { flex-direction: column; align-items: stretch; padding: 6px; }
+  .history-series-bar .history-group-label { display: none; }
+  .history-series-group { gap: 6px; }
+  .history-series-toggle { padding: 4px 10px; font-size: 13px; gap: 6px; }
+}

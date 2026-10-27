@@ -826,3 +826,20 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
 /* heat output badge next to the power percent (index.html #power-kw) */
 #power-kw text { font-size: 40px; fill: #fbbf24; }
 #coal-kgph text { font-size: 30px; fill: #fdba74; }
+
+/* ===== Phone: the menu button in the bottom right corner - the same
+   place on every page ===== */
+@media (max-width: 640px) {
+  .burger-btn {
+    position: fixed;
+    left: auto;
+    right: 10px;
+    top: auto;
+    bottom: 40px;
+    transform: none;
+    width: 52px;
+    height: 46px;
+    font-size: 28px;
+    background: rgba(17, 24, 39, 0.9);
+  }
+}
