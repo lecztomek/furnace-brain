@@ -145,12 +145,37 @@
         <span class="sv-row__label">${esc(i.label)}</span><span class="sv-row__val">${esc(i.value)}</span></div>`).join("")}`).join("");
   }
 
+  const CHECK_ICONS = [["Ciągłość", "database"], ["Czujnik", "sensor"], ["Temperatura zewn", "thermometer"], ["Przegrzanie", "flame"], ["Alarmy", "bell"],
+    ["Rozpalenia", "flame"], ["Regulacja", "target"], ["Efektywność", "trendUp"], ["Zużycie", "cloudSun"], ["Brak danych", "hourglass"]];
+  const CHECK_WORD = { ok: "OK", warn: "Uwaga", bad: "Problem", info: "Info" };
+  // the checks of the statistics report (last 7 days): data, sensors, overheating, alarms, regulation, efficiency
+  function renderChecks(report) {
+    const list = report.checks || [];
+    const worst = list.some((c) => c.status === "bad") ? "bad" : list.some((c) => c.status === "warn") ? "warn" : "ok";
+    verdict($("ck-verdict"), worst);
+    $("checks").innerHTML = list.map((c) => {
+      const icon = FBIcon((CHECK_ICONS.find(([k]) => c.title.startsWith(k)) || ["", "info"])[1]);
+      // OK: just the name (tap for the details); a problem: the details right away
+      return `<button type="button" class="${cardClass(c.status, c.title)}${c.status === "ok" ? "" : " is-open"}" data-key="${c.title}"><span class="sv-card__top"><span class="sv-card__icon">${icon}</span>` +
+        `<span class="sv-card__name">${c.title}</span><span class="sv-card__word">${CHECK_WORD[c.status] || ""}</span></span>` +
+        `<span class="sv-card__more">${c.detail}</span></button>`;
+    }).join("");
+  }
+
   // ---------------------------------------------------------------- loading
 
   async function load(fresh = false) {
-    const url = tab === "tuning" ? `/api/service/tuning${fresh ? "?fresh=true" : ""}` : "/api/service/diagnostics";
+    const url = { tuning: `/api/service/tuning${fresh ? "?fresh=true" : ""}`, checks: "/api/analytics/report",
+      diag: "/api/service/diagnostics" }[tab];
     try {
       const r = await fetch(url, { cache: "no-store" });
+      if (tab === "checks" && r.status === 503) {
+        // the statistics are still being counted after a start
+        setStatus("Liczę statystyki, potrzebne do kontroli…");
+        clearTimeout(load.retry);
+        load.retry = setTimeout(() => load(), 10000);
+        return;
+      }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
       const at = `Odświeżono ${new Date().toLocaleTimeString("pl-PL", { hour12: false })}`;
@@ -163,7 +188,7 @@
         load.retry = setTimeout(() => load(), 3000);
         return;
       }
-      if (tab === "tuning") renderTuning(data); else renderDiag(data);
+      if (tab === "tuning") renderTuning(data); else if (tab === "checks") renderChecks(data); else renderDiag(data);
       setStatus(at);
     } catch (e) {
       setStatus(`Nie udało się pobrać danych: ${e.message}`);
@@ -198,7 +223,7 @@
     });
     let saved = "tuning";
     try { saved = localStorage.getItem("service-tab") || "tuning"; } catch (e) { /* no storage */ }
-    showTab(saved === "diag" ? "diag" : "tuning");
+    showTab(["diag", "checks"].includes(saved) ? saved : "tuning");
     startTimer();
   });
 })();

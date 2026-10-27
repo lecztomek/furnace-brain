@@ -246,19 +246,6 @@
       `<table><thead><tr><th>Kiedy</th><th>Trwał</th><th>Najniżej</th><th>Zadana</th><th>Moc przed → maks.</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
-  const CHECK_ICONS = [["Ciągłość", "database"], ["Czujnik", "sensor"], ["Temperatura zewn", "thermometer"], ["Przegrzanie", "flame"], ["Alarmy", "bell"],
-    ["Rozpalenia", "flame"], ["Regulacja", "target"], ["Efektywność", "trendUp"], ["Zużycie", "cloudSun"], ["Brak danych", "hourglass"]];
-  const CHECK_WORD = { ok: "OK", warn: "Uwaga", bad: "Problem", info: "Info" };
-  function renderChecks() {
-    $("checks").innerHTML = report.checks.map((c) => {
-      const icon = FBIcon((CHECK_ICONS.find(([k]) => c.title.startsWith(k)) || ["", "info"])[1]);
-      // OK: just the name (tap for the details); a problem: the details right away
-      return `<button type="button" class="sv-card sv-card--${c.status}${c.status === "ok" ? "" : " is-open"}"><span class="sv-card__top"><span class="sv-card__icon">${icon}</span>` +
-        `<span class="sv-card__name">${c.title}</span><span class="sv-card__word">${CHECK_WORD[c.status] || ""}</span></span>` +
-        `<span class="sv-card__more">${c.detail}</span></button>`;
-    }).join("");
-  }
-
   function renderDaily() {
     const { hourly, rows, labels } = periodSeries();
     const data = {
@@ -357,7 +344,6 @@
     renderSeasons();
     renderWork();
     renderEfficiency();
-    renderChecks();
     renderWeather();
   }
 
@@ -520,7 +506,6 @@
       ({ usage: renderUsage, work: renderWork, eff: renderEfficiency })[g.dataset.scope]();
     }));
     $("st2-refresh").addEventListener("click", () => { load(true); loadForecast(); });
-    $("checks").addEventListener("click", (e) => e.target.closest(".sv-card")?.classList.toggle("is-open"));
     $("st2-tabs").addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-tab]");
       if (btn) showTab(btn.dataset.tab);

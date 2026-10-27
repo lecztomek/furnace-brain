@@ -27,6 +27,7 @@
               </div>
               <div class="st2-tabs" id="sv-tabs" role="tablist">
                 <button type="button" data-tab="tuning" class="active">Strojenie</button>
+                <button type="button" data-tab="checks">Kontrola</button>
                 <button type="button" data-tab="diag">Diagnostyka Pi</button>
               </div>
               <div class="st2-status" id="sv-status">Wczytywanie…</div>
@@ -50,6 +51,12 @@
               <section class="st2-card" data-tab="tuning" id="tn-changes-card">
                 <h2>Po zmianach ustawień</h2>
                 <div class="sv-changes" id="tn-changes"></div>
+              </section>
+
+              <!-- KONTROLA (from the statistics report: last 7 days) -->
+              <section class="st2-card" data-tab="checks">
+                <h2>Czy wszystko działa? <span class="sv-verdict" id="ck-verdict"></span></h2>
+                <div class="sv-cards" id="checks"></div>
               </section>
 
               <!-- DIAGNOSTYKA -->
