@@ -100,6 +100,11 @@ class WorkPowerConfig:
     state_max_temp_delta_C: float = 5.0  # ignoruj restore, jeśli ΔT_kotła za duże
 
 
+RATE_SAMPLE_S = 30.0      # trend sampled every 30 s
+RATE_TAU_S = 180.0        # and smoothed over ~3 min
+RATE_DEADBAND = 0.05      # C/min - slower than this counts as standing still
+
+
 class WorkPowerModule(ModuleInterface):
     """
     Moduł wyliczający "power" (moc kotła) w % w trybie WORK (praca).
@@ -146,6 +151,9 @@ class WorkPowerModule(ModuleInterface):
 
         # Stan PID-a
         self._integral: float = 0.0
+        # boiler temperature trend for the classic integral
+        self._rate: float = 0.0
+        self._rate_sample: Optional[tuple] = None
         self._last_error: Optional[float] = None
         self._last_tick_ts: Optional[float] = None
 
@@ -321,6 +329,7 @@ class WorkPowerModule(ModuleInterface):
         # Jeszcze raz upewniamy się, że w zakresie min/max
         limited_power = max(self._config.min_power, min(limited_power, self._config.max_power))
 
+
         self._power = limited_power
         self._last_power_ts = now_ctrl
 
@@ -386,6 +395,7 @@ class WorkPowerModule(ModuleInterface):
             if dt <= 0:
                 dt = None
 
+        self._update_rate(now_ctrl, boiler_temp)
         if dt is not None and self._config.integral_classic:
             self._integrate_classic(error, dt)
         # Część I z "oknem czasowym" – leaky integrator
@@ -421,6 +431,12 @@ class WorkPowerModule(ModuleInterface):
         already at max power and the boiler is still too cold (or at min power
         and too hot), and the I term stays within 0..max power.
         """
+        # The boiler reacts to the coal 10+ min late. While the temperature is
+        # already moving towards the setpoint the fire is catching up - adding
+        # more integral then only makes it overshoot. It integrates only while
+        # the temperature stands still or moves away from the setpoint.
+        if (error > 0 and self._rate > RATE_DEADBAND) or (error < 0 and self._rate < -RATE_DEADBAND):
+            return
         candidate = self._integral + error * dt
         if self._config.ki > 0:
             out = self._config.kp * error + self._config.ki * candidate
@@ -431,6 +447,20 @@ class WorkPowerModule(ModuleInterface):
             self._integral = max(0.0, min(hi, self._integral))
         else:
             self._integral = candidate
+
+    def _update_rate(self, now_ctrl: float, boiler_temp: float) -> None:
+        """Smoothed boiler temperature trend [C/min]."""
+        last = self._rate_sample
+        if last is None or now_ctrl - last[0] > 120:
+            self._rate_sample = (now_ctrl, boiler_temp)
+            return
+        dt = now_ctrl - last[0]
+        if dt < RATE_SAMPLE_S:
+            return
+        slope = (boiler_temp - last[1]) / dt * 60.0
+        a = min(1.0, dt / RATE_TAU_S)
+        self._rate += a * (slope - self._rate)
+        self._rate_sample = (now_ctrl, boiler_temp)
 
     def _track_to_power(self, now_ctrl: float, boiler_temp: float, actual_power: float) -> None:
         """

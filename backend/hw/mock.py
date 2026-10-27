@@ -120,6 +120,9 @@ class MockHardware(HardwareInterface):
     U_CWU_EXCH_W_PER_K = 800.0
     U_FLUE_LOSS_W_PER_K = 25.0
     HOPPER_COUPLING_W_PER_K = 5.0
+    # the hopper loses heat to the boiler room; on the real furnace it stays
+    # ~21-25 C with the boiler at ~59 C (2026-10 data)
+    HOPPER_LOSS_W_PER_K = 60.0
 
     PUMP_FLOW_KG_PER_S = 1320.0 / 3600.0
     MIX_VALVE_FULL_TRAVEL_S = 120.0
@@ -611,7 +614,8 @@ class MockHardware(HardwareInterface):
         )
 
         # 11) Hopper – lekko dogrzewa się od kotła
-        Q_hopper = self.HOPPER_COUPLING_W_PER_K * (s.boiler_temp - s.hopper_temp) * dt
+        Q_hopper = (self.HOPPER_COUPLING_W_PER_K * (s.boiler_temp - s.hopper_temp)
+                    - self.HOPPER_LOSS_W_PER_K * (s.hopper_temp - self.ROOM_TEMP)) * dt
         C_hopper = 2000.0  # [J/K] – umowne
         dT_hopper = Q_hopper / C_hopper
         s.hopper_temp += dT_hopper
