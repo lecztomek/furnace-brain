@@ -18,10 +18,6 @@
         {
           moduleId: "power_work",
           key: "boiler_set_temp",
-          also: [
-            { moduleId: "power_work_fuzzy", key: "boiler_set_temp" },
-            { moduleId: "power_work_predictive", key: "boiler_set_temp" },
-          ],
           derived: [
             { label: "przejście na pracę", moduleId: "mode", key: "switch_temp", offset: 3 },
             { label: "rozpalanie", moduleId: "power_ignition", key: "boiler_set_temp", offset: 4 },

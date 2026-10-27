@@ -19,7 +19,7 @@ MODE_DISPLAY = {
 
 
 # WORK power regulators, shown next to the mode when enabled
-POWER_REGULATORS = ("power_work", "power_work_fuzzy", "power_work_predictive")
+POWER_REGULATORS = ("power_work",)
 
 
 def create_state_router(

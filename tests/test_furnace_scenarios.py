@@ -34,10 +34,9 @@ def test_cold_ignition_switches_to_work(tmp_path):
     assert not sim.module_errors
 
 
-@pytest.mark.parametrize("fuzzy_enabled", [True, False])
-def test_cold_start_in_work_reaches_setpoint(tmp_path, fuzzy_enabled):
+def test_cold_start_in_work_reaches_setpoint(tmp_path):
     # e.g. backend restart with a cold boiler - the backend starts in WORK
-    sim = FurnaceSim(tmp_path, values={"power_work_fuzzy": {"enabled": fuzzy_enabled}})
+    sim = FurnaceSim(tmp_path)
     sim.set_mode(BoilerMode.WORK)
     target = boiler_set_temp(sim)
 
@@ -105,11 +104,3 @@ def test_off_stops_feeder_and_fan(tmp_path):
     last = sim.samples[-60:]
     assert not any(s.feeder_on for s in last)
     assert all(s.fan_power == 0 for s in last)
-
-
-def test_fuzzy_saturates_for_large_errors(tmp_path):
-    sim = FurnaceSim(tmp_path)
-    fuzzy = sim.kernel._modules["power_work_fuzzy"]
-    for flue in (60.0, 100.0, 150.0):
-        assert fuzzy._mamdani_delta(err=20.0, rate=0.0, flue=flue) > 0
-        assert fuzzy._mamdani_delta(err=-20.0, rate=0.0, flue=flue) < 0

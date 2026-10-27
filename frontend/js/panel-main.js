@@ -176,11 +176,9 @@ function applyState(state) {
 // short names of the power regulators shown next to the WORK mode
 const POWER_SOURCE_LABELS = {
   power_work: "PID",
-  power_work_fuzzy: "FUZZY",
-  power_work_predictive: "PRED",
 };
 
-// e.g. "praca (PID, FUZZY)" - every enabled power regulator
+// e.g. "praca (PID)" - every enabled power regulator
 function modeLabel(state) {
   const base = state.mode_display || state.mode || "nieznany";
   if (state.mode !== "WORK") return base;
