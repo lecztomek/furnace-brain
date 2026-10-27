@@ -19,6 +19,23 @@
   const price = () => Number(report.settings?.coal_price_pln_per_t) || 0;
   const pln = (kg) => (kg == null || !price() ? null : (kg / 1000) * price());
 
+  // coal axis with the cost under each value ("12 kg" / "14 zł") and tooltips with both
+  function coalAxisTicks(axis) {
+    axis.ticks = { ...(axis.ticks || {}), callback: (v) => (price() ? [`${num(v, 0)} kg`, `${num(pln(v), v > 0 && v < 10 ? 1 : 0)} zł`] : `${num(v, v < 10 ? 1 : 0)}`) };
+    return axis;
+  }
+  const coalTooltip = {
+    callbacks: {
+      label: (ctx) => {
+        const v = ctx.parsed.y;
+        if (ctx.dataset.coal && v != null) {
+          return `${ctx.dataset.label.replace(/ \[.*\]$/, "")}: ${num(v, v < 10 ? 2 : 0)} kg` + (price() ? ` • ${num(pln(v), v < 10 ? 2 : 0)} zł` : "");
+        }
+        return `${ctx.dataset.label}: ${v == null ? "--" : num(v, 1)}`;
+      },
+    },
+  };
+
   const num = (v, digits = 1) =>
     v === null || v === undefined ? "--" : Number(v).toLocaleString("pl-PL", { maximumFractionDigits: digits, minimumFractionDigits: digits });
 
@@ -189,7 +206,7 @@
   function renderDaily() {
     const { hourly, rows, labels } = periodSeries();
     const datasets = [
-      { type: "bar", label: hourly ? "Węgiel [kg/h]" : "Węgiel [kg/dobę]", data: rows.map((d) => d.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.75)", yAxisID: "y" },
+      { type: "bar", label: hourly ? "Węgiel [kg/h]" : "Węgiel [kg/dobę]", data: rows.map((d) => d.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.75)", yAxisID: "y", coal: true },
     ];
     if (!hourly) {
       datasets.push({ type: "line", label: "Na zewnątrz [°C]", data: rows.map((d) => d.outside), borderColor: "#a855f7", backgroundColor: "#a855f7", yAxisID: "y2", tension: 0.3, pointRadius: 2 });
@@ -205,6 +222,8 @@
       },
     };
     options.scales.y2.display = !hourly;
+    coalAxisTicks(options.scales.y);
+    options.plugins.tooltip = coalTooltip;
     if (dailyChart) { dailyChart.data = data; dailyChart.options = options; dailyChart.update(); }
     else dailyChart = new Chart($("chart-daily"), { data, options });
   }
@@ -280,8 +299,8 @@
     const data = {
       labels: months,
       datasets: [
-        { type: "bar", label: `Sezon ${s.previous.start.slice(0, 4)}/${String(Number(s.previous.start.slice(0, 4)) + 1).slice(2)} [kg]`, data: s.previous.months.map((m) => m.coal_kg), backgroundColor: "rgba(156, 163, 175, 0.6)" },
-        { type: "bar", label: `Sezon ${s.this.start.slice(0, 4)}/${String(Number(s.this.start.slice(0, 4)) + 1).slice(2)} [kg]`, data: s.this.months.map((m) => m.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.8)" },
+        { type: "bar", label: `Sezon ${s.previous.start.slice(0, 4)}/${String(Number(s.previous.start.slice(0, 4)) + 1).slice(2)} [kg]`, data: s.previous.months.map((m) => m.coal_kg), backgroundColor: "rgba(156, 163, 175, 0.6)", coal: true },
+        { type: "bar", label: `Sezon ${s.this.start.slice(0, 4)}/${String(Number(s.this.start.slice(0, 4)) + 1).slice(2)} [kg]`, data: s.this.months.map((m) => m.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.8)", coal: true },
       ],
     };
     const options = {
@@ -292,7 +311,9 @@
         y: { beginAtZero: true, ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
       },
     };
-    if (seasonChart) { seasonChart.data = data; seasonChart.update(); }
+    coalAxisTicks(options.scales.y);
+    options.plugins.tooltip = coalTooltip;
+    if (seasonChart) { seasonChart.data = data; seasonChart.options = options; seasonChart.update(); }
     else seasonChart = new Chart($("chart-seasons"), { data, options });
   }
 
