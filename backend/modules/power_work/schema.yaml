@@ -107,9 +107,10 @@ fields:
     type: bool
     label_on: "WŁĄCZONA"
     label_off: "WYŁĄCZONA"
-    default: true
+    default: false
     group: pid
     description: >
+      EKSPERYMENTALNE - w symulatorze z opóźnieniem pieca potrafi wpaść w kołysanie ±4°C.
       Włączona: całka pamięta cały błąd, więc piec trzyma zadaną (z ochroną przed
       nawijaniem całki przy mocy min/maks). Wyłączona: stara całka z oknem czasowym,
       przy której piec ustala się ok. 1–2°C poniżej zadanej.

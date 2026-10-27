@@ -108,7 +108,7 @@ def test_off_stops_feeder_and_fan(tmp_path):
 
 def test_work_settles_on_the_setpoint(tmp_path):
     """Classic integral: the boiler settles on the setpoint, not ~1-2 C below (leaky integral)."""
-    sim = FurnaceSim(tmp_path)
+    sim = FurnaceSim(tmp_path, values={"power_work": {"integral_classic": True}})
     sim.set_mode(BoilerMode.WORK)
     target = boiler_set_temp(sim)
 
