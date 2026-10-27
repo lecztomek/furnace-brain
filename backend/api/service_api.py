@@ -17,6 +17,7 @@ from fastapi import APIRouter
 
 from backend.core.config_store import ConfigStore
 from backend.core.state_store import StateStore
+from backend.core import timings
 from backend.core.tuning import TuningReport
 
 TUNING_MODULES = ("power_work", "feeder", "blower", "mixer", "mode", "pump_co", "overheat", "flameout")
@@ -89,6 +90,14 @@ def _duration(seconds: float) -> str:
     return f"{h} h {m} min" if h else f"{m} min"
 
 
+def _secs(s: float) -> str:
+    if s < 1:
+        return f"{s * 1000:.0f} ms"
+    if s < 90:
+        return f"{s:.1f} s".replace(".", ",")
+    return _duration(s)
+
+
 def _gb(n: float) -> str:
     return f"{n / 1e9:.1f}".replace(".", ",") + " GB"
 
@@ -151,7 +160,8 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
 
         def run():
             try:
-                report = tuning.build(settings(), pause_s=pause_s)
+                with timings.measure("tuning"):
+                    report = tuning.build(settings(), pause_s=pause_s)
                 with lock:
                     cached["report"], cached["at"] = report, clock()
             except Exception:  # pylint: disable=broad-except
@@ -326,6 +336,31 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
         if not any(i["label"].startswith("Moduł ") for i in ctl):
             ctl.append(_item("ok", "Moduły", f"{len(st.modules)} pracuje bez błędów"))
         groups.append({"title": "Sterownik", "items": ctl})
+
+        # --- background analyses: when they ran and how long they took ---
+        ana: List[Dict[str, str]] = []
+        done = timings.snapshot()
+        slow_s = {"analytics": 120.0, "tuning": 30.0, "weather": 10.0, "forecast": 15.0}
+        for key, (label, how_often) in timings.KNOWN.items():
+            e = done.get(key)
+            if not e:
+                ana.append(_item("info", label, "jeszcze nie liczone od startu", how_often))
+                continue
+            if e.get("running_since"):
+                ana.append(_item("info", label, f"liczy teraz (od {_duration(now - e['running_since'])})"
+                                 + (f", poprzednio {_secs(e['last_s'])}" if e.get("last_s") is not None else ""), how_often))
+                continue
+            took = e.get("last_s") or 0.0
+            # the first statistics / tuning run reads every day from the files (with pauses) - slow by design
+            slow = e["runs"] > 1 and took > slow_s.get(key, 30.0)
+            status = "warn" if not e.get("ok") or slow else "ok"
+            note = how_often + (" • ostatnio błąd - szczegóły w Logach" if not e.get("ok") else "")
+            if slow:
+                note += " • długo jak na ten Raspberry"
+            ana.append(_item(status, label,
+                             f"{_ago(e.get('last_at'), now)}, trwało {_secs(took)} (najdłużej {_secs(e['max_s'])}, "
+                             f"razy: {e['runs']})", note))
+        groups.append({"title": "Analizy w tle", "items": ana})
 
         # --- internet ---
         net: List[Dict[str, str]] = []

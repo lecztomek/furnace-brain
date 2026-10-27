@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 import yaml
 
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
+from backend.core import timings
 from backend.core.problems import ProblemTracker, describe_error
 from backend.core.state import (
     Event,
@@ -148,7 +149,8 @@ class WeatherModule(ModuleInterface):
 
     def _fetch(self, latitude: float, longitude: float) -> None:
         try:
-            temp = self._fetcher(latitude, longitude)
+            with timings.measure("weather"):
+                temp = self._fetcher(latitude, longitude)
             error = None
         except Exception as exc:  # pylint: disable=broad-except
             temp = None
@@ -181,7 +183,8 @@ class WeatherModule(ModuleInterface):
 
     def _fetch_forecast(self, latitude: float, longitude: float) -> None:
         try:
-            forecast = self._forecast_fetcher(latitude, longitude)
+            with timings.measure("forecast"):
+                forecast = self._forecast_fetcher(latitude, longitude)
             error = None
         except Exception as exc:  # pylint: disable=broad-except
             forecast, error = None, describe_error(exc, "prognoza Open-Meteo")

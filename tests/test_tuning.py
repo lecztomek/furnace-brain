@@ -176,3 +176,25 @@ def test_past_days_are_read_once(tmp_path, monkeypatch):
     second = report.build(SETTINGS, now)
     assert calls == [now.date()]                 # only today again
     assert second["regulation"]["hours"] > 10
+
+
+def test_diagnostics_show_how_long_the_analyses_took(tmp_path):
+    from backend.core import timings
+    timings.reset()
+    with timings.measure("tuning"):
+        time.sleep(0.02)
+    try:
+        with timings.measure("forecast"):
+            raise OSError("no internet")
+    except OSError:
+        pass
+    store = StateStore()
+    cfg = ConfigStore(_config_dir(tmp_path), ["power_work", "feeder", "blower"])
+    app = FastAPI()
+    app.include_router(create_service_router(store, cfg, tmp_path, {}, {}), prefix="/api")
+    diag = TestClient(app).get("/api/service/diagnostics").json()
+    items = {i["label"]: i for g in diag["groups"] if g["title"] == "Analizy w tle" for i in g["items"]}
+    assert items["Strojenie"]["status"] == "ok" and "trwało" in items["Strojenie"]["value"] and "ms" in items["Strojenie"]["value"]
+    assert items["Prognoza pogody"]["status"] == "warn" and "błąd" in items["Prognoza pogody"]["note"]
+    assert items["Statystyki"]["value"] == "jeszcze nie liczone od startu"
+    timings.reset()

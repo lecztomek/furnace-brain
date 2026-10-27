@@ -9,6 +9,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
+from backend.core import timings
 from backend.core.analytics import Analytics, coal_forecast, forecast_model
 from backend.core.config_store import ConfigStore
 from backend.core.state_store import StateStore
@@ -98,7 +99,7 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore,
         month = int(setting("stats", "season_start_month", 9))
         day = int(setting("stats", "season_start_day", 1))
         season = date(today.year if (today.month, today.day) >= (month, day) else today.year - 1, month, day)
-        with build_lock:
+        with build_lock, timings.measure("analytics"):
             report = analytics.report(
                 today=today,
                 season_start=season,
