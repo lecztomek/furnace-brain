@@ -46,11 +46,22 @@ def _read(path: str) -> Optional[str]:
         return None
 
 
+_run_cache: Dict[str, tuple] = {}
+RUN_REUSE_S = 60.0
+
+
 def _run(cmd: List[str]) -> Optional[str]:
+    """A system command, its answer reused for a minute (the page refreshes every 10 s)."""
+    key = " ".join(cmd)
+    hit = _run_cache.get(key)
+    if hit and time.monotonic() - hit[0] < RUN_REUSE_S:
+        return hit[1]
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=3).stdout.strip()
+        out: Optional[str] = subprocess.run(cmd, capture_output=True, text=True, timeout=3).stdout.strip()
     except (OSError, subprocess.SubprocessError):
-        return None
+        out = None
+    _run_cache[key] = (time.monotonic(), out)
+    return out
 
 
 def _item(status: str, label: str, value: str, note: str = "") -> Dict[str, str]:
@@ -83,8 +94,10 @@ def _gb(n: float) -> str:
 
 
 def _newest_mtime(directory: Path) -> Optional[float]:
+    """Newest file of a data dir; names carry the date, so only the last few are checked (thousands of files)."""
     try:
-        return max((e.stat().st_mtime for e in os.scandir(directory) if e.is_file()), default=None)
+        names = sorted(n for n in os.listdir(directory) if n.endswith(".csv"))[-3:]
+        return max((os.stat(directory / n).st_mtime for n in names), default=None)
     except OSError:
         return None
 
@@ -117,13 +130,44 @@ class LoopStats:
 
 def create_service_router(store: StateStore, config_store: ConfigStore, data_root: Path,
                           app_info: Dict[str, Any], loop_stats: Dict[str, LoopStats],
-                          clock: Callable[[], float] = time.time) -> APIRouter:
+                          clock: Callable[[], float] = time.time,
+                          warm_up_s: Optional[float] = 120.0) -> APIRouter:
     router = APIRouter(prefix="/service", tags=["service"])
     modules_dir = data_root / "modules"
     tuning = TuningReport(history_dir=modules_dir / "history" / "data",
                           events_dir=modules_dir / "eventlog" / "data")
+    # the advice is built in a background thread and a request never waits
+    # for it (the GUI would freeze); the first build reads 8 days of files
+    # with pauses, so the control loop keeps its CPU - later ones read only today
     lock = threading.Lock()
     cached: Dict[str, Any] = {"at": 0.0, "report": None}
+    building = threading.Event()
+
+    def start_build(pause_s: float = 0.0) -> None:
+        if building.is_set():
+            return
+        building.set()
+
+        def run():
+            try:
+                report = tuning.build(settings(), pause_s=pause_s)
+                with lock:
+                    cached["report"], cached["at"] = report, clock()
+            except Exception:  # pylint: disable=broad-except
+                pass
+            finally:
+                building.clear()
+
+        threading.Thread(target=run, daemon=True, name="tuning_build").start()
+
+    def warm_up():
+        # past days read in the background a while after start, so the first
+        # visit of the service page doesn't wait for them
+        time.sleep(warm_up_s)
+        start_build(pause_s=0.5)
+
+    if warm_up_s is not None:
+        threading.Thread(target=warm_up, daemon=True, name="tuning_warm_up").start()
 
     def settings() -> Dict[str, Dict[str, Any]]:
         out = {}
@@ -171,11 +215,12 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
     def get_tuning(fresh: bool = False):
         s = settings()
         with lock:
-            if fresh or cached["report"] is None or clock() - cached["at"] > TUNING_REUSE_S:
-                cached["report"] = tuning.build(s)
-                cached["at"] = clock()
-            report = cached["report"]
-        return {**report, "settings": s, "live": live(s)}
+            report, age = cached["report"], clock() - cached["at"]
+        if fresh or report is None or age > TUNING_REUSE_S:
+            start_build(pause_s=0.2 if report is None else 0.0)
+        if report is None:
+            return {"building": True, "progress": dict(tuning.progress), "settings": s, "live": live(s)}
+        return {**report, "building": building.is_set(), "settings": s, "live": live(s)}
 
     @router.get("/diagnostics")
     def get_diagnostics():

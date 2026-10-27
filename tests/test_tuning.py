@@ -1,6 +1,7 @@
 """Service page: tuning advice from the history, setting changes and the endpoints."""
 import math
 import shutil
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -136,12 +137,42 @@ def test_service_endpoints(tmp_path):
     stats["control"].add(0.01)
     stats["control"].add(0.7)
     app = FastAPI()
-    app.include_router(create_service_router(store, cfg, tmp_path, {"version": "9.9.9", "started_at": 1.0}, stats),
-                       prefix="/api")
+    app.include_router(create_service_router(store, cfg, tmp_path, {"version": "9.9.9", "started_at": 1.0}, stats,
+                                             warm_up_s=None), prefix="/api")
     client = TestClient(app)
-    tuning = client.get("/api/service/tuning").json()
+    first = client.get("/api/service/tuning").json()          # never waits for the analysis
+    assert "live" in first
+    deadline = time.time() + 10
+    tuning = first
+    while "verdict" not in tuning and time.time() < deadline:
+        time.sleep(0.05)
+        tuning = client.get("/api/service/tuning").json()
     assert tuning["verdict"]["status"] in ("ok", "warn", "bad")
     assert "pid" in tuning["live"] and "feeder" in tuning["live"]
     diag = client.get("/api/service/diagnostics").json()
     loop = [i for g in diag["groups"] for i in g["items"] if i["label"] == "Pętla sterowania"][0]
     assert loop["status"] == "warn" and "spóźniona 1×" in loop["value"]
+
+
+def test_past_days_are_read_once(tmp_path, monkeypatch):
+    hist, ev = tmp_path / "h", tmp_path / "e"
+    hist.mkdir()
+    ev.mkdir()
+    now = datetime(2026, 11, 20, 18, 0)
+    for back in range(9):
+        day = (now - timedelta(days=back)).date()
+        with open(hist / f"boiler_{day:%Y%m%d}.csv", "w") as f:
+            f.write("data_czas;temp_pieca;power;temp_grzejnikow;temp_spalin;tryb_pracy;temp_zewn;dmuchawa;slimak;zadana\n")
+            for i in range(0, 2880, 10):
+                ts = datetime.combine(day, datetime.min.time()) + timedelta(seconds=30 * i)
+                f.write(f"{ts.isoformat()};56.2;50;30;80;WORK;2;28;0;56\n")
+    report = T.TuningReport(hist, ev)
+    calls = []
+    real = T.history_rows
+    monkeypatch.setattr(T, "history_rows", lambda *a, **k: calls.append(a[1]) or real(*a, **k))
+    report.build(SETTINGS, now)
+    assert len(calls) == 8                       # 7 days back + today
+    calls.clear()
+    second = report.build(SETTINGS, now)
+    assert calls == [now.date()]                 # only today again
+    assert second["regulation"]["hours"] > 10

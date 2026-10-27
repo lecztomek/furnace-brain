@@ -127,8 +127,18 @@
       const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
+      const at = `Odświeżono ${new Date().toLocaleTimeString("pl-PL", { hour12: false })}`;
+      if (tab === "tuning" && !data.verdict) {
+        // the first analysis after a start runs in the background - the live PID is shown meanwhile
+        renderLive(data.live || {}, data.settings || {});
+        const p = data.progress || {};
+        setStatus(`Analizuję dane z ostatnich dni${p.total ? ` (${p.done} z ${p.total})` : ""}…`);
+        clearTimeout(load.retry);
+        load.retry = setTimeout(() => load(), 3000);
+        return;
+      }
       if (tab === "tuning") renderTuning(data); else renderDiag(data);
-      setStatus(`Odświeżono ${new Date().toLocaleTimeString("pl-PL", { hour12: false })}`);
+      setStatus(at);
     } catch (e) {
       setStatus(`Nie udało się pobrać danych: ${e.message}`);
     }

@@ -12,11 +12,12 @@ from __future__ import annotations
 import csv
 import json
 import math
+import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from backend.core.analytics import _float, history_rows
+from backend.core.analytics import _float, files_by_day, history_rows
 
 SETTLE_S = 2 * 3600         # after an ignition the boiler swings for ~2 h - judged later
 IGNITION_MIN_S = 300        # a shorter IGNITION is a click, not an ignition
@@ -477,38 +478,68 @@ def verdict(items: List[Dict[str, str]]) -> Dict[str, Any]:
 # ---------------------------------------------------------------- files
 
 class TuningReport:
+    """
+    Reads the files for `build`. Past days don't change, so each is read once
+    and kept in memory (~1 MB a day); later builds read only today's files -
+    a fraction of a second on the Pi instead of seconds.
+    """
+
     def __init__(self, history_dir: Path, events_dir: Path) -> None:
         self.history_dir = history_dir
         self.events_dir = events_dir
+        self._days: Dict[str, tuple] = {}   # "YYYY-MM-DD" -> (history rows, events) of a past day
+        self.progress: Dict[str, int] = {"done": 0, "total": 0}
 
-    def _events(self, first: date, last: date) -> List[Dict[str, str]]:
+    def _day_events(self, paths: List[Path]) -> List[Dict[str, str]]:
         # the log has thousands of feeder / blower lines a day - only the
-        # lines with the wanted types are parsed (fast enough for the Pi)
+        # lines with the wanted types are parsed
         out: List[Dict[str, str]] = []
-        d = first
-        while d <= last:
-            for path in sorted(self.events_dir.glob(f"events_{d:%Y%m%d}*.csv")):
-                try:
-                    lines = path.read_text(encoding="utf-8", errors="replace").replace("\0", "").splitlines()
-                except OSError:
-                    continue
-                if not lines:
-                    continue
-                wanted = [lines[0]] + [ln for ln in lines[1:] if any(k in ln for k in EVENT_KEYS)]
-                if len(wanted) > 1:
-                    out.extend(csv.DictReader(wanted, delimiter=";"))
-            d += timedelta(days=1)
+        for path in paths:
+            try:
+                lines = path.read_text(encoding="utf-8", errors="replace").replace("\0", "").splitlines()
+            except OSError:
+                continue
+            if not lines:
+                continue
+            wanted = [lines[0]] + [ln for ln in lines[1:] if any(k in ln for k in EVENT_KEYS)]
+            if len(wanted) > 1:
+                out.extend(csv.DictReader(wanted, delimiter=";"))
         return out
 
-    def build(self, settings: Dict[str, Dict[str, Any]], now: Optional[datetime] = None) -> Dict[str, Any]:
+    def _load(self, first: date, today: date, pause_s: float = 0.0) -> tuple:
+        # the directories are listed once (thousands of files on the Pi), not globbed per day
+        hist_ix = files_by_day(self.history_dir, "boiler")
+        ev_ix = files_by_day(self.events_dir, "events")
+        rows: List[Dict[str, Any]] = []
+        events: List[Dict[str, str]] = []
+        days = (today - first).days + 1
+        self.progress = {"done": 0, "total": days}
+        for i in range(days):
+            d = first + timedelta(days=i)
+            key = d.isoformat()
+            if d < today and key in self._days:
+                day_rows, day_events = self._days[key]
+            else:
+                day_rows = _parse(history_rows(self.history_dir, d, index=hist_ix))
+                day_events = self._day_events(ev_ix.get(f"{d:%Y%m%d}", []))
+                if d < today:
+                    self._days[key] = (day_rows, day_events)
+                if pause_s:
+                    time.sleep(pause_s)   # leave the CPU to the control loop
+            rows.extend(day_rows)
+            events.extend(day_events)
+            self.progress["done"] = i + 1
+        for key in [k for k in self._days if k < first.isoformat()]:
+            del self._days[key]
+        rows.sort(key=lambda r: r["ts"])
+        return rows, events
+
+    def build(self, settings: Dict[str, Dict[str, Any]], now: Optional[datetime] = None,
+              pause_s: float = 0.0) -> Dict[str, Any]:
         now = now or datetime.now()
         first = (now - timedelta(days=EVENT_DAYS)).date()
-        raw: List[Dict[str, str]] = []
-        d = first
-        while d <= now.date():
-            raw.extend(history_rows(self.history_dir, d))
-            d += timedelta(days=1)
-        rows = [r for r in _parse(raw) if r["ts"] >= now - timedelta(days=EVENT_DAYS)]
+        all_rows, events = self._load(first, now.date(), pause_s)
+        rows = [r for r in all_rows if r["ts"] >= now - timedelta(days=EVENT_DAYS)]
         pw = settings.get("power_work") or {}
         sp = _float(pw.get("boiler_set_temp"))
         pmin, pmax = _float(pw.get("min_power")) or 0.0, _float(pw.get("max_power")) or 100.0
@@ -518,7 +549,6 @@ class TuningReport:
         reg = regulation(recent, pmin, pmax)
         rad = radiators(recent, settings.get("mixer") or {})
         igns = ignitions(rows, sp)
-        events = self._events(first, now.date())
         ev = event_summary(events)
         items = advise(reg, rad, igns, ev, settings)
 
