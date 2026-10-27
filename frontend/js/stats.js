@@ -244,7 +244,14 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       report = await res.json();
       render();
-      $("st2-status").textContent = `Stan na ${new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" })} • sezon od ${report.season_start}`;
+      const at = report.generated_at ? new Date(report.generated_at * 1000) : new Date();
+      const hhmm = at.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+      // after a restart: the last saved report first, the fresh one comes a moment later
+      $("st2-status").textContent = report.stale
+        ? `Stan na ${hhmm} • liczę aktualne…`
+        : `Stan na ${hhmm} • sezon od ${report.season_start}`;
+      clearTimeout(load.retry);
+      if (report.stale) load.retry = setTimeout(() => load(), 10000);
     } catch (err) {
       console.error(err);
       $("st2-status").textContent = `Nie udało się wczytać statystyk: ${err.message}`;

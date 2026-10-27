@@ -567,6 +567,11 @@ class Analytics:
             agg = self.day(d, today, fallback_setpoint, indexes)
             if from_files and pause_s:
                 time.sleep(pause_s)
+            if len(self._cache) - cached_before >= 10:
+                # save the progress: a restart in the middle of a long first
+                # build (months of CSV on the Pi) doesn't lose the work done
+                self._save_cache()
+                cached_before = len(self._cache)
             if agg.rows or agg.coal_kg:
                 days.append(agg)
             d += timedelta(days=1)
