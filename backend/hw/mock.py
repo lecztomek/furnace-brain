@@ -95,7 +95,7 @@ class MockHardware(HardwareInterface):
 
     M_BOILER_WATER = 240.0  # [kg] boiler water + steel, fitted to the real boiler's inertia
     M_CO_WATER = 150.0       # [kg] ~ 150 l w instalacji CO
-    M_CWU_WATER = 120.0      # [kg] – przyjęty zasobnik 120 l
+    M_CWU_WATER = 140.0     # [kg] – zasobnik CWU 140 l (real furnace)
 
     C_FLUE = 2500.0          # [J/K]
     ROOM_TEMP = 20.0         # [°C]
