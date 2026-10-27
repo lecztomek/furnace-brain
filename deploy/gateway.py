@@ -20,6 +20,16 @@ class Handler(SimpleHTTPRequestHandler):
     def log_message(self, fmt, *args):
         sys.stderr.write("%s\n" % (fmt % args))
 
+    def log_request(self, code="-", size="-"):
+        # only failed requests: the kiosk polls every few seconds and the
+        # system log lives on the SD card (wear)
+        try:
+            if int(code) < 400:
+                return
+        except (TypeError, ValueError):
+            pass
+        super().log_request(code, size)
+
     def _proxy(self):
         conn = http.client.HTTPConnection(BACKEND_HOST, BACKEND_PORT, timeout=30)
 

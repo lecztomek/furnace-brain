@@ -44,6 +44,10 @@ logging.basicConfig(
 )
 
 logging.getLogger("backend.hw.mock.mixer").setLevel(logging.DEBUG)
+# no line per HTTP request: the GUI and the remote view poll every few
+# seconds, and the system log on the Pi lives on the SD card (wear). API
+# errors are still logged (API_ERROR in the furnace log on the USB drive).
+logging.getLogger("uvicorn.access").disabled = True
 logger = logging.getLogger(__name__)
 
 DATA_ROOT = Path(os.getenv("FURNACE_BRAIN_DATA_ROOT", str(Path(__file__).resolve().parent)))
