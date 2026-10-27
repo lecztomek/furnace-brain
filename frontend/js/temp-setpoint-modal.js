@@ -20,9 +20,12 @@
         {
           moduleId: "power_work",
           key: "boiler_set_temp",
+          // Ignition aims at the work target and hands over 2 C below it, so it
+          // has already slowed down (min ignition power within 3 C of its target)
+          // and work doesn't start too hot with the temperature still rising.
           derived: [
-            { label: "przejście na pracę", moduleId: "mode", key: "switch_temp", offset: 3 },
-            { label: "rozpalanie", moduleId: "power_ignition", key: "boiler_set_temp", offset: 4 },
+            { label: "przejście na pracę", moduleId: "mode", key: "switch_temp", offset: -2 },
+            { label: "rozpalanie", moduleId: "power_ignition", key: "boiler_set_temp", offset: 0 },
           ],
         },
       ],
@@ -125,7 +128,7 @@
   }
 
   function derivedValue(field, d) {
-    return Math.min(field.value + d.offset, Number(d.def.max ?? Infinity));
+    return clamp(field.value + d.offset, Number(d.def.min ?? -Infinity), Number(d.def.max ?? Infinity));
   }
 
   const visibleFields = () =>
