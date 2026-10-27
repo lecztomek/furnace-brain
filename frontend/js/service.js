@@ -22,21 +22,21 @@
   // ---------------------------------------------------------------- tuning
 
   const AREA = {
-    "PID": ["⚙️", "PID"],
-    "Całka (Ki)": ["🎯", "Całka (Ki)"],
-    "Wzmocnienie (Kp)": ["⚡", "Kp"],
-    "Ślimak": ["🌀", "Ślimak"],
-    "Dmuchawa": ["💨", "Dmuchawa"],
-    "Rozpalanie": ["🔥", "Rozpalanie"],
-    "Grzejniki": ["♨️", "Grzejniki"],
-    "Ustawienia": ["🔧", "Ustawienia"],
-    "Zdarzenia": ["⚠️", "Zdarzenia"],
+    "PID": ["sliders", "PID"],
+    "Całka (Ki)": ["target", "Całka (Ki)"],
+    "Wzmocnienie (Kp)": ["zap", "Kp"],
+    "Ślimak": ["auger", "Ślimak"],
+    "Dmuchawa": ["wind", "Dmuchawa"],
+    "Rozpalanie": ["flame", "Rozpalanie"],
+    "Grzejniki": ["radiator", "Grzejniki"],
+    "Ustawienia": ["wrench", "Ustawienia"],
+    "Zdarzenia": ["alert", "Zdarzenia"],
   };
   const WORD = { ok: "OK", warn: "Zmień", bad: "Pilne", info: "Sprawdź" };
   const PID_AREAS = ["PID", "Całka (Ki)", "Wzmocnienie (Kp)", "Ślimak", "Dmuchawa"];
 
   function bigTile(icon, label, val, status) {
-    return `<div class="sv-tile sv-tile--${status}"><span class="sv-tile__icon">${icon}</span>
+    return `<div class="sv-tile sv-tile--${status}"><span class="sv-tile__icon">${FBIcon(icon)}</span>
       <span class="sv-tile__label">${label}</span><span class="sv-tile__val">${val}</span></div>`;
   }
 
@@ -46,12 +46,12 @@
     if (reg && reg.hours >= 1) {
       const st = (good, okish) => (good ? "ok" : okish ? "warn" : "bad");
       $("tn-hero").innerHTML = [
-        bigTile("🎯", "Od zadanej", `${signed(reg.mean_err)}°`, st(Math.abs(reg.mean_err) <= 1, Math.abs(reg.mean_err) <= 2)),
-        bigTile("〰️", "Kołysanie", `±${num(reg.std)}°`, st(reg.std <= 1, reg.std <= 2)),
-        bigTile("⚙️", "Moc średnio", `${reg.power_avg ?? "--"}%`, st(reg.power_avg >= 35 && reg.power_avg <= 75, true)),
+        bigTile("target", "Od zadanej", `${signed(reg.mean_err)}°`, st(Math.abs(reg.mean_err) <= 1, Math.abs(reg.mean_err) <= 2)),
+        bigTile("activity", "Kołysanie", `±${num(reg.std)}°`, st(reg.std <= 1, reg.std <= 2)),
+        bigTile("gauge", "Moc średnio", `${reg.power_avg ?? "--"}%`, st(reg.power_avg >= 35 && reg.power_avg <= 75, true)),
       ].join("");
     } else {
-      $("tn-hero").innerHTML = `<div class="sv-empty">⏳ Za mało spokojnej pracy do oceny</div>`;
+      $("tn-hero").innerHTML = `<div class="sv-empty">${FBIcon("hourglass", "ic--inline")} Za mało spokojnej pracy do oceny</div>`;
     }
 
     // the PID parts always, the rest only when something is wrong
@@ -72,10 +72,10 @@
   }
 
   function adviceCard(i) {
-    const [icon, name] = AREA[i.area] || ["•", i.area];
+    const [icon, name] = AREA[i.area] || ["info", i.area];
     const t = splitTip(i.tip);
     return `<button type="button" class="${cardClass(i.status, i.area + i.title)}" data-key="${esc(i.area + i.title)}">
-      <span class="sv-card__top"><span class="sv-card__icon">${icon}</span><span class="sv-card__name">${esc(name)}</span>
+      <span class="sv-card__top"><span class="sv-card__icon">${FBIcon(icon)}</span><span class="sv-card__name">${esc(name)}</span>
         <span class="sv-card__word">${WORD[i.status] || ""}</span></span>
       <span class="sv-card__title">${esc(i.title)}</span>
       ${t.change ? `<span class="sv-card__change">${esc(t.change)}</span>` : ""}
@@ -86,7 +86,7 @@
 
   function renderChanges(list) {
     $("tn-changes-card").style.display = list.length ? "" : "none";
-    const badge = { better: ["👍 lepiej", "ok"], worse: ["👎 gorzej", "bad"], same: ["bez różnicy", "info"] };
+    const badge = { better: ["lepiej", "ok"], worse: ["gorzej", "bad"], same: ["bez różnicy", "info"] };
     const bar = (label, s) => s
       ? `<div class="sv-bar"><span class="sv-bar__label">${label}</span><span class="sv-bar__track"><span class="sv-bar__fill" style="width:${s.within_2}%"></span></span><b>${s.within_2}%</b></div>`
       : `<div class="sv-bar"><span class="sv-bar__label">${label}</span><span class="sv-bar__wait">czekam na dane</span></div>`;
@@ -104,7 +104,7 @@
   function renderLive(l, s) {
     const el = $("tn-live");
     if (l.mode !== "WORK" || !l.pid || l.pid.error == null) {
-      const names = { IGNITION: "🔥 rozpalanie", OFF: "⏹ wyłączony", MANUAL: "✋ ręczny" };
+      const names = { IGNITION: "rozpalanie", OFF: "wyłączony", MANUAL: "ręczny" };
       el.innerHTML = `<div class="sv-empty">PID pracuje tylko w PRACY • teraz: ${names[l.mode] || l.mode || "--"}</div>`;
       return;
     }
@@ -114,29 +114,29 @@
     const pw = s.power_work || {};
     const feed = l.feeder;
     const P = Math.max(0, p.p || 0), I = Math.max(0, p.i || 0);
-    const iState = p.integral_frozen ? "⏸" : p.error > 0.2 ? "▲" : p.error < -0.2 ? "▼" : "•";
-    const box = (icon, label, val, sub, extra = "") => `<div class="sv-step"><span class="sv-step__icon">${icon}</span>
+    const iState = p.integral_frozen ? "‖" : p.error > 0.2 ? "▲" : p.error < -0.2 ? "▼" : "•";
+    const box = (icon, label, val, sub, extra = "") => `<div class="sv-step"><span class="sv-step__icon">${FBIcon(icon)}</span>
       <span class="sv-step__label">${label}</span><span class="sv-step__val">${val}</span>${extra}<span class="sv-step__sub">${sub}</span></div>`;
     const powerBar = `<span class="sv-pbar" title="P ${num(P, 0)} + I ${num(I, 0)}">
       <span class="sv-pbar__p" style="width:${Math.min(100, P)}%"></span><span class="sv-pbar__i" style="width:${Math.min(100 - Math.min(100, P), I)}%"></span></span>`;
     el.innerHTML = [
-      box("🔥", "Kocioł", `${num(l.boiler)}° <span class="sv-arrowtrend">${arrow}</span>`, `zadana ${num(l.setpoint, 0)}°`),
-      box("⚙️", "Moc", `${num(l.power, 0)}%`, `<span class="sv-key sv-key--p">P ${num(P, 0)}</span> <span class="sv-key sv-key--i">I ${num(I, 0)} ${iState}</span>`, powerBar),
-      box("🌀", "Ślimak", feed ? `${num(feed.on_s, 0)} s` : "stoi", feed ? `co ${num(feed.on_s + feed.off_s, 0)} s` : ""),
-      box("💨", "Dmuchawa", `${value(l.fan_percent)}%`, l.fan_duty_pct != null ? `${num(l.fan_duty_pct, 0)}% czasu` : "stoi"),
+      box("flame", "Kocioł", `${num(l.boiler)}° <span class="sv-arrowtrend">${arrow}</span>`, `zadana ${num(l.setpoint, 0)}°`),
+      box("gauge", "Moc", `${num(l.power, 0)}%`, `<span class="sv-key sv-key--p">P ${num(P, 0)}</span> <span class="sv-key sv-key--i">I ${num(I, 0)} ${iState}</span>`, powerBar),
+      box("auger", "Ślimak", feed ? `${num(feed.on_s, 0)} s` : "stoi", feed ? `co ${num(feed.on_s + feed.off_s, 0)} s` : ""),
+      box("wind", "Dmuchawa", `${value(l.fan_percent)}%`, l.fan_duty_pct != null ? `${num(l.fan_duty_pct, 0)}% czasu` : "stoi"),
     ].join('<span class="sv-arrow">➜</span>');
   }
 
   // ---------------------------------------------------------------- diagnostics
 
-  const TILE_ICON = { "Procesor": "🌡️", "Zasilanie": "🔌", "Wolne miejsce": "💾", "Sterownik działa": "⏱️", "Internet": "🌐", "Czujniki": "📟" };
+  const TILE_ICON = { "Procesor": "cpu", "Zasilanie": "plug", "Wolne miejsce": "drive", "Sterownik działa": "clock", "Internet": "globe", "Czujniki": "sensor" };
 
   function renderDiag(d) {
     verdict($("dg-verdict"), d.status);
-    $("dg-tiles").innerHTML = (d.tiles || []).map((t) => bigTile(TILE_ICON[t.label] || "•", t.label, esc(t.value), t.status)).join("");
+    $("dg-tiles").innerHTML = (d.tiles || []).map((t) => bigTile(TILE_ICON[t.label] || "info", t.label, esc(t.value), t.status)).join("");
     const problems = d.groups.flatMap((g) => g.items).filter((i) => i.status === "warn" || i.status === "bad");
     $("dg-problems").innerHTML = problems.map((i) => `<button type="button" class="${cardClass(i.status, i.label)}" data-key="${esc(i.label)}">
-      <span class="sv-card__top"><span class="sv-card__icon">${i.status === "bad" ? "⛔" : "⚠️"}</span><span class="sv-card__name">${esc(i.label)}</span></span>
+      <span class="sv-card__top"><span class="sv-card__icon">${FBIcon(i.status === "bad" ? "stop" : "alert")}</span><span class="sv-card__name">${esc(i.label)}</span></span>
       <span class="sv-card__title">${esc(i.value)}</span>
       ${i.note ? `<span class="sv-card__more">${esc(i.note)}</span>` : ""}</button>`).join("");
     $("dg-groups").innerHTML = d.groups.filter((g) => g.items.length).map((g) => `
