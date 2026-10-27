@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from backend.core.csv_utils import no_nul
 
-CACHE_VERSION = 4
+CACHE_VERSION = 5
 MAX_STEP_S = 60.0          # a row "covers" at most this long (2x the 30 s interval)
 GAP_S = 120.0              # a longer pause between rows is a gap in the data
 SETTLE_S = 20 * 60         # regulation quality: skip the first 20 min after entering WORK
@@ -96,6 +96,8 @@ class DayAgg:
     hours: List[List[float]] = field(default_factory=lambda: [[0.0] * 6 for _ in range(24)])
     # drops below setpoint - DROP_BELOW_C: start, minutes, lowest temp, setpoint, power
     drops: List[Dict[str, Any]] = field(default_factory=list)
+    # coal and energy per hour of the day: [kg, kWh]
+    hour_coal: List[List[float]] = field(default_factory=lambda: [[0.0, 0.0] for _ in range(24)])
 
     def avg(self, key: str) -> Optional[float]:
         w = self.weights.get(key, 0.0)
@@ -160,7 +162,9 @@ def history_rows(history_dir: Path, day: date, prefix: str = "boiler",
 
 
 def coal_for_day(stats_dir: Path, day: date, prefix: str = "stats5m",
-                 index: Optional[Dict[str, List[Path]]] = None) -> Tuple[float, float, float]:
+                 index: Optional[Dict[str, List[Path]]] = None,
+                 hourly: Optional[List[List[float]]] = None) -> Tuple[float, float, float]:
+    """Coal, energy and the highest 5 min power of a day; `hourly` (24 x [kg, kWh]) gets the hours."""
     coal = energy = power_max = 0.0
     key = day.isoformat()
     # a bucket ending at 00:00 belongs to the previous day - also look one file ahead
@@ -171,8 +175,14 @@ def coal_for_day(stats_dir: Path, day: date, prefix: str = "stats5m",
                 ts = _float(r.get("ts_end_unix"))
                 bucket_day = (datetime.fromtimestamp(ts - 1).date().isoformat() if ts is not None else end[:10])
                 if bucket_day == key:
-                    coal += _float(r.get("coal_kg")) or 0.0
-                    energy += _float(r.get("energy_kwh")) or 0.0
+                    kg = _float(r.get("coal_kg")) or 0.0
+                    kwh = _float(r.get("energy_kwh")) or 0.0
+                    coal += kg
+                    energy += kwh
+                    if hourly is not None:
+                        hour = datetime.fromtimestamp(ts - 1).hour if ts is not None else int(end[11:13] or 0)
+                        hourly[hour][0] += kg
+                        hourly[hour][1] += kwh
                     power_max = max(power_max, _float(r.get("power_kw")) or 0.0)
     return coal, energy, power_max
 
@@ -394,14 +404,31 @@ def hourly_profile(days: List[DayAgg]) -> List[Dict[str, Any]]:
             for hour in range(24)]
 
 
+def _day_hour(day: Optional[DayAgg], hour: int) -> Dict[str, Any]:
+    t = list(day.hours[hour]) if day is not None and len(day.hours) == 24 else [0.0] * 6
+    kg, kwh = (day.hour_coal[hour] if day is not None and len(day.hour_coal) == 24 else (0.0, 0.0))
+    return {**_hour_entry(hour, t), "date": day.date if day is not None else None,
+            "coal_kg": round(kg, 2), "kwh": round(kwh, 1)}
+
+
 def hourly_last24(yesterday: Optional[DayAgg], today: Optional[DayAgg], now_hour: int) -> List[Dict[str, Any]]:
     """The last 24 hours one by one, oldest first: yesterday after the current hour, then today up to now."""
     out = []
     for day, hours in ((yesterday, range(now_hour + 1, 24)), (today, range(0, now_hour + 1))):
         for hour in hours:
-            t = list(day.hours[hour]) if day is not None and len(day.hours) == 24 else [0.0] * 6
-            out.append({**_hour_entry(hour, t), "date": day.date if day is not None else None})
+            out.append(_day_hour(day, hour))
     return out
+
+
+def _settled_day(day: DayAgg) -> Dict[str, Any]:
+    t = [sum(h[i] for h in day.hours) for i in range(6)] if len(day.hours) == 24 else [0.0] * 6
+    e = _hour_entry(0, t)
+    return {"setpoint": e["setpoint"], "boiler_work": e["boiler"], "below_pct": e["below_pct"]}
+
+
+def hours_of_day(day: Optional[DayAgg]) -> List[Dict[str, Any]]:
+    """One day hour by hour (0-23)."""
+    return [_day_hour(day, hour) for hour in range(24)]
 
 
 def drops_list(days: List[DayAgg], limit: int = 50) -> Dict[str, Any]:
@@ -610,9 +637,11 @@ class Analytics:
         if d < today and key in self._cache:
             return DayAgg.from_dict(self._cache[key])
         ix = indexes or {}
-        coal, energy, power_max = coal_for_day(self.stats_dir, d, index=ix.get("stats"))
+        hourly = [[0.0, 0.0] for _ in range(24)]
+        coal, energy, power_max = coal_for_day(self.stats_dir, d, index=ix.get("stats"), hourly=hourly)
         agg = aggregate_day(d, history_rows(self.history_dir, d, index=ix.get("history")), coal, energy,
                             alarms_for_day(self.events_dir, d, index=ix.get("events")), fallback_setpoint, power_max)
+        agg.hour_coal = [[round(kg, 4), round(kwh, 4)] for kg, kwh in hourly]
         if d < today:
             self._cache[key] = asdict(agg)
         return agg
@@ -662,6 +691,7 @@ class Analytics:
         now_hour = datetime.now().hour if today == date.today() else 23
         periods["today"]["last24"] = hourly_last24(
             by_date.get((today - timedelta(days=1)).isoformat()), by_date.get(today.isoformat()), now_hour)
+        periods["yesterday"]["hours24"] = hours_of_day(by_date.get((today - timedelta(days=1)).isoformat()))
         model = weather_model(since(today - timedelta(days=365)))
         full_days = [x for x in days if x.date < today.isoformat() and x.seconds >= FULL_DAY_SHARE * 86400]
         daily = [{
@@ -675,8 +705,9 @@ class Analytics:
             "within_2": _r(100 * x.st_in2 / x.st_s) if x.st_s >= 1800 else None,
             # efficiency per day only for (nearly) full days - a partial day skews it
             "kg_per_degree_day": _r(kg_per_degree_day([x]), 3) if x.seconds >= FULL_DAY_SHARE * 86400 else None,
-            "flue_loss_pct": _r(flue_loss_pct(x.avg("flue_work")), 1) if x.seconds >= FULL_DAY_SHARE * 86400 else None,
-        } for x in since(today - timedelta(days=29))]
+            # regulation per day (settled WORK, like the hourly chart)
+            **_settled_day(x),
+        } for x in since(min(season_start, today - timedelta(days=29)))]
 
         # efficiency trend: last 7 full days against the 3 weeks before
         recent = [x for x in full_days if x.date >= (today - timedelta(days=7)).isoformat()]

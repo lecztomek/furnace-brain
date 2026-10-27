@@ -26,6 +26,27 @@
     return `<div class="st2-tile"><span class="st2-label">${label}</span><span class="st2-value">${value}</span><span class="st2-unit">${unit || ""}</span></div>`;
   }
 
+  // ---------- chart range = the chosen period ----------
+  // today: the last 24 hours; yesterday: its 24 hours; longer periods: day by day
+  function periodSeries(forPeriod = period) {
+    const p = report.periods[forPeriod] || {};
+    if (forPeriod === "today" || forPeriod === "yesterday") {
+      const rows = (forPeriod === "today" ? p.last24 : p.hours24) || [];
+      return { hourly: true, rows, labels: rows.map((h) => `${h.hour}:00`) };
+    }
+    const days = report.daily || [];
+    let from = report.season_start || "";
+    if (forPeriod === "d7" || forPeriod === "d30") {
+      const d = new Date(report.today + "T12:00:00");
+      d.setDate(d.getDate() - (forPeriod === "d7" ? 6 : 29));
+      from = d.toISOString().slice(0, 10);
+    }
+    const rows = days.filter((d) => d.date >= from).map((d) => ({
+      ...d, boiler: d.boiler_work, kwh: d.energy_kwh,
+    }));
+    return { hourly: false, rows, labels: rows.map((d) => d.date.slice(8, 10) + "." + d.date.slice(5, 7)) };
+  }
+
   // ---------- render ----------
 
   function renderPeriod() {
@@ -87,9 +108,9 @@
       `Stopniodzień = o ile średnia doby była niższa niż ${num(a.degree_day_base_c, 0)}°C (dzień 3°C = 15 stopniodni). ` +
       `Mniej kg na stopniodzień = sprawniej; wzrost przy podobnej pogodzie zwykle oznacza zabrudzony kocioł.`;
 
-    const days = report.daily || [];
+    const { rows: days, labels } = periodSeries(period === "today" || period === "yesterday" ? "d7" : period);
     const data = {
-      labels: days.map((d) => d.date.slice(8, 10) + "." + d.date.slice(5, 7)),
+      labels,
       datasets: [
         { type: "line", label: "Węgiel na stopniodzień [kg]", data: days.map((d) => d.kg_per_degree_day), borderColor: "#f97316", backgroundColor: "#f97316", yAxisID: "y", tension: 0.3, pointRadius: 2, spanGaps: true },
       ],
@@ -109,28 +130,25 @@
   // hour-of-day profile (when the boiler doesn't keep up) and the list of drops
   function renderHourly() {
     const p = report.periods[period];
-    // always the last 24 hours one by one (from "today"); the period buttons
-    // change the drops table and the worst-hour note below
-    const t = report.periods.today || {};
-    const last24 = Array.isArray(t.last24) && t.last24.length ? t.last24 : null;
-    const hours = last24 || p.hourly || [];
+    const { hourly, rows: hours, labels } = periodSeries();
+    const last24 = hourly;
     const drops = p.drops || { count: 0, items: [], by_hour: [] };
+    const unit = hourly ? "kWh/h" : "kWh/dobę";
     const data = {
-      labels: hours.map((h) => (last24 ? `${h.hour}:00` : `${h.hour}`)),
+      labels,
       datasets: [
         { type: "line", label: "Zadana [°C]", data: hours.map((h) => h.setpoint), borderColor: "#9ca3af", borderDash: [6, 4], pointRadius: 0, yAxisID: "y", spanGaps: true },
-        { type: "line", label: "Kocioł średnio [°C]", data: hours.map((h) => h.boiler), borderColor: "#f97316", backgroundColor: "#f97316", pointRadius: 3, tension: 0.3, yAxisID: "y", spanGaps: false },
-        { type: "bar", label: `Czas poniżej zadanej −${num(drops.below_c ?? 4, 0)}°C [%]`, data: hours.map((h) => h.below_pct), backgroundColor: "rgba(248, 113, 113, 0.7)", yAxisID: "y2" },
-        { type: "line", label: "Moc średnio [%]", data: hours.map((h) => h.power), borderColor: "#38bdf8", backgroundColor: "#38bdf8", pointRadius: 2, tension: 0.3, yAxisID: "y2", spanGaps: false },
+        { type: "line", label: "Kocioł w pracy [°C]", data: hours.map((h) => h.boiler), borderColor: "#f97316", backgroundColor: "#f97316", pointRadius: 3, tension: 0.3, yAxisID: "y", spanGaps: false },
+        { type: "bar", label: `Energia [${unit}]`, data: hours.map((h) => h.kwh), backgroundColor: "rgba(56, 189, 248, 0.35)", yAxisID: "y2" },
       ],
     };
     const options = {
       responsive: true, maintainAspectRatio: false, animation: false,
       plugins: { legend: { labels: { color: "#e5e7eb", boxWidth: 14 } } },
       scales: {
-        x: { title: { display: true, text: last24 ? "Ostatnie 24 godziny" : "Godzina", color: "#9ca3af" }, ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } },
-        y: { position: "left", ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
-        y2: { position: "right", beginAtZero: true, suggestedMax: 100, ticks: { color: "#7dd3fc" }, grid: { display: false } },
+        x: { title: { display: true, text: period === "today" ? "Ostatnie 24 godziny" : period === "yesterday" ? "Wczoraj, godzina" : PERIOD_NAMES[period], color: "#9ca3af" }, ticks: { color: "#9ca3af", autoSkip: true, maxRotation: 0 }, grid: { color: "rgba(255,255,255,0.05)" } },
+        y: { position: "left", title: { display: true, text: "°C", color: "#fdba74" }, ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
+        y2: { position: "right", beginAtZero: true, title: { display: true, text: unit, color: "#7dd3fc" }, ticks: { color: "#7dd3fc" }, grid: { display: false } },
       },
     };
     if (hourlyChart) { hourlyChart.data = data; hourlyChart.options = options; hourlyChart.update(); }
@@ -139,9 +157,9 @@
     // worst hour of day over the chosen period (average per hour of day)
     const worst = (p.hourly || []).filter((h) => h.below_pct != null).sort((a, b) => b.below_pct - a.below_pct)[0];
     $("hourly-note").textContent =
-      (last24
-        ? "Ostatnie 24 godziny, godzina po godzinie, tylko PRACA (puste godziny: piec nie pracował). "
-        : `Średnio dla każdej godziny doby (${PERIOD_NAMES[period]}), tylko PRACA. `) +
+      (hourly
+        ? `${period === "today" ? "Ostatnie 24 godziny" : "Wczoraj"}, godzina po godzinie: kocioł i zadana w pracy (puste godziny: piec nie pracował), energia z podanego węgla. `
+        : `${PERIOD_NAMES[period][0].toUpperCase()}${PERIOD_NAMES[period].slice(1)} dzień po dniu: kocioł i zadana w pracy, energia z podanego węgla. `) +
       (worst && worst.below_pct > 0
         ? `Najgorsza godzina (${PERIOD_NAMES[period]}): ${worst.hour}:00–${worst.hour + 1}:00, ${num(worst.below_pct, 0)}% czasu ponad ${num(drops.below_c ?? 4, 0)}°C poniżej zadanej, średnio ${num(worst.error, 1)}°C od zadanej.`
         : `Bez wyraźnych spadków (${PERIOD_NAMES[period]}).`);
@@ -169,15 +187,14 @@
   }
 
   function renderDaily() {
-    const days = report.daily || [];
-    const labels = days.map((d) => d.date.slice(8, 10) + "." + d.date.slice(5, 7));
-    const data = {
-      labels,
-      datasets: [
-        { type: "bar", label: "Węgiel [kg/dobę]", data: days.map((d) => d.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.75)", yAxisID: "y" },
-        { type: "line", label: "Na zewnątrz [°C]", data: days.map((d) => d.outside), borderColor: "#a855f7", backgroundColor: "#a855f7", yAxisID: "y2", tension: 0.3, pointRadius: 2 },
-      ],
-    };
+    const { hourly, rows, labels } = periodSeries();
+    const datasets = [
+      { type: "bar", label: hourly ? "Węgiel [kg/h]" : "Węgiel [kg/dobę]", data: rows.map((d) => d.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.75)", yAxisID: "y" },
+    ];
+    if (!hourly) {
+      datasets.push({ type: "line", label: "Na zewnątrz [°C]", data: rows.map((d) => d.outside), borderColor: "#a855f7", backgroundColor: "#a855f7", yAxisID: "y2", tension: 0.3, pointRadius: 2 });
+    }
+    const data = { labels, datasets };
     const options = {
       responsive: true, maintainAspectRatio: false, animation: false,
       plugins: { legend: { labels: { color: "#e5e7eb" } } },
@@ -187,7 +204,8 @@
         y2: { position: "right", ticks: { color: "#c4b5fd" }, grid: { display: false } },
       },
     };
-    if (dailyChart) { dailyChart.data = data; dailyChart.update(); }
+    options.scales.y2.display = !hourly;
+    if (dailyChart) { dailyChart.data = data; dailyChart.options = options; dailyChart.update(); }
     else dailyChart = new Chart($("chart-daily"), { data, options });
   }
 
@@ -342,6 +360,7 @@
       if (!btn || !report) return;
       period = btn.dataset.period;
       renderPeriod();
+      renderDaily();
       renderHourly();
       renderEfficiency();
     });
