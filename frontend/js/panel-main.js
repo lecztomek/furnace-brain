@@ -247,6 +247,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const r = await fetch("/api/state/current", { cache: "no-store" });
       if (!r.ok) return;
       const rad = (await r.json()).radiators || {};
+      showMixerMoves(rad);
       let v = Number(rad.target);
       if (rad.target == null || isNaN(v)) {
         // mixer not running yet - show the configured value
@@ -257,6 +258,19 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!isNaN(v)) el.textContent = `${rad.curve_active ? "krzywa" : "zadana"} ${fmt(v)}°C`;
     } catch (e) { /* keep the last value */ }
   }
+  // mixing valve: net opening in the last 30 min, as % of the full stroke
+  function showMixerMoves(rad) {
+    const g = document.getElementById("mixer-moves");
+    const t = document.getElementById("mixer-moves-text");
+    if (!g || !t) return;
+    const pct = Number(rad.moves_30m_pct);
+    if (rad.moves_30m_pct == null || isNaN(pct)) { t.textContent = "--"; g.setAttribute("class", "mixer-moves"); return; }
+    const arrow = rad.moving === "open" ? "▲" : rad.moving === "close" ? "▼" : "";
+    t.textContent = `${arrow}${pct > 0 ? "+" : pct < 0 ? "−" : ""}${Math.abs(pct)}%`;
+    const dir = pct > 0 ? " is-open" : pct < 0 ? " is-close" : "";
+    g.setAttribute("class", `mixer-moves${dir}${rad.moving ? " is-moving" : ""}`);
+  }
+
   refresh();
   setInterval(refresh, 10000);
   // right after saving in the popup

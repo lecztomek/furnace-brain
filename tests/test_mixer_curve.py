@@ -59,3 +59,22 @@ def test_switch_from_gui(tmp_path):
     m.reload_config_from_file()
     rt, _ = _tick(m, 1.0, -10.0)
     assert rt["curve_active"] and rt["target"] == 36.5
+
+
+def test_net_movement_last_30_min(tmp_path):
+    """Main page shows how much the valve opened (+) or closed (-) in the last 30 min."""
+    m = _module(tmp_path, preclose_full_close_time_s=100.0)
+
+    def run(t0, t1, open_, close):
+        m._last_out_open, m._last_out_close = open_, close
+        t, rt = t0, None
+        while t < t1:
+            t += 0.5
+            rt = m._movement(t)
+        return rt
+
+    m._movement(0.0)
+    run(0.0, 20.0, True, False)              # opened for 20 s
+    rt = run(20.0, 25.0, False, True)        # closed for 5 s
+    assert rt["moves_30m_s"] == 15.0 and rt["moves_30m_pct"] == 15 and rt["moving"] == "close"
+    assert run(25.0, 31 * 60.0, False, False)["moves_30m_s"] == 0.0   # older than 30 min: gone

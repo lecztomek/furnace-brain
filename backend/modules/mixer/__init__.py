@@ -60,6 +60,8 @@ class MixerConfig:
     curve_avg_h: float = 6.0          # outside temperature averaged over (house and water inertia)
 
 
+MOVES_WINDOW_S = 30 * 60.0     # net valve movement shown on the main page
+
 CURVE_SAMPLE_S = 60.0          # outside temperature sampled once a minute
 CURVE_STALE_S = 3600.0         # no outside temperature for an hour -> fixed target_temp
 
@@ -108,6 +110,10 @@ class MixerModule(ModuleInterface):
         self._outside: deque = deque()
         self._target: float = self._config.target_temp
         self._curve_active: bool = False
+
+        # net valve movement: minute -> seconds (+ opening, - closing)
+        self._moves: Dict[int, float] = {}
+        self._moves_last_ts: Optional[float] = None
 
     @property
     def id(self) -> str:
@@ -627,6 +633,27 @@ class MixerModule(ModuleInterface):
             return None
         return sum(v for _, v in self._outside) / len(self._outside)
 
+    def _movement(self, now_ctrl: float) -> Dict[str, Any]:
+        """Net opening of the valve in the last 30 min, from the outputs of the previous ticks."""
+        last = self._moves_last_ts
+        self._moves_last_ts = now_ctrl
+        if last is not None and 0 < now_ctrl - last < 10:
+            sign = 1 if self._last_out_open else -1 if self._last_out_close else 0
+            if sign:
+                minute = int(now_ctrl // 60)
+                self._moves[minute] = self._moves.get(minute, 0.0) + sign * (now_ctrl - last)
+        oldest = int((now_ctrl - MOVES_WINDOW_S) // 60)
+        for minute in [m for m in self._moves if m <= oldest]:
+            del self._moves[minute]
+        net_s = sum(self._moves.values())
+        travel = max(float(self._config.preclose_full_close_time_s), 1.0)
+        return {
+            "moves_30m_s": round(net_s, 1),
+            # as % of the full stroke (full closing time from the settings)
+            "moves_30m_pct": round(100.0 * net_s / travel),
+            "moving": "open" if self._last_out_open else "close" if self._last_out_close else None,
+        }
+
     def curve_target(self, outside: float) -> float:
         c = self._config
         t = c.curve_at_0 - c.curve_slope * outside
@@ -650,6 +677,7 @@ class MixerModule(ModuleInterface):
             ))
         self._curve_active = active
         system_state.runtime["mixer"] = {
+            **self._movement(now_ctrl),
             "target": self._target,
             "curve_enabled": bool(self._config.curve_enabled),
             "curve_active": active,
