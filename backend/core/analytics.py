@@ -363,21 +363,32 @@ def summarize(days: List[DayAgg]) -> Dict[str, Any]:
     }
 
 
+def _hour_entry(hour: int, t: List[float]) -> Dict[str, Any]:
+    secs = t[0]
+    return {
+        "hour": hour,
+        "hours": _r(secs / 3600),
+        "boiler": _r(t[1] / secs) if secs >= 600 else None,
+        "setpoint": _r(t[2] / secs) if secs >= 600 else None,
+        "error": _r((t[1] - t[2]) / secs, 2) if secs >= 600 else None,
+        "power": _r(t[3] / t[4]) if t[4] >= 600 else None,
+        "below_pct": _r(100 * t[5] / secs) if secs >= 600 else None,
+    }
+
+
 def hourly_profile(days: List[DayAgg]) -> List[Dict[str, Any]]:
     """Per hour of day (settled WORK): average boiler temp, setpoint, error, power, share below the drop line."""
+    return [_hour_entry(hour, [sum(d.hours[hour][i] for d in days if len(d.hours) == 24) for i in range(6)])
+            for hour in range(24)]
+
+
+def hourly_last24(yesterday: Optional[DayAgg], today: Optional[DayAgg], now_hour: int) -> List[Dict[str, Any]]:
+    """The last 24 hours one by one, oldest first: yesterday after the current hour, then today up to now."""
     out = []
-    for hour in range(24):
-        t = [sum(d.hours[hour][i] for d in days if len(d.hours) == 24) for i in range(6)]
-        secs = t[0]
-        out.append({
-            "hour": hour,
-            "hours": _r(secs / 3600),
-            "boiler": _r(t[1] / secs) if secs >= 600 else None,
-            "setpoint": _r(t[2] / secs) if secs >= 600 else None,
-            "error": _r((t[1] - t[2]) / secs, 2) if secs >= 600 else None,
-            "power": _r(t[3] / t[4]) if t[4] >= 600 else None,
-            "below_pct": _r(100 * t[5] / secs) if secs >= 600 else None,
-        })
+    for day, hours in ((yesterday, range(now_hour + 1, 24)), (today, range(0, now_hour + 1))):
+        for hour in hours:
+            t = list(day.hours[hour]) if day is not None and len(day.hours) == 24 else [0.0] * 6
+            out.append({**_hour_entry(hour, t), "date": day.date if day is not None else None})
     return out
 
 
@@ -588,6 +599,10 @@ class Analytics:
             "d30": summarize(since(today - timedelta(days=29))),
             "season": summarize(since(season_start)),
         }
+        by_date = {x.date: x for x in days}
+        now_hour = datetime.now().hour if today == date.today() else 23
+        periods["today"]["last24"] = hourly_last24(
+            by_date.get((today - timedelta(days=1)).isoformat()), by_date.get(today.isoformat()), now_hour)
         model = weather_model(since(today - timedelta(days=365)))
         full_days = [x for x in days if x.date < today.isoformat() and x.seconds >= FULL_DAY_SHARE * 86400]
         daily = [{

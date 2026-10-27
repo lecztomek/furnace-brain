@@ -113,32 +113,36 @@
   // hour-of-day profile (when the boiler doesn't keep up) and the list of drops
   function renderHourly() {
     const p = report.periods[period];
-    const hours = p.hourly || [];
+    // "today": the last 24 hours one by one; longer periods: average per hour of day
+    const last24 = period === "today" && Array.isArray(p.last24) && p.last24.length ? p.last24 : null;
+    const hours = last24 || p.hourly || [];
     const drops = p.drops || { count: 0, items: [], by_hour: [] };
     const data = {
-      labels: hours.map((h) => `${h.hour}`),
+      labels: hours.map((h) => (last24 ? `${h.hour}:00` : `${h.hour}`)),
       datasets: [
         { type: "line", label: "Zadana [°C]", data: hours.map((h) => h.setpoint), borderColor: "#9ca3af", borderDash: [6, 4], pointRadius: 0, yAxisID: "y", spanGaps: true },
-        { type: "line", label: "Kocioł średnio [°C]", data: hours.map((h) => h.boiler), borderColor: "#f97316", backgroundColor: "#f97316", pointRadius: 2, tension: 0.3, yAxisID: "y", spanGaps: true },
+        { type: "line", label: "Kocioł średnio [°C]", data: hours.map((h) => h.boiler), borderColor: "#f97316", backgroundColor: "#f97316", pointRadius: 3, tension: 0.3, yAxisID: "y", spanGaps: false },
         { type: "bar", label: `Czas poniżej zadanej −${num(drops.below_c ?? 4, 0)}°C [%]`, data: hours.map((h) => h.below_pct), backgroundColor: "rgba(248, 113, 113, 0.7)", yAxisID: "y2" },
-        { type: "line", label: "Moc średnio [%]", data: hours.map((h) => h.power), borderColor: "#38bdf8", backgroundColor: "#38bdf8", pointRadius: 0, tension: 0.3, yAxisID: "y2", spanGaps: true },
+        { type: "line", label: "Moc średnio [%]", data: hours.map((h) => h.power), borderColor: "#38bdf8", backgroundColor: "#38bdf8", pointRadius: 2, tension: 0.3, yAxisID: "y2", spanGaps: false },
       ],
     };
     const options = {
       responsive: true, maintainAspectRatio: false, animation: false,
       plugins: { legend: { labels: { color: "#e5e7eb", boxWidth: 14 } } },
       scales: {
-        x: { title: { display: true, text: "Godzina", color: "#9ca3af" }, ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } },
+        x: { title: { display: true, text: last24 ? "Ostatnie 24 godziny" : "Godzina", color: "#9ca3af" }, ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } },
         y: { position: "left", ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
         y2: { position: "right", beginAtZero: true, suggestedMax: 100, ticks: { color: "#7dd3fc" }, grid: { display: false } },
       },
     };
-    if (hourlyChart) { hourlyChart.data = data; hourlyChart.update(); }
+    if (hourlyChart) { hourlyChart.data = data; hourlyChart.options = options; hourlyChart.update(); }
     else hourlyChart = new Chart($("chart-hourly"), { data, options });
 
     const worst = hours.filter((h) => h.below_pct != null).sort((a, b) => b.below_pct - a.below_pct)[0];
     $("hourly-note").textContent =
-      `Średnio dla każdej godziny doby (${PERIOD_NAMES[period]}), tylko PRACA. ` +
+      (last24
+        ? "Ostatnie 24 godziny, godzina po godzinie, tylko PRACA (puste godziny: piec nie pracował). "
+        : `Średnio dla każdej godziny doby (${PERIOD_NAMES[period]}), tylko PRACA. `) +
       (worst && worst.below_pct > 0
         ? `Najgorzej o ${worst.hour}:00–${worst.hour + 1}:00: ${num(worst.below_pct, 0)}% czasu ponad ${num(drops.below_c ?? 4, 0)}°C poniżej zadanej, średnio ${num(worst.error, 1)}°C od zadanej.`
         : "Bez wyraźnych spadków.");

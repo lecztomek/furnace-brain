@@ -96,3 +96,17 @@ def test_hourly_profile_and_drops():
     assert prof[20]["below_pct"] == 50.0 and prof[19]["below_pct"] == 0.0
     assert prof[19]["error"] == -1.0
     assert drops_list([day])["by_hour"][20] == 1
+
+
+def test_last24_runs_from_yesterday_to_now():
+    from backend.core.analytics import DayAgg, hourly_last24
+    y, t = DayAgg(date="2026-10-26"), DayAgg(date="2026-10-27")
+    y.hours[20] = [3600.0, 3600 * 55.0, 3600 * 59.0, 3600 * 40.0, 3600.0, 0.0]
+    t.hours[13] = [3600.0, 3600 * 58.0, 3600 * 59.0, 3600 * 50.0, 3600.0, 0.0]
+    out = hourly_last24(y, t, now_hour=13)
+    assert len(out) == 24
+    assert (out[0]["date"], out[0]["hour"]) == ("2026-10-26", 14)
+    assert (out[-1]["date"], out[-1]["hour"]) == ("2026-10-27", 13)
+    assert next(h for h in out if h["hour"] == 20)["boiler"] == 55.0
+    assert out[-1]["boiler"] == 58.0 and out[-1]["error"] == -1.0
+    assert hourly_last24(None, t, now_hour=13)[0]["boiler"] is None   # no data for yesterday
