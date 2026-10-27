@@ -32,6 +32,16 @@ class CoPumpConfig:
     """
     boiler_on_temp: float = 60.0
     hysteresis: float = 5.0
+    # auto = by the boiler temperature; force_on / off = always on / off
+    # (the overheat and safety modules still switch the pump on when needed)
+    mode: str = "auto"
+
+
+def _mode(value: Any) -> str:
+    # unquoted "off"/"on" in YAML is read as a boolean
+    if isinstance(value, bool):
+        return "force_on" if value else "off"
+    return str(value)
 
 
 # ---------- MODUŁ ----------
@@ -93,7 +103,12 @@ class CoPumpModule(ModuleInterface):
         boiler_temp = sensors.boiler_temp
         prev_pump_on = self._pump_on
 
-        if boiler_temp is None:
+        mode = (self._config.mode or "auto").strip().lower()
+        if mode == "force_on":
+            pump_on = True
+        elif mode == "off":
+            pump_on = False
+        elif boiler_temp is None:
             # Brak temperatury kotła -> na razie nie zmieniamy stanu pompy.
             pump_on = prev_pump_on
         else:
@@ -191,6 +206,7 @@ class CoPumpModule(ModuleInterface):
         return {
             "boiler_on_temp": self._config.boiler_on_temp,
             "hysteresis": self._config.hysteresis,
+            "mode": self._config.mode,
         }
 
     def set_config_values(self, values: Dict[str, Any], persist: bool = True) -> None:
@@ -202,6 +218,8 @@ class CoPumpModule(ModuleInterface):
             self._config.boiler_on_temp = float(values["boiler_on_temp"])
         if "hysteresis" in values:
             self._config.hysteresis = float(values["hysteresis"])
+        if "mode" in values:
+            self._config.mode = _mode(values["mode"])
 
         if persist:
             self._save_config_to_file()
@@ -222,6 +240,12 @@ class CoPumpModule(ModuleInterface):
             self._config.boiler_on_temp = float(data["boiler_on_temp"])
         if "hysteresis" in data:
             self._config.hysteresis = float(data["hysteresis"])
+        if "mode" in data:
+            self._config.mode = _mode(data["mode"])
+
+    def reload_config_from_file(self) -> None:
+        """After a change in the GUI - without it new settings worked only after a restart."""
+        self._load_config_from_file()
 
     def _save_config_to_file(self) -> None:
         """

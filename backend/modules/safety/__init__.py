@@ -205,6 +205,10 @@ class SafetyModule(ModuleInterface):
         if persist:
             self._save_config_to_file()
 
+    def reload_config_from_file(self) -> None:
+        """After a change in the GUI - without it new settings worked only after a restart."""
+        self._load_config_from_file()
+
     def _load_config_from_file(self) -> None:
         if not self._config_path.exists():
             return
