@@ -258,16 +258,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!isNaN(v)) el.textContent = `${rad.curve_active ? "krzywa" : "zadana"} ${fmt(v)}°C`;
     } catch (e) { /* keep the last value */ }
   }
-  // mixing valve: net opening in the last 30 min, as % of the full stroke
+  // mixing valve: net seconds of opening (+) / closing (-) in the last 30 min
   function showMixerMoves(rad) {
     const g = document.getElementById("mixer-moves");
     const t = document.getElementById("mixer-moves-text");
     if (!g || !t) return;
-    const pct = Number(rad.moves_30m_pct);
-    if (rad.moves_30m_pct == null || isNaN(pct)) { t.textContent = "--"; g.setAttribute("class", "mixer-moves"); return; }
+    const sec = Math.round(Number(rad.moves_30m_s));
+    if (rad.moves_30m_s == null || isNaN(sec)) { t.textContent = "--"; g.setAttribute("class", "mixer-moves"); return; }
     const arrow = rad.moving === "open" ? "▲" : rad.moving === "close" ? "▼" : "";
-    t.textContent = `${arrow}${pct > 0 ? "+" : pct < 0 ? "−" : ""}${Math.abs(pct)}%`;
-    const dir = pct > 0 ? " is-open" : pct < 0 ? " is-close" : "";
+    t.textContent = `${arrow}${sec > 0 ? "+" : sec < 0 ? "−" : ""}${Math.abs(sec)}s`;
+    const dir = sec > 0 ? " is-open" : sec < 0 ? " is-close" : "";
     g.setAttribute("class", `mixer-moves${dir}${rad.moving ? " is-moving" : ""}`);
   }
 
