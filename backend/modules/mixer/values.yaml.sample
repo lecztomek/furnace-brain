@@ -1,22 +1,17 @@
 target_temp: 30.0
 ok_band_degC: 0.2
-
 min_pulse_s: 1.0
 max_pulse_s: 6.0
 adjust_interval_s: 120.0
-
-ramp_error_factor: 3.0
-ramp_open_pulse_s: 2.0
-ramp_adjust_interval_s: 60.0
-
+ramp_error_factor: 10.0
+ramp_open_pulse_s: 1.5
+ramp_adjust_interval_s: 150.0
 boiler_min_temp_for_open: 48.0
-boiler_force_close_temp: 43.0
-protect_interval_s: 15.0
-protect_pulse_s: 6.0
-
-preclose_on_ignition_enabled: true
+boiler_force_close_temp: 45.0
+protect_interval_s: 60.0
+protect_pulse_s: 3.0
+preclose_on_ignition_enabled: false
 preclose_full_close_time_s: 120.0
-
 curve_enabled: false
 curve_at_0: 30.0
 curve_slope: 0.45

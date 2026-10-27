@@ -4,6 +4,7 @@ import time
 from dataclasses import dataclass
 import logging
 import random
+from collections import deque
 
 from backend.hw.interface import HardwareInterface
 from backend.core.state import Sensors, Outputs
@@ -92,7 +93,7 @@ class MockHardware(HardwareInterface):
     # --- Stałe fizyczne / parametry kotła ---
     C_WATER = 4180.0  # [J/(kg*K)]
 
-    M_BOILER_WATER = 50.0    # [kg] ~ 50 l w kotle
+    M_BOILER_WATER = 240.0  # [kg] boiler water + steel, fitted to the real boiler's inertia
     M_CO_WATER = 150.0       # [kg] ~ 150 l w instalacji CO
     M_CWU_WATER = 120.0      # [kg] – przyjęty zasobnik 120 l
 
@@ -100,7 +101,7 @@ class MockHardware(HardwareInterface):
     ROOM_TEMP = 20.0         # [°C]
     MAX_DT = 5.0             # [s]
 
-    FUEL_FEED_RATE = 0.0036      # [kg/s]
+    FUEL_FEED_RATE = 12.0 / 3600.0  # [kg/s] stats calibration of the real feeder (12 kg/h)
     FUEL_LHV = 29_000_000.0      # [J/kg]
 
     MAX_AIR_FLOW_M3_H = 255.0
@@ -108,15 +109,21 @@ class MockHardware(HardwareInterface):
     AIR_PER_KG_FUEL_STOICH = 9.0  # [m³/kg]
 
     BOILER_EFFICIENCY = 0.80
-    FRACTION_TO_WATER = 0.75
+    FRACTION_TO_WATER = 0.94  # with BOILER_EFFICIENCY 0.8: ~75% of the coal energy into the water
 
-    FUEL_DRYING_TIME_S = 60.0
+    FUEL_DRYING_TIME_S = 900.0  # coal heats up and burns out over ~15 min (real: peak ~30 min after a power drop)
+    # coal pushed by the feeder reaches the fire this much later (retort)
+    FUEL_DELAY_S = 360.0  # [s] retort: coal reaches the fire ~6 min after the feeder pushed it
+    # share of the coal fed while the fan is off that falls unburnt into the ash
+    UNBURNT_LOSS_SHARE = 0.05
+    # house heat loss through the radiators: sink between room and outside
+    HOUSE_SINK_OUTSIDE_SHARE = 0.0  # house loss ~ radiators above the room temperature
     NATURAL_BURN_TIME_S = 600.0
 
-    U_BOILER_LOSS_W_PER_K = 50.0
-    U_CO_LOSS_ACTIVE_W_PER_K = 400.0
+    U_BOILER_LOSS_W_PER_K = 8.0
+    U_CO_LOSS_ACTIVE_W_PER_K = 430.0  # ~4.3 kW at 0 C (radiators 30 C) - like the real house: ~53% power
     U_CO_LOSS_IDLE_W_PER_K = 40.0
-    U_CWU_LOSS_W_PER_K = 20.0
+    U_CWU_LOSS_W_PER_K = 10.0
     U_CWU_EXCH_W_PER_K = 800.0
     U_FLUE_LOSS_W_PER_K = 25.0
     HOPPER_COUPLING_W_PER_K = 5.0
@@ -155,6 +162,9 @@ class MockHardware(HardwareInterface):
 
         self._mixer_prev_on: bool = False
         self._mixer_on_since: float | None = None
+
+        # coal on its way to the fire: (sim time it arrives, kg)
+        self._fuel_in_transit: deque = deque()
 
         # Zakłócenia (tylko: ślimak mniej poda / gorsza dawka paliwa)
         self._dist = _Disturbances()
@@ -370,7 +380,10 @@ class MockHardware(HardwareInterface):
         if o.feeder_on:
             effective_feed_rate = self.FUEL_FEED_RATE * d.feeder_mult
             added = effective_feed_rate * dt
-            s.fuel_buffer += added
+            if self.FUEL_DELAY_S > 0:
+                self._fuel_in_transit.append((t + self.FUEL_DELAY_S, added))
+            else:
+                s.fuel_buffer += added
             logger_feeder.debug(
                 "Feeder step: added=%.5f kg, fuel_buffer=%.5f (on_for=%.2fs, mult=%.3f)",
                 added,
@@ -378,6 +391,10 @@ class MockHardware(HardwareInterface):
                 0.0 if self._feeder_on_since is None else t - self._feeder_on_since,
                 d.feeder_mult,
             )
+
+        # 1a) coal that has travelled through the retort reaches the fire
+        while self._fuel_in_transit and self._fuel_in_transit[0][0] <= t:
+            s.fuel_buffer += self._fuel_in_transit.popleft()[1]
 
         # 2) fuel_buffer -> active_fuel (suszenie/nagrzewanie)
         if s.fuel_buffer > 0.0:
@@ -424,7 +441,7 @@ class MockHardware(HardwareInterface):
 
         # 3a) Niedopalony węgiel wypychany do popielnika przy małym nadmuchu
         if o.feeder_on and s.active_fuel > 0.0:
-            loss_factor = max(0.0, 1.0 - fan_fraction)
+            loss_factor = max(0.0, 1.0 - fan_fraction) * self.UNBURNT_LOSS_SHARE
             loss_rate = loss_factor * self.FUEL_FEED_RATE       # [kg/s]
             lost_mass = min(s.active_fuel, loss_rate * dt)
             s.active_fuel -= lost_mass
@@ -487,7 +504,7 @@ class MockHardware(HardwareInterface):
                 )
 
             # Straty z obiegu CO do domu (gorące grzejniki)
-            sink_temp_co = (self.ROOM_TEMP + s.outside_temp) / 2.0
+            sink_temp_co = self.ROOM_TEMP + self.HOUSE_SINK_OUTSIDE_SHARE * (s.outside_temp - self.ROOM_TEMP)
             Q_loss_co = self.U_CO_LOSS_ACTIVE_W_PER_K * (s.radiators_temp - sink_temp_co) * dt
             s.radiators_temp -= Q_loss_co / self._C_co
 

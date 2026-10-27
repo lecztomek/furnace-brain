@@ -27,8 +27,9 @@ def test_cold_ignition_switches_to_work(tmp_path):
     sim = FurnaceSim(tmp_path)
     sim.set_mode(BoilerMode.IGNITION)
 
-    assert sim.run_until(lambda s: s.mode == BoilerMode.WORK, max_seconds=45 * MIN), (
-        f"still in IGNITION after 45 min, boiler={sim.state.sensors.boiler_temp:.1f}°C"
+    # the real boiler: 33 -> 55 C in about an hour (2026-10-27)
+    assert sim.run_until(lambda s: s.mode == BoilerMode.WORK, max_seconds=150 * MIN), (
+        f"still in IGNITION after 150 min, boiler={sim.state.sensors.boiler_temp:.1f}°C"
     )
     assert not sim.alarms
     assert not sim.module_errors
@@ -44,7 +45,7 @@ def test_cold_start_in_work_reaches_setpoint(tmp_path):
     first = sim.samples
     assert sum(s.power for s in first) / len(first) > 50, "power stays low with a cold boiler"
 
-    assert sim.run_until(lambda s: s.state.sensors.boiler_temp >= target - 3, max_seconds=30 * MIN)
+    assert sim.run_until(lambda s: s.state.sensors.boiler_temp >= target - 3, max_seconds=150 * MIN)
     assert not sim.alarms
     assert not sim.module_errors
 
@@ -54,13 +55,14 @@ def test_work_holds_temperature(tmp_path):
     sim.set_mode(BoilerMode.WORK)
     target = boiler_set_temp(sim)
 
-    sim.run(60 * MIN)
+    # from cold (40 C) the boiler needs 2-3 h to settle, like the real one
+    sim.run(240 * MIN)
     sim.run(60 * MIN, sample_every_s=10)
-    temps = [s.boiler_temp for s in sim.samples_between(60 * MIN, 120 * MIN)]
+    temps = [s.boiler_temp for s in sim.samples_between(240 * MIN, 300 * MIN)]
 
-    assert abs(sum(temps) / len(temps) - target) < 4
-    assert min(temps) > target - 10
-    assert max(temps) < target + 8
+    assert abs(sum(temps) / len(temps) - target) < 2
+    assert min(temps) > target - 4
+    assert max(temps) < target + 4
     assert not sim.alarms
 
 
@@ -112,7 +114,8 @@ def test_work_settles_on_the_setpoint(tmp_path):
     sim.set_mode(BoilerMode.WORK)
     target = boiler_set_temp(sim)
 
-    sim.run(120 * MIN)
+    sim.run(240 * MIN)
     sim.run(120 * MIN, sample_every_s=30)
-    temps = [s.boiler_temp for s in sim.samples_between(120 * MIN, 240 * MIN)]
+    temps = [s.boiler_temp for s in sim.samples_between(240 * MIN, 360 * MIN)]
     assert abs(sum(temps) / len(temps) - target) < 0.6
+    assert max(temps) - min(temps) < 3      # no slow swing
