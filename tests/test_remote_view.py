@@ -60,6 +60,12 @@ class LocalApi(BaseHTTPRequestHandler):
             body = {"levels": ["INFO", "WARNING"], "sources": ["mixer"]}
         elif p == "/api/analytics/report":
             body = {"periods": {"d7": {"coal_kg": 12.5}}, "daily": [], "checks": []}
+        elif p == "/api/service/tuning":
+            body = {"verdict": {"status": "ok"}}
+        elif p == "/api/service/diagnostics":
+            body = {"status": "ok", "groups": []}
+        elif p == "/api/analytics/forecast":
+            body = {"available": True, "days": []}
         elif p == "/api/config/modules":
             body = [{"id": "power_pid", "name": "PID"}]
         elif p == "/api/config/schema/power_pid":
@@ -100,6 +106,7 @@ def _push_cycle(mod):
     patch = {"state": json.dumps(mod._get("/api/state/current")), "manual": json.dumps(mod._get("/api/manual/current"))}
     patch.update(mod._increments(cursors))
     patch.update(mod._slow_report())
+    patch.update(mod._slow_service())
     patch.update(mod._slow_config())
     patch.update(mod._slow_history5m())
     patch["cursors"] = cursors
@@ -162,6 +169,9 @@ def test_shim_returns_local_api_shapes(setup):
         "hist_avg": f"/api/history/data?from_ts={lo}&to_ts={hi}&max_points=12",
         "logs": "/api/logs/recent?limit=5&level=WARNING",
         "report": "/api/analytics/report",
+        "tuning": "/api/service/tuning",
+        "diag": "/api/service/diagnostics",
+        "forecast": "/api/analytics/forecast",
         "missing": "/api/nothing",
     }
     script = """
@@ -201,6 +211,9 @@ def test_shim_returns_local_api_shapes(setup):
     assert len(out["logs"]["body"]["items"]) == 5
     assert out["logs"]["body"]["items"][0]["ts"] > out["logs"]["body"]["items"][-1]["ts"]  # newest first
     assert out["report"]["body"]["periods"]["d7"]["coal_kg"] == 12.5
+    assert out["tuning"]["body"]["verdict"]["status"] == "ok"      # service page and forecast in the remote view
+    assert out["diag"]["body"]["status"] == "ok"
+    assert out["forecast"]["body"]["available"] is True
     assert out["missing"]["status"] == 404
     # writes ignored, real values returned
     assert out["write"] == {"key": "boiler_set_temp", "value": 60}

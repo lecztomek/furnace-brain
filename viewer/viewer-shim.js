@@ -209,6 +209,10 @@
     if (p === "logs/meta") return json(await fbValue("logs_meta", 60 * 1000));
     if (p === "logs/recent") return json(await logsRecent(url.searchParams));
     if (p === "analytics/report") return json(await fbValue("report", 60 * 1000));
+    // service page and forecast: sent by the Pi every 10 min
+    if (p === "analytics/forecast") return json(await fbValue("service/forecast", 60 * 1000));
+    if (p === "service/tuning") return json(await fbValue("service/tuning", 60 * 1000));
+    if (p === "service/diagnostics") return json(await fbValue("service/diagnostics", 60 * 1000));
     if (p === "config/modules") return json(await fbValue("config/modules", 60 * 1000));
     if (parts[1] === "config" && (parts[2] === "schema" || parts[2] === "values") && parts.length === 4) {
       const node = parts[2] === "schema" ? "schemas" : "values";

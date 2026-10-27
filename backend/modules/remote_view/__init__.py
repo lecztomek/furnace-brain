@@ -144,6 +144,7 @@ class RemoteViewModule(ModuleInterface):
                 next_history = now + self._config.history_every_s
             if now >= next_slow:
                 for name, fn in (("statystyki", self._slow_report),
+                                 ("serwis i prognoza", self._slow_service),
                                  ("ustawienia", self._slow_config),
                                  ("historia 5 min", self._slow_history5m),
                                  ("usuwanie starych danych", self._cleanup)):
@@ -180,7 +181,8 @@ class RemoteViewModule(ModuleInterface):
         s["history"] += sum(1 for k in patch if k.startswith("history/"))
         s["logs"] += sum(1 for k in patch if k.startswith("logs/"))
         s["bytes"] += len(json.dumps(patch))
-        for key, name in (("report", "statystyki"), ("config/modules", "ustawienia"), ("history5m", "historia 5 min")):
+        for key, name in (("report", "statystyki"), ("service", "serwis"), ("config/modules", "ustawienia"),
+                          ("history5m", "historia 5 min")):
             if any(k == key or k.startswith(key + "/") for k in patch):
                 s["parts"][name] = s["parts"].get(name, 0) + 1
 
@@ -250,6 +252,14 @@ class RemoteViewModule(ModuleInterface):
 
     def _slow_report(self) -> Dict[str, Any]:
         return {"report": js(self._get("/api/analytics/report"))}
+
+    def _slow_service(self) -> Dict[str, Any]:
+        """Service page (tuning, Pi diagnostics) and the weather forecast - small, every slow cycle."""
+        return {
+            "service/tuning": js(self._get("/api/service/tuning")),
+            "service/diagnostics": js(self._get("/api/service/diagnostics")),
+            "service/forecast": js(self._get("/api/analytics/forecast")),
+        }
 
     def _slow_config(self) -> Dict[str, Any]:
         modules = self._get("/api/config/modules")
