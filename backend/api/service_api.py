@@ -20,7 +20,7 @@ from backend.core.state_store import StateStore
 from backend.core.tuning import TuningReport
 
 TUNING_MODULES = ("power_work", "feeder", "blower", "mixer", "mode", "pump_co", "overheat", "flameout")
-TUNING_REUSE_S = 300
+TUNING_REUSE_S = 1800  # the advice is about the last day - every 30 min is plenty
 
 SENSOR_NAMES = {"boiler_temp": "Kocioł", "radiators_temp": "Grzejniki", "hopper_temp": "Podajnik",
                 "flue_gas_temp": "Spaliny", "outside_temp": "Zewnętrzna"}
@@ -47,11 +47,11 @@ def _read(path: str) -> Optional[str]:
 
 
 _run_cache: Dict[str, tuple] = {}
-RUN_REUSE_S = 60.0
+RUN_REUSE_S = 300.0
 
 
 def _run(cmd: List[str]) -> Optional[str]:
-    """A system command, its answer reused for a minute (the page refreshes every 10 s)."""
+    """A system command, its answer reused for 5 min."""
     key = " ".join(cmd)
     hit = _run_cache.get(key)
     if hit and time.monotonic() - hit[0] < RUN_REUSE_S:
@@ -131,14 +131,15 @@ class LoopStats:
 def create_service_router(store: StateStore, config_store: ConfigStore, data_root: Path,
                           app_info: Dict[str, Any], loop_stats: Dict[str, LoopStats],
                           clock: Callable[[], float] = time.time,
-                          warm_up_s: Optional[float] = 120.0) -> APIRouter:
+                          warm_up_s: Optional[float] = None) -> APIRouter:
     router = APIRouter(prefix="/service", tags=["service"])
     modules_dir = data_root / "modules"
     tuning = TuningReport(history_dir=modules_dir / "history" / "data",
                           events_dir=modules_dir / "eventlog" / "data")
     # the advice is built in a background thread and a request never waits
-    # for it (the GUI would freeze); the first build reads 8 days of files
-    # with pauses, so the control loop keeps its CPU - later ones read only today
+    # for it (the GUI would freeze); nothing is read until the page is opened,
+    # the first build reads 8 days of files with pauses (the control loop
+    # keeps its CPU), later ones only today - at most every 30 min
     lock = threading.Lock()
     cached: Dict[str, Any] = {"at": 0.0, "report": None}
     building = threading.Event()

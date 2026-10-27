@@ -49,7 +49,7 @@ def fetch_open_meteo(latitude: float, longitude: float, timeout_s: float = 10.0)
     return float(data["current"]["temperature_2m"])
 
 
-FORECAST_REFRESH_S = 3600.0   # the forecast changes slowly - once an hour is plenty
+FORECAST_REFRESH_S = 3 * 3600.0   # the forecast changes slowly - every 3 h is plenty
 FORECAST_DAYS = 3
 
 
