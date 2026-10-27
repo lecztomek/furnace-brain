@@ -12,6 +12,12 @@
   let effChart = null;
   let weatherChart = null;
   let hourlyChart = null;
+  let seasonChart = null;
+  const MONTHS = ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"];
+
+  // coal price from the Statistics settings (0 = no costs)
+  const price = () => Number(report.settings?.coal_price_pln_per_t) || 0;
+  const pln = (kg) => (kg == null || !price() ? null : (kg / 1000) * price());
 
   const num = (v, digits = 1) =>
     v === null || v === undefined ? "--" : Number(v).toLocaleString("pl-PL", { maximumFractionDigits: digits, minimumFractionDigits: digits });
@@ -29,16 +35,17 @@
     $("coal-total").textContent = num(p.coal_kg, 1);
     $("coal-day").textContent = num(p.coal_kg_per_day, 1);
     $("coal-hour").textContent = num(p.coal_kg_per_hour, 2);
-    $("energy-total").textContent = num(p.energy_kwh, 0);
-    $("energy-day").textContent = num(p.energy_kwh_per_day, 0);
-    $("kw-avg").textContent = num(p.power_kw_avg, 1);
-    $("kw-max").textContent = num(p.power_kw_max, 1);
+    $("cost-tiles").innerHTML = [
+      tile("Średnia moc cieplna", num(p.power_kw_avg, 1), "kW"),
+      ...(price()
+        ? [tile("Koszt", num(pln(p.coal_kg), 0), "zł"), tile("Koszt na dobę", num(pln(p.coal_kg_per_day), 1), "zł")]
+        : []),
+    ].join("");
     const kgph = report.settings?.feeder_kg_per_hour;
-    const mj = report.settings?.calorific_mj_per_kg;
     $("coal-note").textContent =
       `Okres: ${PERIOD_NAMES[period]}, dane z ${num(p.hours, 1)} h. ` +
       (kgph ? `Kilogramy liczone z czasu pracy ślimaka × ${kgph} kg/h (ustawienie modułu Statystyki - warto skalibrować). ` : "") +
-      (mj ? `Energia = węgiel × ${mj} MJ/kg (energia w opale, bez sprawności kotła).` : "");
+      (price() ? `Koszt przy cenie ${num(price(), 0)} zł/t.` : "Koszt w zł: wpisz cenę węgla w Ustawienia → Statystyki.");
 
     const a = p.avg || {};
     const modes = Object.entries(p.mode_share || {})
@@ -49,9 +56,7 @@
       tile("Średnia moc", num(p.power_kw_avg, 1), a.power != null ? `kW (sterownik ${num(a.power, 0)}%)` : "kW"),
       tile("Kocioł", num(a.boiler), "°C"),
       tile("Grzejniki", num(a.radiators), "°C"),
-      tile("Spaliny", num(a.flue, 0), "°C"),
       tile("Na zewnątrz", num(a.outside), "°C"),
-      tile("Dmuchawa / ślimak", `${num(a.fan, 0)} / ${num(a.feeder, 0)}`, "% mocy / % czasu podawania"),
       tile("Rozpalenia", p.ignitions ?? "--", p.ignitions_per_day != null ? `${num(p.ignitions_per_day, 1)} na dobę` : ""),
       tile("Czas w trybach", "", modes || "--"),
     ].join("");
@@ -61,11 +66,8 @@
     $("reg-grade").className = "st2-grade" + (r ? ` grade-${r.grade.replace(/\s/g, "-")}` : "");
     $("reg-tiles").innerHTML = r
       ? [
-          tile("W ±1°C od zadanej", num(r.within_1, 0), "% czasu"),
           tile("W ±2°C od zadanej", num(r.within_2, 0), "% czasu"),
           tile("Średnio od zadanej", num(r.mean_abs_error, 1), "°C"),
-          tile("Rozrzut (σ)", num(r.std, 1), "°C"),
-          tile("Najwyżej ponad", num(r.max_over, 1), "°C"),
           tile("Najniżej pod", num(r.max_under, 1), "°C"),
         ].join("")
       : `<div class="st2-empty">Za mało pracy w trybie PRACA w tym okresie (potrzeba min. 30 min).</div>`;
@@ -80,21 +82,16 @@
       tile("Węgiel na stopniodzień", num(e.kg_per_degree_day, 2), `kg (${PERIOD_NAMES[period]})`),
       tile("Stopniodni", num(e.degree_days, 0), `suma (${PERIOD_NAMES[period]})`),
       tile("Zmiana tygodniowa", signed(t.change_pct), "% vs 3 tygodnie wcześniej"),
-      tile("Straty kominowe (szac.)", num(e.flue_loss_pct, 1), "% energii"),
-      tile("Straty: tydzień / wcześniej", `${num(t.recent_flue_loss_pct, 1)} / ${num(t.before_flue_loss_pct, 1)}`, "%"),
     ].join("");
     $("eff-note").textContent =
       `Stopniodzień = o ile średnia doby była niższa niż ${num(a.degree_day_base_c, 0)}°C (dzień 3°C = 15 stopniodni). ` +
-      `Mniej kg na stopniodzień = sprawniej; wzrost przy podobnej pogodzie zwykle oznacza zabrudzony kocioł. ` +
-      `Straty kominowe ze wzoru Siegerta z temperatury spalin w pracy, przy założeniu ${num(a.co2_pct, 0)}% CO₂ ` +
-      `i ${num(a.room_c, 0)}°C w kotłowni - orientacyjnie, ważny jest trend.`;
+      `Mniej kg na stopniodzień = sprawniej; wzrost przy podobnej pogodzie zwykle oznacza zabrudzony kocioł.`;
 
     const days = report.daily || [];
     const data = {
       labels: days.map((d) => d.date.slice(8, 10) + "." + d.date.slice(5, 7)),
       datasets: [
         { type: "line", label: "Węgiel na stopniodzień [kg]", data: days.map((d) => d.kg_per_degree_day), borderColor: "#f97316", backgroundColor: "#f97316", yAxisID: "y", tension: 0.3, pointRadius: 2, spanGaps: true },
-        { type: "line", label: "Straty kominowe [%]", data: days.map((d) => d.flue_loss_pct), borderColor: "#38bdf8", backgroundColor: "#38bdf8", yAxisID: "y2", tension: 0.3, pointRadius: 2, borderDash: [5, 4], spanGaps: true },
       ],
     };
     const options = {
@@ -103,7 +100,6 @@
       scales: {
         x: { ticks: { color: "#9ca3af", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(255,255,255,0.05)" } },
         y: { position: "left", beginAtZero: true, ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
-        y2: { position: "right", beginAtZero: true, ticks: { color: "#7dd3fc" }, grid: { display: false } },
       },
     };
     if (effChart) { effChart.data = data; effChart.update(); }
@@ -233,13 +229,74 @@
     else weatherChart = new Chart($("chart-weather"), { data: { datasets }, options });
   }
 
+  // this season so far vs the previous one, month by month; forecast for the season
+  function renderSeasons() {
+    const s = report.seasons;
+    if (!s) return;
+    const f = s.forecast || {};
+    // tonnes from 1 t up, kilograms below
+    const mass = (kg) => (kg == null ? ["--", "t"] : kg >= 1000 ? [num(kg / 1000, 2), "t"] : [num(kg, 0), "kg"]);
+    const [usedV, usedU] = mass(s.this.coal_kg);
+    const [fcV, fcU] = mass(f.forecast_kg);
+    const [prevV, prevU] = mass(s.previous.coal_kg);
+    const vsPrev = s.previous.coal_kg_to_date != null && s.previous.coal_kg_to_date > 0
+      ? `${num(100 * (s.this.coal_kg - s.previous.coal_kg_to_date) / s.previous.coal_kg_to_date, 0)}% vs rok temu (${mass(s.previous.coal_kg_to_date).join(" ")})`
+      : "rok temu w tym czasie: brak danych";
+    $("season-tiles").innerHTML = [
+      tile("Zużyto w sezonie", usedV, `${usedU} • ${vsPrev}`),
+      tile("Prognoza na cały sezon", fcV, f.forecast_kg != null ? `${fcU} (przy typowej pogodzie)` : "(za mało dni z pogodą)"),
+      ...(price()
+        ? [tile("Koszt sezonu", num(pln(s.this.coal_kg), 0), "zł do dziś"),
+           tile("Prognoza kosztu", num(pln(f.forecast_kg), 0), "zł za sezon")]
+        : []),
+      tile("Zeszły sezon", prevV, `${prevU} (z dni, z których są dane)`),
+    ].join("");
+    $("season-note").textContent =
+      (f.forecast_kg != null
+        ? `Prognoza: zużyte ${num(f.used_kg, 0)} kg + ${num(f.kg_per_degree_day, 2)} kg na stopniodzień (ostatnie ${f.based_on_days} pełnych dni) ` +
+          `× ${num(f.degree_days_left, 0)} stopniodni do końca maja przy typowej pogodzie dla Nowego Sącza. `
+        : "Prognoza pojawi się po kilku pełnych dniach z temperaturą zewnętrzną. ") +
+      "Słupki: węgiel w każdym miesiącu sezonu, ten sezon obok zeszłego.";
+
+    const months = s.this.months.map((m) => MONTHS[m.month - 1]);
+    const data = {
+      labels: months,
+      datasets: [
+        { type: "bar", label: `Sezon ${s.previous.start.slice(0, 4)}/${String(Number(s.previous.start.slice(0, 4)) + 1).slice(2)} [kg]`, data: s.previous.months.map((m) => m.coal_kg), backgroundColor: "rgba(156, 163, 175, 0.6)" },
+        { type: "bar", label: `Sezon ${s.this.start.slice(0, 4)}/${String(Number(s.this.start.slice(0, 4)) + 1).slice(2)} [kg]`, data: s.this.months.map((m) => m.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.8)" },
+      ],
+    };
+    const options = {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { labels: { color: "#e5e7eb" } } },
+      scales: {
+        x: { ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } },
+        y: { beginAtZero: true, ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
+      },
+    };
+    if (seasonChart) { seasonChart.data = data; seasonChart.update(); }
+    else seasonChart = new Chart($("chart-seasons"), { data, options });
+  }
+
   function render() {
     renderPeriod();
+    renderSeasons();
     renderHourly();
     renderEfficiency();
     renderChecks();
     renderDaily();
     renderWeather();
+  }
+
+  // ---------- sub-pages ----------
+
+  function showTab(tab) {
+    if (!document.querySelector(`#st2-tabs button[data-tab="${tab}"]`)) tab = "usage";
+    document.querySelectorAll("#st2-tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+    document.querySelectorAll(".st2-card[data-tab]").forEach((c) => c.classList.toggle("is-hidden", c.dataset.tab !== tab));
+    // charts drawn while hidden have no size - redraw the visible ones
+    [dailyChart, seasonChart, hourlyChart, effChart, weatherChart].forEach((c) => c && c.resize());
+    try { localStorage.setItem("stats-tab", tab); } catch (err) { /* private mode */ }
   }
 
   // ---------- data ----------
@@ -275,6 +332,13 @@
       renderEfficiency();
     });
     $("st2-refresh").addEventListener("click", () => load(true));
+    $("st2-tabs").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-tab]");
+      if (btn) showTab(btn.dataset.tab);
+    });
+    let saved = null;
+    try { saved = localStorage.getItem("stats-tab"); } catch (err) { /* private mode */ }
+    showTab(saved || "usage");
     load();
   });
 })();

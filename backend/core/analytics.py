@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from backend.core.csv_utils import no_nul
 
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 MAX_STEP_S = 60.0          # a row "covers" at most this long (2x the 30 s interval)
 GAP_S = 120.0              # a longer pause between rows is a gap in the data
 SETTLE_S = 20 * 60         # regulation quality: skip the first 20 min after entering WORK
@@ -36,6 +36,11 @@ AVG_KEYS = ("boiler", "radiators", "flue", "outside", "power", "fan", "feeder", 
 
 # efficiency estimates
 HDD_BASE_C = 18.0          # degree-days: max(0, 18 - daily mean outside temperature)
+IGNITION_MIN_S = 300.0     # shorter IGNITION stretches are clicks, not ignitions
+# typical monthly mean outside temperature (Nowy Sącz, 1991-2020 normals) for the
+# season forecast; heating season September - May
+NORMAL_MONTH_C = {9: 13.5, 10: 8.5, 11: 3.5, 12: -0.5, 1: -2.5, 2: -1.5, 3: 2.5, 4: 8.5, 5: 13.5}
+SEASON_MONTHS = [9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8]
 MIN_HDD = 3.0              # a period needs at least this many degree-days for kg/degree-day
 ROOM_C = 20.0              # boiler room (no sensor) for the flue loss
 SIEGERT_A1, SIEGERT_B = 0.68, 0.007   # Siegert coefficients for coal
@@ -201,6 +206,7 @@ def aggregate_day(day: date, rows: List[Dict[str, str]], coal_kg: float = 0.0,
         parsed.append((ts, r))
 
     prev_mode = None
+    ign_s, ign_counted = 0.0, False
     work_since: Optional[datetime] = None
     drop: Optional[Dict[str, Any]] = None
 
@@ -227,8 +233,13 @@ def aggregate_day(day: date, rows: List[Dict[str, str]], coal_kg: float = 0.0,
 
         mode = (r.get("tryb_pracy") or "").upper() or "UNKNOWN"
         agg.mode_s[mode] = agg.mode_s.get(mode, 0.0) + w
-        if mode == "IGNITION" and prev_mode not in (None, "IGNITION"):
-            agg.ignitions += 1
+        if mode == "IGNITION":
+            ign_s = ign_s + w if prev_mode == "IGNITION" else w
+            if ign_s >= IGNITION_MIN_S and not ign_counted:
+                agg.ignitions += 1
+                ign_counted = True
+        else:
+            ign_counted = False
         if mode == "WORK" and prev_mode != "WORK":
             work_since = ts
         prev_mode = mode
@@ -351,6 +362,7 @@ def summarize(days: List[DayAgg]) -> Dict[str, Any]:
         "ignitions": sum(d.ignitions for d in days),
         "ignitions_per_day": _r(sum(d.ignitions for d in days) / covered_days, 2) if covered_days >= 0.5 else None,
         "missing_boiler_rows": sum(d.missing_boiler for d in days),
+        "rows": sum(d.rows for d in days),
         "alarms": sum(d.alarms for d in days),
         "regulation": regulation,
         "efficiency": {
@@ -443,6 +455,54 @@ def weather_model(days: List[DayAgg]) -> Dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------- seasons
+
+def _season_month_key(d: date, season_start: date) -> Optional[int]:
+    """0..11 = month of the season (0 = the season's first month), None outside the season."""
+    months = (d.year - season_start.year) * 12 + d.month - season_start.month
+    return months if 0 <= months < 12 else None
+
+
+def season_months(days: List["DayAgg"], season_start: date) -> List[Dict[str, Any]]:
+    """Coal per month of one season (only months with data have values)."""
+    out = [{"month": (season_start.month - 1 + i) % 12 + 1, "coal_kg": 0.0, "hours": 0.0} for i in range(12)]
+    for x in days:
+        k = _season_month_key(date.fromisoformat(x.date), season_start)
+        if k is None:
+            continue
+        out[k]["coal_kg"] += x.coal_kg
+        out[k]["hours"] += x.seconds / 3600
+    return [{"month": m["month"], "coal_kg": round(m["coal_kg"], 1) if m["hours"] >= 1 else None,
+             "hours": round(m["hours"], 1)} for m in out]
+
+
+def normal_degree_days(start: date, end: date) -> float:
+    """Typical degree-days between two dates (end excluded), heating months only."""
+    total, d = 0.0, start
+    while d < end:
+        t = NORMAL_MONTH_C.get(d.month)
+        if t is not None:
+            total += max(0.0, HDD_BASE_C - t)
+        d += timedelta(days=1)
+    return total
+
+
+def season_forecast(this_season: List["DayAgg"], season_start: date, today: date) -> Dict[str, Any]:
+    """Coal used so far + coal per degree-day x typical degree-days left until the end of May."""
+    used = sum(x.coal_kg for x in this_season)
+    full = [x for x in this_season if x.seconds >= FULL_DAY_SHARE * 86400]
+    k = kg_per_degree_day(full[-30:])
+    end = date(season_start.year + 1, 6, 1)
+    left_dd = normal_degree_days(today + timedelta(days=1), end)
+    return {
+        "used_kg": round(used, 1),
+        "kg_per_degree_day": _r(k, 3),
+        "degree_days_left": round(left_dd),
+        "forecast_kg": round(used + k * left_dd) if k else None,
+        "based_on_days": len(full[-30:]),
+    }
+
+
 # ---------------------------------------------------------------- health checks
 
 def _avg_days(days: List[DayAgg], key: str) -> Optional[float]:
@@ -468,8 +528,9 @@ def checks(period: Dict[str, Any], model: Dict[str, Any], last_full_day: Optiona
         f"przerwy w zapisie: {gap:.1f} h ({share:.1f}%)" if gap else "bez przerw w zapisie")
 
     missing = period.get("missing_boiler_rows") or 0
-    add("ok" if missing == 0 else "bad", "Czujnik kotła",
-        "zawsze odczytany" if missing == 0 else f"brak odczytu w {missing} pomiarach")
+    miss_pct = 100 * missing / max(period.get("rows") or 1, 1)
+    add("ok" if miss_pct < 0.5 else "warn" if miss_pct < 5 else "bad", "Czujnik kotła",
+        "zawsze odczytany" if missing == 0 else f"brak odczytu w {missing} pomiarach ({miss_pct:.1f}%)")
 
     outside = period["avg"].get("outside")
     add("ok" if outside is not None else "warn", "Temperatura zewnętrzna",
@@ -489,12 +550,6 @@ def checks(period: Dict[str, Any], model: Dict[str, Any], last_full_day: Optiona
     if ipd is not None:
         add("warn" if ipd > 1.5 else "ok", "Rozpalenia",
             f"{period['ignitions']} ({ipd:.1f} na dobę)" + (" - czy piec nie wygasa?" if ipd > 1.5 else ""))
-
-    flue = period["avg"].get("flue_work")
-    if flue is not None:
-        add("warn" if flue > 220 or flue < 60 else "ok", "Spaliny w pracy (orientacyjnie)",
-            f"średnio {flue:.0f}°C" + (" - wysokie: straty / zabrudzony kocioł?" if flue > 220
-                                        else " - niskie: słaby ogień / zbyt mało powietrza?" if flue < 60 else ""))
 
     reg = period.get("regulation")
     if reg:
@@ -564,7 +619,8 @@ class Analytics:
     def report(self, today: date, season_start: date, fallback_setpoint: Optional[float] = None,
                overheat_temp: float = 80.0, pause_s: float = 0.0) -> Dict[str, Any]:
         """pause_s: pause after each day read from files (background warm-up on the Pi)."""
-        first = min(season_start, today - timedelta(days=29))
+        prev_start = date(season_start.year - 1, season_start.month, season_start.day)
+        first = min(prev_start, today - timedelta(days=29))
         days: List[DayAgg] = []
         cached_before = len(self._cache)
         indexes = {
@@ -639,4 +695,23 @@ class Analytics:
             "efficiency_trend": trend,
             "efficiency_assumptions": {"degree_day_base_c": HDD_BASE_C, "room_c": ROOM_C, "co2_pct": ASSUMED_CO2},
             "checks": checks(periods["d7"], model, full_days[-1] if full_days else None, overheat_temp, trend),
+            "seasons": self._seasons(days, season_start, prev_start, today),
+        }
+
+    @staticmethod
+    def _seasons(days: List[DayAgg], season_start: date, prev_start: date, today: date) -> Dict[str, Any]:
+        this = [x for x in days if x.date >= season_start.isoformat()]
+        prev = [x for x in days if prev_start.isoformat() <= x.date < season_start.isoformat()]
+        same_day = today.replace(year=today.year - 1) if not (today.month == 2 and today.day == 29) \
+            else date(today.year - 1, 2, 28)
+        prev_to_date = [x for x in prev if x.date <= same_day.isoformat()]
+        return {
+            "this": {"start": season_start.isoformat(), "months": season_months(this, season_start),
+                     "coal_kg": round(sum(x.coal_kg for x in this), 1)},
+            "previous": {"start": prev_start.isoformat(), "months": season_months(prev, prev_start),
+                         "coal_kg": round(sum(x.coal_kg for x in prev), 1),
+                         # same part of the season a year ago - only if there was data then
+                         "coal_kg_to_date": round(sum(x.coal_kg for x in prev_to_date), 1)
+                         if sum(x.seconds for x in prev_to_date) >= 86400 else None},
+            "forecast": season_forecast(this, season_start, today),
         }

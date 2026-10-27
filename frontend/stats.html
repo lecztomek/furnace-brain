@@ -31,41 +31,50 @@
                 </div>
                 <button type="button" class="st2-refresh" id="st2-refresh" title="Odśwież">⟳</button>
               </div>
+              <div class="st2-tabs" id="st2-tabs" role="tablist">
+                <button type="button" data-tab="usage" class="active">Zużycie</button>
+                <button type="button" data-tab="work">Praca</button>
+                <button type="button" data-tab="efficiency">Sprawność</button>
+                <button type="button" data-tab="checks">Kontrola</button>
+              </div>
               <div class="st2-status" id="st2-status">Wczytywanie…</div>
 
               <!-- WĘGIEL -->
-              <section class="st2-card">
-                <h2>Węgiel i energia</h2>
+              <section class="st2-card" data-tab="usage">
+                <h2>Węgiel</h2>
                 <div class="st2-tiles st2-tiles--big">
                   <div class="st2-tile"><span class="st2-label">Zużyto</span><span class="st2-value" id="coal-total">--</span><span class="st2-unit">kg</span></div>
                   <div class="st2-tile"><span class="st2-label">Średnio na dobę</span><span class="st2-value" id="coal-day">--</span><span class="st2-unit">kg</span></div>
                   <div class="st2-tile"><span class="st2-label">Średnio na godzinę</span><span class="st2-value" id="coal-hour">--</span><span class="st2-unit">kg/h</span></div>
                 </div>
-                <div class="st2-tiles st2-tiles--energy">
-                  <div class="st2-tile"><span class="st2-label">Energia</span><span class="st2-value" id="energy-total">--</span><span class="st2-unit">kWh</span></div>
-                  <div class="st2-tile"><span class="st2-label">Energia na dobę</span><span class="st2-value" id="energy-day">--</span><span class="st2-unit">kWh</span></div>
-                  <div class="st2-tile"><span class="st2-label">Średnia moc cieplna</span><span class="st2-value" id="kw-avg">--</span><span class="st2-unit">kW</span></div>
-                  <div class="st2-tile"><span class="st2-label">Szczytowa moc (5 min)</span><span class="st2-value" id="kw-max">--</span><span class="st2-unit">kW</span></div>
-                </div>
+                <div class="st2-tiles st2-tiles--energy" id="cost-tiles"></div>
                 <div class="st2-chart"><canvas id="chart-daily"></canvas></div>
                 <div class="st2-note" id="coal-note"></div>
               </section>
 
+              <!-- SEZON -->
+              <section class="st2-card" data-tab="usage">
+                <h2>Sezon</h2>
+                <div class="st2-tiles" id="season-tiles"></div>
+                <div class="st2-chart"><canvas id="chart-seasons"></canvas></div>
+                <div class="st2-note" id="season-note"></div>
+              </section>
+
               <!-- PRACA PIECA -->
-              <section class="st2-card">
+              <section class="st2-card" data-tab="work">
                 <h2>Praca pieca</h2>
                 <div class="st2-tiles" id="work-tiles"></div>
               </section>
 
               <!-- REGULACJA -->
-              <section class="st2-card">
+              <section class="st2-card" data-tab="work">
                 <h2>Jak trzyma temperaturę <span class="st2-grade" id="reg-grade"></span></h2>
                 <div class="st2-tiles" id="reg-tiles"></div>
                 <div class="st2-note">Liczone w trybie PRACA, bez pierwszych 20 minut po wejściu w pracę, względem zadanej z tego momentu.</div>
               </section>
 
               <!-- REGULACJA W CIĄGU DOBY -->
-              <section class="st2-card">
+              <section class="st2-card" data-tab="work">
                 <h2>Regulacja w ciągu doby</h2>
                 <div class="st2-chart st2-chart--tall"><canvas id="chart-hourly"></canvas></div>
                 <div class="st2-note" id="hourly-note"></div>
@@ -74,7 +83,7 @@
               </section>
 
               <!-- EFEKTYWNOŚĆ -->
-              <section class="st2-card">
+              <section class="st2-card" data-tab="efficiency">
                 <h2>Efektywność</h2>
                 <div class="st2-tiles" id="eff-tiles"></div>
                 <div class="st2-chart"><canvas id="chart-efficiency"></canvas></div>
@@ -82,13 +91,13 @@
               </section>
 
               <!-- KONTROLA -->
-              <section class="st2-card">
+              <section class="st2-card" data-tab="checks">
                 <h2>Czy wszystko działa? <span class="st2-sub">ostatnie 7 dni</span></h2>
                 <ul class="st2-checks" id="checks"></ul>
               </section>
 
               <!-- POGODA -->
-              <section class="st2-card">
+              <section class="st2-card" data-tab="efficiency">
                 <h2>Zależność od pogody</h2>
                 <div class="st2-weather-text" id="weather-text"></div>
                 <div class="st2-chart st2-chart--square"><canvas id="chart-weather"></canvas></div>

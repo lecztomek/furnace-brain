@@ -38,6 +38,17 @@ fields:
     description: >
       Ile kg węgla poda ślimak w 1 godzinę, jeśli feeder_on=True przez całą godzinę.
 
+  - key: coal_price_pln_per_t
+    label: "Cena węgla"
+    type: number
+    unit: "zł/t"
+    min: 0
+    max: 10000
+    step: 10
+    default: 0
+    group: basic
+    description: "Do liczenia kosztu ogrzewania na stronie Statystyki. 0 = nie pokazuj kosztów."
+
   - key: calorific_mj_per_kg
     label: "Kaloryczność"
     type: number

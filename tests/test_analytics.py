@@ -27,11 +27,13 @@ def test_regulation_ignores_first_20_min_of_work():
 
 def test_ignitions_and_gaps():
     day = date(2026, 1, 10)
-    spec = [(0, "WORK", 57, 57, 0), (30, "OFF", 50, 57, 0), (60, "IGNITION", 45, 57, 0),
-            (90, "WORK", 57, 57, 0), (600, "WORK", 57, 57, 0)]
+    # a 30 s click on IGNITION isn't an ignition; 6 min of IGNITION is
+    spec = [(0, "WORK", 57, 57, 0), (30, "IGNITION", 50, 57, 0), (60, "WORK", 50, 57, 0)]
+    spec += [(90 + 30 * i, "IGNITION", 45, 57, 0) for i in range(12)]
+    spec += [(450, "WORK", 57, 57, 0), (960, "WORK", 57, 57, 0)]
     agg = aggregate_day(day, rows(day, spec))
     assert agg.ignitions == 1
-    assert agg.gap_s == 480  # 90 -> 600 s pause
+    assert agg.gap_s == 480  # 450 -> 960 s pause
 
 
 def test_linear_fit_needs_enough_spread():
@@ -110,3 +112,19 @@ def test_last24_runs_from_yesterday_to_now():
     assert next(h for h in out if h["hour"] == 20)["boiler"] == 55.0
     assert out[-1]["boiler"] == 58.0 and out[-1]["error"] == -1.0
     assert hourly_last24(None, t, now_hour=13)[0]["boiler"] is None   # no data for yesterday
+
+
+def test_seasons_and_forecast():
+    from backend.core.analytics import DayAgg, season_forecast, season_months
+    start = date(2026, 9, 1)
+    days = []
+    for i in range(20):
+        d = DayAgg(date=(date(2026, 10, 1) + timedelta(days=i)).isoformat(), seconds=86400, coal_kg=10.0)
+        d.sums["outside"], d.weights["outside"] = 8.0 * 86400, 86400   # 10 degree-days a day
+        days.append(d)
+    months = season_months(days, start)
+    assert months[0]["month"] == 9 and months[0]["coal_kg"] is None      # no data in September
+    assert months[1]["month"] == 10 and months[1]["coal_kg"] == 200.0
+    f = season_forecast(days, start, date(2026, 10, 20))
+    assert f["used_kg"] == 200.0 and f["kg_per_degree_day"] == 1.0
+    assert f["forecast_kg"] == 200 + f["degree_days_left"] and f["degree_days_left"] > 2500

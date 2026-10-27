@@ -1131,6 +1131,32 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
 
 .st2-status { font-size: 13px; color: #9ca3af; margin-top: -6px; }
 
+/* sub-pages of the statistics */
+.st2-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid #2c3b47;
+  padding-bottom: 6px;
+}
+.st2-tabs::-webkit-scrollbar { display: none; }
+.st2-tabs button {
+  flex: 0 0 auto;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: #9ca3af;
+  padding: 8px 14px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.st2-tabs button.active { color: #f9fafb; border-bottom-color: #f97316; }
+.st2-card.is-hidden { display: none; }
+
 .st2-card {
   background: rgba(10, 18, 26, 0.55);
   border: 1px solid #2c3b47;

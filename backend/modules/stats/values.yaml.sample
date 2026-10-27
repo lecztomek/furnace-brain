@@ -14,4 +14,4 @@ season_start_day: 1
 bars_days: 30
 
 publish_compare_bars: true
-
+coal_price_pln_per_t: 0.0
