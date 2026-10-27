@@ -236,8 +236,14 @@ class RemoteViewModule(ModuleInterface):
         logs = self._get("/api/logs/recent?limit=2000").get("items", [])
         last_ts = cursors.get("logs") or 0.0
         logs = sorted((i for i in logs if (i.get("ts") or 0) > last_ts), key=lambda i: i["ts"])
+        # several entries often share one timestamp (a mode change logs from every
+        # module in the same tick) - a sequence number keeps them all; text order
+        # of the keys stays the time order
+        seq: Dict[str, int] = {}
         for i in logs:
-            out[f"logs/{datetime.fromtimestamp(i['ts']).date().isoformat()}/{int(i['ts'] * 1000)}"] = js(i)
+            ms = str(int(i["ts"] * 1000))
+            n = seq[ms] = seq.get(ms, -1) + 1
+            out[f"logs/{datetime.fromtimestamp(i['ts']).date().isoformat()}/{ms}_{n:02d}"] = js(i)
         if logs:
             cursors["logs"] = logs[-1]["ts"]
         return out

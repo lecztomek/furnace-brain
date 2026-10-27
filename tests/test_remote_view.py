@@ -261,3 +261,32 @@ def test_summary_says_what_was_sent(setup):
     assert "statystyki 3×" in ev.message and "ustawienia 3×" in ev.message
     assert "błędy: wysyłanie do Firebase 1×" in ev.message
     assert mod._sum["attempts"] == 0           # new window
+
+
+def test_log_entries_with_the_same_time_are_all_sent(setup, monkeypatch):
+    """A mode change logs from several modules in one tick - none may overwrite another."""
+    mod, _, _ = setup
+    ts = NOW.timestamp()
+    same = [{"ts": ts, "level": "INFO", "source": s, "type": t, "message": t, "data": {}}
+            for s, t in (("mode", "MODE_CHANGED"), ("power_work", "WORK_POWER_MODE_CHANGED"),
+                         ("blower", "BLOWER_SUMMARY"), ("feeder", "FEEDER_SUMMARY"))]
+    monkeypatch.setattr(LocalApi, "do_GET", _serve({"/api/logs/recent": {"items": same, "count": 4}}))
+    out = mod._increments({})
+    sent = [json.loads(v)["type"] for k, v in sorted(out.items()) if k.startswith("logs/")]
+    assert sorted(sent) == sorted(e["type"] for e in same)
+
+
+def _serve(overrides):
+    real = LocalApi.do_GET
+
+    def do_get(self):
+        path = urlparse(self.path).path
+        if path in overrides:
+            data = json.dumps(overrides[path]).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(data)
+            return
+        real(self)
+    return do_get
