@@ -240,3 +240,24 @@ def test_failing_part_is_logged_and_skipped(setup, monkeypatch):
     assert "config" in data and "report" not in data   # other parts too, only the report is missing
     msgs = [e.message for e in mod._problems.take_events()]
     assert any("statystyki" in m and "/api/analytics/report" in m and "HTTP 500" in m and "zly plik" in m for m in msgs), msgs
+
+
+def test_summary_says_what_was_sent(setup):
+    """Every 15 min the log says how many sends worked and what went out."""
+    mod, _, _ = setup
+    t0 = mod._sum["since"]
+    for _ in range(3):
+        mod._sum["attempts"] += 1
+        mod._count_sent({"state": "{}", "history/2026-10-27/120000": "{}", "history/2026-10-27/120030": "{}",
+                         "logs/2026-10-27/1": "{}", "report": "{}", "config/modules": "[]"})
+    mod._sum["attempts"] += 1
+    mod._failed("wysyłanie do Firebase", "HTTP 500")
+    mod._maybe_summary(t0 + 60)                 # too early: nothing
+    assert not [e for e in mod._problems.events if e.type == "REMOTE_VIEW_SUMMARY"]
+    mod._maybe_summary(t0 + 15 * 60)
+    ev = [e for e in mod._problems.take_events() if e.type == "REMOTE_VIEW_SUMMARY"][-1]
+    assert "wysłano 3 z 4 razy" in ev.message
+    assert "historia +6 wierszy" in ev.message and "logi +3 wpisów" in ev.message
+    assert "statystyki 3×" in ev.message and "ustawienia 3×" in ev.message
+    assert "błędy: wysyłanie do Firebase 1×" in ev.message
+    assert mod._sum["attempts"] == 0           # new window

@@ -38,6 +38,9 @@ class RemoteViewConfig:
     keep_days: float = 14.0          # older data is deleted from Firebase
 
 
+SUMMARY_S = 15 * 60   # how often the log gets "what was sent"
+
+
 def js(value: Any) -> str:
     """
     Every value is stored as a JSON string: Firebase drops empty lists/dicts,
@@ -79,6 +82,7 @@ class RemoteViewModule(ModuleInterface):
         self._thread: Optional[threading.Thread] = None
         self._problems = ProblemTracker(self.id, "Podgląd zdalny")
         self._last_ok: Optional[float] = None
+        self._new_summary(time.time())
 
     @property
     def id(self) -> str:
@@ -149,16 +153,59 @@ class RemoteViewModule(ModuleInterface):
                 next_slow = now + self._config.slow_every_min * 60
 
             patch["cursors"] = cursors
+            self._sum["attempts"] += 1
             try:
                 self._fb_patch(patch)
                 self._succeeded("wysyłanie do Firebase")
                 self._ok()
+                self._count_sent(patch)
                 next_state = now + self._config.state_every_s
             except Exception as exc:  # pylint: disable=broad-except
                 self._failed("wysyłanie do Firebase", self._describe(exc))
                 cursors = None                 # re-read what Firebase really has
                 next_state = now + 60          # back off
                 next_history = next_slow = 0.0
+            self._maybe_summary(time.time())
+
+    # ---------- "what was sent" summary in the log ----------
+
+    def _new_summary(self, now: float) -> None:
+        self._sum: Dict[str, Any] = {"since": now, "attempts": 0, "ok": 0, "last_ok": None, "history": 0,
+                                     "logs": 0, "bytes": 0, "parts": {}, "errors": {}}
+
+    def _count_sent(self, patch: Dict[str, Any]) -> None:
+        s = self._sum
+        s["ok"] += 1
+        s["last_ok"] = time.time()
+        s["history"] += sum(1 for k in patch if k.startswith("history/"))
+        s["logs"] += sum(1 for k in patch if k.startswith("logs/"))
+        s["bytes"] += len(json.dumps(patch))
+        for key, name in (("report", "statystyki"), ("config/modules", "ustawienia"), ("history5m", "historia 5 min")):
+            if any(k == key or k.startswith(key + "/") for k in patch):
+                s["parts"][name] = s["parts"].get(name, 0) + 1
+
+    def _maybe_summary(self, now: float) -> None:
+        s = self._sum
+        if now - s["since"] < SUMMARY_S:
+            return
+        mins = round((now - s["since"]) / 60)
+        if s["attempts"] == 0 and not s["errors"]:
+            msg = f"Podgląd zdalny ({mins} min): nic nie wysłano (wyłączony albo czeka na dane)"
+        else:
+            last = time.strftime("%H:%M:%S", time.localtime(s["last_ok"])) if s["last_ok"] else "brak"
+            bits = [f"wysłano {s['ok']} z {s['attempts']} razy (ostatnio {last})",
+                    f"historia +{s['history']} wierszy", f"logi +{s['logs']} wpisów"]
+            bits += [f"{name} {n}×" for name, n in s["parts"].items()]
+            bits.append(f"{s['bytes'] / 1024:.0f} kB")
+            msg = f"Podgląd zdalny ({mins} min): " + ", ".join(bits)
+            if s["errors"]:
+                msg += "; błędy: " + ", ".join(f"{k} {n}×" for k, n in s["errors"].items())
+        level = EventLevel.WARNING if s["errors"] or (s["attempts"] and not s["ok"]) else EventLevel.INFO
+        data = {k: v for k, v in s.items() if k != "since"}
+        with self._lock:
+            self._problems.events.append(Event(ts=now, source=self.id, level=level,
+                                               type="REMOTE_VIEW_SUMMARY", message=msg, data=data))
+        self._new_summary(now)
 
     def _part(self, name: str, fn) -> Optional[Dict[str, Any]]:
         try:
@@ -285,6 +332,8 @@ class RemoteViewModule(ModuleInterface):
             self._last_ok = time.time()
 
     def _failed(self, part: str, message: str) -> None:
+        errors = self._sum["errors"]
+        errors[part] = errors.get(part, 0) + 1
         with self._lock:
             self._problems.failed(part, message, "REMOTE_VIEW_ERROR")
 
