@@ -1,7 +1,7 @@
 // js/service.js - service page: tuning advice (PID, feeder, blower) and the Raspberry Pi diagnostics
 (function () {
   const $ = (id) => document.getElementById(id);
-  const ICON = { ok: "✓", warn: "!", bad: "✕", info: "i" };
+  const opened = new Set();   // cards tapped open stay open after a refresh
   const VERDICT = { ok: "wszystko OK", warn: "są uwagi", bad: "do poprawy" };
   let tab = "tuning";
   let timer = null;
@@ -19,104 +19,130 @@
     el.textContent = text || VERDICT[status] || "";
   }
 
-  function tile(label, val, unit, cls = "") {
-    return `<div class="st2-tile ${cls}"><span class="st2-label">${label}</span><span class="st2-value">${val}${unit ? `<small>${unit}</small>` : ""}</span></div>`;
-  }
-
   // ---------------------------------------------------------------- tuning
+
+  const AREA = {
+    "PID": ["⚙️", "PID"],
+    "Całka (Ki)": ["🎯", "Całka (Ki)"],
+    "Wzmocnienie (Kp)": ["⚡", "Kp"],
+    "Ślimak": ["🌀", "Ślimak"],
+    "Dmuchawa": ["💨", "Dmuchawa"],
+    "Rozpalanie": ["🔥", "Rozpalanie"],
+    "Grzejniki": ["♨️", "Grzejniki"],
+    "Ustawienia": ["🔧", "Ustawienia"],
+    "Zdarzenia": ["⚠️", "Zdarzenia"],
+  };
+  const WORD = { ok: "OK", warn: "Zmień", bad: "Pilne", info: "Sprawdź" };
+  const PID_AREAS = ["PID", "Całka (Ki)", "Wzmocnienie (Kp)", "Ślimak", "Dmuchawa"];
+
+  function bigTile(icon, label, val, status) {
+    return `<div class="sv-tile sv-tile--${status}"><span class="sv-tile__icon">${icon}</span>
+      <span class="sv-tile__label">${label}</span><span class="sv-tile__val">${val}</span></div>`;
+  }
 
   function renderTuning(r) {
     verdict($("tn-verdict"), r.verdict.status, r.verdict.text);
     const reg = r.regulation;
     if (reg && reg.hours >= 1) {
-      const tone = (good, okish) => (good ? "st2-tile--good" : okish ? "" : "st2-tile--bad");
+      const st = (good, okish) => (good ? "ok" : okish ? "warn" : "bad");
       $("tn-hero").innerHTML = [
-        tile("Od zadanej średnio", signed(reg.mean_err), "°C", tone(Math.abs(reg.mean_err) <= 1, Math.abs(reg.mean_err) <= 2)),
-        tile("Kołysanie", `±${num(reg.std)}`, "°C", tone(reg.std <= 1, reg.std <= 2)),
-        tile("W ±2°C", reg.within_2, "%", tone(reg.within_2 >= 80, reg.within_2 >= 60)),
-        tile("Moc średnio", reg.power_avg == null ? "--" : reg.power_avg, "%", tone(reg.power_avg >= 35 && reg.power_avg <= 75, true)),
+        bigTile("🎯", "Od zadanej", `${signed(reg.mean_err)}°`, st(Math.abs(reg.mean_err) <= 1, Math.abs(reg.mean_err) <= 2)),
+        bigTile("〰️", "Kołysanie", `±${num(reg.std)}°`, st(reg.std <= 1, reg.std <= 2)),
+        bigTile("⚙️", "Moc średnio", `${reg.power_avg ?? "--"}%`, st(reg.power_avg >= 35 && reg.power_avg <= 75, true)),
       ].join("");
-      $("tn-hero-note").textContent = `Ostatnie ${num(reg.hours)} h ustabilizowanej pracy (od ${when(r.regulation_since)}). `
-        + `Na maksimum ${reg.at_max_pct}% czasu, na minimum ${reg.at_min_pct}%.`
-        + (reg.period_min ? ` Jedno wahnięcie co ok. ${reg.period_min} min.` : "");
     } else {
-      $("tn-hero").innerHTML = "";
-      $("tn-hero-note").textContent = "Za mało ustabilizowanej pracy (liczonej od 2 h po rozpaleniu) do oceny.";
+      $("tn-hero").innerHTML = `<div class="sv-empty">⏳ Za mało spokojnej pracy do oceny</div>`;
     }
 
-    $("tn-items").innerHTML = r.items.map((i) => `
-      <li class="sv-item sv-item--${i.status}">
-        <span class="st2-check__icon">${ICON[i.status] || "?"}</span>
-        <div class="sv-item__body">
-          <div class="sv-item__head"><span class="sv-area">${esc(i.area)}</span><b>${esc(i.title)}</b></div>
-          <div class="sv-item__detail">${esc(i.detail)}</div>
-          ${i.tip ? `<div class="sv-item__tip">→ ${esc(i.tip)}</div>` : ""}
-        </div>
-      </li>`).join("");
-
+    // the PID parts always, the rest only when something is wrong
+    const items = r.items.filter((i) => PID_AREAS.includes(i.area) || i.status === "warn" || i.status === "bad");
+    $("tn-items").innerHTML = items.map(adviceCard).join("");
     renderChanges(r.changes || []);
     renderLive(r.live || {}, r.settings || {});
   }
 
+  // "Wydłuż podanie ślimaka (8 → 9 s)." -> action "Wydłuż podanie ślimaka", change "8 → 9 s"
+  function splitTip(tip) {
+    const m = /^(.*?)\s*\(([^()]*→[^()]*)\)/.exec(tip || "");
+    return m ? { action: m[1], change: m[2] } : { action: (tip || "").replace(/\.$/, ""), change: "" };
+  }
+
+  function cardClass(status, key) {
+    return `sv-card sv-card--${status}${opened.has(key) ? " is-open" : ""}`;
+  }
+
+  function adviceCard(i) {
+    const [icon, name] = AREA[i.area] || ["•", i.area];
+    const t = splitTip(i.tip);
+    return `<button type="button" class="${cardClass(i.status, i.area + i.title)}" data-key="${esc(i.area + i.title)}">
+      <span class="sv-card__top"><span class="sv-card__icon">${icon}</span><span class="sv-card__name">${esc(name)}</span>
+        <span class="sv-card__word">${WORD[i.status] || ""}</span></span>
+      <span class="sv-card__title">${esc(i.title)}</span>
+      ${t.change ? `<span class="sv-card__change">${esc(t.change)}</span>` : ""}
+      ${i.tip && (t.change || i.status === "warn" || i.status === "bad") ? `<span class="sv-card__action">${esc(t.action)}</span>` : ""}
+      <span class="sv-card__more">${esc(i.detail)}${i.tip && !t.change && i.status === "info" ? `<br>${esc(i.tip)}` : ""}</span>
+    </button>`;
+  }
+
   function renderChanges(list) {
-    if (!list.length) {
-      $("tn-changes").innerHTML = `<div class="st2-empty">Brak zmian Kp, Ki, ślimaka, dmuchawy ani zadanej w ostatnich 7 dniach.</div>`;
-      return;
-    }
-    const side = (s) => (s ? `±2°C: <b>${s.within_2}%</b>, kołysanie ±${num(s.std)}°C, moc ${s.power_avg ?? "--"}%` : `<span class="st2-muted">za mało danych</span>`);
-    const badge = { better: ["lepiej", "ok"], worse: ["gorzej", "bad"], same: ["bez różnicy", "info"] };
+    $("tn-changes-card").style.display = list.length ? "" : "none";
+    const badge = { better: ["👍 lepiej", "ok"], worse: ["👎 gorzej", "bad"], same: ["bez różnicy", "info"] };
+    const bar = (label, s) => s
+      ? `<div class="sv-bar"><span class="sv-bar__label">${label}</span><span class="sv-bar__track"><span class="sv-bar__fill" style="width:${s.within_2}%"></span></span><b>${s.within_2}%</b></div>`
+      : `<div class="sv-bar"><span class="sv-bar__label">${label}</span><span class="sv-bar__wait">czekam na dane</span></div>`;
     $("tn-changes").innerHTML = list.map((c) => {
       const b = badge[c.verdict];
       return `<div class="sv-change">
-        <div class="sv-change__head"><span class="st2-muted">${when(c.at)}</span> <b>${esc(c.label)}</b>: ${value(c.old)} → <b>${value(c.new)}</b>
-          ${b ? `<span class="sv-badge sv-badge--${b[1]}">${b[0]}</span>` : `<span class="sv-badge sv-badge--info">czekam na dane</span>`}</div>
-        <div class="sv-change__cmp"><span>przed: ${side(c.before)}</span><span>po: ${side(c.after)}</span></div>
+        <div class="sv-change__head"><b>${esc(c.label)}</b> <span class="sv-change__val">${value(c.old)} → ${value(c.new)}</span>
+          ${b ? `<span class="sv-badge sv-badge--${b[1]}">${b[0]}</span>` : ""}<span class="sv-change__when">${when(c.at)}</span></div>
+        ${bar("przed", c.before)}${bar("po", c.after)}
       </div>`;
-    }).join("");
+    }).join("") + (list.length ? `<div class="sv-hint">Pasek = ile czasu kocioł był w ±2°C od zadanej</div>` : "");
   }
 
-  // the PID chain now: deviation -> P + I -> power -> feeder rhythm and blower
+  // the PID chain now: boiler -> power (P + I) -> feeder and blower
   function renderLive(l, s) {
     const el = $("tn-live");
     if (l.mode !== "WORK" || !l.pid || l.pid.error == null) {
-      const names = { IGNITION: "rozpalanie", OFF: "wyłączony", MANUAL: "ręczny" };
-      el.innerHTML = `<div class="st2-empty">PID pracuje tylko w trybie PRACA (teraz: ${names[l.mode] || l.mode || "--"}).</div>`;
-      $("tn-live-note").textContent = "";
+      const names = { IGNITION: "🔥 rozpalanie", OFF: "⏹ wyłączony", MANUAL: "✋ ręczny" };
+      el.innerHTML = `<div class="sv-empty">PID pracuje tylko w PRACY • teraz: ${names[l.mode] || l.mode || "--"}</div>`;
       return;
     }
     const p = l.pid;
-    const err = p.error;
     const rate = p.rate || 0;
-    const trend = Math.abs(rate) < 0.05 ? "stoi" : rate > 0 ? `rośnie ${num(rate, 2)}°C/min` : `spada ${num(-rate, 2)}°C/min`;
-    let integral = err > 0.2 ? "rośnie (za zimno)" : err < -0.2 ? "maleje (za ciepło)" : "stoi (w zadanej)";
-    if (p.integral_frozen) integral = "wstrzymana - temperatura już idzie do zadanej";
+    const arrow = Math.abs(rate) < 0.05 ? "→" : rate > 0 ? "↗" : "↘";
     const pw = s.power_work || {};
     const feed = l.feeder;
-    const step = (label, val, sub) => `<div class="sv-step"><span class="st2-label">${label}</span><span class="sv-step__val">${val}</span><span class="sv-step__sub">${sub || ""}</span></div>`;
+    const P = Math.max(0, p.p || 0), I = Math.max(0, p.i || 0);
+    const iState = p.integral_frozen ? "⏸" : p.error > 0.2 ? "▲" : p.error < -0.2 ? "▼" : "•";
+    const box = (icon, label, val, sub, extra = "") => `<div class="sv-step"><span class="sv-step__icon">${icon}</span>
+      <span class="sv-step__label">${label}</span><span class="sv-step__val">${val}</span>${extra}<span class="sv-step__sub">${sub}</span></div>`;
+    const powerBar = `<span class="sv-pbar" title="P ${num(P, 0)} + I ${num(I, 0)}">
+      <span class="sv-pbar__p" style="width:${Math.min(100, P)}%"></span><span class="sv-pbar__i" style="width:${Math.min(100 - Math.min(100, P), I)}%"></span></span>`;
     el.innerHTML = [
-      step("Kocioł", `${num(l.boiler)}°C`, `zadana ${num(l.setpoint, 0)}°C, ${trend}`),
-      step("Błąd", `${signed(err)}°C`, err > 0 ? "za zimno" : err < 0 ? "za ciepło" : ""),
-      step("P (Kp × błąd)", signed(p.p, 0), `Kp ${value(pw.kp)}`),
-      step("I (całka)", num(p.i, 0), integral),
-      step("Moc", `${num(l.power, 0)}%`, p.overtemp ? "obniżona - kocioł za gorący" : `zakres ${value(pw.min_power)}-${value(pw.max_power)}%`),
-      step("Ślimak", feed ? `${num(feed.on_s, 0)} s` : "stoi", feed ? `co ${num(feed.on_s + feed.off_s, 0)} s (przerwa ${num(feed.off_s, 0)} s)` : "moc poniżej progu"),
-      step("Dmuchawa", `${value(l.fan_percent)}%`, l.fan_duty_pct != null ? `przez ${num(l.fan_duty_pct, 0)}% cyklu ${value(l.fan_cycle_s)} s` : "stoi"),
-    ].join('<span class="sv-arrow">→</span>');
-    $("tn-live-note").textContent = "Moc = P + I (obcięta do zakresu i do szybkości zmian). Moc ustala, jak często idzie ślimak i jak długo dmucha dmuchawa.";
+      box("🔥", "Kocioł", `${num(l.boiler)}° <span class="sv-arrowtrend">${arrow}</span>`, `zadana ${num(l.setpoint, 0)}°`),
+      box("⚙️", "Moc", `${num(l.power, 0)}%`, `<span class="sv-key sv-key--p">P ${num(P, 0)}</span> <span class="sv-key sv-key--i">I ${num(I, 0)} ${iState}</span>`, powerBar),
+      box("🌀", "Ślimak", feed ? `${num(feed.on_s, 0)} s` : "stoi", feed ? `co ${num(feed.on_s + feed.off_s, 0)} s` : ""),
+      box("💨", "Dmuchawa", `${value(l.fan_percent)}%`, l.fan_duty_pct != null ? `${num(l.fan_duty_pct, 0)}% czasu` : "stoi"),
+    ].join('<span class="sv-arrow">➜</span>');
   }
 
   // ---------------------------------------------------------------- diagnostics
 
+  const TILE_ICON = { "Procesor": "🌡️", "Zasilanie": "🔌", "Wolne miejsce": "💾", "Sterownik działa": "⏱️", "Internet": "🌐", "Czujniki": "📟" };
+
   function renderDiag(d) {
     verdict($("dg-verdict"), d.status);
+    $("dg-tiles").innerHTML = (d.tiles || []).map((t) => bigTile(TILE_ICON[t.label] || "•", t.label, esc(t.value), t.status)).join("");
+    const problems = d.groups.flatMap((g) => g.items).filter((i) => i.status === "warn" || i.status === "bad");
+    $("dg-problems").innerHTML = problems.map((i) => `<button type="button" class="${cardClass(i.status, i.label)}" data-key="${esc(i.label)}">
+      <span class="sv-card__top"><span class="sv-card__icon">${i.status === "bad" ? "⛔" : "⚠️"}</span><span class="sv-card__name">${esc(i.label)}</span></span>
+      <span class="sv-card__title">${esc(i.value)}</span>
+      ${i.note ? `<span class="sv-card__more">${esc(i.note)}</span>` : ""}</button>`).join("");
     $("dg-groups").innerHTML = d.groups.filter((g) => g.items.length).map((g) => `
-      <h3 class="st2-subhead">${esc(g.title)}</h3>
-      <ul class="st2-checks">${g.items.map((i) => `
-        <li class="st2-check st2-check--${i.status}">
-          <span class="st2-check__icon">${ICON[i.status] || "?"}</span>
-          <span class="st2-check__title">${esc(i.label)}</span>
-          <span class="st2-check__detail">${esc(i.value)}${i.note ? `<span class="sv-note">${esc(i.note)}</span>` : ""}</span>
-        </li>`).join("")}</ul>`).join("");
+      <h3 class="sv-group">${esc(g.title)}</h3>
+      ${g.items.map((i) => `<div class="sv-row sv-row--${i.status}"><span class="sv-row__dot"></span>
+        <span class="sv-row__label">${esc(i.label)}</span><span class="sv-row__val">${esc(i.value)}</span></div>`).join("")}`).join("");
   }
 
   // ---------------------------------------------------------------- loading
@@ -164,6 +190,12 @@
       if (b) showTab(b.dataset.tab);
     });
     $("sv-refresh").addEventListener("click", () => load(true));
+    document.addEventListener("click", (e) => {
+      const card = e.target.closest(".sv-card");
+      if (!card) return;
+      const open = card.classList.toggle("is-open");
+      if (open) opened.add(card.dataset.key); else opened.delete(card.dataset.key);
+    });
     let saved = "tuning";
     try { saved = localStorage.getItem("service-tab") || "tuning"; } catch (e) { /* no storage */ }
     showTab(saved === "diag" ? "diag" : "tuning");

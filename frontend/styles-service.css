@@ -1,8 +1,8 @@
-/* service page - on top of styles-stats.css */
+/* service page - on top of styles-stats.css; nothing smaller than 15px */
 
 .sv-verdict {
-  font-size: 14px;
-  padding: 3px 12px;
+  font-size: 16px;
+  padding: 4px 14px;
   border-radius: 999px;
   text-transform: none;
   letter-spacing: 0;
@@ -13,65 +13,109 @@
 .sv-verdict--warn { background: #92400e; }
 .sv-verdict--bad { background: #991b1b; }
 
-/* the PID chain */
-.sv-chain { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; }
+.sv-empty { font-size: 18px; color: #cbd5e1; padding: 6px 2px; }
+
+/* big tiles: icon, label, value */
+.sv-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sv-tiles--diag { margin-bottom: 12px; }
+.sv-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 12px 8px; border-radius: 16px; background: #0d151b;
+  border: 2px solid #233241; text-align: center;
+}
+.sv-tile__icon { font-size: 30px; line-height: 1.1; }
+.sv-tile__label { font-size: 15px; color: #cbd5e1; }
+.sv-tile__val { font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.sv-tile--ok { border-color: #166534; }
+.sv-tile--ok .sv-tile__val { color: #4ade80; }
+.sv-tile--warn { border-color: #b45309; }
+.sv-tile--warn .sv-tile__val { color: #fbbf24; }
+.sv-tile--bad { border-color: #b91c1c; }
+.sv-tile--bad .sv-tile__val { color: #f87171; }
+.sv-tile--info .sv-tile__val { color: #e5e7eb; }
+.sv-tiles--diag .sv-tile__val { font-size: 26px; }
+
+/* PID now: boiler -> power -> feeder, blower */
+.sv-flow { display: flex; align-items: stretch; gap: 6px; }
 .sv-step {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 110px;
-  flex: 1 1 110px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  background: #0d151b;
-  border: 1px solid #233241;
+  flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 10px 6px; border-radius: 16px; background: #0d151b; border: 1px solid #233241; text-align: center;
 }
-.sv-step__val { font-size: 24px; font-weight: 800; color: #fdba74; font-variant-numeric: tabular-nums; }
-.sv-step__sub { font-size: 12px; color: #cbd5e1; }
-.sv-arrow { align-self: center; color: #64748b; font-size: 20px; font-weight: 900; }
+.sv-step__icon { font-size: 30px; line-height: 1.1; }
+.sv-step__label { font-size: 15px; color: #cbd5e1; }
+.sv-step__val { font-size: 32px; font-weight: 900; color: #fdba74; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.sv-step__sub { font-size: 16px; color: #e5e7eb; }
+.sv-arrow { align-self: center; color: #64748b; font-size: 22px; }
+.sv-arrowtrend { font-size: 26px; color: #e5e7eb; }
+.sv-pbar { display: flex; width: 100%; height: 12px; border-radius: 6px; background: #1f2937; overflow: hidden; margin: 4px 0 2px; }
+.sv-pbar__p { background: #f97316; }
+.sv-pbar__i { background: #60a5fa; }
+.sv-key { font-weight: 800; }
+.sv-key--p { color: #fb923c; }
+.sv-key--i { color: #93c5fd; }
 
-/* advice */
-.sv-advice { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.sv-item {
-  display: grid;
-  grid-template-columns: 28px 1fr;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #0d151b;
-  border-left: 4px solid #64748b;
+/* advice / problem cards - tap to show the description */
+.sv-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; align-items: start; }
+.sv-card {
+  display: flex; flex-direction: column; gap: 4px; text-align: left;
+  padding: 12px 14px; border-radius: 16px; background: #0d151b; color: #f9fafb;
+  border: 2px solid #233241; border-left-width: 8px; font: inherit; cursor: pointer;
 }
-.sv-item--ok { border-left-color: #22c55e; }
-.sv-item--warn { border-left-color: #f59e0b; }
-.sv-item--bad { border-left-color: #ef4444; }
-.sv-item--ok .st2-check__icon { background: #22c55e; }
-.sv-item--warn .st2-check__icon { background: #f59e0b; }
-.sv-item--bad .st2-check__icon { background: #ef4444; color: #fff; }
-.sv-item--info .st2-check__icon { background: #64748b; color: #fff; }
-.sv-item__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 16px; }
-.sv-area {
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #9ca3af;
-}
-.sv-item__detail { color: #cbd5e1; font-size: 14px; margin-top: 2px; }
-.sv-item__tip { color: #fde68a; font-size: 15px; font-weight: 700; margin-top: 4px; }
+.sv-card--ok { border-color: #166534; }
+.sv-card--warn { border-color: #b45309; }
+.sv-card--bad { border-color: #b91c1c; }
+.sv-card--info { border-color: #475569; }
+.sv-card__top { display: flex; align-items: center; gap: 8px; }
+.sv-card__icon { font-size: 28px; line-height: 1; }
+.sv-card__name { font-size: 18px; font-weight: 800; flex: 1; }
+.sv-card__word { font-size: 16px; font-weight: 900; padding: 2px 10px; border-radius: 999px; background: #374151; }
+.sv-card--ok .sv-card__word { background: #166534; }
+.sv-card--warn .sv-card__word { background: #b45309; }
+.sv-card--bad .sv-card__word { background: #b91c1c; }
+.sv-card__title { font-size: 17px; color: #e5e7eb; }
+.sv-card__change { font-size: 30px; font-weight: 900; color: #fde68a; font-variant-numeric: tabular-nums; }
+.sv-card__action { font-size: 16px; color: #fde68a; }
+.sv-card__more { display: none; font-size: 16px; color: #cbd5e1; border-top: 1px solid #233241; padding-top: 6px; margin-top: 2px; }
+.sv-card.is-open .sv-card__more { display: block; }
+.sv-card:not(.is-open) .sv-card__name::after { content: " ⓘ"; color: #64748b; font-weight: 400; }
+#dg-problems:not(:empty) { margin-bottom: 12px; }
 
-/* setting changes */
-.sv-changes { display: flex; flex-direction: column; gap: 8px; }
-.sv-change { padding: 8px 12px; border-radius: 12px; background: #0d151b; }
-.sv-change__head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 15px; }
-.sv-change__cmp { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: #cbd5e1; margin-top: 4px; }
-.sv-badge { font-size: 12px; font-weight: 800; padding: 2px 10px; border-radius: 999px; background: #374151; }
+/* setting changes: before / after bars */
+.sv-changes { display: flex; flex-direction: column; gap: 12px; }
+.sv-change { padding: 12px 14px; border-radius: 16px; background: #0d151b; }
+.sv-change__head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 18px; margin-bottom: 6px; }
+.sv-change__val { font-size: 22px; font-weight: 900; color: #fde68a; }
+.sv-change__when { font-size: 15px; color: #9ca3af; margin-left: auto; }
+.sv-badge { font-size: 16px; font-weight: 800; padding: 3px 12px; border-radius: 999px; background: #374151; }
 .sv-badge--ok { background: #166534; }
 .sv-badge--bad { background: #991b1b; }
+.sv-bar { display: grid; grid-template-columns: 60px 1fr 56px; align-items: center; gap: 10px; font-size: 17px; margin-top: 4px; }
+.sv-bar__label { color: #cbd5e1; }
+.sv-bar__track { height: 16px; border-radius: 8px; background: #1f2937; overflow: hidden; }
+.sv-bar__fill { display: block; height: 100%; background: #22c55e; border-radius: 8px; }
+.sv-bar__wait { grid-column: 2 / 4; color: #9ca3af; font-size: 16px; }
+.sv-hint { font-size: 15px; color: #9ca3af; }
 
-.sv-note { display: block; color: #fbbf24; font-size: 13px; margin-top: 2px; }
+/* all diagnostics details, folded */
+.sv-more summary { font-size: 18px; font-weight: 800; cursor: pointer; padding: 8px 0; color: #e5e7eb; }
+.sv-group { font-size: 17px; margin: 12px 0 4px; color: #e5e7eb; text-transform: uppercase; letter-spacing: 0.05em; }
+.sv-row { display: grid; grid-template-columns: 14px minmax(140px, 220px) 1fr; align-items: center; gap: 10px; padding: 6px 4px; font-size: 16px; border-bottom: 1px solid #1f2937; }
+.sv-row__dot { width: 12px; height: 12px; border-radius: 50%; background: #64748b; }
+.sv-row--ok .sv-row__dot { background: #22c55e; }
+.sv-row--warn .sv-row__dot { background: #f59e0b; }
+.sv-row--bad .sv-row__dot { background: #ef4444; }
+.sv-row__label { color: #cbd5e1; }
+.sv-row__val { font-weight: 700; }
+
+/* the status line under the tabs - readable too */
+#sv-status { font-size: 15px; }
 
 @media (max-width: 700px) {
+  .sv-flow { display: grid; grid-template-columns: 1fr 1fr; }
   .sv-arrow { display: none; }
-  .sv-step { flex: 1 1 45%; }
-  .sv-step__val { font-size: 20px; }
+  .sv-tiles--diag { grid-template-columns: 1fr 1fr; }
+  .sv-tile__val { font-size: 26px; }
+  .sv-step__val { font-size: 26px; }
+  .sv-row { grid-template-columns: 14px 1fr; }
+  .sv-row__val { grid-column: 2; }
 }

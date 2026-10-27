@@ -31,37 +31,36 @@
               </div>
               <div class="st2-status" id="sv-status">Wczytywanie…</div>
 
-              <!-- STROJENIE: OCENA -->
+              <!-- STROJENIE -->
               <section class="st2-card" data-tab="tuning">
                 <h2>Jak chodzi piec <span class="sv-verdict" id="tn-verdict"></span></h2>
-                <div class="st2-hero" id="tn-hero"></div>
-                <div class="st2-note" id="tn-hero-note"></div>
+                <div class="sv-tiles" id="tn-hero"></div>
               </section>
 
-              <!-- STROJENIE: PID NA ŻYWO -->
               <section class="st2-card" data-tab="tuning">
-                <h2>PID teraz</h2>
-                <div class="sv-chain" id="tn-live"></div>
-                <div class="st2-note" id="tn-live-note"></div>
+                <h2>Teraz</h2>
+                <div class="sv-flow" id="tn-live"></div>
               </section>
 
-              <!-- STROJENIE: SUGESTIE -->
               <section class="st2-card" data-tab="tuning">
-                <h2>Co poprawić</h2>
-                <ul class="sv-advice" id="tn-items"></ul>
+                <h2>Co zmienić</h2>
+                <div class="sv-cards" id="tn-items"></div>
               </section>
 
-              <!-- STROJENIE: ZMIANY USTAWIEŃ -->
-              <section class="st2-card" data-tab="tuning">
-                <h2>Zmiany ustawień i ich skutek</h2>
+              <section class="st2-card" data-tab="tuning" id="tn-changes-card">
+                <h2>Po zmianach ustawień</h2>
                 <div class="sv-changes" id="tn-changes"></div>
-                <div class="st2-note">Porównanie 12 h pracy przed zmianą i 12 h po niej (bez pierwszych 30 min i 2 h po rozpaleniu).</div>
               </section>
 
               <!-- DIAGNOSTYKA -->
               <section class="st2-card" data-tab="diag">
-                <h2>Stan <span class="sv-verdict" id="dg-verdict"></span></h2>
-                <div id="dg-groups"></div>
+                <h2>Raspberry Pi <span class="sv-verdict" id="dg-verdict"></span></h2>
+                <div class="sv-tiles sv-tiles--diag" id="dg-tiles"></div>
+                <div class="sv-cards" id="dg-problems"></div>
+                <details class="sv-more">
+                  <summary>Wszystkie szczegóły</summary>
+                  <div id="dg-groups"></div>
+                </details>
               </section>
 
             </div>

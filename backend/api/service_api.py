@@ -111,6 +111,36 @@ def _newest_mtime(directory: Path) -> Optional[float]:
         return None
 
 
+def _tiles(groups: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+    """The few numbers shown big at the top of the diagnostics tab."""
+    items = {i["label"]: i for g in groups for i in g["items"]}
+    tiles: List[Dict[str, str]] = []
+
+    def add(label: str, item: Optional[Dict[str, str]], value: str) -> None:
+        if item is not None:
+            tiles.append({"label": label, "value": value, "status": item["status"]})
+
+    cpu = items.get("Temperatura procesora")
+    add("Procesor", cpu, cpu["value"] if cpu else "")
+    power = items.get("Zasilanie")
+    add("Zasilanie", power, {"ok": "OK", "warn": "były spadki", "bad": "za słabe"}.get(power["status"], "") if power else "")
+    disk = items.get("Dane (pendrive)") or items.get("Karta SD (system)")
+    if disk:
+        pct = disk["value"].rsplit("(", 1)[-1].rstrip(")")
+        add("Wolne miejsce", disk, pct)
+    up = items.get("Sterownik działa od")
+    add("Sterownik działa", up, up["value"] if up else "")
+    net = items.get("Podgląd zdalny (Firebase)") or items.get("Pogoda (internet)")
+    if net:
+        add("Internet", net, {"ok": "OK", "info": "wyłączony"}.get(net["status"], "problem"))
+    sensors = next((g["items"] for g in groups if g["title"] == "Czujniki"), [])
+    if sensors:
+        good = sum(1 for i in sensors if i["status"] == "ok")
+        worst = "bad" if any(i["status"] == "bad" for i in sensors) else "warn" if good < len(sensors) else "ok"
+        tiles.append({"label": "Czujniki", "value": f"{good}/{len(sensors)}", "status": worst})
+    return tiles
+
+
 class LoopStats:
     """Duration of the control / aux loop steps over the last 10 min (filled by main.py)."""
 
@@ -406,6 +436,6 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
                     worst = "bad"
                 elif i["status"] == "warn" and worst == "ok":
                     worst = "warn"
-        return {"generated_at": now, "status": worst, "groups": groups}
+        return {"generated_at": now, "status": worst, "groups": groups, "tiles": _tiles(groups)}
 
     return router
