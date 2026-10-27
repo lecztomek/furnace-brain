@@ -10,6 +10,8 @@
   // by several regulators); it is read from the first one.
   // "derived" settings are not shown as fields - they are saved automatically
   // as field value + offset (and listed in the hint).
+  // "toggle" is an on/off setting shown as a switch above the fields; a field
+  // with "showWhen" is shown only when the switch is in that position.
   const TARGETS = {
     boiler: {
       opener: "furnace-temp",
@@ -28,7 +30,24 @@
     radiators: {
       opener: "radiators-temp",
       title: "Ustaw temp grzejników",
-      fields: [{ moduleId: "mixer", key: "target_temp" }],
+      toggle: { moduleId: "mixer", key: "curve_enabled", label: "Krzywa grzewcza" },
+      fields: [
+        { moduleId: "mixer", key: "target_temp", showWhen: false },
+        { moduleId: "mixer", key: "curve_at_0", showWhen: true },
+      ],
+      // with the curve on: what it gives now, from the averaged outside temperature
+      hint: async (on) => {
+        if (!on) return "";
+        const st = await apiJson("/api/state/current");
+        const rad = st.radiators || {};
+        const at0 = active?.fields.find((f) => f.key === "curve_at_0")?.value;
+        if (rad.outside_avg == null) return "Brak temperatury zewnętrznej - grzeje do stałej zadanej";
+        const [slope, lo, hi] = await Promise.all(
+          ["curve_slope", "curve_min", "curve_max"].map((k) => apiJson(valueUrl("mixer", k)).then((d) => Number(d.value)))
+        );
+        const t = clamp(at0 - slope * rad.outside_avg, lo, hi);
+        return `Na dworze średnio ${fmt(rad.outside_avg)}°C → zadana ${fmt(Math.round(t * 10) / 10)}°C`;
+      },
     },
     pump_co: {
       opener: "pump-co",
@@ -93,7 +112,7 @@
   const titleEl = document.getElementById("temp-modal-title");
 
   // ===== State =====
-  let active = null; // { cfg, fields: [{ moduleId, key, def, value, loaded, valueEl }] }
+  let active = null; // { cfg, toggle, fields: [{ moduleId, key, def, value, loaded, valueEl }] }
   let isSaving = false;
 
   function setValue(field, v) {
@@ -109,9 +128,20 @@
     return Math.min(field.value + d.offset, Number(d.def.max ?? Infinity));
   }
 
+  const visibleFields = () =>
+    active.fields.filter((f) => f.showWhen === undefined || !active.toggle || f.showWhen === active.toggle.value);
+
+  let hintSeq = 0;
   function updateHint() {
     if (!active || !active.fields.length || active.fields.some((f) => f.value === null)) return;
-    const fields = active.fields;
+    const fields = visibleFields();
+    if (active.cfg.hint) {
+      const seq = ++hintSeq;
+      const opened = active;
+      active.cfg.hint(active.toggle?.value)
+        .then((txt) => { if (txt && active === opened && seq === hintSeq) hintEl.textContent = txt; })
+        .catch(() => {});
+    }
     const parts = [];
     fields.forEach((f) => {
       const unit = f.def.unit || "";
@@ -169,6 +199,38 @@
     fieldsEl.appendChild(wrap);
   }
 
+  function renderToggle(toggle) {
+    const wrap = document.createElement("div");
+    wrap.className = "setpoint-toggle";
+    const label = document.createElement("span");
+    label.textContent = toggle.label || toggle.def.label;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "setpoint-toggle__btn";
+    const paint = () => {
+      btn.textContent = toggle.value ? (toggle.def.label_on || "WŁ") : (toggle.def.label_off || "WYŁ");
+      btn.classList.toggle("is-on", toggle.value);
+    };
+    paint();
+    btn.addEventListener("click", () => {
+      toggle.value = !toggle.value;
+      renderFields();
+    });
+    wrap.append(label, btn);
+    fieldsEl.appendChild(wrap);
+  }
+
+  function renderFields() {
+    fieldsEl.innerHTML = "";
+    if (active.toggle) renderToggle(active.toggle);
+    const fields = visibleFields();
+    fields.forEach((f) => {
+      renderField(f, fields.length > 1 || !!f.showWhen);
+      f.valueEl.textContent = fmt(f.value);
+    });
+    updateHint();
+  }
+
   function rangeHint(fields) {
     const range = (f) => {
       const u = f.def.unit || "";
@@ -180,7 +242,7 @@
   }
 
   async function openModal(cfg) {
-    active = { cfg, fields: [] };
+    active = { cfg, toggle: null, fields: [] };
     titleEl.textContent = cfg.title;
     fieldsEl.innerHTML = "";
     hintEl.textContent = "Wczytywanie…";
@@ -191,6 +253,10 @@
 
     const opened = active;
     try {
+      const toggle = cfg.toggle
+        ? await Promise.all([fieldDef(cfg.toggle.moduleId, cfg.toggle.key), apiJson(valueUrl(cfg.toggle.moduleId, cfg.toggle.key))])
+            .then(([def, data]) => ({ ...cfg.toggle, def, value: !!data?.value, loaded: !!data?.value }))
+        : null;
       const fields = await Promise.all(
         cfg.fields.map(async (f) => {
           const [def, data] = await Promise.all([
@@ -217,15 +283,16 @@
       );
       if (active !== opened) return; // zamknięte w trakcie wczytywania
 
+      active.toggle = toggle;
       active.fields = fields;
       fields.forEach((f) => {
-        renderField(f, fields.length > 1);
+        f.valueEl = document.createElement("span"); // replaced when rendered
         setValue(f, f.loaded);
         f.loaded = f.value;
         // derived settings that don't match yet also make the save write them
         if (f.derived.some((d) => d.current !== derivedValue(f, d))) f.inSync = false;
       });
-      updateHint();
+      renderFields();
       btnSave.disabled = false;
     } catch (err) {
       console.error(err);
@@ -269,6 +336,11 @@
           body: JSON.stringify(value),
         });
 
+      const t = active.toggle;
+      if (t && t.value !== t.loaded) {
+        await put(t.moduleId, t.key, t.value);
+        t.loaded = t.value;
+      }
       // only changed fields (or ones whose shared/derived settings differ)
       for (const f of active.fields.filter((f) => f.value !== f.loaded || !f.inSync)) {
         for (const t of [f, ...(f.also || [])]) await put(t.moduleId, t.key, f.value);

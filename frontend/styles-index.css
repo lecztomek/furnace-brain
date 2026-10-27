@@ -742,6 +742,34 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
   margin-top: 16px;
 }
 
+.setpoint-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.setpoint-toggle__btn {
+  min-width: 150px;
+  height: 56px;
+  border-radius: 16px;
+  border: 1px solid #2c3b47;
+  background: #1f2a33;
+  color: #9ca3af;
+  font-size: 20px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.setpoint-toggle__btn.is-on {
+  background: #14532d;
+  border-color: #22c55e;
+  color: #f9fafb;
+}
+
 .feeder-second-label {
   margin-top: 16px;
 }
@@ -771,6 +799,8 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
   .temp-stepper__unit { font-size: 18px; }
 
   .setpoint-field + .setpoint-field { margin-top: 8px; }
+  .setpoint-toggle { margin-bottom: 6px; font-size: 17px; }
+  .setpoint-toggle__btn { height: clamp(40px, 7vh, 52px); font-size: 17px; }
   .setpoint-field__label { margin-bottom: 4px; }
   .feeder-second-label { margin-top: 8px; }
 

@@ -88,6 +88,8 @@ def create_state_router(
             "power_kw": (s.runtime.get("stats") or {}).get("power_kw_now"),
             # coal burned [kg/h], same 10 min window
             "coal_kgph": (s.runtime.get("stats") or {}).get("coal_kgph_now"),
+            # radiators target in use: fixed, or from the heating curve (mixer module)
+            "radiators": s.runtime.get("mixer") or {},
             "modules": {
                 mid: {
                     "health": status.health.name,

@@ -236,22 +236,31 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // radiators setpoint (mixer target) under the measured temperature - so a
-// change made in the popup is visible at once, before the water warms up
+// change made in the popup is visible at once, before the water warms up.
+// With the heating curve on it is the target computed from the outside temperature.
 (function () {
   const el = document.getElementById("radiators-set-text");
   if (!el) return;
+  const fmt = (v) => String(Math.round(v * 10) / 10).replace(".", ",");
   async function refresh() {
     try {
-      const r = await fetch("/api/config/value/mixer/target_temp", { cache: "no-store" });
+      const r = await fetch("/api/state/current", { cache: "no-store" });
       if (!r.ok) return;
-      const v = Number((await r.json()).value);
-      if (!isNaN(v)) el.textContent = `zadana ${String(Math.round(v * 10) / 10).replace(".", ",")}°C`;
+      const rad = (await r.json()).radiators || {};
+      let v = Number(rad.target);
+      if (rad.target == null || isNaN(v)) {
+        // mixer not running yet - show the configured value
+        const c = await fetch("/api/config/value/mixer/target_temp", { cache: "no-store" });
+        if (!c.ok) return;
+        v = Number((await c.json()).value);
+      }
+      if (!isNaN(v)) el.textContent = `${rad.curve_active ? "krzywa" : "zadana"} ${fmt(v)}°C`;
     } catch (e) { /* keep the last value */ }
   }
   refresh();
   setInterval(refresh, 10000);
   // right after saving in the popup
   document.addEventListener("click", (e) => {
-    if (e.target && e.target.closest && e.target.closest("#temp-save")) setTimeout(refresh, 800);
+    if (e.target && e.target.closest && e.target.closest("#temp-save")) setTimeout(refresh, 1500);
   });
 })();

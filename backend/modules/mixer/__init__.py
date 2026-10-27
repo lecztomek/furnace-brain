@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -48,6 +49,20 @@ class MixerConfig:
     preclose_on_ignition_enabled: bool = True
     preclose_full_close_time_s: float = 120.0
 
+    # Heating curve: the target follows the outside temperature (off = fixed target_temp).
+    # Defaults fitted to how the target was set by hand in the 2025/26 season
+    # (about 30 C at 0 C outside, 0.45 C more water per degree of frost).
+    curve_enabled: bool = False
+    curve_at_0: float = 30.0          # target at 0 C outside
+    curve_slope: float = 0.45         # C of water per C of outside temperature
+    curve_min: float = 22.0
+    curve_max: float = 45.0
+    curve_avg_h: float = 6.0          # outside temperature averaged over (house and water inertia)
+
+
+CURVE_SAMPLE_S = 60.0          # outside temperature sampled once a minute
+CURVE_STALE_S = 3600.0         # no outside temperature for an hour -> fixed target_temp
+
 
 class MixerModule(ModuleInterface):
     def __init__(
@@ -89,6 +104,11 @@ class MixerModule(ModuleInterface):
         self._last_out_open: bool = False
         self._last_out_close: bool = False
 
+        # heating curve: outside temperature samples (ts_mono, temp) and the target in use
+        self._outside: deque = deque()
+        self._target: float = self._config.target_temp
+        self._curve_active: bool = False
+
     @property
     def id(self) -> str:
         return "mixer"
@@ -108,6 +128,8 @@ class MixerModule(ModuleInterface):
         mode_enum = system_state.mode
         boiler_temp = sensors.boiler_temp
         rad_temp = sensors.radiators_temp
+
+        self._update_target(now, now_ctrl, sensors.outside_temp, system_state, events)
 
         prev_mode = self._last_mode
 
@@ -278,12 +300,12 @@ class MixerModule(ModuleInterface):
                 type="MIXER_PRECLOSE_ON_IGNITION",
                 message=(
                     f"Zawór mieszający: pełne ZAMKNIĘCIE {close_s:.1f}s "
-                    f"przed rampowaniem (IGNITION, T_CO={rad_temp:.1f}°C, zadana={self._config.target_temp:.1f}°C)"
+                    f"przed rampowaniem (IGNITION, T_CO={rad_temp:.1f}°C, zadana={self._target:.1f}°C)"
                 ),
                 data={
                     "pulse_s": close_s,
                     "radiators_temp": rad_temp,
-                    "target_temp": self._config.target_temp,
+                    "target_temp": self._target,
                     "mode": "ignition_preclose",
                     "boiler_temp": boiler_temp,
                 },
@@ -324,7 +346,7 @@ class MixerModule(ModuleInterface):
             else:
                 far_err = self._config.ramp_error_factor * self._config.ok_band_degC
                 effective_mode = (
-                    "ramp" if rad_temp < (self._config.target_temp - far_err) else "stabilize"
+                    "ramp" if rad_temp < (self._target - far_err) else "stabilize"
                 )
 
         # ------------------------
@@ -382,13 +404,13 @@ class MixerModule(ModuleInterface):
                             type="MIXER_MOVE",
                             message=(
                                 f"Zawór mieszający: {direction.upper()} {pulse_s:.1f}s "
-                                f"(T_CO={rad_temp:.1f}°C, zadana={self._config.target_temp:.1f}°C, tryb={effective_mode})"
+                                f"(T_CO={rad_temp:.1f}°C, zadana={self._target:.1f}°C, tryb={effective_mode})"
                             ),
                             data={
                                 "direction": direction,
                                 "pulse_s": pulse_s,
                                 "radiators_temp": rad_temp,
-                                "target_temp": self._config.target_temp,
+                                "target_temp": self._target,
                                 "mode": effective_mode,
                                 "boiler_temp": boiler_temp,
                             },
@@ -453,7 +475,7 @@ class MixerModule(ModuleInterface):
                     "mode": effective_mode,
                     "radiators_temp": rad_temp,
                     "boiler_temp": boiler_temp,
-                    "target_temp": self._config.target_temp,
+                    "target_temp": self._target,
                 }
             ))
 
@@ -474,7 +496,7 @@ class MixerModule(ModuleInterface):
                     "mode": effective_mode,
                     "radiators_temp": rad_temp,
                     "boiler_temp": boiler_temp,
-                    "target_temp": self._config.target_temp,
+                    "target_temp": self._target,
                 }
             ))
             self._move_start_ts = None
@@ -500,7 +522,7 @@ class MixerModule(ModuleInterface):
                     "mode": effective_mode,
                     "radiators_temp": rad_temp,
                     "boiler_temp": boiler_temp,
-                    "target_temp": self._config.target_temp,
+                    "target_temp": self._target,
                 }
             ))
 
@@ -521,7 +543,7 @@ class MixerModule(ModuleInterface):
                     "mode": effective_mode,
                     "radiators_temp": rad_temp,
                     "boiler_temp": boiler_temp,
-                    "target_temp": self._config.target_temp,
+                    "target_temp": self._target,
                 }
             ))
             self._move_start_ts = None
@@ -535,7 +557,7 @@ class MixerModule(ModuleInterface):
         if rad_temp is None:
             return False
         far_err = self._config.ramp_error_factor * self._config.ok_band_degC
-        return rad_temp < (self._config.target_temp - far_err)
+        return rad_temp < (self._target - far_err)
 
     def _stop_movement(self) -> None:
         self._movement_until_ts = None
@@ -557,7 +579,7 @@ class MixerModule(ModuleInterface):
         return (now_ctrl - self._last_protect_action_ts) >= self._config.protect_interval_s
 
     def _decide_direction_stabilize(self, mix_temp: float) -> Optional[str]:
-        t_set = self._config.target_temp
+        t_set = self._target
         band = self._config.ok_band_degC
         if mix_temp < t_set - band:
             return "open"
@@ -566,7 +588,7 @@ class MixerModule(ModuleInterface):
         return None
 
     def _compute_pulse_duration(self, mix_temp: float) -> float:
-        t_set = self._config.target_temp
+        t_set = self._target
         band = self._config.ok_band_degC
         error = abs(t_set - mix_temp)
         max_err = 10.0
@@ -594,6 +616,45 @@ class MixerModule(ModuleInterface):
 
     def get_config_values(self) -> Dict[str, Any]:
         return asdict(self._config)
+
+    # ---------- heating curve ----------
+
+    def _outside_avg(self, now_ctrl: float) -> Optional[float]:
+        window = max(self._config.curve_avg_h, 0.25) * 3600.0
+        while self._outside and self._outside[0][0] < now_ctrl - window:
+            self._outside.popleft()
+        if not self._outside or now_ctrl - self._outside[-1][0] > CURVE_STALE_S:
+            return None
+        return sum(v for _, v in self._outside) / len(self._outside)
+
+    def curve_target(self, outside: float) -> float:
+        c = self._config
+        t = c.curve_at_0 - c.curve_slope * outside
+        return round(max(c.curve_min, min(c.curve_max, t)), 1)
+
+    def _update_target(self, now: float, now_ctrl: float, outside: Optional[float],
+                       system_state: SystemState, events: List[Event]) -> None:
+        if outside is not None and (not self._outside or now_ctrl - self._outside[-1][0] >= CURVE_SAMPLE_S):
+            self._outside.append((now_ctrl, float(outside)))
+        avg = self._outside_avg(now_ctrl)
+        active = bool(self._config.curve_enabled) and avg is not None
+        self._target = self.curve_target(avg) if active else self._config.target_temp
+
+        if self._config.curve_enabled and active != self._curve_active:
+            events.append(Event(
+                ts=now, source=self.id, level=EventLevel.INFO if active else EventLevel.WARNING,
+                type="MIXER_CURVE_ON" if active else "MIXER_CURVE_NO_WEATHER",
+                message=(f"Krzywa grzewcza: zadana {self._target:.1f}°C (na dworze średnio {avg:.1f}°C)" if active
+                         else f"Krzywa grzewcza: brak temperatury zewnętrznej - stała zadana {self._target:.1f}°C"),
+                data={"target": self._target, "outside_avg": avg},
+            ))
+        self._curve_active = active
+        system_state.runtime["mixer"] = {
+            "target": self._target,
+            "curve_enabled": bool(self._config.curve_enabled),
+            "curve_active": active,
+            "outside_avg": None if avg is None else round(avg, 1),
+        }
 
     def set_config_values(self, values: Dict[str, Any], persist: bool = True) -> None:
         if "target_temp" in values:
@@ -630,6 +691,7 @@ class MixerModule(ModuleInterface):
             self._config.preclose_on_ignition_enabled = bool(values["preclose_on_ignition_enabled"])
         if "preclose_full_close_time_s" in values:
             self._config.preclose_full_close_time_s = float(values["preclose_full_close_time_s"])
+        self._apply_curve(values)
 
         if persist:
             self._save_config_to_file()
@@ -665,6 +727,14 @@ class MixerModule(ModuleInterface):
                     setattr(self._config, field, bool(data[field]))
                 else:
                     setattr(self._config, field, float(data[field]))
+        self._apply_curve(data)
+
+    def _apply_curve(self, values: Dict[str, Any]) -> None:
+        if "curve_enabled" in values:
+            self._config.curve_enabled = bool(values["curve_enabled"])
+        for name in ("curve_at_0", "curve_slope", "curve_min", "curve_max", "curve_avg_h"):
+            if name in values:
+                setattr(self._config, name, float(values[name]))
 
     def _save_config_to_file(self) -> None:
         data = asdict(self._config)

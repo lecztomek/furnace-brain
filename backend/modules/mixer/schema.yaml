@@ -9,6 +9,8 @@ groups:
     label: "Tryb dogrzewania (ramp)"
   - id: boiler_protection
     label: "Ochrona kotła / powrotu"
+  - id: curve
+    label: "Krzywa grzewcza"
 
 fields:
   - key: target_temp
@@ -173,3 +175,67 @@ fields:
     group: boiler_protection
     description: "Ile sekund trwa pełne domknięcie zaworu w trybie pre-close."
 
+  - key: curve_enabled
+    label: "Krzywa grzewcza"
+    type: bool
+    label_on: "WŁĄCZONA"
+    label_off: "WYŁĄCZONA"
+    default: false
+    group: curve
+    description: >
+      Zadana za zaworem liczona z temperatury na dworze (uśrednionej z kilku godzin)
+      zamiast stałej "Docelowej temperatury". Bez temperatury zewnętrznej przez godzinę
+      wraca do stałej zadanej.
+
+  - key: curve_at_0
+    label: "Zadana przy 0°C na dworze"
+    type: number
+    unit: "°C"
+    min: 20
+    max: 60
+    step: 0.5
+    default: 30
+    group: curve
+    description: "Temperatura za zaworem, gdy na dworze jest 0°C. Przesuwa całą krzywą w górę/dół (cieplej/chłodniej w domu)."
+
+  - key: curve_slope
+    label: "Nachylenie krzywej"
+    type: number
+    unit: "°C/°C"
+    min: 0.1
+    max: 2
+    step: 0.05
+    default: 0.45
+    group: curve
+    description: "O ile stopni podnieść zadaną na każdy stopień mrozu (i obniżyć na każdy stopień ciepła)."
+
+  - key: curve_min
+    label: "Minimalna zadana z krzywej"
+    type: number
+    unit: "°C"
+    min: 20
+    max: 60
+    step: 0.5
+    default: 22
+    group: curve
+
+  - key: curve_max
+    label: "Maksymalna zadana z krzywej"
+    type: number
+    unit: "°C"
+    min: 20
+    max: 70
+    step: 0.5
+    default: 45
+    group: curve
+
+  - key: curve_avg_h
+    label: "Uśrednianie temp. zewnętrznej"
+    type: number
+    unit: "h"
+    min: 0.5
+    max: 24
+    step: 0.5
+    default: 6
+    group: curve
+    description: "Z ilu ostatnich godzin liczona jest średnia temperatura na dworze. Dom i woda w instalacji reagują wolno, więc krótkie wahania (noc/dzień) są wygładzane."
