@@ -47,9 +47,14 @@ deploy/update.sh --force        # retry a version that failed to start
 journalctl -u furnace-update -e
 ```
 
-## Mode after a restart
-Saved to `$FURNACE_BRAIN_DATA_ROOT/mode_state.json` and restored: STOP, PRACA and ROZPALANIE
-stay; RĘCZNY becomes STOP. No file = PRACA.
+## After a restart (updates)
+- Kept: settings, mode (`mode_state.json`; RĘCZNY becomes STOP), PID state (if < 15 min old),
+  today's coal, the last statistics report, history and logs (a 10–20 s gap).
+- Refilled from the history CSV: the flame-out window (protection works at once) and the
+  heating curve's outside average.
+- While the backend is down the feeder, blower and mixing valve are stopped; with a boiler
+  above 45 °C the pumps run.
+- Start from zero: kW / kg/h on the main page (10 min window), valve seconds, tuning cache, diagnostics counters.
 
 ## Remote view
 GUI of the prod version on GitHub Pages, data from Firebase Realtime Database; read-only.

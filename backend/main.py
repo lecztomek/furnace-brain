@@ -291,6 +291,17 @@ async def on_shutdown() -> None:
         aux_thread.join(timeout=5.0)
         logger.info("[AUX] alive=%s", aux_thread.is_alive())
 
+    # feeder and blower off for the time until the new process takes over
+    # (an update): the pins keep their last state, a feeder mid-dose would run on
+    try:
+        from backend.core.shutdown import parking_outputs
+        with store.locked() as st:
+            parked = parking_outputs(st.outputs, st.sensors.boiler_temp)
+        hardware.apply_outputs(parked)
+        logger.info("Outputs parked: feeder off, fan off, pumps CO=%s CWU=%s", parked.pump_co_on, parked.pump_cwu_on)
+    except Exception:  # pylint: disable=broad-except
+        logger.exception("Parking the outputs failed")
+
     # pokaż wątki
     for t in threading.enumerate():
         logger.info("Alive thread: name=%s daemon=%s ident=%s", t.name, t.daemon, t.ident)

@@ -2,6 +2,10 @@
 
 Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.36
+- Restart-proof: feeder, blower and valve stop while the backend is down (pumps run with a warm boiler).
+- Flame-out window and the heating curve's outside average refilled from the history after a restart.
+
 ## 1.35
 - Kontrola counts the last 3 days; every card says which period its numbers come from.
 - Regulation chart for the last day in 10 min steps (dips like a bath show); periods named on the tiles.

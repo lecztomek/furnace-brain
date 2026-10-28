@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
+from backend.core.history_tail import history_dir, recent_rows, to_mono
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
 from backend.core.state import (
     BoilerMode,
@@ -71,6 +72,7 @@ class MixerModule(ModuleInterface):
         self,
         base_path: Optional[Path] = None,
         config: Optional[MixerConfig] = None,
+        data_root: Optional[Path] = None,
     ) -> None:
         self._base_path = base_path or Path(__file__).resolve().parent
         self._schema_path = self._base_path / "schema.yaml"
@@ -108,6 +110,9 @@ class MixerModule(ModuleInterface):
 
         # heating curve: outside temperature samples (ts_mono, temp) and the target in use
         self._outside: deque = deque()
+        # the heating curve's outside average is refilled from the history after a restart
+        self._history_dir = history_dir(data_root)
+        self._outside_refilled = False
         self._target: float = self._config.target_temp
         self._curve_active: bool = False
 
@@ -625,6 +630,13 @@ class MixerModule(ModuleInterface):
 
     # ---------- heating curve ----------
 
+    def _refill_outside(self, now_ctrl: float) -> None:
+        """Outside temperatures of the last curve_avg_h hours from the history CSV, one a minute."""
+        hours = max(self._config.curve_avg_h, 0.25)
+        for t, _, v in to_mono(recent_rows(self._history_dir, hours), "temp_zewn", now_ctrl):
+            if not self._outside or t - self._outside[-1][0] >= CURVE_SAMPLE_S:
+                self._outside.append((t, v))
+
     def _outside_avg(self, now_ctrl: float) -> Optional[float]:
         window = max(self._config.curve_avg_h, 0.25) * 3600.0
         while self._outside and self._outside[0][0] < now_ctrl - window:
@@ -661,6 +673,9 @@ class MixerModule(ModuleInterface):
 
     def _update_target(self, now: float, now_ctrl: float, outside: Optional[float],
                        system_state: SystemState, events: List[Event]) -> None:
+        if not self._outside_refilled:
+            self._outside_refilled = True
+            self._refill_outside(now_ctrl)
         if outside is not None and (not self._outside or now_ctrl - self._outside[-1][0] >= CURVE_SAMPLE_S):
             self._outside.append((now_ctrl, float(outside)))
         avg = self._outside_avg(now_ctrl)

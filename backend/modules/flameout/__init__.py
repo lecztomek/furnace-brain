@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
+from backend.core.history_tail import history_dir, recent_rows, to_mono
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
 from backend.core.state import BoilerMode, Event, EventLevel, ModuleStatus, PartialOutputs, Sensors, SystemState
 
@@ -38,7 +39,8 @@ class FlameoutConfig:
 
 
 class FlameoutModule(ModuleInterface):
-    def __init__(self, base_path: Path | None = None, config: FlameoutConfig | None = None) -> None:
+    def __init__(self, base_path: Path | None = None, config: FlameoutConfig | None = None,
+                 data_root: Path | None = None) -> None:
         self._base_path = base_path or Path(__file__).resolve().parent
         self._schema_path = self._base_path / "schema.yaml"
         self._config_path = self._base_path / "values.yaml"
@@ -47,6 +49,10 @@ class FlameoutModule(ModuleInterface):
 
         self._samples: deque = deque()          # (ts_mono, boiler, power) in WORK
         self._tripped: Optional[Dict[str, Any]] = None
+        # after a restart the window is refilled from the history, so the
+        # protection works at once and not only after window_min
+        self._history_dir = history_dir(data_root)
+        self._refilled = False
 
     @property
     def id(self) -> str:
@@ -61,6 +67,11 @@ class FlameoutModule(ModuleInterface):
         # the user started the furnace again: the alarm is over
         if self._tripped and mode in (BoilerMode.WORK, BoilerMode.IGNITION):
             self._tripped = None
+
+        if not self._refilled:
+            self._refilled = True
+            if mode == BoilerMode.WORK and self._config.enabled:
+                self._refill(now_ctrl)
 
         if mode != BoilerMode.WORK or not self._config.enabled or boiler is None:
             self._samples.clear()
@@ -77,6 +88,24 @@ class FlameoutModule(ModuleInterface):
         system_state.runtime["flameout"] = dict(self._tripped) if self._tripped else {}
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
+
+    def _refill(self, now_ctrl: float) -> None:
+        """The last window of WORK from the history CSV (only the unbroken WORK stretch up to now)."""
+        window = max(self._config.window_min, 1.0) * 60.0
+        rows = to_mono(recent_rows(self._history_dir, (window + 300) / 3600.0), "temp_pieca", now_ctrl)
+        tail: List[tuple] = []
+        for t, r, boiler in reversed(rows):
+            gap = tail and tail[0][0] - t > 300           # a long gap = it didn't work in between
+            if (r.get("tryb_pracy") or "").upper() != "WORK" or gap or t < now_ctrl - window - SAMPLE_S:
+                break
+            flue = r.get("temp_spalin")
+            try:
+                power = float(r.get("power") or 0.0)
+                flue_v = float(flue) if flue not in (None, "") else None
+            except ValueError:
+                continue
+            tail.insert(0, (t, boiler, power, flue_v))
+        self._samples.extend(tail)
 
     def _flamed_out(self, window: float) -> bool:
         s = self._samples
