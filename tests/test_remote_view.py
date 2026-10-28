@@ -59,7 +59,9 @@ class LocalApi(BaseHTTPRequestHandler):
         elif p == "/api/logs/meta":
             body = {"levels": ["INFO", "WARNING"], "sources": ["mixer"]}
         elif p == "/api/analytics/report":
-            body = {"periods": {"d7": {"coal_kg": 12.5}}, "daily": [], "checks": []}
+            # the API hands out its last report marked stale while a new one is built
+            body = {"periods": {"d7": {"coal_kg": 12.5}}, "daily": [], "checks": [], "stale": True,
+                    "progress": {"done": 422, "total": 423}}
         elif p == "/api/service/tuning":
             body = {"verdict": {"status": "ok"}}
         elif p == "/api/service/diagnostics":
@@ -121,6 +123,8 @@ def test_push_and_increments(setup):
     _push_cycle(mod)
     data = fb.root["furnace"]["klucz123"]
     assert json.loads(data["state"]) == STATE  # empty list survives
+    report = json.loads(data["report"])
+    assert report["periods"]["d7"]["coal_kg"] == 12.5 and "stale" not in report and "progress" not in report
     assert json.loads(data["config"]["values"]["power_pid"]) == VALUES
     stored = [json.loads(v) for day in data["history"].values() for v in day.values()]
     assert sorted(stored, key=lambda r: r["data_czas"]) == ROWS

@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.41.4 · 28.10.2026 12:36
+- Remote view: statistics no longer stuck on "liczę aktualne" - the pushed report is the last finished one, sent without the "still counting" mark
+
 ## 1.41.3 · 28.10.2026 12:27
 - Tuning: no hint about the curve's outside average (a one-time setting, not worth a row)
 

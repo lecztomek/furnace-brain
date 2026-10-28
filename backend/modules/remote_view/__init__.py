@@ -251,7 +251,14 @@ class RemoteViewModule(ModuleInterface):
         return out
 
     def _slow_report(self) -> Dict[str, Any]:
-        return {"report": js(self._get("/api/analytics/report"))}
+        # The API hands out its last finished report as "stale" and starts a new build;
+        # this push comes every few minutes, so it always gets the stale one. Its numbers
+        # are from the build a few minutes ago (generated_at says when) - the remote view
+        # must not show "still counting" forever.
+        report = self._get("/api/analytics/report")
+        if isinstance(report, dict):
+            report = {k: v for k, v in report.items() if k not in ("stale", "progress")}
+        return {"report": js(report)}
 
     def _slow_service(self) -> Dict[str, Any]:
         """Service page (tuning, Pi diagnostics) and the weather forecast - small, every slow cycle."""
