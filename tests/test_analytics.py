@@ -168,3 +168,14 @@ def test_hour_min_boiler_shows_a_short_dip():
     mins = hour_min_boiler(rows)
     assert mins[21] == 52.0          # the hour's average is ~54.7, the dip still shows
     assert mins[22] is None
+
+
+def test_fine_series_keeps_a_half_hour_dip():
+    from backend.core.analytics import fine_series
+    start = datetime(2026, 10, 27, 21, 0)
+    rows = [{"data_czas": (start + timedelta(seconds=30 * i)).isoformat(), "tryb_pracy": "WORK", "zadana": "56",
+             "temp_pieca": str(52 if 60 <= i < 120 else 56)} for i in range(240)]   # 21:30-22:00 at 52
+    s = fine_series(rows, start, start + timedelta(hours=2) - timedelta(minutes=10))
+    assert len(s) == 12 and s[0]["time"] == "21:00"
+    assert [x["boiler"] for x in s[3:6]] == [52.0, 52.0, 52.0]      # the dip is there, not averaged away
+    assert s[0]["setpoint"] == 56.0

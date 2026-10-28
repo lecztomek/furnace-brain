@@ -406,6 +406,41 @@ HourCoal = Dict[str, List[List[float]]]   # date -> 24 x [kg, kWh], only for the
 HourMin = Dict[str, List[Optional[float]]]  # date -> 24 x lowest boiler temp in WORK, only for the last two days
 
 
+FINE_STEP_S = 600   # the regulation chart for the last day: 10 min averages, so dips of half an hour show
+
+
+def fine_series(rows: List[Dict[str, str]], start: datetime, end: datetime,
+                fallback_setpoint: Optional[float] = None, step_s: int = FINE_STEP_S) -> List[Dict[str, Any]]:
+    """Boiler temperature and setpoint in WORK as step_s averages from start to end (None where it didn't work)."""
+    n = max(0, int((end - start).total_seconds() // step_s) + 1)
+    sums = [[0.0, 0, 0.0, 0] for _ in range(n)]   # boiler sum, count, setpoint sum, count
+    for r in rows:
+        if (r.get("tryb_pracy") or "").upper() != "WORK":
+            continue
+        b = _float(r.get("temp_pieca"))
+        try:
+            ts = datetime.fromisoformat(r.get("data_czas") or "")
+        except ValueError:
+            continue
+        i = int((ts - start).total_seconds() // step_s)
+        if b is None or not 0 <= i < n:
+            continue
+        sums[i][0] += b
+        sums[i][1] += 1
+        sp = _float(r.get("zadana"))
+        if sp is None:
+            sp = fallback_setpoint
+        if sp is not None:
+            sums[i][2] += sp
+            sums[i][3] += 1
+    out = []
+    for i, (bs, bn, ss, sn) in enumerate(sums):
+        t = start + timedelta(seconds=i * step_s)
+        out.append({"time": t.strftime("%H:%M"), "boiler": round(bs / bn, 1) if bn else None,
+                    "setpoint": round(ss / sn, 1) if sn else None})
+    return out
+
+
 def hour_min_boiler(rows: List[Dict[str, str]]) -> List[Optional[float]]:
     """Lowest boiler temperature in WORK for each hour of a day - a short dip shows even if the hour's average hides it."""
     out: List[Optional[float]] = [None] * 24
@@ -727,11 +762,21 @@ class Analytics:
         yday = today - timedelta(days=1)
         hour_coal: HourCoal = {}
         hour_min: HourMin = {}
+        day_rows: Dict[str, List[Dict[str, str]]] = {}
         for d in (yday, today):
             per_hour = [[0.0, 0.0] for _ in range(24)]
             coal_for_day(self.stats_dir, d, index=indexes["stats"], hourly=per_hour)
             hour_coal[d.isoformat()] = per_hour
-            hour_min[d.isoformat()] = hour_min_boiler(history_rows(self.history_dir, d, index=indexes["history"]))
+            day_rows[d.isoformat()] = history_rows(self.history_dir, d, index=indexes["history"])
+            hour_min[d.isoformat()] = hour_min_boiler(day_rows[d.isoformat()])
+        # the regulation chart of the last day in 10 min steps
+        now_dt = datetime.now() if today == date.today() else datetime.combine(today, datetime.max.time())
+        end = now_dt.replace(minute=now_dt.minute - now_dt.minute % 10, second=0, microsecond=0)
+        both = day_rows[yday.isoformat()] + day_rows[today.isoformat()]
+        periods["today"]["fine24"] = fine_series(both, end - timedelta(hours=24), end, fallback_setpoint)
+        y0 = datetime.combine(yday, datetime.min.time())
+        periods["yesterday"]["fine"] = fine_series(day_rows[yday.isoformat()], y0,
+                                                   y0 + timedelta(seconds=86400 - FINE_STEP_S), fallback_setpoint)
         periods["today"]["last24"] = hourly_last24(
             by_date.get(yday.isoformat()), by_date.get(today.isoformat()), now_hour, hour_coal, hour_min)
         periods["yesterday"]["hours24"] = hours_of_day(by_date.get(yday.isoformat()), hour_coal, hour_min)

@@ -195,22 +195,29 @@
   // hour-of-day profile (when the boiler doesn't keep up) and the list of drops
   function renderHourly() {
     const p = report.periods[period];
-    const { hourly, rows: hours, labels } = periodSeries();
+    let { hourly, rows: hours, labels } = periodSeries();
+    // the last day: 10 min averages (a half-hour dip disappears in an hour's average)
+    const fine = ((period === "today" ? p.fine24 : period === "yesterday" ? p.fine : null) || []).length
+      ? (period === "today" ? p.fine24 : p.fine) : null;
+    if (fine) {
+      hours = fine;
+      labels = fine.map((f) => f.time);
+    }
     const last24 = hourly;
     const drops = p.drops || { count: 0, items: [], by_hour: [] };
     const band = (d) => hours.map((h) => (h.setpoint == null || h.boiler == null ? null : h.setpoint + d));
     const data = {
       labels,
       datasets: [
-        { type: "line", label: "zadana -2°C", data: band(-2), borderWidth: 0, pointHoverRadius: 0, spanGaps: true },
-        { type: "line", label: "zadana +2°C", data: band(2), borderWidth: 0, pointHoverRadius: 0, spanGaps: true,
+        { type: "line", label: "zadana -2°C", data: band(-2), borderWidth: 0, pointHoverRadius: 0, spanGaps: !fine },
+        { type: "line", label: "zadana +2°C", data: band(2), borderWidth: 0, pointHoverRadius: 0, spanGaps: !fine,
           fill: "-1", backgroundColor: "rgba(74, 222, 128, 0.22)" },
         { type: "line", label: "Kocioł [°C]", data: hours.map((h) => h.boiler), borderColor: "#f97316", backgroundColor: "#f97316", spanGaps: false },
       ],
     };
     // hour by hour: also the lowest reading of each hour - a short dip (a bath) hides in the hour's average
     const lows = hours.map((h) => (h.boiler != null && h.boiler_min != null ? h.boiler_min : null));
-    if (hourly && lows.some((v) => v != null)) {
+    if (hourly && !fine && lows.some((v) => v != null)) {
       data.datasets.push({ type: "line", label: "najniżej w godzinie", data: lows, borderColor: "rgba(248, 113, 113, 0.9)",
         backgroundColor: "rgba(248, 113, 113, 0.9)", borderWidth: 2, borderDash: [5, 4], spanGaps: false });
     }
@@ -228,7 +235,13 @@
       return ctx.datasetIndex === 3 ? `najniżej ${num(ctx.parsed.y, 1)}°C`
         : `kocioł ${num(ctx.parsed.y, 1)}°C (zadana ${num(h.setpoint, 0)}°C)`;
     } } };
-    $("hourly-title").textContent = `Kocioł na tle zadanej ±2°C (zielony pas)${hourly ? ", przerywana = najniżej w godzinie" : ""} • ${period === "today" ? "ostatnie 24 h" : PERIOD_NAMES[period]}`;
+    $("hourly-title").textContent = `Kocioł na tle zadanej ±2°C (zielony pas)${hourly && !fine ? ", przerywana = najniżej w godzinie" : hourly ? ", co 10 min" : ""} • ${period === "today" ? "ostatnie 24 h" : PERIOD_NAMES[period]}`;
+    if (fine) {
+      // 144 points: a label every 3 hours (6 on a phone)
+      const every = window.innerWidth < 700 ? 6 : 3;
+      options.scales.x.ticks = { ...options.scales.x.ticks, autoSkip: false,
+        callback: (v, i) => (labels[i].endsWith(":00") && Number(labels[i].slice(0, 2)) % every === 0 ? labels[i].replace(/^0/, "") : "") };
+    }
     hourlyChart = draw(hourlyChart, "chart-hourly", data, options);
 
     // worst hour of day over the chosen period (average per hour of day)
