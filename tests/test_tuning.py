@@ -220,3 +220,21 @@ def test_the_real_changelog_parses():
     from backend.api.service_api import CHANGELOG_PATH, parse_changelog
     versions = parse_changelog(CHANGELOG_PATH.read_text(encoding="utf-8"))
     assert versions and all(v["items"] for v in versions)
+
+
+def test_versions_get_their_commit_and_tag(tmp_path):
+    import subprocess
+    from backend.api import service_api
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git = lambda *a: subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True)
+    git("init", "-q")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "First (1.0.0)")
+    git("tag", "v1.0.0")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "Second (1.0.1)")
+    service_api._commits_cache.clear()
+    c = service_api.version_commits(repo)
+    assert c["1.0.0"]["tag"] == "v1.0.0" and len(c["1.0.0"]["hash"]) >= 7
+    assert "tag" not in c["1.0.1"]
+    service_api._commits_cache.clear()
+    assert service_api.version_commits(tmp_path / "no-git") == {}

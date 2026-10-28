@@ -267,7 +267,8 @@
           <span class="sv-tl__time">${esc(v.time)}</span>
           <span class="sv-tl__dot"></span>
           <div class="sv-tl__body">
-            <div class="sv-tl__head"><span class="sv-tl__ver">${esc(v.version)}</span>${now ? `<span class="sv-tl__tag">na piecu</span>` : ""}</div>
+            <div class="sv-tl__head"><span class="sv-tl__ver">${esc(v.version)}</span>${now ? `<span class="sv-tl__tag">na piecu</span>` : ""}
+              ${v.tag || v.hash ? `<span class="sv-tl__ref" title="Do wpisania w GitHub → Actions → Deploy to prod">${esc(v.tag || v.hash)}</span>` : ""}</div>
             <ul class="sv-tl__items">${v.items.map((it, k) => k === 0 ? `<li class="sv-tl__title">${esc(it)}</li>` :
               `<li>${esc(it).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/:$/, "")}</li>`).join("")}</ul>
           </div></div>`;

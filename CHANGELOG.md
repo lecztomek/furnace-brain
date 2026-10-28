@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.38.3 · 28.10.2026 10:30
+- Changelog: each version shows its tag or commit - what to enter in "Deploy to prod" to go back to it
+
 ## 1.38.2 · 28.10.2026 10:25
 - Changelog as a timeline: versions grouped by day with their time, a strip of days on top (how many versions each day)
 

@@ -201,6 +201,42 @@ def parse_changelog(text: str) -> List[Dict[str, Any]]:
     return out
 
 
+_commits_cache: Dict[str, Any] = {}
+
+
+def version_commits(repo: Path) -> Dict[str, Dict[str, str]]:
+    """
+    version -> {"hash": short commit, "tag": "v1.37.4" if released} from the git
+    history (commit titles end with "(1.37.4)"); what to enter in "Deploy to prod"
+    to go back. Read once per process; {} without git.
+    """
+    if str(repo) in _commits_cache:
+        return _commits_cache[str(repo)]
+    out: Dict[str, Dict[str, str]] = {}
+    log = _git(repo, ["log", "--all", "--format=%h%x00%s"])
+    for line in (log or "").splitlines():
+        h, _, subj = line.partition("\0")
+        subj = subj.rstrip()
+        if subj.endswith(")") and "(" in subj:
+            v = subj[subj.rindex("(") + 1:-1]
+            if v.count(".") == 2 and v.replace(".", "").isdigit() and v not in out:
+                out[v] = {"hash": h}
+    tags = _git(repo, ["tag", "--list", "v*"])
+    for t in (tags or "").split():
+        if t[1:] in out:
+            out[t[1:]]["tag"] = t
+    _commits_cache[str(repo)] = out
+    return out
+
+
+def _git(repo: Path, args: List[str]) -> Optional[str]:
+    try:
+        r = subprocess.run(["git", "-C", str(repo)] + args, capture_output=True, text=True, timeout=10)
+        return r.stdout if r.returncode == 0 else None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
 def create_service_router(store: StateStore, config_store: ConfigStore, data_root: Path,
                           app_info: Dict[str, Any], loop_stats: Dict[str, LoopStats],
                           clock: Callable[[], float] = time.time,
@@ -305,7 +341,11 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
             text = changelog_path.read_text(encoding="utf-8")
         except OSError:
             text = ""
-        return {"current": app_info.get("version"), "versions": parse_changelog(text)}
+        versions = parse_changelog(text)
+        commits = version_commits(changelog_path.parent)
+        for v in versions:
+            v.update(commits.get(v["version"], {}))
+        return {"current": app_info.get("version"), "versions": versions}
 
     @router.get("/diagnostics")
     def get_diagnostics():

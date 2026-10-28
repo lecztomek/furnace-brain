@@ -248,3 +248,7 @@
   .sv-tl { grid-template-columns: 44px 20px 1fr; gap: 6px; }
   .sv-tl::before { left: 58px; }
 }
+/* tag or commit to enter in "Deploy to prod" to go back to that version */
+.sv-tl__head { flex-wrap: wrap; }
+.sv-tl__ref { margin-left: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px;
+  color: #cbd5e1; background: #1f2937; border: 1px solid #334155; padding: 2px 8px; border-radius: 8px; user-select: all; }
