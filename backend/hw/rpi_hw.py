@@ -4,7 +4,7 @@ import logging
 import os
 import threading
 import time
-from dataclasses import dataclass, is_dataclass
+from dataclasses import dataclass, is_dataclass, replace
 from typing import Dict, Optional, Tuple
 
 from backend.core.state import Sensors, Outputs
@@ -99,6 +99,8 @@ class RpiHardware:
 
         # idempotencja wyjść
         self._last_outputs = Outputs()
+        # outputs are set by the control loop, the assignment changed from the GUI (API thread)
+        self._io_lock = threading.Lock()
 
         # cache sensorów + znaczniki świeżości per źródło
         self._sensors_lock = threading.Lock()
@@ -149,18 +151,67 @@ class RpiHardware:
         """
         Ustawia wyjścia. Idempotentne: zmieniamy tylko to, co się zmieniło.
         """
-        try:
-            self._apply_digital(outputs)
-        except Exception as e:
-            log.error("apply_outputs(digital) failed: %s", e)
+        # one step under the lock: a change of the assignment (reconfigure) can't fall between
+        # setting the pins and remembering what was set
+        with self._io_lock:
+            try:
+                self._apply_digital(outputs)
+            except Exception as e:
+                log.error("apply_outputs(digital) failed: %s", e)
 
-        try:
-            self._apply_fan_pwm(outputs.fan_power)
-        except Exception as e:
-            log.error("apply_outputs(fan_pwm) failed: %s", e)
+            try:
+                self._apply_fan_pwm(outputs.fan_power)
+            except Exception as e:
+                log.error("apply_outputs(fan_pwm) failed: %s", e)
 
-        # przechowuj kopię (bezpieczniej dla idempotencji)
-        self._last_outputs = self._clone_dataclass(outputs)
+            # przechowuj kopię (bezpieczniej dla idempotencji)
+            self._last_outputs = self._clone_dataclass(outputs)
+
+    def reconfigure(self, pins: Dict[str, int], rom_to_field: Dict[str, str]) -> None:
+        """
+        New assignment from Ustawienia -> Sprzęt, without a restart. Every digital output
+        goes LOW first (on the old and the new pins), so nothing runs on a wrong pin even
+        for a moment; the next control step (0.5 s) switches on what should be on.
+        The fan PWM pin changes only after a restart.
+        """
+        GPIO = self._gpio
+        with self._io_lock:
+            old = self._digital_pins(self.cfg.pins)
+            new_pins = replace(self.cfg.pins, feeder_pin=pins["feeder"], pump_co_pin=pins["pump_co"],
+                               pump_cwu_pin=pins["pump_cwu"], mixer_open_pin=pins["mixer_open"],
+                               mixer_close_pin=pins["mixer_close"])
+            new = self._digital_pins(new_pins)
+            if GPIO is not None:
+                for p in old:
+                    GPIO.output(p, GPIO.LOW)
+                for p in new:
+                    if p not in old:
+                        GPIO.setup(p, GPIO.OUT, initial=GPIO.LOW)
+            self.cfg = replace(self.cfg, pins=new_pins, ds18b20=replace(self.cfg.ds18b20, rom_to_field=dict(rom_to_field)))
+            self._last_outputs = Outputs()      # all LOW now - the next apply sets what is on
+        log.info("Hardware assignment changed: outputs %s, sensors %s", pins, rom_to_field)
+
+    @staticmethod
+    def _digital_pins(pc: "PinConfig") -> list:
+        return [pc.feeder_pin, pc.pump_co_pin, pc.pump_cwu_pin, pc.mixer_open_pin, pc.mixer_close_pin]
+
+    def detected_sensors(self) -> list:
+        """Every DS18B20 on the 1-Wire bus: [{rom, temp, field}] (the field it is assigned to, or None)."""
+        base = self.cfg.ds18b20.base_path
+        mapping = self.cfg.ds18b20.rom_to_field
+        try:
+            roms = sorted(d for d in os.listdir(base) if d.startswith("28-"))
+        except OSError:
+            roms = []
+        with self._sensors_lock:
+            last = self._clone_dataclass(self._last_sensors)
+        # assigned ones from the poll's cache; only the unassigned are read here (~0.75 s each)
+        out = [{"rom": r, "field": mapping.get(r),
+                "temp": getattr(last, mapping[r], None) if r in mapping else self._read_ds18b20_c(base, r)}
+               for r in roms]
+        # assigned but not on the bus (wrong number or a cut wire)
+        out += [{"rom": r, "temp": None, "field": f, "missing": True} for r, f in mapping.items() if r not in roms]
+        return out
 
     def close(self) -> None:
         """

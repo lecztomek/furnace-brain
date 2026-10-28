@@ -26,6 +26,10 @@ TUNING_REUSE_S = 600   # rebuilt at most every 10 min (only today is read again 
 SENSOR_NAMES = {"boiler_temp": "Kocioł", "radiators_temp": "Grzejniki", "hopper_temp": "Podajnik",
                 "flue_gas_temp": "Spaliny", "outside_temp": "Zewnętrzna"}
 
+# Sensors field -> its name in the 1-Wire list
+WIRE_NAMES = {"boiler_temp": "Kocioł", "radiators_temp": "Grzejniki", "hopper_temp": "Podajnik",
+              "cwu_temp": "Zasobnik CWU", "return_temp": "Powrót", "mixer_temp": "Za zaworem"}
+
 # vcgencmd get_throttled bits
 THROTTLE_BITS = {
     0: "za niskie napięcie zasilania TERAZ",
@@ -241,7 +245,9 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
                           app_info: Dict[str, Any], loop_stats: Dict[str, LoopStats],
                           clock: Callable[[], float] = time.time,
                           warm_up_s: Optional[float] = None,
-                          changelog_path: Path = CHANGELOG_PATH) -> APIRouter:
+                          changelog_path: Path = CHANGELOG_PATH,
+                          sensor_inventory: Optional[Callable[[], List[Dict[str, Any]]]] = None,
+                          hardware_problems: Optional[List[str]] = None) -> APIRouter:
     router = APIRouter(prefix="/service", tags=["service"])
     modules_dir = data_root / "modules"
     tuning = TuningReport(history_dir=modules_dir / "history" / "data",
@@ -346,6 +352,20 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
         for v in versions:
             v.update(commits.get(v["version"], {}))
         return {"current": app_info.get("version"), "versions": versions}
+
+    # the 1-Wire inventory reads the unassigned sensors (~0.75 s each) - at most every 5 min
+    wire_cache: Dict[str, Any] = {"at": -1e9, "list": []}
+
+    def inventory() -> List[Dict[str, Any]]:
+        if sensor_inventory is None:
+            return []
+        if clock() - wire_cache["at"] > 300:
+            try:
+                wire_cache["list"] = sensor_inventory() or []
+            except Exception:  # pylint: disable=broad-except
+                wire_cache["list"] = []
+            wire_cache["at"] = clock()
+        return wire_cache["list"]
 
     @router.get("/diagnostics")
     def get_diagnostics():
@@ -516,6 +536,24 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
             else:
                 sens.append(_item("warn" if n else "ok", label, f"{v:.1f}°C".replace(".", ","), note))
         groups.append({"title": "Czujniki", "items": sens})
+
+        # --- every DS18B20 on the bus and what it is assigned to (Ustawienia -> Sprzęt) ---
+        wire = inventory()
+        if wire or hardware_problems:
+            w1: List[Dict[str, str]] = []
+            for p in hardware_problems or []:
+                w1.append(_item("bad", "Ustawienia sprzętu błędne", "użyto fabrycznego przypisania", p))
+            for x in wire:
+                role = WIRE_NAMES.get(x.get("field") or "", "")
+                temp = "brak odczytu" if x.get("temp") is None else f"{x['temp']:.1f}°C".replace(".", ",")
+                if x.get("missing"):
+                    w1.append(_item("bad", role or x["rom"], "nie ma go na magistrali",
+                                    f"{x['rom']} - zły numer w Ustawienia → Sprzęt albo przerwany przewód"))
+                elif role:
+                    w1.append(_item("ok" if x.get("temp") is not None else "bad", role, temp, x["rom"]))
+                else:
+                    w1.append(_item("info", "Nieprzypisany", temp, f"{x['rom']} - można go przypisać w Ustawienia → Sprzęt"))
+            groups.append({"title": "Czujniki 1-Wire", "items": w1})
 
         worst = "ok"
         for g in groups:

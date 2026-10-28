@@ -37,6 +37,8 @@ import logging
 
 from .hw.mock import MockHardware as Hardware
 from .hw.rpi_hw import RpiHardware, HardwareConfig, Ds18b20Config, Max6675Config, PinConfig
+from .core import hardware_setup
+import yaml
 
 faulthandler.enable()
 logging.basicConfig(
@@ -55,14 +57,31 @@ DATA_ROOT = Path(os.getenv("FURNACE_BRAIN_DATA_ROOT", str(Path(__file__).resolve
 
 # --- INICJALIZACJA SPRZĘTU I MODUŁÓW ---
 
+# Which GPIO drives which output and which DS18B20 is which: Ustawienia -> Sprzęt
+# (modules/hardware/values.yaml, kept by updates like every values.yaml). No file yet
+# (first start after the update) or a broken one -> the wiring that used to be written
+# here (hardware_setup.defaults()), so an update never changes what the outputs drive.
+def _hardware_values() -> dict:
+    path = Path(__file__).resolve().parent / "modules" / "hardware" / "values.yaml"
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except (OSError, yaml.YAMLError) as exc:
+        logger.error("Hardware settings unreadable (%s) - using the default wiring", exc)
+        raw = {}
+    values, problems = hardware_setup.load(raw if isinstance(raw, dict) else {})
+    for p in problems:
+        logger.error("Hardware settings: %s - using the default wiring", p)
+    HARDWARE_PROBLEMS.extend(problems)
+    return values
+
+
+HARDWARE_PROBLEMS: list = []
+HW_VALUES = _hardware_values()
+HW_PINS = hardware_setup.pins(HW_VALUES)
+
 cfg = HardwareConfig(
     ds18b20=Ds18b20Config(
-        rom_to_field={
-            # Dopasuj nazwy pól do Twojego backend.core.state.Sensors
-            "28-000000506777": "boiler_temp",     # np. kocioł
-            "28-00000052b809": "hopper_temp",        # np. CWU
-            "28-0000006f0738": "radiators_temp",  # np. CO / powrót / grzejniki
-        },
+        rom_to_field=hardware_setup.rom_to_field(HW_VALUES),
         base_path="/sys/bus/w1/devices",
     ),
 
@@ -76,19 +95,18 @@ cfg = HardwareConfig(
     ),
 
     pins=PinConfig(
-        # wyjścia SSR/ULN zgodnie z Twoją wiązką:
-        feeder_pin=16,       # ŚLIMAK: pin 36 -> GPIO16
-        pump_cwu_pin=20,     # CWU:    pin 38 -> GPIO20
-        pump_co_pin=21,      # CO:     pin 40 -> GPIO21
-        mixer_open_pin=6,    # ZAWÓR:  pin 31 -> GPIO6
-        mixer_close_pin=12,  # ZAWÓR:  pin 32 -> GPIO12
+        feeder_pin=HW_PINS["feeder"],
+        pump_cwu_pin=HW_PINS["pump_cwu"],
+        pump_co_pin=HW_PINS["pump_co"],
+        mixer_open_pin=HW_PINS["mixer_open"],
+        mixer_close_pin=HW_PINS["mixer_close"],
 
         # dmuchawa YYAC-3S
-        fan_pwm_pin=19,      # PWM:    pin 35 -> GPIO19
+        fan_pwm_pin=HW_PINS["fan_pwm"],
         fan_pwm_freq_hz=200,
     ),
 
-    fan_inverted=False,
+    fan_inverted=bool(HW_VALUES.get("fan_inverted", False)),
     sensors_poll_interval_s=5.0,
     sensors_stale_after_s=20.0,
 )
@@ -156,6 +174,8 @@ all_modules = critical_modules + aux_modules
 config_store = ConfigStore(
         BACKEND_ROOT / "modules",
         module_ids_in_order=[m.id for m in all_modules],
+        # one GPIO for two outputs, one sensor in two places, a wrong pin: the save is refused
+        validators={"hardware": hardware_setup.validate},
     )
 
 # --- FLAGI STOPU + REFERENCJE DO WĄTKÓW ---
@@ -169,7 +189,21 @@ aux_thread: threading.Thread | None = None
 critical_ids = {m.id for m in critical_modules}
 aux_ids = {m.id for m in aux_modules}
 
+def apply_hardware_settings() -> None:
+    """Ustawienia -> Sprzęt saved: the new assignment at once (outputs LOW first, see reconfigure)."""
+    values = config_store.get_values("hardware")
+    problems = hardware_setup.validate(values)
+    if problems:   # the API refuses these - a hand-edited file only
+        raise ValueError("; ".join(problems))
+    reconfigure = getattr(hardware, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(hardware_setup.pins(values), hardware_setup.rom_to_field(values))
+    del HARDWARE_PROBLEMS[:]
+
+
 def reload_any_module(module_id: str) -> None:
+    if module_id == "hardware":
+        apply_hardware_settings()
     if module_id in critical_ids:
         kernel.reload_module_config_from_file(module_id)
         return
@@ -366,7 +400,9 @@ app.include_router(
     
 app.include_router(create_analytics_router(data_root=API_ROOT, config_store=config_store, store=store), prefix="/api")
 app.include_router(create_service_router(store=store, config_store=config_store, data_root=API_ROOT,
-                                         app_info=APP_INFO, loop_stats=LOOP_STATS), prefix="/api")
+                                         app_info=APP_INFO, loop_stats=LOOP_STATS,
+                                         sensor_inventory=getattr(hardware, "detected_sensors", None),
+                                         hardware_problems=HARDWARE_PROBLEMS), prefix="/api")
 app.include_router(state_router, prefix="/api")
 app.include_router(manual_router, prefix="/api")
 app.include_router(config_router, prefix="/api")

@@ -1,0 +1,13 @@
+pin_feeder: 16
+pin_pump_cwu: 20
+pin_pump_co: 21
+pin_mixer_open: 6
+pin_mixer_close: 12
+pin_fan_pwm: 19
+sensor_boiler: 28-000000506777
+sensor_hopper: 28-00000052b809
+sensor_radiators: 28-0000006f0738
+sensor_cwu: ''
+sensor_return: ''
+sensor_mixer: ''
+fan_inverted: false

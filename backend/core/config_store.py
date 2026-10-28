@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 import copy
 import datetime as dt
 import logging
@@ -42,9 +42,19 @@ class ModuleInfo:
 
 
 class ConfigStore:
-    def __init__(self, base_dir: Path, module_ids_in_order: List[str]):
+    def __init__(self, base_dir: Path, module_ids_in_order: List[str],
+                 validators: Optional[Dict[str, Callable[[Dict[str, Any]], List[str]]]] = None):
         self.modules_root = base_dir
         self._module_ids_in_order = module_ids_in_order
+        # module id -> check of the whole set of values (e.g. one GPIO for two outputs);
+        # problems = the save is refused and the file stays as it was
+        self._validators = validators or {}
+
+    def _check_whole(self, module_id: str, values: Dict[str, Any]) -> None:
+        check = self._validators.get(module_id)
+        problems = check(values) if check else []
+        if problems:
+            raise ValueError("; ".join(problems))
 
     @property
     def module_ids(self) -> List[str]:
@@ -148,6 +158,8 @@ class ConfigStore:
 
             validated[key] = self._validate_single_value(field, raw_value)
 
+        self._check_whole(module_id, validated)
+
         # Zapis do pliku
         vpath = self._values_path(module_id)
         vpath.parent.mkdir(parents=True, exist_ok=True)
@@ -195,6 +207,7 @@ class ConfigStore:
 
         raw_values = self._load_raw_values(module_id)
         raw_values[key] = validated_value
+        self._check_whole(module_id, {**{f["key"]: f.get("default") for f in fields}, **raw_values})
 
         vpath = self._values_path(module_id)
         vpath.parent.mkdir(parents=True, exist_ok=True)

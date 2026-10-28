@@ -56,6 +56,18 @@ journalctl -u furnace-update -e
   above 45 °C the pumps run.
 - Start from zero: kW / kg/h on the main page (10 min window), valve seconds, tuning cache, diagnostics counters.
 
+## Wiring (GPIO and sensors)
+
+Ustawienia → Sprzęt says which GPIO (BCM) drives which output and which DS18B20 is which
+sensor. The defaults are the original wiring (feeder 16, CWU pump 20, CO pump 21, valve
+6 / 12, fan PWM 19). A save with one GPIO twice, a pin that is not safe as an output or
+one sensor in two places is refused. A change applies at once: every output goes LOW, the
+next control step (0.5 s) switches on what should be on; the fan PWM pin only after a
+restart. Serwis → Diagnostyka Pi → Czujniki 1-Wire lists every sensor on the bus with its
+temperature and role. The settings live in `modules/hardware/values.yaml` like every other
+setting (kept and backed up by updates). A version before 1.44 ignores them and uses the
+original wiring.
+
 ## Remote view
 GUI of the prod version on GitHub Pages, data from Firebase Realtime Database; read-only.
 The Pi's `remote_view` module sends the state every 15 s, history and logs every 60 s,

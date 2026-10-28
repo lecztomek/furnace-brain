@@ -2,6 +2,12 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.44.0 · 28.10.2026 13:14
+- Ustawienia → Sprzęt: which GPIO drives the feeder, the CO and CWU pumps, the valve and the fan, and which DS18B20 is the boiler, hopper, radiators, CWU tank, return, after the valve - was hard-coded in main.py. The defaults are the old wiring, so the update changes nothing
+- A save with one GPIO twice, an unsafe pin (I2C, 1-Wire, SPI, serial) or one sensor in two places is refused with the reason; a broken file falls back to the old wiring (shown in Diagnostyka Pi)
+- A change applies at once and safely: all outputs LOW, then the next control step switches on what should be on (the fan PWM pin after a restart)
+- Serwis → Diagnostyka Pi → Czujniki 1-Wire: every sensor on the bus with its temperature and role, unassigned ones and assigned numbers missing from the bus
+
 ## 1.43.0 · 28.10.2026 12:57
 - Tuning: a mild regular wave suggests the flue lead first ("Wyprzedzanie spalinami" 0 → 5, then up to 8); a softer Kp / Ki only once the lead is at 8
 - Tuning: after a PID setting change (Kp, Ki, flue lead, power limits, feeder dose) only the work since then counts - no suggestions from the old wave until 3 h of settled work after it

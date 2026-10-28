@@ -83,3 +83,9 @@ modules:
     path: backend.modules.eventlog:EventLogModule
     enabled: true
     critical: false
+
+  # settings only (Ustawienia -> Sprzęt): GPIO of each output, DS18B20 of each sensor
+  - id: hardware
+    path: backend.modules.hardware:HardwareModule
+    enabled: true
+    critical: false
