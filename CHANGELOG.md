@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.49.2 · 28.10.2026 18:55
+- Strojenie, "Po zmianach ustawień": zmiany zrobione w odstępie do 15 min to jedna pozycja z jednym porównaniem - "przed" kończy się na pierwszej z nich, "po" zaczyna 30 min po ostatniej. Wcześniej każda dostawała osobne porównanie i np. wyprzedzanie spalinami zmienione 2 min przed krzywą miało tylko 2 min "po", więc nigdy nie dostało oceny
+- Na liście zmian także uśrednianie krzywej (curve_avg_h) - zmienia zadaną grzejników
+
 ## 1.49.1 · 28.10.2026 18:30
 - Trend pod temperaturą kotła bez strzałek - sam znak i kolor: „+1,2°/10 min” (pomarańczowy), „−1,5°/10 min” (niebieski)
 

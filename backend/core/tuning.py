@@ -36,6 +36,7 @@ SWING_HYST = 0.3            # a swing must cross the mean by this much
 CHANGE_SIDE_H = 72          # setting change: compare up to 3 days after with as long before it
 CHANGE_SKIP_S = 30 * 60     # ... skipping the first 30 min after it
 CHANGE_MIN_H = 2.0
+CHANGE_GROUP_S = 15 * 60    # changes closer together than this are one change (one before / after)
 CHANGE_SURE_H = 6.0         # less settled work on a side: "few data" next to the verdict
 CHANGE_WEATHER_C = 4.0      # outside average differing more: "different weather" next to the verdict
 HDD_BASE = 18.0
@@ -71,6 +72,8 @@ TRACKED = {
     ("mixer", "curve_slope"): "krzywa: nachylenie",
     ("curve", "target_temp"): "zadana grzejników",
     ("mixer", "target_temp"): "zadana grzejników",
+    ("curve", "curve_avg_h"): "krzywa: uśrednianie (h)",
+    ("mixer", "curve_avg_h"): "krzywa: uśrednianie (h)",
     ("curve", "curve_enabled"): "krzywa grzewcza",
     ("mixer", "curve_enabled"): "krzywa grzewcza",
 }
@@ -339,6 +342,18 @@ def merge_changes(from_events: List[Dict[str, Any]], from_log: List[Dict[str, An
     return out
 
 
+def group_changes(changes: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+    """Changes (newest first) made within CHANGE_GROUP_S of each other as one group - a few
+    settings changed one after another can't be judged one by one. Groups newest first."""
+    groups: List[List[Dict[str, Any]]] = []
+    for c in changes:
+        if groups and (groups[-1][-1]["ts"] - c["ts"]).total_seconds() <= CHANGE_GROUP_S:
+            groups[-1].append(c)
+        else:
+            groups.append([c])
+    return groups
+
+
 def _side(part: List[Dict[str, Any]], min_power: float, max_power: float) -> Optional[Dict[str, Any]]:
     """What a stretch of settled work looked like."""
     reg = regulation(part, min_power, max_power)
@@ -375,10 +390,13 @@ CHANGE_METRICS = [
 
 def compare_change(change_ts: datetime, rows: List[Dict[str, Any]], min_power: float,
                    max_power: float, next_change: Optional[datetime] = None,
-                   prev_change: Optional[datetime] = None, now: Optional[datetime] = None) -> Dict[str, Any]:
+                   prev_change: Optional[datetime] = None, now: Optional[datetime] = None,
+                   first_ts: Optional[datetime] = None) -> Dict[str, Any]:
     """The work after a change against as long a stretch before it: after = from 30 min after the
     change to the next change (or now), at most CHANGE_SIDE_H; before = the same length, but not
-    past the previous change - one change at a time."""
+    past the previous change - one change at a time. A group of changes: change_ts = the last,
+    first_ts = the first (the "before" ends there)."""
+    first_ts = first_ts or change_ts
     end = change_ts + timedelta(hours=CHANGE_SIDE_H)
     if next_change is not None:
         end = min(end, next_change)
@@ -386,10 +404,10 @@ def compare_change(change_ts: datetime, rows: List[Dict[str, Any]], min_power: f
         end = min(end, now)
     start_after = change_ts + timedelta(seconds=CHANGE_SKIP_S)
     span = max(end - start_after, timedelta(hours=CHANGE_MIN_H))
-    start_before = change_ts - span
+    start_before = first_ts - span
     if prev_change is not None:
         start_before = max(start_before, prev_change + timedelta(seconds=CHANGE_SKIP_S))
-    before = [r for r in rows if start_before <= r["ts"] < change_ts]
+    before = [r for r in rows if start_before <= r["ts"] < first_ts]
     after = [r for r in rows if start_after <= r["ts"] < end]
     b, a = _side(before, min_power, max_power), _side(after, min_power, max_power)
 
@@ -772,19 +790,22 @@ class TuningReport:
         items = advise(reg, rad, igns, ev, settings, pid_change)
 
         out_changes = []
-        setting_ts = sorted(c["ts"] for c in changes)
-        for c in changes:
-            newer = next((t for t in setting_ts if t > c["ts"]), None)
-            older = next((t for t in reversed(setting_ts) if t < c["ts"]), None)
-            cmp = compare_change(c["ts"], steady, pmin, pmax, newer, older, now)
+        groups = group_changes(changes)
+        for i, g in enumerate(groups):
+            c, first = g[0], g[-1]                    # newest first: g[0] the last change of the group
+            newer = groups[i - 1][-1]["ts"] if i > 0 else None
+            older = groups[i + 1][0]["ts"] if i + 1 < len(groups) else None
+            cmp = compare_change(c["ts"], steady, pmin, pmax, newer, older, now, first_ts=first["ts"])
             # updates don't split the comparison - only shown: which version ran, and any update in the "after" part
             after_end = min(t for t in (newer, now, c["ts"] + timedelta(hours=CHANGE_SIDE_H)) if t is not None)
             updated = [v for since, v in versions if c["ts"] < since <= after_end]
             if updated:
                 cmp["notes"] = cmp.get("notes", []) + [f"w trakcie wgrano {', '.join(updated)}"]
             out_changes.append({
-                "at": c["ts"].isoformat(timespec="minutes"), "label": c["label"],
-                "old": c["old"], "new": c["new"], "version": version_at(versions, c["ts"]),
+                "at": first["ts"].isoformat(timespec="minutes"), "label": c["label"],
+                "old": c["old"], "new": c["new"], "version": version_at(versions, first["ts"]),
+                # every setting changed together, oldest first
+                "items": [{"label": x["label"], "old": x["old"], "new": x["new"]} for x in reversed(g)],
                 **cmp,
             })
         return {

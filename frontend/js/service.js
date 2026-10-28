@@ -169,12 +169,13 @@
             `<td>${m.verdict ? arrow[m.verdict] : ""}</td></tr>`).join("")}</tbody></table>`
         : `<div class="sv-bar__wait">czekam na dane - po zmianie potrzeba co najmniej 2 h spokojnej pracy</div>`;
       return `<div class="sv-change">
-        <div class="sv-change__head"><b>${esc(c.label)}</b> <span class="sv-change__val">${value(c.old)} → ${value(c.new)}</span>
+        <div class="sv-change__head"><span>${(c.items || [c]).map((x) =>
+            `<b>${esc(x.label)}</b> <span class="sv-change__val">${value(x.old)} → ${value(x.new)}</span>`).join("<br>")}</span>
           ${b ? `<span class="sv-badge sv-badge--${b[1]}">${b[0]}</span>` : ""}<span class="sv-change__when">${when(c.at)}</span></div>
         ${hours || (c.notes || []).length ? `<div class="sv-change__notes">${[hours, ...(c.notes || [])].filter(Boolean).map(esc).join(" • ")}</div>` : ""}
         ${table}
       </div>`;
-    }).join("") + (list.length ? `<div class="sv-hint">Porównanie spokojnej pracy (od 2 h po rozpaleniu) tak samo długo przed i po zmianie, do 3 dni, nie dalej niż do poprzedniej zmiany. Werdykt z falowania i czasu w ±2°C. Moc na stopień mrozu = zużycie węgla z poprawką na pogodę.</div>` : "");
+    }).join("") + (list.length ? `<div class="sv-hint">Porównanie spokojnej pracy (od 2 h po rozpaleniu) tak samo długo przed i po zmianie, do 3 dni, nie dalej niż do poprzedniej zmiany. Zmiany zrobione w odstępie do 15 min liczą się jako jedna. Werdykt z falowania i czasu w ±2°C. Moc na stopień mrozu = zużycie węgla z poprawką na pogodę.</div>` : "");
   }
 
   // the PID chain now: boiler -> power (P + I) -> feeder and blower

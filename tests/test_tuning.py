@@ -395,3 +395,25 @@ def test_comparison_stops_at_the_previous_change_and_warns_about_weather():
     assert any("mało danych" in n for n in c["notes"])
     c2 = T.compare_change(prev, steady, 20, 93, next_change=change)
     assert any("inna pogoda" in n for n in c2["notes"])
+
+
+def test_changes_made_one_after_another_are_one_change():
+    # 17:35 lead 0 -> 5, 17:37 slope, 17:37 averaging: one entry, one before / after
+    t = datetime(2026, 10, 28, 17, 35)
+    ch = lambda m, key, old, new: {"ts": t + timedelta(minutes=m), "module": "x", "key": key,
+                                  "label": key, "old": old, "new": new}
+    changes = [ch(62, "kp", 10, 8), ch(2.5, "curve_avg_h", 6, 12), ch(2, "curve_slope", 0.45, 0.3),
+               ch(0, "flue_brake_gain", 0, 5)]                     # newest first
+    groups = T.group_changes(changes)
+    assert [[c["key"] for c in g] for g in groups] == [["kp"], ["curve_avg_h", "curve_slope", "flue_brake_gain"]]
+    assert T.TRACKED[("curve", "curve_avg_h")]
+
+
+def test_a_group_is_judged_from_its_first_change_to_after_its_last():
+    rows = work_rows(30, lambda m: 56.0, lambda m: 60)
+    steady = [dict(r, err=0.0) for r in rows]
+    first, last = rows[1200]["ts"], rows[1210]["ts"]               # 10 h, 10 h 5 min
+    c = T.compare_change(last, steady, 20, 93, now=rows[-1]["ts"], first_ts=first)
+    assert c["before"] and c["after"] and c["verdict"] == "same"
+    before_end = max(r["ts"] for r in steady if r["ts"] < first)
+    assert c["before"]["hours"] <= 10.0 and before_end < first        # nothing of the group in "before"
