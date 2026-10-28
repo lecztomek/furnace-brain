@@ -15,7 +15,7 @@ _entries: Dict[str, Dict[str, Any]] = {}
 # name -> (label shown, how often it runs)
 KNOWN = {
     "analytics": ("Statystyki", "co 1 min, gdy ktoś pyta (statystyki, podgląd zdalny)"),
-    "tuning": ("Strojenie", "co 30 min, gdy strona Serwis jest otwarta"),
+    "tuning": ("Strojenie", "co 10 min, gdy ktoś pyta (Serwis, podgląd zdalny)"),
     "weather": ("Pogoda (temperatura)", "co 15 min"),
     "forecast": ("Prognoza pogody", "co 3 h"),
 }

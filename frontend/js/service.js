@@ -209,7 +209,7 @@
 
   function startTimer() {
     clearInterval(timer);
-    // the advice is rebuilt on the server every 30 min - this refreshes the live PID and the Pi state
+    // the advice is rebuilt on the server every 10 min - this refreshes the live PID and the Pi state
     timer = setInterval(() => { if (!document.hidden) load(); }, 30000);
   }
 
