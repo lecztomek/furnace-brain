@@ -249,4 +249,38 @@ def test_setpoint_change_overshoot_is_not_judged():
     assert reg["max_over"] < 2.5                     # the overshoot after the change is left out
     assert 1.0 < reg["std"] < 1.5                     # a mild wave - fine for a coal bed
     assert items["Całka (Ki)"]["status"] == "ok"
-    assert items["Wzmocnienie (Kp)"]["status"] == "ok"
+    assert items["Wzmocnienie (Kp)"]["status"] == "hint"   # only a hint to soften it
+
+
+def test_mild_regular_wave_gets_a_hint_not_a_problem():
+    # like prod 28.10: ±1.4 °C, a wave every ~75 min
+    rows = work_rows(14, lambda m: 56 + 2.0 * math.sin(2 * math.pi * m / 75), lambda m: 60)
+    items, reg = advice(rows)
+    assert 1.0 < reg["std"] < 1.5
+    kp = items["Wzmocnienie (Kp)"]
+    assert kp["status"] == "hint" and "Kp 10 → 8" in kp["tip"] and "Ki 0,005 → 0,004" in kp["tip"]
+    assert T.verdict(list(items.values()))["status"] == "ok"      # not counted as a problem
+
+
+def test_curve_power_reserve_and_short_average():
+    curve = {"curve_enabled": True, "curve_at_0": 32.0, "curve_slope": 0.45, "curve_min": 22.0, "curve_max": 45.0,
+             "curve_avg_h": 6.0}
+    reg = {"power_avg": 67, "hours": 10}
+    rad = {"rad_avg": 30.0, "outside_avg": 5.0, "mean": 0.0, "mean_abs": 0.4, "within_1": 90}
+    items = T.advise(None, rad, [], T.event_summary([]), {**SETTINGS, "mixer": curve})
+    # PID is not judged without reg - the curve needs the power: nothing about the reserve
+    assert [i for i in items if i["area"] == "Krzywa"][0]["status"] == "info"
+
+    steady = T.settled(work_rows(12, lambda m: 56.0, lambda m: 67), 56.0)
+    reg = T.regulation(steady, 20, 93)
+    items = T.advise(reg, rad, [], T.event_summary([]), {**SETTINGS, "mixer": curve})
+    k = [i for i in items if i["area"] == "Krzywa"]
+    # -10 °C: 36.5 °C on the radiators, (14.5 / 8)^1.3 x 67% = ~145% - over 93%: a hint, not a problem
+    assert k[0]["status"] == "hint" and "0,45 → 0,35" in k[0]["tip"] and "145%" in k[0]["detail"]
+    assert k[1]["status"] == "hint" and "6 → 12" in k[1]["tip"]
+
+    gentle = {**curve, "curve_slope": 0.15, "curve_avg_h": 12.0}
+    calm = T.regulation(T.settled(work_rows(12, lambda m: 56.0, lambda m: 50), 56.0), 20, 93)
+    k = [i for i in T.advise(calm, rad, [], T.event_summary([]), {**SETTINGS, "mixer": gentle}) if i["area"] == "Krzywa"]
+    assert len(k) == 1 and k[0]["status"] == "ok"
+    assert T.verdict([i for i in items if i["status"] == "hint"])["status"] == "ok"

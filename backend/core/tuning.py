@@ -24,6 +24,7 @@ SETPOINT_STEP_C = 1.0       # a setpoint change at least this big ...
 SETPOINT_SETTLE_S = 2 * 3600  # ... also needs ~2 h before it's judged (a hot boiler overshoots a lower setpoint)
 SWING_STD = 1.5             # swing worth a suggestion (±°C) - a coal bed reacts slowly, ±1-1.5 is fine
 SWING_BAD_STD = 2.5
+MILD_SWING_STD = 1.0        # below SWING_STD but a regular wave above this: a hint to soften the PID
 IGNITION_MIN_S = 300        # a shorter IGNITION is a click, not an ignition
 WINDOW_H = 24               # regulation: the last 24 h of settled WORK (within EVENT_DAYS)
 EVENT_DAYS = 7              # flame-outs, overheats, sensors, setting changes
@@ -34,6 +35,11 @@ CHANGE_SIDE_H = 12          # setting change: compare 12 h before / after
 CHANGE_SKIP_S = 30 * 60     # ... skipping the first 30 min after it
 CHANGE_MIN_H = 2.0
 WINTER_C = -15.0            # the curve is checked for this outside temperature
+FROST_C = (-10.0, -15.0)    # power reserve of the curve checked for these
+ROOM_C = 20.0               # rooms (no sensor)
+RAD_DROP_C = 2.0            # radiator mean below the supply
+RAD_EXP = 1.3               # radiator output ~ (mean - room) ^ 1.3
+CURVE_AVG_GOOD_H = 12.0
 
 EVENT_KEYS = ("FLAMEOUT", "OVERHEAT_ON", "MISSING_ON", "SETTINGS_CHANGED", "API_ERROR", ";ERROR;")
 
@@ -170,7 +176,9 @@ def radiators(rows: List[Dict[str, Any]], mixer: Dict[str, Any]) -> Optional[Dic
         return None
     avg_h = float(mixer.get("curve_avg_h", 6) or 6)
     window: List[tuple] = []
-    diffs = []
+    diffs: List[float] = []
+    rads: List[float] = []
+    outs: List[float] = []
     for r in rows:
         if r["outside"] is not None:
             window.append((r["ts"], r["outside"]))
@@ -181,10 +189,15 @@ def radiators(rows: List[Dict[str, Any]], mixer: Dict[str, Any]) -> Optional[Dic
         if r["rad"] is None or target is None:
             continue
         diffs.append(r["rad"] - target)
+        rads.append(r["rad"])
+        if r["outside"] is not None:
+            outs.append(r["outside"])
     if len(diffs) < 240:
         return None
     n = len(diffs)
     return {
+        "rad_avg": round(sum(rads) / len(rads), 1),
+        "outside_avg": round(sum(outs) / len(outs), 1) if outs else None,
         "mean": round(sum(diffs) / n, 2),
         "mean_abs": round(sum(abs(d) for d in diffs) / n, 2),
         "within_1": round(100 * sum(1 for d in diffs if abs(d) <= 1) / n),
@@ -350,6 +363,15 @@ def advise(reg: Optional[Dict[str, Any]], rad: Optional[Dict[str, Any]], igns: L
             add("Wzmocnienie (Kp)", "warn", "Powolna reakcja na spadki",
                 f"Na co dzień ±{fmt(std)}°C, ale kocioł potrafił spaść {fmt(reg['max_under'])}°C poniżej zadanej.",
                 f"Zwiększ Kp o ok. 20% ({fmt_num(kp)} → {fmt_num(round(kp * 1.2, 1))})." if kp else "Zwiększ Kp.")
+        elif MILD_SWING_STD < std <= SWING_STD and period is not None and period >= 40 and kp and ki:
+            # within the norm, but a regular wave: the coal answers ~30 min late and the PID
+            # keeps adding meanwhile - a softer PID evens it out (a hint, not a problem)
+            add("Wzmocnienie (Kp)", "hint", "Lekkie falowanie - można złagodzić",
+                f"Rozrzut ±{fmt(std)}°C, regularnie co ok. {period} min: węgiel oddaje ciepło z opóźnieniem, "
+                "a regulator w tym czasie dokłada za dużo. Mieści się w normie. Łagodniej = mniejsze falowanie "
+                "i spokojniejsza moc, ale po kąpieli powrót do zadanej o ok. 10-15 min dłuższy.",
+                f"Złagodź regulator (Kp {fmt_num(kp)} → {fmt_num(round(kp * 0.8, 1))}, "
+                f"Ki {fmt_num(ki)} → {fmt_num(round(ki * 0.8, 4))}).")
         else:
             add("Wzmocnienie (Kp)", "ok", "Kp w porządku",
                 f"Rozrzut ±{fmt(std)}°C" + (f", moc zmienia się spokojnie ({fmt(jump)} pkt / 30 s)." if jump is not None else "."))
@@ -433,6 +455,39 @@ def advise(reg: Optional[Dict[str, Any]], rad: Optional[Dict[str, Any]], igns: L
             add("Grzejniki", "warn", "Zawór nie nadąża",
                 f"Średnio {fmt(rad['mean_abs'])}°C od zadanej (od strony {'ciepłej' if rad['mean'] > 0 else 'zimnej'}).",
                 "Zmniejsz strefę martwą albo skróć odstęp między ruchami zaworu.")
+
+    # --- heating curve: the radiators in frost and the power that takes ---
+    if mixer.get("curve_enabled"):
+        frost = [(t, curve_target(mixer, t)) for t in FROST_C]
+        values = " • ".join(f"{fmt(t, 0)}°C → {fmt(v)}°C" for t, v in [(5.0, curve_target(mixer, 5.0)), (0.0, curve_target(mixer, 0.0))] + frost)
+        need = None
+        if reg is not None and rad is not None and reg.get("power_avg") and rad["rad_avg"] - RAD_DROP_C - ROOM_C >= 5 \
+                and rad.get("outside_avg") is not None and rad["outside_avg"] <= 12:
+            # radiators give off heat ~ (mean - room)^1.3: from today's power at today's supply
+            base = rad["rad_avg"] - RAD_DROP_C - ROOM_C
+            need = [(t, reg["power_avg"] * ((v - RAD_DROP_C - ROOM_C) / base) ** RAD_EXP) for t, v in frost]
+        slope = _float(mixer.get("curve_slope"))
+        if need and need[0][1] > pmax:
+            # a rough model (rooms ~20 °C, no return sensor, today's power - high while the house
+            # still warms up after the summer): a hint with the numbers, never a problem
+            add("Krzywa", "hint", "Krzywa może być za stroma na mróz",
+                f"Krzywa: {values}. Z dzisiejszej pracy ({reg['power_avg']}% mocy przy {fmt(rad['rad_avg'])}°C "
+                f"na grzejnikach) przy {fmt(need[0][0], 0)}°C wychodzi ok. {need[0][1]:.0f}% mocy - więcej niż kocioł ma "
+                f"({pmax:.0f}%). Szacunek zgrubny: na początku sezonu zawyżony, bo dom się jeszcze dogrzewa.",
+                f"Jeśli w mrozy kocioł stoi na maksimum poniżej zadanej, zmniejsz nachylenie "
+                f"({fmt_num(slope)} → {fmt_num(round(slope - 0.1, 2))})." if slope else "")
+        elif need:
+            add("Krzywa", "ok", "Krzywa w zasięgu kotła",
+                f"Krzywa: {values}. Przy {fmt(need[0][0], 0)}°C ok. {need[0][1]:.0f}% mocy, "
+                f"przy {fmt(need[1][0], 0)}°C ok. {need[1][1]:.0f}% (dziś {reg['power_avg']}% przy {fmt(rad['rad_avg'])}°C).")
+        else:
+            add("Krzywa", "info", "Krzywa grzewcza", f"Krzywa: {values}. Zapas mocy na mróz policzę przy chłodniejszej pogodzie.")
+        avg_h = _float(mixer.get("curve_avg_h"))
+        if avg_h is not None and avg_h < CURVE_AVG_GOOD_H:
+            add("Krzywa", "hint", "Średnia z krótkiego czasu",
+                f"Krzywa patrzy na średnią z {fmt(avg_h, 0)} h: grzejniki gonią dzień i noc (najchłodniej wieczorem, "
+                "najcieplej rano), a dom zmienia temperaturę z opóźnieniem ok. doby. Dłuższa średnia = równiejsze grzejniki.",
+                f"Wydłuż średnią (curve_avg_h {fmt(avg_h, 0)} → {fmt(CURVE_AVG_GOOD_H, 0)} h).")
 
     # --- settings ---
     if mixer.get("curve_enabled") and sp is not None:

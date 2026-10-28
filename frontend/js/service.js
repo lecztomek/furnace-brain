@@ -28,12 +28,13 @@
     "Ślimak": ["auger", "Ślimak"],
     "Dmuchawa": ["wind", "Dmuchawa"],
     "Rozpalanie": ["flame", "Rozpalanie"],
-    "Grzejniki": ["radiator", "Grzejniki"],
+    "Grzejniki": ["radiator", "Zawór"],
+    "Krzywa": ["thermometer", "Krzywa"],
     "Ustawienia": ["wrench", "Ustawienia"],
     "Zdarzenia": ["alert", "Zdarzenia"],
   };
   const WORD = { ok: "OK", warn: "Zmień", bad: "Pilne", info: "Sprawdź" };
-  const PID_AREAS = ["PID", "Całka (Ki)", "Wzmocnienie (Kp)", "Ślimak", "Dmuchawa"];
+  const PID_AREAS = ["PID", "Całka (Ki)", "Wzmocnienie (Kp)", "Ślimak", "Dmuchawa", "Krzywa", "Grzejniki"];
 
   function bigTile(icon, label, val, status, sub) {
     return `<div class="sv-tile sv-tile--${status}"><span class="sv-tile__icon">${FBIcon(icon)}</span>
@@ -90,7 +91,7 @@
     }
 
     // the PID parts always, the rest only when something is wrong
-    const items = r.items.filter((i) => PID_AREAS.includes(i.area) || i.status === "warn" || i.status === "bad");
+    const items = r.items.filter((i) => PID_AREAS.includes(i.area) || ["warn", "bad", "hint"].includes(i.status));
     $("tn-items").innerHTML = table(items.map((i) => {
       const [icon, name] = AREA[i.area] || ["info", i.area];
       const t = splitTip(i.tip);
@@ -98,8 +99,37 @@
       return { status: i.status, icon: i.status === "ok" ? "check" : icon, name, text: i.title,
                sub: showSub ? [t.action, i.detail].filter(Boolean).join(" • ") : "", right: t.change || (i.status === "ok" ? "OK" : "") };
     }));
+    renderRooms(r.settings || {});
     renderChanges(r.changes || []);
     renderLive(r.live || {}, r.settings || {});
+  }
+
+  // what to turn when the rooms are too warm or too cold - with the current curve values
+  function renderRooms(s) {
+    const m = s.mixer || {};
+    const at0 = Number(m.curve_at_0), slope = Number(m.curve_slope);
+    if (!m.curve_enabled || !isFinite(at0) || !isFinite(slope)) {
+      const t = Number(m.target_temp);
+      $("tn-rooms").innerHTML = table([
+        { status: "info", icon: "snowflake", name: "Za zimno", text: "Podnieś temperaturę grzejników", sub: "target_temp", right: isFinite(t) ? `${num(t, 0)} → ${num(t + 1, 0)}°C` : "+1°C" },
+        { status: "info", icon: "sun", name: "Za ciepło", text: "Obniż temperaturę grzejników", sub: "target_temp", right: isFinite(t) ? `${num(t, 0)} → ${num(t - 1, 0)}°C` : "−1°C" },
+      ]);
+      return;
+    }
+    const n2 = (v) => num(v, 2);
+    $("tn-rooms").innerHTML = table([
+      { status: "info", icon: "snowflake", name: "Za zimno zawsze", text: "Podnieś całą krzywą o 1°C",
+        sub: "curve_at_0 - grzejniki o 1°C cieplejsze przy każdej pogodzie", right: `${num(at0, 0)} → ${num(at0 + 1, 0)}` },
+      { status: "info", icon: "sun", name: "Za ciepło zawsze", text: "Obniż całą krzywą o 1°C",
+        sub: "curve_at_0 - grzejniki o 1°C chłodniejsze przy każdej pogodzie", right: `${num(at0, 0)} → ${num(at0 - 1, 0)}` },
+      { status: "info", icon: "snowflake", name: "Za zimno w mróz", text: "Stromsza krzywa",
+        sub: "curve_slope - w ciepłe dni bez zmian, przy −10°C o 0,5°C cieplej", right: `${n2(slope)} → ${n2(slope + 0.05)}` },
+      { status: "info", icon: "sun", name: "Za ciepło w mróz", text: "Łagodniejsza krzywa",
+        sub: "curve_slope - w ciepłe dni bez zmian, przy −10°C o 0,5°C chłodniej", right: `${n2(slope)} → ${n2(slope - 0.05)}` },
+      { status: "info", icon: "cloudSun", name: "Za ciepło jesienią, OK w mróz", text: "Niżej i stromiej",
+        sub: "curve_at_0 −1 i curve_slope +0,1 - przy +5°C chłodniej o 1,5°C, przy −10°C bez zmian",
+        right: `${num(at0 - 1, 0)} / ${n2(slope + 0.1)}` },
+    ]);
   }
 
   // "Wydłuż podanie ślimaka (8 → 9 s)." -> action "Wydłuż podanie ślimaka", change "8 → 9 s"

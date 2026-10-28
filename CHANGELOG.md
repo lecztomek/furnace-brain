@@ -2,6 +2,11 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.41.0 · 28.10.2026 12:22
+- Tuning: a mild but regular boiler wave (±1-1.5 °C, every 40+ min) gets a hint to soften the PID (Kp and Ki -20%) - shown in yellow, not counted as a problem
+- Tuning: heating curve rows - the radiators at +5 / 0 / -10 / -15 °C and the power that would take in frost (rough, from today's work), a hint when the outside average is shorter than 12 h
+- Tuning: new card "W domu za ciepło albo za zimno" - which curve setting to change and to what, with the current values
+
 ## 1.40.2 · 28.10.2026 11:44
 - Coal forecasts (tomorrow, season) and efficiency only use days the boiler burned for most of the day - a day it stood off half the time pulled every forecast down by about half
 
