@@ -447,7 +447,7 @@ HourCoal = Dict[str, List[List[float]]]   # date -> 24 x [kg, kWh], only for the
 HourMin = Dict[str, List[Optional[float]]]  # date -> 24 x lowest boiler temp in WORK, only for the last two days
 
 
-FINE_STEP_S = 600   # the regulation chart for the last day: 10 min averages, so dips of half an hour show
+FINE_STEP_S = 300   # the regulation chart for the last day: 5 min averages, so every dip and jump shows
 
 
 def fine_series(rows: List[Dict[str, str]], start: datetime, end: datetime,
@@ -774,7 +774,7 @@ class Analytics:
         prev_start = date(season_start.year - 1, season_start.month, season_start.day)
         first = min(prev_start, today - timedelta(days=29))
         days: List[DayAgg] = []
-        cached_before = len(self._cache)
+        unsaved = 0   # past days read from files since the last save (new ones and re-read ones)
         indexes = {
             "history": files_by_day(self.history_dir, "boiler"),
             "stats": files_by_day(self.stats_dir, "stats5m"),
@@ -790,15 +790,17 @@ class Analytics:
             agg = self.day(d, today, fallback_setpoint, indexes)
             if from_files and pause_s:
                 time.sleep(pause_s)
-            if len(self._cache) - cached_before >= 10:
+            if from_files and d < today:
+                unsaved += 1
+            if unsaved >= 10:
                 # save the progress: a restart in the middle of a long first
                 # build (months of CSV on the Pi) doesn't lose the work done
                 self._save_cache()
-                cached_before = len(self._cache)
+                unsaved = 0
             if agg.rows or agg.coal_kg:
                 days.append(agg)
             d += timedelta(days=1)
-        if len(self._cache) != cached_before:
+        if unsaved:
             self._save_cache()
 
         def since(start: date) -> List[DayAgg]:
@@ -827,9 +829,10 @@ class Analytics:
             hour_min[d.isoformat()] = hour_min_boiler(day_rows[d.isoformat()])
         # the regulation chart of the last day in 10 min steps
         now_dt = datetime.now() if today == date.today() else datetime.combine(today, datetime.max.time())
-        end = now_dt.replace(minute=now_dt.minute - now_dt.minute % 10, second=0, microsecond=0)
+        end = now_dt.replace(minute=now_dt.minute - now_dt.minute % (FINE_STEP_S // 60), second=0, microsecond=0)
         both = day_rows[yday.isoformat()] + day_rows[today.isoformat()]
-        periods["today"]["fine24"] = fine_series(both, end - timedelta(hours=24), end, fallback_setpoint)
+        periods["today"]["fine24"] = fine_series(both, end - timedelta(hours=24) + timedelta(seconds=FINE_STEP_S),
+                                                 end, fallback_setpoint)
         y0 = datetime.combine(yday, datetime.min.time())
         periods["yesterday"]["fine"] = fine_series(day_rows[yday.isoformat()], y0,
                                                    y0 + timedelta(seconds=86400 - FINE_STEP_S), fallback_setpoint)

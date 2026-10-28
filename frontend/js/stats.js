@@ -242,7 +242,7 @@
     const useFine = fine && fine.length && fine.some((f) => f.power != null);
     const pctLabels = useFine ? fine.map((f) => f.time) : labels;
     const pct = useFine ? fine.map((f) => f.power) : rows.map((r) => (hourly ? r.power : r.power_work));
-    $("power-pct-title").textContent = `Moc sterownika [%]${useFine ? " co 10 min" : hourly ? " w każdej godzinie" : " - średnia w pracy każdego dnia"}${span}`;
+    $("power-pct-title").textContent = `Moc sterownika [%]${useFine ? " co 5 min" : hourly ? " w każdej godzinie" : " - średnia w pracy każdego dnia"}${span}`;
     const pctOpts = baseOptions();
     pctOpts.scales.y.max = 100;
     pctOpts.scales.y.ticks.callback = (v) => `${v}%`;
@@ -301,9 +301,9 @@
       return ctx.datasetIndex === 3 ? `najniżej ${num(ctx.parsed.y, 1)}°C`
         : `kocioł ${num(ctx.parsed.y, 1)}°C (zadana ${num(h.setpoint, 0)}°C)`;
     } } };
-    $("hourly-title").textContent = `Kocioł na tle zadanej ±2°C (zielony pas)${hourly && !fine ? ", przerywana = najniżej w godzinie" : hourly ? ", co 10 min" : ""} • ${period === "today" ? "ostatnie 24 h" : PERIOD_NAMES[period]}`;
+    $("hourly-title").textContent = `Kocioł na tle zadanej ±2°C (zielony pas)${hourly && !fine ? ", przerywana = najniżej w godzinie" : hourly ? ", co 5 min" : ""} • ${period === "today" ? "ostatnie 24 h" : PERIOD_NAMES[period]}`;
     if (fine) {
-      // 144 points: a label every 3 hours (6 on a phone)
+      // 288 points: a label every 3 hours (6 on a phone)
       const every = window.innerWidth < 700 ? 6 : 3;
       options.scales.x.ticks = { ...options.scales.x.ticks, autoSkip: false,
         callback: (v, i) => (labels[i].endsWith(":00") && Number(labels[i].slice(0, 2)) % every === 0 ? labels[i].replace(/^0/, "") : "") };

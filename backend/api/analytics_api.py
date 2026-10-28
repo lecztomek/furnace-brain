@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 from datetime import date, datetime
@@ -88,7 +89,7 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore,
             try:
                 build_report(pause_s=pause_s)
             except Exception:  # pylint: disable=broad-except
-                pass
+                logging.getLogger(__name__).exception("Statistics build failed")
             finally:
                 building.clear()
 

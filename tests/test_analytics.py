@@ -175,7 +175,7 @@ def test_fine_series_keeps_a_half_hour_dip():
     start = datetime(2026, 10, 27, 21, 0)
     rows = [{"data_czas": (start + timedelta(seconds=30 * i)).isoformat(), "tryb_pracy": "WORK", "zadana": "56",
              "temp_pieca": str(52 if 60 <= i < 120 else 56)} for i in range(240)]   # 21:30-22:00 at 52
-    s = fine_series(rows, start, start + timedelta(hours=2) - timedelta(minutes=10))
+    s = fine_series(rows, start, start + timedelta(hours=2) - timedelta(minutes=10), step_s=600)
     assert len(s) == 12 and s[0]["time"] == "21:00"
     assert [x["boiler"] for x in s[3:6]] == [52.0, 52.0, 52.0]      # the dip is there, not averaged away
     assert s[0]["setpoint"] == 56.0
@@ -191,3 +191,24 @@ def test_power_stability_in_settled_work():
     ps = summarize([aggregate_day(day, rows)])["power_stats"]
     assert ps["avg_pct"] == 50 and 9.5 <= ps["std_pct"] <= 10.5
     assert ps["at_max_pct"] == 0 and ps["at_min_pct"] == 0 and ps["grade"] == "stabilnie"
+
+
+def test_days_read_again_for_new_fields_are_saved(tmp_path):
+    """Cached days without the power fields are read again once - and then saved, not re-read every time."""
+    import json as _json
+    from backend.core.analytics import Analytics
+    seed(tmp_path, 5)
+    mods = tmp_path / "modules"
+    cache = mods / "stats" / "data" / "analytics_days.json"
+    a = Analytics(mods / "history" / "data", mods / "stats" / "data", mods / "eventlog" / "data", cache)
+    a.report(today=date.today(), season_start=date.today() - timedelta(days=60))
+    data = _json.loads(cache.read_text())
+    for day in data["days"].values():          # an older version's cache: no power fields
+        for k in [k for k in day if k.startswith("pw_")]:
+            del day[k]
+    cache.write_text(_json.dumps(data))
+    a2 = Analytics(mods / "history" / "data", mods / "stats" / "data", mods / "eventlog" / "data", cache)
+    a2.report(today=date.today(), season_start=date.today() - timedelta(days=60))
+    saved = _json.loads(cache.read_text())["days"]
+    recent = [d for k, d in saved.items() if k >= (date.today() - timedelta(days=30)).isoformat()]
+    assert recent and all("pw_s" in d for d in recent)   # the last 30 days re-read once and saved

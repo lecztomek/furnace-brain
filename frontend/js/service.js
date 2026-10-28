@@ -91,7 +91,13 @@
 
     // the PID parts always, the rest only when something is wrong
     const items = r.items.filter((i) => PID_AREAS.includes(i.area) || i.status === "warn" || i.status === "bad");
-    $("tn-items").innerHTML = items.map(adviceCard).join("");
+    $("tn-items").innerHTML = table(items.map((i) => {
+      const [icon, name] = AREA[i.area] || ["info", i.area];
+      const t = splitTip(i.tip);
+      const showSub = i.status === "warn" || i.status === "bad";
+      return { status: i.status, icon: i.status === "ok" ? "check" : icon, name, text: i.title,
+               sub: showSub ? [t.action, i.detail].filter(Boolean).join(" • ") : "", right: t.change || (i.status === "ok" ? "OK" : "") };
+    }));
     renderChanges(r.changes || []);
     renderLive(r.live || {}, r.settings || {});
   }
@@ -106,18 +112,7 @@
     return `sv-card sv-card--${status}${opened.has(key) ? " is-open" : ""}`;
   }
 
-  function adviceCard(i) {
-    const [icon, name] = AREA[i.area] || ["info", i.area];
-    const t = splitTip(i.tip);
-    return `<button type="button" class="${cardClass(i.status, i.area + i.title)}" data-key="${esc(i.area + i.title)}">
-      <span class="sv-card__top"><span class="sv-card__icon">${FBIcon(icon)}</span><span class="sv-card__name">${esc(name)}</span>
-        <span class="sv-card__word">${WORD[i.status] || ""}</span></span>
-      <span class="sv-card__title">${esc(i.title)}</span>
-      ${t.change ? `<span class="sv-card__change">${esc(t.change)}</span>` : ""}
-      ${i.tip && (t.change || i.status === "warn" || i.status === "bad") ? `<span class="sv-card__action">${esc(t.action)}</span>` : ""}
-      <span class="sv-card__more">${esc(i.detail)}${i.tip && !t.change && i.status === "info" ? `<br>${esc(i.tip)}` : ""}</span>
-    </button>`;
-  }
+
 
   function renderChanges(list) {
     $("tn-changes-card").style.display = list.length ? "" : "none";
@@ -182,17 +177,32 @@
       </span></div>`;
   }
 
+  // a plain table: status icon | name | what (and why, smaller) | the change, in big digits
+  function table(rows) {
+    return `<table class="sv-table"><tbody>${rows.map((r) => `
+      <tr class="sv-tr sv-tr--${r.status}">
+        <td class="sv-td-icon"><span class="sv-tr__icon">${FBIcon(r.icon)}</span></td>
+        <td class="sv-td-name">${esc(r.name)}</td>
+        <td class="sv-td-text">${esc(r.text)}${r.sub ? `<span class="sv-td-sub">${esc(r.sub)}</span>` : ""}</td>
+        <td class="sv-td-right">${r.right ? esc(r.right) : ""}</td>
+      </tr>`).join("")}</tbody></table>`;
+  }
+
+  // "Do sprawdzenia" heading with the list under it - nothing when all is fine
+  function problems(prefix, rows) {
+    $(`${prefix}-problems-head`).style.display = rows.length ? "" : "none";
+    $(`${prefix}-problems`).innerHTML = rows.length ? table(rows) : "";
+  }
+
   function renderDiag(d) {
     verdict($("dg-verdict"), d.status);
     const tiles = d.tiles || [];
     $("dg-tiles").innerHTML =
       `<div class="sv-disks">${tiles.filter((t) => t.kind === "bar").map(barTile).join("")}</div>` +
       `<div class="sv-stats">${tiles.filter((t) => t.kind === "status").map(statusTile).join("")}</div>`;
-    const problems = d.groups.flatMap((g) => g.items).filter((i) => (i.status === "warn" || i.status === "bad") && i.gauge == null);
-    $("dg-problems").innerHTML = problems.map((i) => `<button type="button" class="${cardClass(i.status, i.label)}" data-key="${esc(i.label)}">
-      <span class="sv-card__top"><span class="sv-card__icon">${FBIcon(i.status === "bad" ? "stop" : "alert")}</span><span class="sv-card__name">${esc(i.label)}</span></span>
-      <span class="sv-card__title">${esc(i.value)}</span>
-      ${i.note ? `<span class="sv-card__more">${esc(i.note)}</span>` : ""}</button>`).join("");
+    const issues = d.groups.flatMap((g) => g.items).filter((i) => (i.status === "warn" || i.status === "bad") && i.gauge == null);
+    problems("dg", issues.map((i) => ({ status: i.status, icon: i.status === "bad" ? "stop" : "alert", name: i.label,
+                                         text: i.value, sub: i.note })));
     $("dg-groups").innerHTML = d.groups.filter((g) => g.items.length).map((g) => `
       <h3 class="sv-group">${esc(g.title)}</h3>
       ${g.items.map((i) => `<div class="sv-row sv-row--${i.status}"><span class="sv-row__dot"></span>
@@ -213,9 +223,9 @@
       // a check counted over another period than the rest says so on its tile
       const own = c.period && c.period !== list[0].period ? esc(c.period) : "";
       return bigTile(icon, esc(c.label || c.title), esc(c.value || "--"), c.status, own);
-    }).join("")}</div>` + list.filter((c) => c.status === "warn" || c.status === "bad").map((c) =>
-      `<div class="sv-card sv-card--${c.status} is-open ck-problem"><span class="sv-card__top"><span class="sv-card__icon">${FBIcon(c.status === "bad" ? "stop" : "alert")}</span>` +
-      `<span class="sv-card__name">${esc(c.title)}</span></span><span class="sv-card__more">${esc(c.detail)}</span></div>`).join("");
+    }).join("")}</div>`;
+    problems("ck", list.filter((c) => c.status === "warn" || c.status === "bad").map((c) => (
+      { status: c.status, icon: c.status === "bad" ? "stop" : "alert", name: c.label || c.title, text: c.detail, right: c.value })));
   }
 
   // ---------------------------------------------------------------- loading
