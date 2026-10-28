@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.45.1 · 28.10.2026 15:28
+- Structure (no change in how the furnace works): the wiring moved out of main.py - the hardware layer reads it at the start (backend/hw/wiring.py), the Sprzęt module owns it (checks a save, passes a change to the hardware); main.py only puts the parts together
+
 ## 1.45.0 · 28.10.2026 15:18
 - New module "Historia ustawień" (settings_log): every setting of every module with the app version and commit to the USB stick (settings_YYYYMM.jsonl) - at the start (each update), when a settings file changes (GUI or by hand) and once a day; secrets left out
 - Serwis → Strojenie, "Po zmianach ustawień": changes also from the settings history (what the event log missed) and app version updates, each compared 12 h before / after

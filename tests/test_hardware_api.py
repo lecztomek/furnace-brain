@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from backend.api.config_api import create_config_router
 from backend.api.service_api import LoopStats, create_service_router
-from backend.core import hardware_setup as H
+from backend.hw import wiring as H
 from backend.core.config_store import ConfigStore
 from backend.core.state_store import StateStore
 

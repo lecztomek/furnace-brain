@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from backend.core import hardware_setup as H
+from backend.hw import wiring as H
 from backend.core.config_store import ConfigStore
 from backend.core.state import Outputs
 
@@ -210,3 +210,35 @@ def test_sensor_assignment_and_inventory(rpi):
     values = dict(H.defaults(), sensor4="28-00000000dead", sensor4_role="powrót")
     hw.reconfigure(H.pins(values), H.rom_to_field(values))
     assert any(x.get("missing") and x["rom"] == "28-00000000dead" for x in hw.detected_sensors())
+
+
+def test_the_hardware_module_applies_a_saved_change(tmp_path):
+    """The module owns the wiring: a saved change goes to the hardware at once, a broken file is refused."""
+    import shutil as _sh
+    from backend.modules.hardware import HardwareModule
+
+    class FakeHw:
+        def __init__(self):
+            self.calls = []
+
+        def reconfigure(self, pins, roms):
+            self.calls.append((pins, roms))
+
+    _sh.copytree(MODULES / "hardware", tmp_path / "hardware", ignore=_sh.ignore_patterns("values.yaml", "__pycache__"))
+    m = HardwareModule(base_path=tmp_path / "hardware")
+    hw, problems = FakeHw(), ["stary błąd"]
+    m.bind_hardware(hw, problems)
+    assert m.validate_values(swapped_pumps()) == [] and m.validate_values(dict(H.defaults(), gpio20="pompa CO"))
+    (tmp_path / "hardware" / "values.yaml").write_text(yaml.safe_dump(swapped_pumps()), encoding="utf-8")
+    m.reload_config_from_file()
+    assert hw.calls[-1][0]["pump_co"] == 20 and problems == []
+    (tmp_path / "hardware" / "values.yaml").write_text(yaml.safe_dump(dict(H.defaults(), gpio20="pompa CO")), encoding="utf-8")
+    with pytest.raises(ValueError):
+        m.reload_config_from_file()
+    assert len(hw.calls) == 1                                                       # nothing applied
+
+
+def test_the_rpi_config_from_the_wiring():
+    cfg = H.rpi_config(swapped_pumps())
+    assert cfg.pins.pump_co_pin == 20 and cfg.pins.pump_cwu_pin == 21 and cfg.pins.feeder_pin == 16
+    assert cfg.pins.fan_pwm_pin == 19 and cfg.ds18b20.rom_to_field["28-000000506777"] == "boiler_temp"

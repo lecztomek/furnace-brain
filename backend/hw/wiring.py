@@ -7,7 +7,13 @@ its speed is the PWM duty on GPIO19 to the YYAC-3S module (fixed, not a setting)
 """
 from __future__ import annotations
 
+import logging
+from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
+import yaml
+
+log = logging.getLogger(__name__)
 
 # function -> its name in the GUI (each relay function on exactly one output)
 FUNCTIONS = {
@@ -119,3 +125,35 @@ def load(values: Dict[str, Any]) -> Tuple[Dict[str, Any], List[str]]:
     merged = {**defaults(), **(values or {})}
     errors = validate(merged)
     return (merged, []) if not errors else (defaults(), errors)
+
+
+def load_file(path: Path) -> Tuple[Dict[str, Any], List[str]]:
+    """The wiring at the start: values.yaml of the hardware module, or the original wiring
+    when it is missing (first start after an update) or broken - an update never changes
+    what the outputs drive."""
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except (OSError, yaml.YAMLError) as exc:
+        log.error("Hardware settings unreadable (%s) - using the default wiring", exc)
+        raw = {}
+    values, problems = load(raw if isinstance(raw, dict) else {})
+    for p in problems:
+        log.error("Hardware settings: %s - using the default wiring", p)
+    return values, problems
+
+
+def rpi_config(values: Dict[str, Any]):
+    """HardwareConfig of the Raspberry Pi from the wiring settings."""
+    from backend.hw.rpi_hw import Ds18b20Config, HardwareConfig, Max6675Config, PinConfig
+    p = pins(values)
+    return HardwareConfig(
+        ds18b20=Ds18b20Config(rom_to_field=rom_to_field(values), base_path="/sys/bus/w1/devices"),
+        # flue gas thermocouple (MAX6675) on CE0 -> spidev0.0
+        max6675=Max6675Config(spi_bus=0, spi_dev=0, max_hz=4_000_000, mode=0),
+        pins=PinConfig(feeder_pin=p["feeder"], pump_cwu_pin=p["pump_cwu"], pump_co_pin=p["pump_co"],
+                       mixer_open_pin=p["mixer_open"], mixer_close_pin=p["mixer_close"],
+                       fan_pwm_pin=p["fan_pwm"], fan_pwm_freq_hz=200),   # blower: YYAC-3S
+        fan_inverted=bool(values.get("fan_inverted", False)),
+        sensors_poll_interval_s=5.0,
+        sensors_stale_after_s=20.0,
+    )
