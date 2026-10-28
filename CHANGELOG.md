@@ -2,6 +2,10 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.42.0 · 28.10.2026 12:46
+- Power in WORK: optional flue brake (Ustawienia → Moc w pracy → "Hamulec spalinowy", 0 = off, the default). The flue warms up 10-20 min before the boiler water, so power -= gain x flue trend [°C/min] (smoothed over 5 min, at most "Hamulec spalinowy - maks." points, a bad reading ignored, nothing without the sensor, starts over on entering WORK)
+- Checked on a boiler twin fitted to prod (wave ±1.4 °C every ~80 min, flue 14 min ahead): gain 8 brings the wave to ±0.5-1.0 °C, the same bath recovery, faster after a setpoint or load change
+
 ## 1.41.4 · 28.10.2026 12:36
 - Remote view: statistics no longer stuck on "liczę aktualne" - the pushed report is the last finished one, sent without the "still counting" mark
 

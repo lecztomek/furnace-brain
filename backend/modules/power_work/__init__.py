@@ -92,6 +92,12 @@ class WorkPowerConfig:
     # limiter szybkości zmian mocy w WORK
     max_slew_rate_percent_per_min: float = 0.0  # 0.0 = wyłączony
 
+    # Flue brake: the flue gas warms up 10-20 min before the boiler water does (the coal
+    # is already burning). Power -= gain x flue trend [C/min], so the PID stops adding coal
+    # before the boiler overshoots (and adds earlier when the fire fades). 0 = off.
+    flue_brake_gain: float = 0.0
+    flue_brake_max: float = 20.0   # the brake changes the power by at most this many points
+
     # --- PERSIST STANU (jak history) ---
     state_dir: str = "data"  # względnie do katalogu modułu
     state_file: str = "power_work_state.yaml"
@@ -103,6 +109,8 @@ class WorkPowerConfig:
 RATE_SAMPLE_S = 30.0      # trend sampled every 30 s
 RATE_TAU_S = 180.0        # and smoothed over ~3 min
 RATE_DEADBAND = 0.05      # C/min - slower than this counts as standing still
+FLUE_TAU_S = 300.0        # flue trend smoothed over ~5 min (the sensor jumps by 0.25-0.5 C)
+FLUE_MAX_RATE = 10.0      # C/min - faster is a bad reading (the fire in WORK changes the flue ~1 C/min)
 
 
 class WorkPowerModule(ModuleInterface):
@@ -154,6 +162,10 @@ class WorkPowerModule(ModuleInterface):
         # boiler temperature trend for the classic integral
         self._rate: float = 0.0
         self._rate_sample: Optional[tuple] = None
+        # flue gas trend for the flue brake [C/min] and the brake now [% points]
+        self._flue_rate: float = 0.0
+        self._flue_sample: Optional[tuple] = None
+        self._brake: float = 0.0
         self._last_error: Optional[float] = None
         self._last_tick_ts: Optional[float] = None
 
@@ -222,6 +234,9 @@ class WorkPowerModule(ModuleInterface):
         # więc zerujemy znacznik czasu dla mocy.
         if not prev_in_work and in_work:
             self._last_power_ts = None
+            # the flue jumps in ignition / STOP - the trend starts over in WORK
+            self._flue_sample = None
+            self._flue_rate = 0.0
 
         # Jeśli przywróciliśmy stan z dysku, walidujemy go dopiero jak mamy temp.
         if boiler_temp is not None and self._restored_state_meta is not None:
@@ -287,6 +302,11 @@ class WorkPowerModule(ModuleInterface):
         # --- Tryb WORK – PID + przegrzanie + ograniczenia + limiter zmian mocy ---
 
         power = base_power
+
+        # Flue brake (0 = off): ahead of the boiler by the flue trend
+        self._update_flue_rate(now_ctrl, sensors.flue_gas_temp)
+        self._brake = self._flue_brake()
+        power += self._brake
 
         # Korekta przegrzania
         if boiler_temp is not None:
@@ -439,6 +459,8 @@ class WorkPowerModule(ModuleInterface):
             "rate": rate,
             "integral_frozen": bool(frozen),
             "power": self._power,
+            "flue_rate": round(self._flue_rate, 2),
+            "brake": round(self._brake, 1),
             "overtemp": boiler_temp is not None
             and boiler_temp > self._config.boiler_set_temp + max(self._config.overtemp_start_degC, 0.0),
         }
@@ -486,6 +508,34 @@ class WorkPowerModule(ModuleInterface):
         a = min(1.0, dt / RATE_TAU_S)
         self._rate += a * (slope - self._rate)
         self._rate_sample = (now_ctrl, boiler_temp)
+
+    def _update_flue_rate(self, now_ctrl: float, flue_temp: Optional[float]) -> None:
+        """Smoothed flue gas trend [C/min]; no reading - no trend (the brake lets go)."""
+        if flue_temp is None:
+            self._flue_sample = None
+            self._flue_rate = 0.0
+            return
+        last = self._flue_sample
+        if last is None or now_ctrl - last[0] > 120:
+            self._flue_sample = (now_ctrl, flue_temp)
+            return
+        dt = now_ctrl - last[0]
+        if dt < RATE_SAMPLE_S:
+            return
+        slope = (flue_temp - last[1]) / dt * 60.0
+        self._flue_sample = (now_ctrl, flue_temp)
+        if abs(slope) > FLUE_MAX_RATE:
+            return      # a bad reading, not the fire - the trend ignores the jump
+        a = min(1.0, dt / FLUE_TAU_S)
+        self._flue_rate += a * (slope - self._flue_rate)
+
+    def _flue_brake(self) -> float:
+        """Power correction [% points]: minus while the flue warms up, plus while it cools down."""
+        gain = max(self._config.flue_brake_gain, 0.0)
+        if gain <= 0.0:
+            return 0.0
+        lim = max(self._config.flue_brake_max, 0.0)
+        return max(-lim, min(lim, -gain * self._flue_rate))
 
     def _track_to_power(self, now_ctrl: float, boiler_temp: float, actual_power: float) -> None:
         """
@@ -768,6 +818,8 @@ class WorkPowerModule(ModuleInterface):
             "overtemp_start_degC",
             "overtemp_kp",
             "max_slew_rate_percent_per_min",
+            "flue_brake_gain",
+            "flue_brake_max",
             "state_save_interval_s",
             "state_max_age_s",
             "state_max_temp_delta_C",
