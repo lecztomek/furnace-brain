@@ -352,6 +352,7 @@ def aggregate_day(day: date, rows: List[Dict[str, str]], coal_kg: float = 0.0,
             agg.st_over = max(agg.st_over, err)
             agg.st_under = max(agg.st_under, -err)
     close_drop(drop)
+    agg.hw = [[round(v, 1) for v in h] for h in agg.hw]   # kept in the day cache - short numbers
     return agg
 
 
