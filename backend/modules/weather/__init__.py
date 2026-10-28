@@ -30,7 +30,7 @@ OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 class WeatherConfig:
     """
     Outside temperature from Open-Meteo (free, no API key) for the given
-    location. Used as outside_temp when there is no outside sensor.
+    location. Published in runtime["weather"]; everyone reads it with backend.core.outside.
     """
     enabled: bool = True
     location_name: str = "Nowy Sącz"
@@ -83,7 +83,7 @@ class WeatherModule(ModuleInterface):
     """
     Aux module: fetches the outside temperature in a background thread (the
     network never blocks the loop) and publishes it as runtime["weather"];
-    the kernel puts it into sensors.outside_temp when no sensor provides one.
+    read from runtime["weather"] by backend.core.outside.outside_temp (no outside sensor).
     """
 
     def __init__(

@@ -7,7 +7,7 @@ from pathlib import Path
 from backend.core.shutdown import parking_outputs
 from backend.core.state import BoilerMode, Outputs, Sensors, SystemState
 from backend.modules.flameout import FlameoutModule
-from backend.modules.mixer import MixerModule
+from backend.modules.curve import CurveModule
 
 ROOT = Path(__file__).resolve().parents[1]
 HEADER = "data_czas;temp_pieca;power;temp_grzejnikow;temp_spalin;tryb_pracy;temp_zewn;dmuchawa;slimak;zadana\n"
@@ -68,17 +68,18 @@ def test_flameout_refill_stops_at_the_last_ignition(tmp_path):
 def test_heating_curve_average_comes_from_the_history(tmp_path):
     # 6 h: -8 C at night, 0 C now - the average must not start from the current 0 C
     write_history(tmp_path, 360, lambda ago: {"boiler": 56.0, "outside": -8.0 if ago > 60 else 0.0})
-    shutil.copy(ROOT / "backend/modules/mixer/schema.yaml", tmp_path / "schema.yaml")
-    (tmp_path / "values.yaml").write_text("curve_enabled: true\ncurve_avg_h: 6\n", encoding="utf-8")
-    m = MixerModule(base_path=tmp_path, data_root=tmp_path)
+    (tmp_path / "curve").mkdir()
+    shutil.copy(ROOT / "backend/modules/curve/schema.yaml", tmp_path / "curve" / "schema.yaml")
+    (tmp_path / "curve" / "values.yaml").write_text("curve_enabled: true\ncurve_avg_h: 6\n", encoding="utf-8")
+    m = CurveModule(base_path=tmp_path / "curve", data_root=tmp_path)
     st = SystemState(mode=BoilerMode.WORK)
     st.ts_mono = 5000.0
     for _ in range(40):                       # the history is read in the background
         m.tick(now=time.time(), sensors=Sensors(boiler_temp=56.0, radiators_temp=30.0, outside_temp=0.0), system_state=st)
-        if st.runtime["mixer"]["outside_avg"] is not None and st.runtime["mixer"]["outside_avg"] < -1:
+        if st.runtime["curve"]["outside_avg"] is not None and st.runtime["curve"]["outside_avg"] < -1:
             break
         time.sleep(0.05)
-    avg = st.runtime["mixer"]["outside_avg"]
+    avg = st.runtime["curve"]["outside_avg"]
     assert -7.5 < avg < -6.0                                   # (5 h at -8 + 1 h at 0) / 6
 
 

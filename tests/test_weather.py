@@ -79,17 +79,21 @@ def test_fetches_at_most_every_refresh_interval(tmp_path):
     assert len(calls) == 1
 
 
-def test_kernel_uses_weather_as_outside_temp(tmp_path):
+def test_everyone_reads_the_weather_from_the_shared_state(tmp_path):
+    """The weather module publishes runtime["weather"]; the curve, the history, diagnostics and
+    the main page read it from there (backend.core.outside) - the kernel knows nothing of it."""
+    from backend.core.outside import outside_temp
+    now = time.time()
+    fresh = {"weather": {"temp": -4.0, "valid_until": now + 600}}
+    assert outside_temp(None, fresh, now) == -4.0
+    assert outside_temp(None, {"weather": {"temp": -4.0, "valid_until": now - 1}}, now) is None   # stale
+    assert outside_temp(2.5, fresh, now) == 2.5                                  # an outside sensor wins
     sim = FurnaceSim(tmp_path)
     with sim.store.locked() as st:
         st.runtime["weather"] = {"temp": -4.0, "valid_until": time.time() + 600}
     sim.run(5)
-    assert sim.state.sensors.outside_temp == -4.0
-
-    with sim.store.locked() as st:
-        st.runtime["weather"] = {"temp": -4.0, "valid_until": time.time() - 1}  # stale
-    sim.run(5)
-    assert sim.state.sensors.outside_temp is None
+    assert sim.state.sensors.outside_temp is None                                # the kernel doesn't touch it
+    assert sim.state.runtime["curve"]["outside_avg"] == -4.0                     # the curve read it
 
 
 def test_forecast_fetched_with_the_temperature_and_published(tmp_path):

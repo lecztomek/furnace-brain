@@ -16,11 +16,12 @@ from typing import Any, Callable, Dict, List, Optional
 from fastapi import APIRouter
 
 from backend.core.config_store import ConfigStore
+from backend.core.outside import outside_temp
 from backend.core.state_store import StateStore
 from backend.core import timings
 from backend.core.tuning import TuningReport
 
-TUNING_MODULES = ("power_work", "feeder", "blower", "mixer", "mode", "pump_co", "overheat", "flameout")
+TUNING_MODULES = ("power_work", "feeder", "blower", "mixer", "curve", "mode", "pump_co", "overheat", "flameout")
 TUNING_REUSE_S = 600   # rebuilt at most every 10 min (only today is read again - fast)
 
 SENSOR_NAMES = {"boiler_temp": "Kocioł", "radiators_temp": "Grzejniki", "hopper_temp": "Podajnik",
@@ -532,7 +533,7 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
         last_missing = safety.get("last_missing") or {}
         episodes = safety.get("episodes") or {}
         for key, label in SENSOR_NAMES.items():
-            v = getattr(st.sensors, key, None)
+            v = outside_temp(st.sensors.outside_temp, st.runtime) if key == "outside_temp" else getattr(st.sensors, key, None)
             n = episodes.get(key, 0)
             note = f"gubił odczyt {n}× od startu, ostatnio {_ago(last_missing.get(key), now)}" if n else ""
             if key in missing or (v is None and key != "outside_temp"):

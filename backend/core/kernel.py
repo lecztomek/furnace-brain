@@ -1,7 +1,7 @@
 # backend/core/kernel.py
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple
 from typing_extensions import Protocol
 import time
@@ -162,12 +162,6 @@ class Kernel:
         all_events: List[Event] = []
     
         with self._store.locked() as st:
-            # no outside sensor -> outside temperature from the weather module (if fresh)
-            if sensors.outside_temp is None:
-                weather = st.runtime.get("weather") or {}
-                if weather.get("temp") is not None and time.time() <= float(weather.get("valid_until") or 0):
-                    sensors = replace(sensors, outside_temp=float(weather["temp"]))
-
             st.sensors = sensors
             st.ts = now
             st.ts_mono = now_mono

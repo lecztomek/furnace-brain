@@ -13,6 +13,7 @@ except ImportError:
     from backports.zoneinfo import ZoneInfo  # Python 3.7/3.8
 
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
+from backend.core.outside import outside_temp
 from backend.core.state import (
     Event,
     EventLevel,
@@ -158,7 +159,7 @@ class HistoryModule(ModuleInterface):
         power = system_state.outputs.power_percent
         temp_grzejnikow = sensors.radiators_temp
         temp_spalin = sensors.flue_gas_temp
-        temp_zewn = sensors.outside_temp
+        temp_zewn = outside_temp(sensors.outside_temp, system_state.runtime, now)
         zadana = self._work_setpoint()
         n = max(self._samples, 1)
         dmuchawa = round(self._fan_sum / n, 1)          # average fan power [%]

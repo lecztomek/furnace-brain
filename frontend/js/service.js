@@ -108,7 +108,7 @@
 
   // what to turn when the rooms are too warm or too cold - with the current curve values
   function renderRooms(s) {
-    const m = s.mixer || {};
+    const m = s.curve || {};
     const at0 = Number(m.curve_at_0), slope = Number(m.curve_slope);
     if (!m.curve_enabled || !isFinite(at0) || !isFinite(slope)) {
       const t = Number(m.target_temp);

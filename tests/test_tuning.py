@@ -19,7 +19,7 @@ SETTINGS = {
     "power_work": {"boiler_set_temp": 56.0, "kp": 10.0, "ki": 0.005, "min_power": 20.0, "max_power": 93.0},
     "feeder": {"feed_on_base_s": 8.0, "feed_off_base_s": 56.0, "min_power_to_feed": 6.0},
     "blower": {"base_fan_percent": 28.0, "min_power_to_blow": 15.0},
-    "mixer": {"curve_enabled": False, "target_temp": 30.0},
+    "curve": {"curve_enabled": False, "target_temp": 30.0},
     "mode": {"switch_temp": 54.0},
     "pump_co": {"boiler_on_temp": 40.0},
     "overheat": {"enabled": True, "boiler_trip_temp": 66.0},
@@ -40,7 +40,7 @@ def work_rows(hours, boiler, power, start=START, mode="WORK", setpoint=56.0):
 def advice(rows, settings=SETTINGS):
     steady = T.settled(rows, 56.0)
     reg = T.regulation(steady, 20, 93)
-    items = T.advise(reg, T.radiators(steady, settings["mixer"]), T.ignitions(rows, 56.0),
+    items = T.advise(reg, T.radiators(steady, settings["curve"]), T.ignitions(rows, 56.0),
                      T.event_summary([]), settings)
     return {i["area"]: i for i in items}, reg
 
@@ -277,13 +277,13 @@ def test_curve_power_reserve():
              "curve_avg_h": 6.0}
     reg = {"power_avg": 67, "hours": 10}
     rad = {"rad_avg": 30.0, "outside_avg": 5.0, "mean": 0.0, "mean_abs": 0.4, "within_1": 90}
-    items = T.advise(None, rad, [], T.event_summary([]), {**SETTINGS, "mixer": curve})
+    items = T.advise(None, rad, [], T.event_summary([]), {**SETTINGS, "curve": curve})
     # PID is not judged without reg - the curve needs the power: nothing about the reserve
     assert [i for i in items if i["area"] == "Krzywa"][0]["status"] == "info"
 
     steady = T.settled(work_rows(12, lambda m: 56.0, lambda m: 67), 56.0)
     reg = T.regulation(steady, 20, 93)
-    items = T.advise(reg, rad, [], T.event_summary([]), {**SETTINGS, "mixer": curve})
+    items = T.advise(reg, rad, [], T.event_summary([]), {**SETTINGS, "curve": curve})
     k = [i for i in items if i["area"] == "Krzywa"]
     # -10 °C: 36.5 °C on the radiators, (14.5 / 8)^1.3 x 67% = ~145% - over 93%: a hint, not a problem
     assert k[0]["status"] == "hint" and "0,45 → 0,35" in k[0]["tip"] and "145%" in k[0]["detail"]
@@ -291,7 +291,7 @@ def test_curve_power_reserve():
 
     gentle = {**curve, "curve_slope": 0.15, "curve_avg_h": 12.0}
     calm = T.regulation(T.settled(work_rows(12, lambda m: 56.0, lambda m: 50), 56.0), 20, 93)
-    k = [i for i in T.advise(calm, rad, [], T.event_summary([]), {**SETTINGS, "mixer": gentle}) if i["area"] == "Krzywa"]
+    k = [i for i in T.advise(calm, rad, [], T.event_summary([]), {**SETTINGS, "curve": gentle}) if i["area"] == "Krzywa"]
     assert len(k) == 1 and k[0]["status"] == "ok"
     assert T.verdict([i for i in items if i["status"] == "hint"])["status"] == "ok"
 

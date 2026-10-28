@@ -37,6 +37,8 @@ def apply_partial_outputs(st: SystemState, po: PartialOutputs | None):
 
 
 def tick(m: MixerModule, st: SystemState, now: float):
+    # the target comes from the heating curve module (it ticks before the valve)
+    st.runtime.setdefault("curve", {"target": DEFAULT_CFG["target_temp"]})
     st.ts = now
     st.ts_mono = now  # the mixer times its pulses on the monotonic clock
     res = m.tick(now=now, sensors=st.sensors, system_state=st)

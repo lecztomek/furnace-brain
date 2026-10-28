@@ -29,6 +29,11 @@ modules:
     enabled: true
     critical: true
 
+  - id: curve
+    path: backend.modules.curve:CurveModule
+    enabled: true
+    critical: true
+
   - id: mixer
     path: backend.modules.mixer:MixerModule
     enabled: true

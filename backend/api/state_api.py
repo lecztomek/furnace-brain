@@ -6,6 +6,7 @@ import time
 from fastapi import APIRouter, HTTPException
 
 from backend.core.config_store import ConfigStore
+from backend.core.outside import outside_temp
 from backend.core.state_store import StateStore
 from ..core.state import SystemState, BoilerMode
 
@@ -93,7 +94,7 @@ def create_state_router(
                 "cwu_temp": sens.cwu_temp,
                 "flue_gas_temp": sens.flue_gas_temp,
                 "hopper_temp": sens.hopper_temp,
-                "outside_temp": sens.outside_temp,
+                "outside_temp": outside_temp(sens.outside_temp, s.runtime),
                 "mixer_temp": sens.mixer_temp,
             },
             "outputs": {
@@ -113,7 +114,8 @@ def create_state_router(
             # coal burned [kg/h], same 10 min window
             "coal_kgph": (s.runtime.get("stats") or {}).get("coal_kgph_now"),
             # radiators target in use: fixed, or from the heating curve (mixer module)
-            "radiators": s.runtime.get("mixer") or {},
+            # the valve's movement and the target from the heating curve
+            "radiators": {**(s.runtime.get("mixer") or {}), **(s.runtime.get("curve") or {})},
             # flame-out alarm (furnace stopped), until it is started again
             "flameout": s.runtime.get("flameout") or {},
             # everything the warning sign on the main page shows

@@ -20,3 +20,5 @@ backend/sim_runs/
 
 .deploy_prev
 .deploy_failed
+
+backend/modules/curve/.taken_over_from_mixer

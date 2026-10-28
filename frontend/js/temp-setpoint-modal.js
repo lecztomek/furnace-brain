@@ -33,10 +33,10 @@
     radiators: {
       opener: "radiators-temp",
       title: "Ustaw temp grzejników",
-      toggle: { moduleId: "mixer", key: "curve_enabled", label: "Krzywa grzewcza" },
+      toggle: { moduleId: "curve", key: "curve_enabled", label: "Krzywa grzewcza" },
       fields: [
-        { moduleId: "mixer", key: "target_temp", showWhen: false },
-        { moduleId: "mixer", key: "curve_at_0", showWhen: true },
+        { moduleId: "curve", key: "target_temp", showWhen: false },
+        { moduleId: "curve", key: "curve_at_0", showWhen: true },
       ],
       // with the curve on: what it gives now, from the averaged outside temperature
       hint: async (on) => {
@@ -46,7 +46,7 @@
         const at0 = active?.fields.find((f) => f.key === "curve_at_0")?.value;
         if (rad.outside_avg == null) return "Brak temperatury zewnętrznej - grzeje do stałej zadanej";
         const [slope, lo, hi] = await Promise.all(
-          ["curve_slope", "curve_min", "curve_max"].map((k) => apiJson(valueUrl("mixer", k)).then((d) => Number(d.value)))
+          ["curve_slope", "curve_min", "curve_max"].map((k) => apiJson(valueUrl("curve", k)).then((d) => Number(d.value)))
         );
         const t = clamp(at0 - slope * rad.outside_avg, lo, hi);
         return `Na dworze średnio ${fmt(rad.outside_avg)}°C → zadana ${fmt(Math.round(t * 10) / 10)}°C`;

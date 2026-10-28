@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from collections import deque
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
 
-from backend.core.history_tail import Refill, history_dir, recent_rows, to_mono
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
 from backend.core.state import (
     BoilerMode,
@@ -23,8 +21,7 @@ from backend.core.state import (
 
 @dataclass
 class MixerConfig:
-    # CO
-    target_temp: float = 40.0
+    # the radiator target comes from the heating curve module (runtime["curve"]["target"])
     ok_band_degC: float = 2.0
 
     # Stabilize: czas impulsu zależny od błędu
@@ -50,20 +47,8 @@ class MixerConfig:
     preclose_on_ignition_enabled: bool = True
     preclose_full_close_time_s: float = 120.0
 
-    # Heating curve: the target follows the outside temperature (off = fixed target_temp).
-    # Defaults fitted to how the target was set by hand in the 2025/26 season
-    # (about 30 C at 0 C outside, 0.45 C more water per degree of frost).
-    curve_enabled: bool = False
-    curve_at_0: float = 30.0          # target at 0 C outside
-    curve_slope: float = 0.45         # C of water per C of outside temperature
-    curve_min: float = 22.0
-    curve_max: float = 45.0
-    curve_avg_h: float = 12.0         # outside temperature averaged over (house and water inertia)
-
 
 MOVES_WINDOW_S = 30 * 60.0     # net valve movement shown on the main page
-
-CURVE_SAMPLE_S = 60.0          # outside temperature sampled once a minute
 
 
 class MixerModule(ModuleInterface):
@@ -107,13 +92,8 @@ class MixerModule(ModuleInterface):
         self._last_out_open: bool = False
         self._last_out_close: bool = False
 
-        # heating curve: outside temperature samples (ts_mono, temp) and the target in use
-        self._outside: deque = deque()
-        # the heating curve's outside average is refilled from the history after a restart
-        self._history_dir = history_dir(data_root)
-        self._outside_refill = Refill()
-        self._target: float = self._config.target_temp
-        self._curve_active: bool = False
+        # the radiator target from the heating curve module; None until it has given one
+        self._target: Optional[float] = None
 
         # net valve movement: minute -> seconds (+ opening, - closing)
         self._moves: Dict[int, float] = {}
@@ -139,7 +119,7 @@ class MixerModule(ModuleInterface):
         boiler_temp = sensors.boiler_temp
         rad_temp = sensors.radiators_temp
 
-        self._update_target(now, now_ctrl, sensors.outside_temp, system_state, events)
+        self._take_target(now_ctrl, system_state)
 
         prev_mode = self._last_mode
 
@@ -351,7 +331,7 @@ class MixerModule(ModuleInterface):
         if self._force_full_close:
             effective_mode = "ignition_preclose"
         else:
-            if rad_temp is None:
+            if rad_temp is None or self._target is None:
                 effective_mode = "stabilize"
             else:
                 far_err = self._config.ramp_error_factor * self._config.ok_band_degC
@@ -564,7 +544,7 @@ class MixerModule(ModuleInterface):
         return evs
 
     def _is_far_below_setpoint(self, rad_temp: Optional[float]) -> bool:
-        if rad_temp is None:
+        if rad_temp is None or self._target is None:
             return False
         far_err = self._config.ramp_error_factor * self._config.ok_band_degC
         return rad_temp < (self._target - far_err)
@@ -590,6 +570,8 @@ class MixerModule(ModuleInterface):
 
     def _decide_direction_stabilize(self, mix_temp: float) -> Optional[str]:
         t_set = self._target
+        if t_set is None:
+            return None     # no target from the heating curve yet: hold still
         band = self._config.ok_band_degC
         if mix_temp < t_set - band:
             return "open"
@@ -627,29 +609,15 @@ class MixerModule(ModuleInterface):
     def get_config_values(self) -> Dict[str, Any]:
         return asdict(self._config)
 
-    # ---------- heating curve ----------
+    # ---------- the target from the heating curve ----------
 
-    def _merge_outside(self, rows) -> None:
-        """Outside temperatures of the last curve_avg_h hours from the history (read in the background), one a minute."""
-        if not rows:
-            return
-        first_live = self._outside[0][0] if self._outside else float("inf")
-        old: List[tuple] = []
-        for t, _, v in rows:
-            if t < first_live - CURVE_SAMPLE_S / 2 and (not old or t - old[-1][0] >= CURVE_SAMPLE_S):
-                old.append((t, v))
-        self._outside = deque(old + list(self._outside))
-
-    def _outside_avg(self, now_ctrl: float) -> Optional[float]:
-        window = max(self._config.curve_avg_h, 0.25) * 3600.0
-        while self._outside and self._outside[0][0] < now_ctrl - window:
-            self._outside.popleft()
-        # no new readings (internet down, weather service failing): the average of
-        # what is left keeps working; only a whole window without data falls back
-        # to the fixed target_temp
-        if not self._outside:
-            return None
-        return sum(v for _, v in self._outside) / len(self._outside)
+    def _take_target(self, now_ctrl: float, system_state: SystemState) -> None:
+        """The radiator target is decided by the heating curve module (it ticks just before);
+        without one yet the valve holds still (protection and the ignition pre-close still work)."""
+        target = (system_state.runtime.get("curve") or {}).get("target")
+        if target is not None:
+            self._target = float(target)
+        system_state.runtime["mixer"] = {**self._movement(now_ctrl), "target": self._target}
 
     def _movement(self, now_ctrl: float) -> Dict[str, Any]:
         """Net opening of the valve in the last 30 min, from the outputs of the previous ticks."""
@@ -672,55 +640,7 @@ class MixerModule(ModuleInterface):
             "moving": "open" if self._last_out_open else "close" if self._last_out_close else None,
         }
 
-    def curve_target(self, outside: float) -> float:
-        c = self._config
-        t = c.curve_at_0 - c.curve_slope * outside
-        return round(max(c.curve_min, min(c.curve_max, t)), 1)
-
-    def _update_target(self, now: float, now_ctrl: float, outside: Optional[float],
-                       system_state: SystemState, events: List[Event]) -> None:
-        if not self._outside_refill.started and self._history_dir is not None:
-            hours = max(self._config.curve_avg_h, 0.25)
-            self._outside_refill.start(lambda: to_mono(recent_rows(self._history_dir, hours), "temp_zewn", now_ctrl))
-        self._merge_outside(self._outside_refill.take())
-        if outside is not None and (not self._outside or now_ctrl - self._outside[-1][0] >= CURVE_SAMPLE_S):
-            self._outside.append((now_ctrl, float(outside)))
-        avg = self._outside_avg(now_ctrl)
-        active = bool(self._config.curve_enabled) and avg is not None
-        self._target = self.curve_target(avg) if active else self._config.target_temp
-
-        if active and self._curve_active and getattr(self, "_curve_changed", False):
-            c = self._config
-            events.append(Event(
-                ts=now, source=self.id, level=EventLevel.INFO, type="MIXER_CURVE_CHANGED",
-                message=(f"Krzywa grzewcza: nowe ustawienia - zadana {self._target:.1f}°C "
-                         f"(przy 0°C {c.curve_at_0:g}°C, nachylenie {c.curve_slope:g}, "
-                         f"na dworze średnio {avg:.1f}°C)"),
-                data={"target": self._target, "outside_avg": avg, "curve_at_0": c.curve_at_0,
-                      "curve_slope": c.curve_slope, "curve_min": c.curve_min, "curve_max": c.curve_max},
-            ))
-        self._curve_changed = False
-        if self._config.curve_enabled and active != self._curve_active:
-            events.append(Event(
-                ts=now, source=self.id, level=EventLevel.INFO if active else EventLevel.WARNING,
-                type="MIXER_CURVE_ON" if active else "MIXER_CURVE_NO_WEATHER",
-                message=(f"Krzywa grzewcza: zadana {self._target:.1f}°C (na dworze średnio {avg:.1f}°C)" if active
-                         else f"Krzywa grzewcza: brak temperatury zewnętrznej - stała zadana {self._target:.1f}°C"),
-                data={"target": self._target, "outside_avg": avg},
-            ))
-        self._curve_active = active
-        system_state.runtime["mixer"] = {
-            **self._movement(now_ctrl),
-            "target": self._target,
-            "curve_enabled": bool(self._config.curve_enabled),
-            "curve_active": active,
-            "outside_avg": None if avg is None else round(avg, 1),
-            "outside_avg_h": self._config.curve_avg_h,
-        }
-
     def set_config_values(self, values: Dict[str, Any], persist: bool = True) -> None:
-        if "target_temp" in values:
-            self._config.target_temp = float(values["target_temp"])
         if "ok_band_degC" in values:
             self._config.ok_band_degC = float(values["ok_band_degC"])
 
@@ -753,7 +673,6 @@ class MixerModule(ModuleInterface):
             self._config.preclose_on_ignition_enabled = bool(values["preclose_on_ignition_enabled"])
         if "preclose_full_close_time_s" in values:
             self._config.preclose_full_close_time_s = float(values["preclose_full_close_time_s"])
-        self._apply_curve(values)
 
         if persist:
             self._save_config_to_file()
@@ -769,7 +688,6 @@ class MixerModule(ModuleInterface):
             data = yaml.safe_load(f) or {}
 
         for field in (
-            "target_temp",
             "ok_band_degC",
             "min_pulse_s",
             "max_pulse_s",
@@ -789,21 +707,6 @@ class MixerModule(ModuleInterface):
                     setattr(self._config, field, bool(data[field]))
                 else:
                     setattr(self._config, field, float(data[field]))
-        self._apply_curve(data)
-
-    def _apply_curve(self, values: Dict[str, Any]) -> None:
-        before = self._curve_settings()
-        if "curve_enabled" in values:
-            self._config.curve_enabled = bool(values["curve_enabled"])
-        for name in ("curve_at_0", "curve_slope", "curve_min", "curve_max", "curve_avg_h"):
-            if name in values:
-                setattr(self._config, name, float(values[name]))
-        if before != self._curve_settings():
-            self._curve_changed = True   # logged with the new target on the next tick
-
-    def _curve_settings(self) -> tuple:
-        c = self._config
-        return (c.curve_at_0, c.curve_slope, c.curve_min, c.curve_max, c.curve_avg_h)
 
     def _save_config_to_file(self) -> None:
         data = asdict(self._config)

@@ -1,241 +1,147 @@
 id: mixer
-name: "Zawór mieszający"
-description: "Sterowanie zaworem mieszającym na podstawie temperatury za zaworem (CO) oraz ochrony kotła."
-
+name: Zawór mieszający
+description: Sterowanie zaworem mieszającym na podstawie temperatury za zaworem (CO) oraz ochrony kotła.
 groups:
-  - id: basic
-    label: "Podstawowe"
-  - id: ramp
-    label: "Tryb dogrzewania (ramp)"
-  - id: boiler_protection
-    label: "Ochrona kotła / powrotu"
-  - id: curve
-    label: "Krzywa grzewcza"
-
+- id: basic
+  label: Podstawowe
+- id: ramp
+  label: Tryb dogrzewania (ramp)
+- id: boiler_protection
+  label: Ochrona kotła / powrotu
 fields:
-  - key: target_temp
-    label: "Docelowa temperatura za zaworem"
-    type: number
-    unit: "°C"
-    min: 20
-    max: 70
-    step: 0.5
-    default: 40
-    group: basic
-    description: "Temperatura, do której dążymy za zaworem mieszającym (obieg grzejnikowy/podłoga)."
+- key: ok_band_degC
+  label: Martwa strefa przy zadanej
+  type: number
+  unit: °C
+  min: 0.1
+  max: 10
+  step: 0.1
+  default: 2
+  group: basic
+  description: Dopuszczalne odchylenie od zadanej, w którym zawór nie wykonuje ruchów, aby nie mielić zbyt często.
+- key: min_pulse_s
+  label: Minimalny czas ruchu zaworu (stabilize)
+  type: number
+  unit: s
+  min: 0.2
+  max: 10
+  step: 0.1
+  default: 0.5
+  group: basic
+  description: Najkrótszy impuls OTWÓRZ/ZAMKNIJ w trybie stabilize.
+- key: max_pulse_s
+  label: Maksymalny czas ruchu zaworu (stabilize)
+  type: number
+  unit: s
+  min: 0.5
+  max: 30
+  step: 0.5
+  default: 3
+  group: basic
+  description: Najdłuższy pojedynczy impuls OTWÓRZ/ZAMKNIJ w trybie stabilize.
+- key: adjust_interval_s
+  label: Minimalny odstęp między korektami (stabilize)
+  type: number
+  unit: s
+  min: 5
+  max: 600
+  step: 5
+  default: 10
+  group: basic
+  description: Jak często NAJSZYBCIEJ tryb stabilize może wykonać kolejny ruch zaworu.
+- key: ramp_error_factor
+  label: Próg wejścia w ramp (od dołu)
+  type: number
+  unit: × martwa strefa
+  min: 1
+  max: 10
+  step: 0.5
+  default: 2
+  group: ramp
+  description: 'Ramp włącza się tylko gdy T_CO jest DALeko PONIŻEJ zadanej: T_CO < target_temp - (ramp_error_factor * ok_band_degC).
 
-  - key: ok_band_degC
-    label: "Martwa strefa przy zadanej"
-    type: number
-    unit: "°C"
-    min: 0.1
-    max: 10
-    step: 0.1
-    default: 2
-    group: basic
-    description: "Dopuszczalne odchylenie od zadanej, w którym zawór nie wykonuje ruchów, aby nie mielić zbyt często."
+    '
+- key: ramp_open_pulse_s
+  label: Stały czas OTWIERANIA w ramp
+  type: number
+  unit: s
+  min: 0.5
+  max: 30
+  step: 0.5
+  default: 2
+  group: ramp
+  description: W trybie ramp, gdy bramka kotła pozwala, zawór otwiera się zawsze o stały czas.
+- key: ramp_adjust_interval_s
+  label: Odstęp między impulsami w ramp
+  type: number
+  unit: s
+  min: 5
+  max: 600
+  step: 5
+  default: 60
+  group: ramp
+  description: Jak często tryb ramp może wykonać impuls OTWÓRZ (niezależnie od stabilize).
+- key: boiler_min_temp_for_open
+  label: Próg kotła dla OPEN w ramp
+  type: number
+  unit: °C
+  min: 30
+  max: 90
+  step: 1
+  default: 48
+  group: boiler_protection
+  description: 'W trybie ramp: jeśli T_kotła >= ten próg -> wolno wydawać OPEN. Jeśli T_kotła jest niżej (ale powyżej progu ochrony) -> ramp NIC nie robi.
 
-  - key: min_pulse_s
-    label: "Minimalny czas ruchu zaworu (stabilize)"
-    type: number
-    unit: "s"
-    min: 0.2
-    max: 10
-    step: 0.1
-    default: 0.5
-    group: basic
-    description: "Najkrótszy impuls OTWÓRZ/ZAMKNIJ w trybie stabilize."
+    '
+- key: boiler_force_close_temp
+  label: 'Próg ochrony: poniżej zawsze CLOSE'
+  type: number
+  unit: °C
+  min: 20
+  max: 80
+  step: 1
+  default: 43
+  group: boiler_protection
+  description: 'Jeśli T_kotła <= ten próg, włącza się ochrona: zawór zawsze ZAMYKA na dom co protect_interval_s (niezależnie od ramp/stabilize). Ustaw niżej niż boiler_min_temp_for_open (histereza).
 
-  - key: max_pulse_s
-    label: "Maksymalny czas ruchu zaworu (stabilize)"
-    type: number
-    unit: "s"
-    min: 0.5
-    max: 30
-    step: 0.5
-    default: 3
-    group: basic
-    description: "Najdłuższy pojedynczy impuls OTWÓRZ/ZAMKNIJ w trybie stabilize."
+    '
+- key: protect_interval_s
+  label: Interwał ochrony (CLOSE)
+  type: number
+  unit: s
+  min: 2
+  max: 120
+  step: 1
+  default: 15
+  group: boiler_protection
+  description: Jak często ochrona może wysłać impuls CLOSE, gdy T_kotła <= boiler_force_close_temp.
+- key: protect_pulse_s
+  label: Czas impulsu CLOSE w ochronie
+  type: number
+  unit: s
+  min: 0.5
+  max: 60
+  step: 0.5
+  default: 6
+  group: boiler_protection
+  description: Jak długo trwa pojedynczy impuls CLOSE w trybie ochrony.
+- key: preclose_on_ignition_enabled
+  label: Pre-close przy wejściu w rozpalanie
+  type: bool
+  label_on: WŁĄCZONA
+  label_off: WYŁĄCZONA
+  default: true
+  group: boiler_protection
+  description: 'Jeśli wchodzimy w IGNITION i T_CO jest daleko od zadanej (warunek jak dla ramp), to przed rampowaniem wykonujemy pełne domknięcie zaworu przez określony czas.
 
-  - key: adjust_interval_s
-    label: "Minimalny odstęp między korektami (stabilize)"
-    type: number
-    unit: "s"
-    min: 5
-    max: 600
-    step: 5
-    default: 10
-    group: basic
-    description: "Jak często NAJSZYBCIEJ tryb stabilize może wykonać kolejny ruch zaworu."
-
-  - key: ramp_error_factor
-    label: "Próg wejścia w ramp (od dołu)"
-    type: number
-    unit: "× martwa strefa"
-    min: 1
-    max: 10
-    step: 0.5
-    default: 2
-    group: ramp
-    description: >
-      Ramp włącza się tylko gdy T_CO jest DALeko PONIŻEJ zadanej:
-      T_CO < target_temp - (ramp_error_factor * ok_band_degC).
-
-  - key: ramp_open_pulse_s
-    label: "Stały czas OTWIERANIA w ramp"
-    type: number
-    unit: "s"
-    min: 0.5
-    max: 30
-    step: 0.5
-    default: 2
-    group: ramp
-    description: "W trybie ramp, gdy bramka kotła pozwala, zawór otwiera się zawsze o stały czas."
-
-  - key: ramp_adjust_interval_s
-    label: "Odstęp między impulsami w ramp"
-    type: number
-    unit: "s"
-    min: 5
-    max: 600
-    step: 5
-    default: 60
-    group: ramp
-    description: "Jak często tryb ramp może wykonać impuls OTWÓRZ (niezależnie od stabilize)."
-
-  - key: boiler_min_temp_for_open
-    label: "Próg kotła dla OPEN w ramp"
-    type: number
-    unit: "°C"
-    min: 30
-    max: 90
-    step: 1
-    default: 48
-    group: boiler_protection
-    description: >
-      W trybie ramp:
-      jeśli T_kotła >= ten próg -> wolno wydawać OPEN.
-      Jeśli T_kotła jest niżej (ale powyżej progu ochrony) -> ramp NIC nie robi.
-
-  - key: boiler_force_close_temp
-    label: "Próg ochrony: poniżej zawsze CLOSE"
-    type: number
-    unit: "°C"
-    min: 20
-    max: 80
-    step: 1
-    default: 43
-    group: boiler_protection
-    description: >
-      Jeśli T_kotła <= ten próg, włącza się ochrona: zawór zawsze ZAMYKA na dom
-      co protect_interval_s (niezależnie od ramp/stabilize).
-      Ustaw niżej niż boiler_min_temp_for_open (histereza).
-
-  - key: protect_interval_s
-    label: "Interwał ochrony (CLOSE)"
-    type: number
-    unit: "s"
-    min: 2
-    max: 120
-    step: 1
-    default: 15
-    group: boiler_protection
-    description: "Jak często ochrona może wysłać impuls CLOSE, gdy T_kotła <= boiler_force_close_temp."
-
-  - key: protect_pulse_s
-    label: "Czas impulsu CLOSE w ochronie"
-    type: number
-    unit: "s"
-    min: 0.5
-    max: 60
-    step: 0.5
-    default: 6
-    group: boiler_protection
-    description: "Jak długo trwa pojedynczy impuls CLOSE w trybie ochrony."
-
-  - key: preclose_on_ignition_enabled
-    label: "Pre-close przy wejściu w rozpalanie"
-    type: bool
-    label_on: "WŁĄCZONA"
-    label_off: "WYŁĄCZONA"
-    default: true
-    group: boiler_protection
-    description: >
-      Jeśli wchodzimy w IGNITION i T_CO jest daleko od zadanej (warunek jak dla ramp),
-      to przed rampowaniem wykonujemy pełne domknięcie zaworu przez określony czas.
-
-  - key: preclose_full_close_time_s
-    label: "Czas pełnego zamknięcia zaworu (pre-close)"
-    type: number
-    unit: "s"
-    min: 1
-    max: 600
-    step: 1
-    default: 120
-    group: boiler_protection
-    description: "Ile sekund trwa pełne domknięcie zaworu w trybie pre-close."
-
-  - key: curve_enabled
-    label: "Krzywa grzewcza"
-    type: bool
-    label_on: "WŁĄCZONA"
-    label_off: "WYŁĄCZONA"
-    default: false
-    group: curve
-    description: >
-      Zadana za zaworem liczona z temperatury na dworze (uśrednionej z kilku godzin)
-      zamiast stałej "Docelowej temperatury". Bez temperatury zewnętrznej przez godzinę
-      wraca do stałej zadanej.
-
-  - key: curve_at_0
-    label: "Zadana przy 0°C na dworze"
-    type: number
-    unit: "°C"
-    min: 20
-    max: 60
-    step: 0.5
-    default: 30
-    group: curve
-    description: "Temperatura za zaworem, gdy na dworze jest 0°C. Przesuwa całą krzywą w górę/dół (cieplej/chłodniej w domu)."
-
-  - key: curve_slope
-    label: "Nachylenie krzywej"
-    type: number
-    unit: "°C/°C"
-    min: 0.1
-    max: 2
-    step: 0.05
-    default: 0.45
-    group: curve
-    description: "O ile stopni podnieść zadaną na każdy stopień mrozu (i obniżyć na każdy stopień ciepła)."
-
-  - key: curve_min
-    label: "Minimalna zadana z krzywej"
-    type: number
-    unit: "°C"
-    min: 20
-    max: 60
-    step: 0.5
-    default: 22
-    group: curve
-
-  - key: curve_max
-    label: "Maksymalna zadana z krzywej"
-    type: number
-    unit: "°C"
-    min: 20
-    max: 70
-    step: 0.5
-    default: 45
-    group: curve
-
-  - key: curve_avg_h
-    label: "Uśrednianie temp. zewnętrznej"
-    type: number
-    unit: "h"
-    min: 0.5
-    max: 24
-    step: 0.5
-    default: 12
-    group: curve
-    description: "Z ilu ostatnich godzin liczona jest średnia temperatura na dworze. Dom i woda w instalacji reagują wolno, więc krótkie wahania (noc/dzień) są wygładzane."
+    '
+- key: preclose_full_close_time_s
+  label: Czas pełnego zamknięcia zaworu (pre-close)
+  type: number
+  unit: s
+  min: 1
+  max: 600
+  step: 1
+  default: 120
+  group: boiler_protection
+  description: Ile sekund trwa pełne domknięcie zaworu w trybie pre-close.

@@ -1,0 +1,7 @@
+target_temp: 30.0
+curve_enabled: false
+curve_at_0: 30.0
+curve_slope: 0.45
+curve_min: 22.0
+curve_max: 45.0
+curve_avg_h: 12.0

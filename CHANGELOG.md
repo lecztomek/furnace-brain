@@ -2,6 +2,11 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.46.0 · 28.10.2026 15:38
+- New module "Krzywa grzewcza" (curve): decides the radiator target (the curve from the averaged outside temperature, or the fixed target) - split off the mixing valve, which now only goes to that target. The target and curve settings move to Ustawienia → Krzywa grzewcza; the saved ones are taken over once (and kept in the valve's file for a rollback)
+- The outside temperature is read from the shared state where the weather module puts it (backend/core/outside.py) - the kernel no longer copies the weather into the sensors
+- Checked: 6 h of the simulator (ignition, work, weather +5 → -5 °C, curve on) give identical boiler and radiator temperatures and the same 243 valve moves before and after
+
 ## 1.45.1 · 28.10.2026 15:28
 - Structure (no change in how the furnace works): the wiring moved out of main.py - the hardware layer reads it at the start (backend/hw/wiring.py), the Sprzęt module owns it (checks a save, passes a change to the hardware); main.py only puts the parts together
 

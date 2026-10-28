@@ -62,9 +62,13 @@ TRACKED = {
     ("feeder", "feed_on_base_s"): "podanie ślimaka",
     ("feeder", "feed_off_base_s"): "przerwa ślimaka",
     ("mode", "switch_temp"): "przejście rozpalanie → praca",
+    ("curve", "curve_at_0"): "krzywa: zadana przy 0°C",
     ("mixer", "curve_at_0"): "krzywa: zadana przy 0°C",
+    ("curve", "curve_slope"): "krzywa: nachylenie",
     ("mixer", "curve_slope"): "krzywa: nachylenie",
+    ("curve", "target_temp"): "zadana grzejników",
     ("mixer", "target_temp"): "zadana grzejników",
+    ("curve", "curve_enabled"): "krzywa grzewcza",
     ("mixer", "curve_enabled"): "krzywa grzewcza",
 }
 
@@ -179,7 +183,7 @@ def curve_target(cfg: Dict[str, Any], outside: Optional[float]) -> Optional[floa
 
 
 def radiators(rows: List[Dict[str, Any]], mixer: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Radiators against the target the mixer had (curve from the outside average)."""
+    """Radiators against the target the valve had (`mixer`: the heating curve settings)."""
     if not mixer:
         return None
     avg_h = float(mixer.get("curve_avg_h", 6) or 6)
@@ -354,7 +358,7 @@ def advise(reg: Optional[Dict[str, Any]], rad: Optional[Dict[str, Any]], igns: L
     pw = s.get("power_work") or {}
     feeder = s.get("feeder") or {}
     blower = s.get("blower") or {}
-    mixer = s.get("mixer") or {}
+    mixer = s.get("curve") or {}       # the radiator target / heating curve settings
     kp, ki = _float(pw.get("kp")), _float(pw.get("ki"))
     lead = _float(pw.get("flue_brake_gain")) or 0.0     # "Wyprzedzanie spalinami", 0 = off
     sp = _float(pw.get("boiler_set_temp"))
@@ -688,7 +692,7 @@ class TuningReport:
         else:
             pid_change = None
         reg = regulation(recent, pmin, pmax)
-        rad = radiators(recent, settings.get("mixer") or {})
+        rad = radiators(recent, settings.get("curve") or {})
         igns = ignitions(rows, sp)
         ev = event_summary(events)
         items = advise(reg, rad, igns, ev, settings, pid_change)
