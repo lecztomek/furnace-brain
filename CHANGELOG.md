@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.41.2 · 28.10.2026 12:24
+- "W domu za ciepło albo za zimno" is a section of the "Co zmienić" card, not a card of its own
+
 ## 1.41.1 · 28.10.2026 12:23
 - "W domu za ciepło albo za zimno": by the outside temperature the curve is set for - too cold / too warm at 0 °C (curve_at_0), at -10 °C and at +10 °C (curve_slope), with the radiator temperatures before and after
 - Service tables on a phone: name and value on top, the text below - nothing cut off on the right
