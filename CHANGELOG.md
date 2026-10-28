@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.44.1 · 28.10.2026 13:21
+- Ustawienia → Sprzęt: the blower is not in the GPIO list any more - it is not a relay, its speed is the PWM on GPIO19 to the YYAC-3S (fixed; the relay outputs may not use GPIO19). "Odwrócone PWM" stays
+
 ## 1.44.0 · 28.10.2026 13:14
 - Ustawienia → Sprzęt: which GPIO drives the feeder, the CO and CWU pumps, the valve and the fan, and which DS18B20 is the boiler, hopper, radiators, CWU tank, return, after the valve - was hard-coded in main.py. The defaults are the old wiring, so the update changes nothing
 - A save with one GPIO twice, an unsafe pin (I2C, 1-Wire, SPI, serial) or one sensor in two places is refused with the reason; a broken file falls back to the old wiring (shown in Diagnostyka Pi)

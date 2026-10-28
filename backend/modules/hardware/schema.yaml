@@ -57,16 +57,6 @@ fields:
   default: 12
   group: outputs
   description: 'Numer GPIO (BCM), nie numer nóżki. Fabrycznie GPIO12 (nóżka 32). Zmiana działa od razu: wszystkie wyjścia na moment się wyłączają i wracają na nowych pinach.'
-- key: pin_fan_pwm
-  label: Dmuchawa (PWM)
-  type: number
-  unit: GPIO
-  min: 2
-  max: 27
-  step: 1
-  default: 19
-  group: outputs
-  description: 'Numer GPIO (BCM) z PWM: 12, 13, 18 albo 19. Fabrycznie GPIO19 (nóżka 35). Zmiana działa dopiero po restarcie sterownika.'
 - key: fan_inverted
   label: Dmuchawa - odwrócone PWM
   type: bool
@@ -74,7 +64,7 @@ fields:
   label_off: NIE
   default: false
   group: outputs
-  description: Gdy sterownik dmuchawy działa odwrotnie (0% = pełne obroty). Zmiana po restarcie.
+  description: 'Dmuchawa nie jest na przekaźniku: obroty ustawia sygnał PWM z GPIO19 (nóżka 35) do modułu YYAC-3S - ten pin jest stały. TAK, gdy moduł kręci odwrotnie (0% = pełne obroty). Zmiana po restarcie.'
 - key: sensor_boiler
   label: Czujnik kotła
   type: text

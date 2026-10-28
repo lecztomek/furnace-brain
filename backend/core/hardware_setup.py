@@ -14,8 +14,10 @@ OUTPUT_PINS = {
     "pump_co": ("pin_pump_co", 21),        # pin 40
     "mixer_open": ("pin_mixer_open", 6),   # pin 31
     "mixer_close": ("pin_mixer_close", 12),  # pin 32
-    "fan_pwm": ("pin_fan_pwm", 19),        # pin 35 (PWM; a change needs a restart)
 }
+# the blower is not a relay: its speed is the PWM duty on GPIO19 (pin 35) to the YYAC-3S
+# module - fixed, not in the settings; the other outputs may not use it
+FAN_PWM_PIN = 19
 
 # Sensors field -> setting key, default DS18B20 ROM id ("" = none)
 SENSOR_ROMS = {
@@ -30,12 +32,11 @@ SENSOR_ROMS = {
 # GPIOs on the 40-pin header that are safe as outputs (BCM). Left out: 0/1 (ID EEPROM),
 # 2/3 (I2C, pulled HIGH at boot - a relay there would click on while the Pi starts),
 # 4 (1-Wire), 7-11 (SPI of the MAX6675), 14/15 (serial console)
-PWM_GPIO = [12, 13, 18, 19]
 USABLE_GPIO = [5, 6, 12, 13, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]
 
 LABELS = {
     "pin_feeder": "ślimak", "pin_pump_cwu": "pompa CWU", "pin_pump_co": "pompa CO",
-    "pin_mixer_open": "zawór - otwórz", "pin_mixer_close": "zawór - zamknij", "pin_fan_pwm": "dmuchawa",
+    "pin_mixer_open": "zawór - otwórz", "pin_mixer_close": "zawór - zamknij", "pin_fan_pwm": "dmuchawa (PWM)",
     "sensor_boiler": "kocioł", "sensor_hopper": "podajnik", "sensor_radiators": "grzejniki",
     "sensor_cwu": "zasobnik CWU", "sensor_return": "powrót", "sensor_mixer": "za zaworem",
 }
@@ -59,14 +60,12 @@ def _pin(values: Dict[str, Any], key: str, default: int) -> Any:
 def validate(values: Dict[str, Any]) -> List[str]:
     """Problems in Polish (shown in the GUI); an empty list = fine."""
     errors: List[str] = []
-    used: Dict[int, str] = {}
+    used: Dict[int, str] = {FAN_PWM_PIN: "pin_fan_pwm"}
     for name, (key, default) in OUTPUT_PINS.items():
         pin = _pin(values, key, default)
         if not isinstance(pin, int) or pin not in USABLE_GPIO:
             errors.append(f"{LABELS[key]}: GPIO {pin} nie nadaje się na wyjście (dozwolone: {', '.join(map(str, USABLE_GPIO))})")
             continue
-        if name == "fan_pwm" and pin not in PWM_GPIO:
-            errors.append(f"{LABELS[key]}: potrzebny GPIO z PWM ({', '.join(map(str, PWM_GPIO))}), a jest {pin}")
         if pin in used:
             errors.append(f"GPIO {pin} przypisany dwa razy: {LABELS[used[pin]]} i {LABELS[key]}")
         used[pin] = key
@@ -86,8 +85,10 @@ def validate(values: Dict[str, Any]) -> List[str]:
 
 
 def pins(values: Dict[str, Any]) -> Dict[str, int]:
-    """Output name -> BCM GPIO."""
-    return {name: _pin(values, key, default) for name, (key, default) in OUTPUT_PINS.items()}
+    """Output name -> BCM GPIO (with the fixed fan PWM pin)."""
+    out = {name: _pin(values, key, default) for name, (key, default) in OUTPUT_PINS.items()}
+    out["fan_pwm"] = FAN_PWM_PIN
+    return out
 
 
 def rom_to_field(values: Dict[str, Any]) -> Dict[str, str]:

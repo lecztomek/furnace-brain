@@ -35,7 +35,8 @@ def test_swapped_pumps_are_fine_wrong_setups_are_not():
     assert "dwa razy" in H.validate(dict(H.defaults(), pin_pump_co=16))[0]           # same GPIO as the feeder
     assert "nie nadaje się" in H.validate(dict(H.defaults(), pin_feeder=4))[0]       # the 1-Wire bus
     assert "nie nadaje się" in H.validate(dict(H.defaults(), pin_feeder=3))[0]       # I2C, HIGH at boot
-    assert "PWM" in H.validate(dict(H.defaults(), pin_fan_pwm=20, pin_pump_cwu=5))[0]
+    assert "dmuchawa (PWM)" in H.validate(dict(H.defaults(), pin_pump_co=19))[0]       # the fan's fixed pin
+    assert "pin_fan_pwm" not in H.defaults()                                           # not a setting
     assert "dwa razy" in H.validate(dict(H.defaults(), sensor_cwu="28-0000006f0738"))[0]
     assert "kotła" in H.validate(dict(H.defaults(), sensor_boiler=""))[0]
     assert "nie numer" in H.validate(dict(H.defaults(), sensor_cwu="abc"))[0]
