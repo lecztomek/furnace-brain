@@ -192,7 +192,8 @@ def parse_changelog(text: str) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for line in text.splitlines():
         if line.startswith("## "):
-            out.append({"version": line[3:].strip(), "items": []})
+            version, _, day = line[3:].partition("·")      # "## 1.37.9 · 28.10.2026"
+            out.append({"version": version.strip(), "date": day.strip(), "items": []})
         elif out and line.lstrip().startswith("- "):     # nested points become items of their own
             out[-1]["items"].append(line.lstrip()[2:].strip())
         elif out and out[-1]["items"] and line.startswith("  ") and line.strip():

@@ -202,9 +202,9 @@ def test_diagnostics_show_how_long_the_analyses_took(tmp_path):
 
 def test_changelog_sections_newest_first(tmp_path):
     from backend.api.service_api import parse_changelog
-    text = "# Changelog\n\nintro\n\n## 1.37\n- One.\n- Two that\n  wraps.\n\n## 1.36\n- Old.\n"
+    text = "# Changelog\n\nintro\n\n## 1.37 · 28.10.2026\n- One.\n- Two that\n  wraps.\n\n## 1.36\n- Old.\n"
     out = parse_changelog(text)
-    assert [v["version"] for v in out] == ["1.37", "1.36"]
+    assert [v["version"] for v in out] == ["1.37", "1.36"] and out[0]["date"] == "28.10.2026"
     assert out[0]["items"] == ["One.", "Two that wraps."]
     path = tmp_path / "CHANGELOG.md"
     path.write_text(text, encoding="utf-8")

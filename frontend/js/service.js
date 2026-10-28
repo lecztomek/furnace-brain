@@ -233,15 +233,14 @@
   // newest version first; the one running now is marked
   function renderChangelog(d) {
     const cur = String(d.current || "");
-    const minor = cur.split(".").slice(0, 2).join(".");
     $("cl-current").textContent = cur ? `na piecu: ${cur}` : "";
     $("cl-list").innerHTML = (d.versions || []).filter((v) => v.items.length).map((v, i) => {
-      const now = v.version === minor || v.version.startsWith(minor + " ") || v.version.split(/[–-]/)[0].trim() === minor;
+      const now = v.version === cur;
       return `<div class="sv-tl ${now ? "is-now" : ""} ${i === 0 ? "is-newest" : ""}">
         <span class="sv-tl__dot"></span>
         <div class="sv-tl__body">
-          <div class="sv-tl__head"><span class="sv-tl__ver">${esc(v.version)}</span>${now ? `<span class="sv-tl__tag">na piecu</span>` : ""}</div>
-          <ul class="sv-tl__items">${v.items.map((it) => `<li>${esc(it).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/:$/, "")}</li>`).join("")}</ul>
+          <div class="sv-tl__head"><span class="sv-tl__ver">${esc(v.version)}</span>${v.date ? `<span class="sv-tl__date">${esc(v.date)}</span>` : ""}${now ? `<span class="sv-tl__tag">na piecu</span>` : ""}</div>
+          <ul class="sv-tl__items">${v.items.map((it, k) => k === 0 ? `<li class="sv-tl__title">${esc(it)}</li>` : `<li>${esc(it).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/:$/, "")}</li>`).join("")}</ul>
         </div></div>`;
     }).join("");
   }
