@@ -251,7 +251,7 @@ def test_stop_break_includes_the_ignition_after_it():
 def test_hot_water_is_power_above_the_night_line():
     from backend.core.analytics import hot_water_day, hot_water_summary
     day = date(2026, 11, 5)
-    # outside 2 °C all day, night power 50%; 19-22 the boiler works at 70% (baths)
+    # radiators at 30 °C all day, night power 50%; 19-22 the boiler works at 70% (baths)
     spec = []
     for s in range(0, 86400, 30):
         spec.append((s, "WORK", 56, 56, 2.0))
@@ -259,6 +259,7 @@ def test_hot_water_is_power_above_the_night_line():
     for x in r:
         h = int(x["data_czas"][11:13])
         x["power"] = "70" if 19 <= h < 22 else "50"
+        x["temp_grzejnikow"] = "30"           # the radiators get the same all day
     agg = aggregate_day(day, r, energy_kwh=24 * 0.5 * 10 + 3 * 0.2 * 10)   # 10 kWh per hour at 100%
     hw = hot_water_day(agg)
     assert hw is not None
@@ -273,3 +274,16 @@ def test_hot_water_needs_a_night_in_work():
     day = date(2026, 11, 5)
     spec = [(s, "OFF" if s < 8 * 3600 else "WORK", 56, 56, 2.0) for s in range(0, 86400, 30)]
     assert hot_water_day(aggregate_day(day, rows(day, spec), energy_kwh=80)) is None
+
+
+def test_a_warm_noon_is_not_hot_water():
+    """Prod 28.10: 7 °C warmer outside by noon, but the radiators kept ~30 °C (the curve follows a
+    many-hour average, the house cools slowly) and the boiler worked as at night - no hot water."""
+    from backend.core.analytics import hot_water_day
+    day = date(2026, 10, 28)
+    r = rows(day, [(s, "WORK", 56, 56, 4.0 if s < 6 * 3600 else 11.0) for s in range(0, 86400, 30)])
+    for x in r:
+        x["power"] = "64"
+        x["temp_grzejnikow"] = "29.7"
+    hw = hot_water_day(aggregate_day(day, r, energy_kwh=110.0))
+    assert hw is not None and hw["kwh"] < 0.5          # the old model (by the outside temperature) said ~40 kWh

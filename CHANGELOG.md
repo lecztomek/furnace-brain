@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.44.3 · 28.10.2026 13:47
+- Hot water estimate by the radiator supply, not the outside temperature: at a warm noon the radiators get as much as at night (the curve follows a many-hour average, the house cools slowly), so the old model read the whole noon as hot water (prod 28.10: 10.7 kWh by 14:35, now 2.1 kWh). The last 30 days are read again once
+
 ## 1.44.2 · 28.10.2026 13:27
 - Ustawienia → Sprzęt the other way round: each physical output (GPIO16, 20, 21, 6, 12) gets a function from a list, each of 6 sensor places gets a sensor picked from the ones found on the bus (number and temperature) and a role. Swapping the pumps = GPIO20 → pompa CO, GPIO21 → pompa CWU, one save
 - A function on two outputs or on none, a sensor or a role twice, no boiler sensor - refused with the reason; the defaults are still the original wiring
