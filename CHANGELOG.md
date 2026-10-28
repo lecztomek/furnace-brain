@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.39.3 · 28.10.2026 10:31
+- STOP breaks no longer drawn over the charts: a strip under each 5 min chart (below the hours) and a table of the last stops (from, to, how long)
+
 ## 1.39.2 · 28.10.2026 10:27
 - STOP bands: a break is the STOP plus the ignition right after it (a 2 min STOP was a sliver), at least 10 px wide with a marker on top
 

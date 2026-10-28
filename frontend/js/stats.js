@@ -91,49 +91,55 @@
       },
     };
   }
-  // grey bands where the boiler was in STOP - that's when coal is added or ash taken out.
-  // options.plugins.stopBands = { flags: [bool per label] }
-  const STOP_FILL = "rgba(148, 163, 184, 0.35)";
-  const STOP_MARK = "#e2e8f0";
+  // STOP breaks (coal added, ash taken out) as a strip under the chart, below the hour labels -
+  // nothing is drawn over the lines. options.plugins.stopBands = { flags: [bool per label] }
+  // (stopOptions() also makes room for the strip)
+  const STOP_STRIP_H = 10;
+  const STOP_COLOR = "#cbd5e1";
   Chart.register({
     id: "stopBands",
-    beforeDatasetsDraw(chart, args, opts) {
+    afterDraw(chart, args, opts) {
       const flags = opts && opts.flags;
       if (!flags || !flags.some(Boolean)) return;
       const x = chart.scales.x, area = chart.chartArea, c = chart.ctx;
       const step = flags.length > 1 ? x.getPixelForValue(1) - x.getPixelForValue(0) : area.width;
+      const top = chart.height - STOP_STRIP_H - 2;
       c.save();
-      c.fillStyle = STOP_FILL;
-      c.font = "bold 13px sans-serif";
-      c.textAlign = "center";
+      // the track: where there was no STOP
+      c.fillStyle = "rgba(255, 255, 255, 0.07)";
+      c.fillRect(area.left, top, area.right - area.left, STOP_STRIP_H);
+      c.fillStyle = STOP_COLOR;
       for (let i = 0; i < flags.length; i++) {
         if (!flags[i]) continue;
         let j = i;
         while (j + 1 < flags.length && flags[j + 1]) j++;
-        // a STOP of a few minutes is 1-2 points: at least 10 px wide so it shows
+        // a STOP of a few minutes is 1-2 points: at least 8 px wide so it shows
         const mid = (x.getPixelForValue(i) + x.getPixelForValue(j)) / 2;
-        const w = Math.max(10, (j - i + 1) * step);
+        const w = Math.max(8, (j - i + 1) * step);
         const left = Math.max(area.left, mid - w / 2);
-        const right = Math.min(area.right, mid + w / 2);
-        c.fillRect(left, area.top, right - left, area.bottom - area.top);
-        // a marker on top of every band, with the word when there is room
-        c.fillStyle = STOP_MARK;
-        c.beginPath();
-        c.moveTo(mid - 6, area.top); c.lineTo(mid + 6, area.top); c.lineTo(mid, area.top + 8);
-        c.fill();
-        if (right - left >= 40) c.fillText("STOP", mid, area.top + 22);
-        c.fillStyle = STOP_FILL;
+        c.fillRect(left, top, Math.min(area.right, mid + w / 2) - left, STOP_STRIP_H);
         i = j;
       }
       c.restore();
     },
   });
+  function stopOptions(options, fine) {
+    options.plugins.stopBands = { flags: fine.map((f) => !!f.stop) };
+    options.layout = { padding: { bottom: STOP_STRIP_H + 8 } };
+  }
 
-  // "06:20 · 15 min" for each STOP, newest first
-  function stopsText(stops) {
-    if (!stops || !stops.length) return "";
-    const items = stops.slice().reverse().map((x) => `${x.start.slice(11, 16)} · ${x.minutes} min`);
-    return `Postoje (STOP i rozpalenie po nim, szare pasy): ${stops.length} — ${items.join(", ")}`;
+  // the last STOP breaks as a table: when, until, how long
+  function renderStops(stops) {
+    const list = (stops || []).slice().reverse();
+    $("stops-box").style.display = list.length ? "" : "none";
+    if (!list.length) return;
+    $("stops-head").textContent = `Postoje (STOP): ${list.length} • ostatnie 24 h`;
+    const hm = (iso) => iso.slice(11, 16);
+    const rows = list.map((x) => {
+      const day = `${x.start.slice(8, 10)}.${x.start.slice(5, 7)}`;
+      return `<tr><td>${day} ${hm(x.start)}</td><td>${hm(x.end)}</td><td>${x.minutes} min</td></tr>`;
+    }).join("");
+    $("stops").innerHTML = `<table><thead><tr><th>Od</th><th>Do</th><th>Trwał</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   function draw(chart, id, data, options) {
@@ -296,7 +302,7 @@
       pctOpts.scales.x.ticks = { ...pctOpts.scales.x.ticks, autoSkip: false,
         callback: (v, i) => (pctLabels[i].endsWith(":00") && Number(pctLabels[i].slice(0, 2)) % every === 0 ? pctLabels[i].replace(/^0/, "") : "") };
     }
-    if (useFine) pctOpts.plugins.stopBands = { flags: fine.map((f) => !!f.stop) };
+    if (useFine) stopOptions(pctOpts, fine);
     powerPctChart = draw(powerPctChart, "chart-power-pct", {
       labels: pctLabels,
       datasets: [{ type: "line", label: "moc %", data: pct, borderColor: "#60a5fa", backgroundColor: "rgba(96, 165, 250, 0.15)",
@@ -354,7 +360,7 @@
       options.scales.x.ticks = { ...options.scales.x.ticks, autoSkip: false,
         callback: (v, i) => (labels[i].endsWith(":00") && Number(labels[i].slice(0, 2)) % every === 0 ? labels[i].replace(/^0/, "") : "") };
     }
-    if (fine) options.plugins.stopBands = { flags: fine.map((f) => !!f.stop) };
+    if (fine) stopOptions(options, fine);
     hourlyChart = draw(hourlyChart, "chart-hourly", data, options);
 
     // worst hour of day over the chosen period (average per hour of day)
@@ -362,9 +368,7 @@
     $("hourly-note").textContent = worst && worst.below_pct > 0
       ? `Najsłabiej o ${worst.hour}:00–${worst.hour + 1}:00`
       : "Bez wyraźnych spadków";
-    const stops = fine ? stopsText(period === "today" ? p.stops24 : p.stops) : "";
-    $("hourly-stops").textContent = stops;
-    $("hourly-stops").style.display = stops ? "" : "none";
+    renderStops(fine ? (period === "today" ? p.stops24 : p.stops) : null);
 
     $("drops-head").innerHTML = (drops.count ? `Spadki temperatury: ${drops.count}` : "Spadki temperatury") +
       ` <span class="st2-sub">${periodText(period)}</span>`;
