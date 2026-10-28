@@ -120,15 +120,21 @@ def test_seasons_and_forecast():
     start = date(2026, 9, 1)
     days = []
     for i in range(20):
-        d = DayAgg(date=(date(2026, 10, 1) + timedelta(days=i)).isoformat(), seconds=86400, coal_kg=10.0)
+        d = DayAgg(date=(date(2026, 10, 1) + timedelta(days=i)).isoformat(), seconds=86400, coal_kg=10.0,
+                   mode_s={"WORK": 86400.0})
         d.sums["outside"], d.weights["outside"] = 8.0 * 86400, 86400   # 10 degree-days a day
         days.append(d)
+    # a day the boiler stood off half the time: recorded, but its coal says nothing about the weather
+    half = DayAgg(date="2026-10-21", seconds=86400, coal_kg=5.0, mode_s={"OFF": 43200.0, "WORK": 43200.0})
+    half.sums["outside"], half.weights["outside"] = 8.0 * 86400, 86400
+    days.append(half)
     months = season_months(days, start)
     assert months[0]["month"] == 9 and months[0]["coal_kg"] is None      # no data in September
-    assert months[1]["month"] == 10 and months[1]["coal_kg"] == 200.0
-    f = season_forecast(days, start, date(2026, 10, 20))
-    assert f["used_kg"] == 200.0 and f["kg_per_degree_day"] == 1.0
-    assert f["forecast_kg"] == 200 + f["degree_days_left"] and f["degree_days_left"] > 2500
+    assert months[1]["month"] == 10 and months[1]["coal_kg"] == 205.0
+    f = season_forecast(days, start, date(2026, 10, 21))
+    assert f["used_kg"] == 205.0 and f["kg_per_degree_day"] == 1.0       # the half day left out
+    assert f["based_on_days"] == 20
+    assert f["forecast_kg"] == 205 + f["degree_days_left"] and f["degree_days_left"] > 2500
 
 
 def test_forecast_model_uses_days_the_furnace_ran():

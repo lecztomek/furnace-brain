@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.40.2 · 28.10.2026 11:44
+- Coal forecasts (tomorrow, season) and efficiency only use days the boiler burned for most of the day - a day it stood off half the time pulled every forecast down by about half
+
 ## 1.40.1 · 28.10.2026 11:18
 - Hot water: the per-hour sums kept in the day cache are rounded (~0.7 KB a day instead of ~2 KB)
 

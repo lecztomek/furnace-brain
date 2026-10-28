@@ -32,7 +32,7 @@ POWER_HIGH = 90.0          # power stability: "at full power" from this %
 POWER_LOW = 25.0           # ... and "at the minimum" up to this %
 DROP_MIN_S = 300.0         # shorter dips are not listed
 DROP_GAP_S = 120.0         # a short return above the line doesn't split a drop
-FULL_DAY_SHARE = 0.8       # days with less data don't go into the weather model
+FULL_DAY_SHARE = 0.8       # days with less data - or less time burning - don't go into the models
 
 AVG_KEYS = ("boiler", "radiators", "flue", "outside", "power", "fan", "feeder", "flue_work")
 
@@ -68,6 +68,13 @@ def kg_per_degree_day(days: List["DayAgg"]) -> Optional[float]:
     hdd = sum(h for _, h in pairs if h is not None)
     coal = sum(c for c, h in pairs if h is not None)
     return coal / hdd if hdd >= MIN_HDD else None
+
+
+def is_full_day(d: "DayAgg") -> bool:
+    """A day for the coal models: recorded and burning (WORK or IGNITION) for most of it.
+    A day the boiler stood off half the time burns half the coal - it would pull every forecast down."""
+    burning = d.mode_s.get("WORK", 0.0) + d.mode_s.get("IGNITION", 0.0)
+    return d.seconds >= FULL_DAY_SHARE * 86400 and burning >= FULL_DAY_SHARE * 86400
 
 
 @dataclass
@@ -642,7 +649,7 @@ def linear_fit(points: List[Tuple[float, float]]) -> Optional[Dict[str, float]]:
 
 
 def weather_model(days: List[DayAgg]) -> Dict[str, Any]:
-    full = [d for d in days if d.seconds >= FULL_DAY_SHARE * 86400 and d.avg("outside") is not None]
+    full = [d for d in days if is_full_day(d) and d.avg("outside") is not None]
     coal_pts = [(d.avg("outside"), d.coal_kg / d.seconds * 86400) for d in full]
     energy_pts = [(d.avg("outside"), d.energy_kwh / d.seconds * 86400) for d in full]
     power_pts = [(d.avg("outside"), d.avg("power")) for d in full if d.avg("power") is not None]
@@ -693,7 +700,7 @@ def normal_degree_days(start: date, end: date) -> float:
 def season_forecast(this_season: List["DayAgg"], season_start: date, today: date) -> Dict[str, Any]:
     """Coal used so far + coal per degree-day x typical degree-days left until the end of May."""
     used = sum(x.coal_kg for x in this_season)
-    full = [x for x in this_season if x.seconds >= FULL_DAY_SHARE * 86400]
+    full = [x for x in this_season if is_full_day(x)]
     k = kg_per_degree_day(full[-30:])
     end = date(season_start.year + 1, 6, 1)
     left_dd = normal_degree_days(today + timedelta(days=1), end)
@@ -1003,7 +1010,7 @@ class Analytics:
             by_date.get(yday.isoformat()), by_date.get(today.isoformat()), now_hour, hour_coal, hour_min)
         periods["yesterday"]["hours24"] = hours_of_day(by_date.get(yday.isoformat()), hour_coal, hour_min)
         model = weather_model(since(today - timedelta(days=365)))
-        full_days = [x for x in days if x.date < today.isoformat() and x.seconds >= FULL_DAY_SHARE * 86400]
+        full_days = [x for x in days if x.date < today.isoformat() and is_full_day(x)]
         daily = [{
             "date": x.date,
             "coal_kg": round(x.coal_kg, 2),
@@ -1014,7 +1021,7 @@ class Analytics:
             "boiler": _r(x.avg("boiler")),
             "within_2": _r(100 * x.st_in2 / x.st_s) if x.st_s >= 1800 else None,
             # efficiency per day only for (nearly) full days - a partial day skews it
-            "kg_per_degree_day": _r(kg_per_degree_day([x]), 3) if x.seconds >= FULL_DAY_SHARE * 86400 else None,
+            "kg_per_degree_day": _r(kg_per_degree_day([x]), 3) if is_full_day(x) else None,
             # regulation per day (settled WORK, like the hourly chart)
             **_settled_day(x),
             "power_work": _r(x.pw_sum / x.pw_s, 0) if x.pw_s >= 1800 else None,
