@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -245,6 +246,7 @@ def _git(repo: Path, args: List[str]) -> Optional[str]:
 def create_service_router(store: StateStore, config_store: ConfigStore, data_root: Path,
                           app_info: Dict[str, Any], loop_stats: Dict[str, LoopStats],
                           clock: Callable[[], float] = time.time,
+                          furnace_clock: Callable[[], float] = time.time,
                           warm_up_s: Optional[float] = None,
                           changelog_path: Path = CHANGELOG_PATH,
                           sensor_inventory: Optional[Callable[[], List[Dict[str, Any]]]] = None,
@@ -270,7 +272,8 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
         def run():
             try:
                 with timings.measure("tuning"):
-                    report = tuning.build(settings(), pause_s=pause_s)
+                    # the history and the changes carry the furnace clock (in the simulator it runs ahead)
+                    report = tuning.build(settings(), now=datetime.fromtimestamp(furnace_clock()), pause_s=pause_s)
                 with lock:
                     cached["report"], cached["at"] = report, clock()
             except Exception:  # pylint: disable=broad-except

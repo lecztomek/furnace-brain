@@ -296,6 +296,7 @@ config_router = create_config_router(
     config_store=config_store,
     reload_module_config=reload_any_module,
     publish_events=store.publish_events,
+    now=clock.time,
 )
 
 API_ROOT = run_root
@@ -340,7 +341,7 @@ app.include_router(
     
 app.include_router(create_analytics_router(data_root=API_ROOT, config_store=config_store, store=store), prefix="/api")
 app.include_router(create_service_router(store=store, config_store=config_store, data_root=API_ROOT,
-                                         app_info=APP_INFO, loop_stats=LOOP_STATS,
+                                         app_info=APP_INFO, loop_stats=LOOP_STATS, furnace_clock=clock.time,
                                          sensor_inventory=getattr(hardware, "detected_sensors", None),
                                          hardware_problems=WIRING_PROBLEMS), prefix="/api")
 app.include_router(state_router, prefix="/api")

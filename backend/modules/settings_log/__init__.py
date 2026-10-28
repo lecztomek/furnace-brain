@@ -6,6 +6,7 @@ the files' times are checked every check_every_s) and once a day. Nothing else.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -35,8 +36,11 @@ class SettingsLogModule(ModuleInterface):
             snapshot=lambda: {m: self._store.get_values(m) for m in self._store.module_ids},
             version=detect_version(app_root),
             commit=git_commit(app_root),
+            # the furnace clock from the tick, like the history (the simulator's runs faster)
+            now=lambda: datetime.fromtimestamp(self._tick_now) if self._tick_now is not None else datetime.now(),
         )
         self._next_check = 0.0
+        self._tick_now: Optional[float] = None
         self._files: Optional[Tuple] = None
 
     @property
@@ -54,6 +58,7 @@ class SettingsLogModule(ModuleInterface):
 
     def tick(self, now: float, sensors: Sensors, system_state: SystemState) -> ModuleTickResult:
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
+        self._tick_now = now
         if self._values.get("enabled", True) and now >= self._next_check:
             self._next_check = now + max(1.0, float(self._values.get("check_every_s", 10.0)))
             files = self._file_times()

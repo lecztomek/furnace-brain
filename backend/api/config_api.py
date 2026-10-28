@@ -22,6 +22,7 @@ def create_config_router(
     config_store: ConfigStore,
     reload_module_config: Optional[Callable[[str], None]] = None,
     publish_events: Optional[Callable[[list], None]] = None,
+    now: Callable[[], float] = time.time,   # the furnace clock: the simulator's runs faster
 ) -> APIRouter:
     """
     Router z endpointami:
@@ -46,7 +47,7 @@ def create_config_router(
         if not changes:
             return
         text = ", ".join(f"{k} {_short(o)} → {_short(n)}" for k, (o, n) in changes.items())
-        publish_events([Event(ts=time.time(), source="config", level=EventLevel.INFO, type="SETTINGS_CHANGED",
+        publish_events([Event(ts=now(), source="config", level=EventLevel.INFO, type="SETTINGS_CHANGED",
                               message=f"Zmiana ustawień {module_id}: {text}",
                               data={"module": module_id, "changes": changes})])
 

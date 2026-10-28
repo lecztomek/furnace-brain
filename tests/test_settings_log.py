@@ -66,14 +66,17 @@ def test_the_module_writes_at_start_after_a_change_and_not_otherwise(tmp_path):
     data = tmp_path / "data"
     m = SettingsLogModule(base_path=mods / "settings_log", data_root=data)
     st = SystemState()
-    m.tick(now=0.0, sensors=Sensors(), system_state=st)                 # start
-    m.tick(now=20.0, sensors=Sensors(), system_state=st)                # nothing changed
+    t0 = datetime(2026, 11, 10, 12).timestamp()                          # the furnace clock (the tick's now)
+    m.tick(now=t0 + 0.0, sensors=Sensors(), system_state=st)                 # start
+    m.tick(now=t0 + 20.0, sensors=Sensors(), system_state=st)                # nothing changed
     pw = mods / "power_work" / "values.yaml"
     pw.write_text(yaml.safe_dump({"kp": 8.0}))                          # changed in the GUI (or by hand)
     os.utime(pw, (1, 1))
-    m.tick(now=25.0, sensors=Sensors(), system_state=st)                # within check_every_s: not looked at yet
-    m.tick(now=40.0, sensors=Sensors(), system_state=st)
+    m.tick(now=t0 + 25.0, sensors=Sensors(), system_state=st)                # within check_every_s: not looked at yet
+    m.tick(now=t0 + 40.0, sensors=Sensors(), system_state=st)
     entries = read_entries(data / "modules" / "settings_log" / "data", datetime(2000, 1, 1))
     assert [e["reason"] for e in entries] == ["start", "change"]
     assert entries[1]["changed"]["power_work"]["kp"][1] == 8.0
     assert "power_work" in entries[0]["settings"] and entries[0]["version"]
+    # stamped with the furnace clock, like the history - the simulator's runs ahead of the wall clock
+    assert entries[1]["ts"] == "2026-11-10T12:00:40"

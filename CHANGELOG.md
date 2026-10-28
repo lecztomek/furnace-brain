@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.48.2 · 28.10.2026 17:10
+- Symulator: Strojenie → "Po zmianach ustawień" działa także w symulatorze. Zmiana ustawień, historia ustawień i Strojenie liczą czas zegarem pieca, tak jak historia temperatur; w symulatorze ten zegar biegnie szybciej niż prawdziwy, więc wcześniej porównanie nie miało danych „po” albo brało złe okresy
+- Na Pi bez zmian: tam zegar pieca to zwykły zegar
+
 ## 1.48.1 · 28.10.2026 16:25
 - Zmiany (Serwis → Zmiany) po polsku - cały changelog przetłumaczony, nowe wpisy też po polsku
 - Serwis → Moduły: opisy modułów po polsku

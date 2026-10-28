@@ -130,6 +130,17 @@ def test_settings_change_is_logged_with_old_and_new_value(tmp_path):
     assert len(changed) == 2
 
 
+def test_a_setting_change_carries_the_furnace_clock(tmp_path):
+    # the simulator's clock runs ahead of the wall clock; the history has it, so the change must too
+    store = StateStore()
+    cfg = ConfigStore(_config_dir(tmp_path), ["power_work", "feeder", "blower"])
+    app = FastAPI()
+    app.include_router(create_config_router(cfg, publish_events=store.publish_events, now=lambda: 2e9), prefix="/api")
+    assert TestClient(app).put("/api/config/value/power_work/ki", json=0.015).status_code == 200
+    events, _, _ = store.events_since(0)
+    assert [e.ts for e in events if e.type == "SETTINGS_CHANGED"] == [2e9]
+
+
 def test_service_endpoints(tmp_path):
     store = StateStore()
     cfg = ConfigStore(_config_dir(tmp_path), ["power_work", "feeder", "blower"])
