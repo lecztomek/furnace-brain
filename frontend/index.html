@@ -517,12 +517,12 @@
                         <line x1="8" y1="184" x2="128" y2="184" stroke="#1D262D" stroke-width="6" />
                         <rect x="0" y="248" width="136" height="10" rx="3" fill="#1D262D" />
                         <!-- temperature badge, like the other temperatures -->
+                        <!-- the average the heating curve uses under it, like the setpoint on the radiators -->
                         <g id="outside-temp" class="temp-badge">
-                           <rect x="0" y="230" width="134" height="64" rx="30" />
-                           <text id="outside-temp-text" x="67" y="262" fill="#e5e7eb">--°C</text>
+                           <rect x="-8" y="230" width="150" height="100" rx="30" />
+                           <text id="outside-temp-text" x="67" y="265" fill="#e5e7eb">--°C</text>
+                           <text id="outside-avg-text" class="badge-sub" x="67" y="309">śr. --</text>
                         </g>
-                        <!-- average used by the heating curve, and over how many hours -->
-                        <text id="outside-avg-text" class="outside-avg" x="67" y="322" fill="#cbd5e1"></text>
                      </g>
 
                      <!-- "Ślimak ręcznie" switch on the fuel hopper, above the feeder (js/manual-switches.js) -->

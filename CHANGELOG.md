@@ -4,7 +4,7 @@ Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
 ## 1.37
 - Pi diagnostics: details shown under a "Szczegóły" heading, not folded.
-- Main page: the heating curve's outside average and its window under the outside temperature ("śr. 4,2° / 12 h").
+- Main page: the heating curve's outside average inside the outside temperature badge ("śr. 4,2° z 12 h"), like the setpoint on the radiators.
 - Statistics no longer stuck on "liczę aktualne": days re-read for the new power fields are saved (they were read again on every refresh).
 - Regulation and power charts for the last day in 5 min steps.
 - Service: "Co zmienić" and the problems as tables; problems under a "Do sprawdzenia" heading.

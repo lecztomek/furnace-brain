@@ -267,7 +267,6 @@ body {
 /* outside temperature window (index.html #outside-weather) */
 .outside-weather__moon { display: none; }
 #outside-temp text { font-size: 46px; }
-.outside-avg { font-size: 26px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
 .outside-weather.is-night .outside-weather__moon { display: inline; }
 .outside-weather.is-night .outside-weather__sun { display: none; }
 .outside-weather.is-night .outside-weather__sky { fill: url(#sky-night); }
@@ -878,4 +877,5 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
 #mixer-moves text { font-size: 21px; font-weight: 800; text-anchor: middle; fill: #9ca3af; pointer-events: none; }
 #mixer-moves.is-open text { fill: #f97316; }
 #mixer-moves.is-close text { fill: #38bdf8; }
-#radiators-temp text.badge-sub { font-size: 20px; font-weight: 600; fill: #9ca3af; }
+#radiators-temp text.badge-sub,
+#outside-temp text.badge-sub { font-size: 20px; font-weight: 600; fill: #9ca3af; }

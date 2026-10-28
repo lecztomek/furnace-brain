@@ -266,8 +266,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const t = document.getElementById("outside-avg-text");
     if (!t) return;
     const avg = Number(rad.outside_avg);
-    t.textContent = rad.outside_avg == null || isNaN(avg) ? ""
-      : `śr. ${fmt(avg)}° / ${String(rad.outside_avg_h ?? "").replace(".", ",")} h`;
+    t.textContent = rad.outside_avg == null || isNaN(avg) ? "śr. --"
+      : `śr. ${fmt(avg)}° z ${String(rad.outside_avg_h ?? "").replace(".", ",")} h`;
   }
 
   // mixing valve: net seconds of opening (+) / closing (-) in the last 30 min
