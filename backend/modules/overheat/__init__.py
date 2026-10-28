@@ -86,26 +86,31 @@ class OverheatModule(ModuleInterface):
         t_boiler = sensors.boiler_temp
         t_hopper = sensors.hopper_temp
 
-        # Bez fallbacków: jeśli brak danych -> nie wymuszamy, tylko warning (max co 60s ctrl-time)
+        # The boiler and the hopper are guarded separately: a missing reading of one sensor
+        # must not switch off the protection of the other (the hopper sensor drops out now and
+        # then). Without its reading a protection keeps its state - an alarm doesn't end by
+        # itself, it ends when the sensor is back and has cooled down. A warning max every 60 s.
         if t_boiler is None or t_hopper is None:
             if now_ctrl - self._missing_sensor_last_event_ts >= 60.0:
                 self._missing_sensor_last_event_ts = now_ctrl
+                missing = [n for n, v in (("kotła", t_boiler), ("podajnika", t_hopper)) if v is None]
                 events.append(
                     Event(
                         ts=now,
                         source=self.id,
                         level=EventLevel.WARNING,
                         type="OVERHEAT_MISSING_SENSOR",
-                        message="Brak odczytu boiler_temp i/lub hopper_temp. Moduł overheat nie wymusza wyjść.",
+                        message=f"Brak odczytu czujnika {' i '.join(missing)} - ta ochrona trzyma swój stan, "
+                                "druga działa normalnie.",
                         data={"boiler_temp": t_boiler, "hopper_temp": t_hopper},
                     )
                 )
-            self._publish(system_state)
-            return ModuleTickResult(partial_outputs=outputs, events=events, status=status)
 
         # ---------- BOILER overheat (z histerezą) ----------
         prev_boiler = self._boiler_active
-        if not self._boiler_active:
+        if t_boiler is None:
+            pass
+        elif not self._boiler_active:
             if t_boiler >= self._config.boiler_trip_temp:
                 self._boiler_active = True
         else:
@@ -135,7 +140,9 @@ class OverheatModule(ModuleInterface):
 
         # ---------- HOPPER overheat (z histerezą + purge) ----------
         prev_hopper = self._hopper_active
-        if not self._hopper_active:
+        if t_hopper is None:
+            pass
+        elif not self._hopper_active:
             if t_hopper >= self._config.hopper_trip_temp:
                 self._hopper_active = True
 
