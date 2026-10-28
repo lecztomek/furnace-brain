@@ -2,6 +2,11 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.43.0 · 28.10.2026 12:57
+- Tuning: a mild regular wave suggests the flue lead first ("Wyprzedzanie spalinami" 0 → 5, then up to 8); a softer Kp / Ki only once the lead is at 8
+- Tuning: after a PID setting change (Kp, Ki, flue lead, power limits, feeder dose) only the work since then counts - no suggestions from the old wave until 3 h of settled work after it
+- Tuning: the PID is judged from the last 12 h (was 24 h); the flue lead shows in "Po zmianach ustawień"
+
 ## 1.42.1 · 28.10.2026 12:51
 - The flue brake is called "Wyprzedzanie spalinami" in the settings - it works both ways: less power while the flue rises, more while it falls
 

@@ -24,9 +24,10 @@ SETPOINT_STEP_C = 1.0       # a setpoint change at least this big ...
 SETPOINT_SETTLE_S = 2 * 3600  # ... also needs ~2 h before it's judged (a hot boiler overshoots a lower setpoint)
 SWING_STD = 1.5             # swing worth a suggestion (±°C) - a coal bed reacts slowly, ±1-1.5 is fine
 SWING_BAD_STD = 2.5
-MILD_SWING_STD = 1.0        # below SWING_STD but a regular wave above this: a hint to soften the PID
+MILD_SWING_STD = 1.0        # below SWING_STD but a regular wave above this: a hint (flue lead, then a softer PID)
+LEAD_GOOD = 8.0             # "Wyprzedzanie spalinami" that settled the boiler twin
 IGNITION_MIN_S = 300        # a shorter IGNITION is a click, not an ignition
-WINDOW_H = 24               # regulation: the last 24 h of settled WORK (within EVENT_DAYS)
+WINDOW_H = 12               # regulation: the last 12 h of settled WORK (~9 waves of the PID; within EVENT_DAYS)
 EVENT_DAYS = 7              # flame-outs, overheats, sensors, setting changes
 MIN_WORK_H = 3.0            # less settled WORK than this - no verdict
 SMOOTH_ROWS = 5             # ~2.5 min moving average before counting swings
@@ -40,6 +41,12 @@ ROOM_C = 20.0               # rooms (no sensor)
 RAD_DROP_C = 2.0            # radiator mean below the supply
 RAD_EXP = 1.3               # radiator output ~ (mean - room) ^ 1.3
 
+# after a change of these the PID is judged only from the work since then (+ CHANGE_SKIP_S):
+# yesterday's wave says nothing about the new settings
+PID_KEYS = {("power_work", k) for k in ("kp", "ki", "flue_brake_gain", "min_power", "max_power",
+                                       "max_slew_rate_percent_per_min")} | {("feeder", "feed_on_base_s"),
+                                                                            ("feeder", "feed_off_base_s")}
+
 EVENT_KEYS = ("FLAMEOUT", "OVERHEAT_ON", "MISSING_ON", "SETTINGS_CHANGED", "API_ERROR", ";ERROR;")
 
 # settings worth showing in the "what changed" list (module, key) -> label
@@ -47,6 +54,7 @@ TRACKED = {
     ("power_work", "boiler_set_temp"): "zadana kotła",
     ("power_work", "kp"): "Kp",
     ("power_work", "ki"): "Ki",
+    ("power_work", "flue_brake_gain"): "wyprzedzanie spalinami",
     ("power_work", "min_power"): "moc min",
     ("power_work", "max_power"): "moc max",
     ("power_work", "max_slew_rate_percent_per_min"): "szybkość zmian mocy",
@@ -298,7 +306,8 @@ def compare_change(change_ts: datetime, rows: List[Dict[str, Any]], min_power: f
 # ---------------------------------------------------------------- advice
 
 def advise(reg: Optional[Dict[str, Any]], rad: Optional[Dict[str, Any]], igns: List[Dict[str, Any]],
-           ev: Dict[str, Any], s: Dict[str, Dict[str, Any]]) -> List[Dict[str, str]]:
+           ev: Dict[str, Any], s: Dict[str, Dict[str, Any]],
+           pid_change: Optional[Dict[str, Any]] = None) -> List[Dict[str, str]]:
     """Findings, PID first: integral (Ki), Kp, the feeder dose and the blower, then the rest."""
     items: List[Dict[str, str]] = []
 
@@ -310,6 +319,7 @@ def advise(reg: Optional[Dict[str, Any]], rad: Optional[Dict[str, Any]], igns: L
     blower = s.get("blower") or {}
     mixer = s.get("mixer") or {}
     kp, ki = _float(pw.get("kp")), _float(pw.get("ki"))
+    lead = _float(pw.get("flue_brake_gain")) or 0.0     # "Wyprzedzanie spalinami", 0 = off
     sp = _float(pw.get("boiler_set_temp"))
     pmin, pmax = _float(pw.get("min_power")) or 0.0, _float(pw.get("max_power")) or 100.0
     feed_on = _float(feeder.get("feed_on_base_s"))
@@ -317,9 +327,16 @@ def advise(reg: Optional[Dict[str, Any]], rad: Optional[Dict[str, Any]], igns: L
     feed_tip = 0  # the feeder dose suggested below: +1 / -1 s - the blower follows it
 
     if reg is None or reg["hours"] < MIN_WORK_H:
-        add("PID", "info", "Za mało pracy do oceny",
-            f"W ostatnich {EVENT_DAYS} dniach {fmt(reg['hours'] if reg else 0)} h ustabilizowanej pracy "
-            f"(liczonej od 2 h po rozpaleniu i po zmianie zadanej; potrzeba {fmt(MIN_WORK_H, 0)} h). Ocena całki, Kp, ślimaka i dmuchawy pojawi się później.")
+        if pid_change is not None:
+            add("PID", "info", "Za mało pracy od zmiany ustawień",
+                f"{pid_change['label']} zmienione {pid_change['ts']:%d.%m %H:%M} "
+                f"({pid_change['old']} → {pid_change['new']}). Ocena liczy tylko pracę po zmianie: "
+                f"jest {fmt(reg['hours'] if reg else 0)} h, potrzeba {fmt(MIN_WORK_H, 0)} h. Do tego czasu bez nowych sugestii.")
+        else:
+            add("PID", "info", "Za mało pracy do oceny",
+                f"W ostatnich {EVENT_DAYS} dniach {fmt(reg['hours'] if reg else 0)} h ustabilizowanej pracy "
+                f"(liczonej od 2 h po rozpaleniu i po zmianie zadanej; potrzeba {fmt(MIN_WORK_H, 0)} h). "
+                "Ocena całki, Kp, ślimaka i dmuchawy pojawi się później.")
     else:
         m, std, period = reg["mean_err"], reg["std"], reg["period_min"]
         starved = m < -1.0 and reg["at_max_pct"] >= 25
@@ -363,14 +380,26 @@ def advise(reg: Optional[Dict[str, Any]], rad: Optional[Dict[str, Any]], igns: L
                 f"Na co dzień ±{fmt(std)}°C, ale kocioł potrafił spaść {fmt(reg['max_under'])}°C poniżej zadanej.",
                 f"Zwiększ Kp o ok. 20% ({fmt_num(kp)} → {fmt_num(round(kp * 1.2, 1))})." if kp else "Zwiększ Kp.")
         elif MILD_SWING_STD < std <= SWING_STD and period is not None and period >= 40 and kp and ki:
-            # within the norm, but a regular wave: the coal answers ~30 min late and the PID
-            # keeps adding meanwhile - a softer PID evens it out (a hint, not a problem)
-            add("Wzmocnienie (Kp)", "hint", "Lekkie falowanie - można złagodzić",
-                f"Rozrzut ±{fmt(std)}°C, regularnie co ok. {period} min: węgiel oddaje ciepło z opóźnieniem, "
-                "a regulator w tym czasie dokłada za dużo. Mieści się w normie. Łagodniej = mniejsze falowanie "
-                "i spokojniejsza moc, ale po kąpieli powrót do zadanej o ok. 10-15 min dłuższy.",
-                f"Złagodź regulator (Kp {fmt_num(kp)} → {fmt_num(round(kp * 0.8, 1))}, "
-                f"Ki {fmt_num(ki)} → {fmt_num(round(ki * 0.8, 4))}).")
+            # within the norm, but a regular wave: the coal answers ~30 min late and the PID keeps
+            # adding meanwhile. The flue sees the fire 10-20 min earlier - leading with it fixes the
+            # cause (on the boiler twin it beat a softer PID); a softer PID only once it is on.
+            why = (f"Rozrzut ±{fmt(std)}°C, regularnie co ok. {period} min: węgiel oddaje ciepło z opóźnieniem, "
+                   "a regulator w tym czasie dokłada za dużo. Mieści się w normie.")
+            if lead <= 0:
+                add("Wzmocnienie (Kp)", "hint", "Lekkie falowanie - włącz wyprzedzanie spalinami",
+                    why + " Spaliny pokazują ogień 10-20 min wcześniej niż woda w kotle - regulator zdąży "
+                    "ująć albo dodać mocy przed przestrzałem. Kp i Ki zostaw, jedna zmiana naraz.",
+                    "Włącz wyprzedzanie spalinami (0 → 5).")
+            elif lead < LEAD_GOOD:
+                add("Wzmocnienie (Kp)", "hint", "Lekkie falowanie - mocniejsze wyprzedzanie",
+                    why + f" Wyprzedzanie spalinami jest na {fmt_num(lead)} - można mocniej.",
+                    f"Zwiększ wyprzedzanie spalinami ({fmt_num(lead)} → {fmt_num(min(LEAD_GOOD, lead + 3))}).")
+            else:
+                add("Wzmocnienie (Kp)", "hint", "Lekkie falowanie - można złagodzić",
+                    why + " Łagodniej = mniejsze falowanie i spokojniejsza moc, ale po kąpieli powrót do zadanej "
+                    "o ok. 10-15 min dłuższy.",
+                    f"Złagodź regulator (Kp {fmt_num(kp)} → {fmt_num(round(kp * 0.8, 1))}, "
+                    f"Ki {fmt_num(ki)} → {fmt_num(round(ki * 0.8, 4))}).")
         else:
             add("Wzmocnienie (Kp)", "ok", "Kp w porządku",
                 f"Rozrzut ±{fmt(std)}°C" + (f", moc zmienia się spokojnie ({fmt(jump)} pkt / 30 s)." if jump is not None else "."))
@@ -611,13 +640,19 @@ class TuningReport:
 
         steady = settled(rows, sp)
         recent = steady[-int(WINDOW_H * 3600 / 30):]
+        changes = setting_changes(events)[:10]
+        # a PID setting changed within the window: judge only the work after it
+        pid_change = next((c for c in changes if (c["module"], c["key"]) in PID_KEYS), None)
+        if pid_change is not None and recent and pid_change["ts"] + timedelta(seconds=CHANGE_SKIP_S) > recent[0]["ts"]:
+            recent = [r for r in recent if r["ts"] >= pid_change["ts"] + timedelta(seconds=CHANGE_SKIP_S)]
+        else:
+            pid_change = None
         reg = regulation(recent, pmin, pmax)
         rad = radiators(recent, settings.get("mixer") or {})
         igns = ignitions(rows, sp)
         ev = event_summary(events)
-        items = advise(reg, rad, igns, ev, settings)
+        items = advise(reg, rad, igns, ev, settings, pid_change)
 
-        changes = setting_changes(events)[:10]
         out_changes = []
         for i, c in enumerate(changes):
             newer = changes[i - 1]["ts"] if i > 0 else None
@@ -631,6 +666,9 @@ class TuningReport:
             "verdict": verdict(items),
             "regulation": reg,
             "regulation_since": recent[0]["ts"].isoformat(timespec="minutes") if recent else None,
+            # judged only after this PID setting change
+            "pid_change": None if pid_change is None else {"label": pid_change["label"],
+                                                           "at": pid_change["ts"].isoformat(timespec="minutes")},
             "radiators": rad,
             "ignitions": igns[-5:],
             "items": items,

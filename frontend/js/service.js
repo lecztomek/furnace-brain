@@ -72,7 +72,9 @@
     const reg = r.regulation;
     if (reg && reg.hours >= 1) {
       const st = (good, okish) => (good ? "ok" : okish ? "warn" : "bad");
-      $("tn-period").textContent = `Liczone z: ostatnich ${num(reg.hours, 0)} h spokojnej pracy (od ${when(r.regulation_since)}, bez 2 h po rozpaleniu i po zmianie zadanej)`;
+      const pc = r.pid_change;
+      $("tn-period").textContent = `Liczone z: ostatnich ${num(reg.hours, 0)} h spokojnej pracy (od ${when(r.regulation_since)}` +
+        (pc ? `, czyli od zmiany: ${pc.label})` : ", bez 2 h po rozpaleniu i po zmianie zadanej)");
       const pa = reg.power_avg ?? 0;
       $("tn-hero").innerHTML = `<div class="sv-hero2">
         ${ring(reg.within_2, st(reg.within_2 >= 80, reg.within_2 >= 60), `${reg.within_2}%`, "w ±2°C", "od zadanej")}

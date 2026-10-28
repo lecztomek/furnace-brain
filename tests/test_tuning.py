@@ -258,8 +258,18 @@ def test_mild_regular_wave_gets_a_hint_not_a_problem():
     items, reg = advice(rows)
     assert 1.0 < reg["std"] < 1.5
     kp = items["Wzmocnienie (Kp)"]
-    assert kp["status"] == "hint" and "Kp 10 → 8" in kp["tip"] and "Ki 0,005 → 0,004" in kp["tip"]
+    # the flue lead is off: switch it on first, Kp and Ki stay
+    assert kp["status"] == "hint" and "wyprzedzanie spalinami (0 → 5)" in kp["tip"] and "Kp" not in kp["tip"]
     assert T.verdict(list(items.values()))["status"] == "ok"      # not counted as a problem
+
+    def kp_with(gain):
+        settings = {**SETTINGS, "power_work": {**SETTINGS["power_work"], "flue_brake_gain": gain}}
+        steady = T.settled(rows, 56.0)
+        found = T.advise(T.regulation(steady, 20, 93), None, [], T.event_summary([]), settings)
+        return [i for i in found if i["area"] == "Wzmocnienie (Kp)"][0]
+    assert "(5 → 8)" in kp_with(5.0)["tip"]                        # on, but weak: more of it
+    soft = kp_with(8.0)                                             # on and strong: then soften the PID
+    assert "Kp 10 → 8" in soft["tip"] and "Ki 0,005 → 0,004" in soft["tip"]
 
 
 def test_curve_power_reserve():
@@ -284,3 +294,23 @@ def test_curve_power_reserve():
     k = [i for i in T.advise(calm, rad, [], T.event_summary([]), {**SETTINGS, "mixer": gentle}) if i["area"] == "Krzywa"]
     assert len(k) == 1 and k[0]["status"] == "ok"
     assert T.verdict([i for i in items if i["status"] == "hint"])["status"] == "ok"
+
+
+def test_after_a_pid_change_only_the_work_since_then_counts(tmp_path):
+    import json as _json
+    # 12 h of a wave, then the flue lead switched on and 2 h of calm work
+    wave = work_rows(12, lambda m: 56 + 2.0 * math.sin(2 * math.pi * m / 75), lambda m: 60)
+    change_at = wave[-1]["ts"] + timedelta(seconds=30)
+    calm = work_rows(2, lambda m: 56.0, lambda m: 60, start=change_at)
+    ev = [{"type": "SETTINGS_CHANGED", "data_czas": change_at.isoformat(),
+           "data_json": _json.dumps({"module": "power_work", "changes": {"flue_brake_gain": [0, 5]}})}]
+    changes = T.setting_changes(ev)
+    assert changes[0]["label"] == "wyprzedzanie spalinami"
+    pid = next(c for c in changes if (c["module"], c["key"]) in T.PID_KEYS)
+    steady = [r for r in T.settled(wave + calm, 56.0) if r["ts"] >= change_at + timedelta(seconds=T.CHANGE_SKIP_S)]
+    items = T.advise(T.regulation(steady, 20, 93), None, [], T.event_summary([]),
+                     {**SETTINGS, "power_work": {**SETTINGS["power_work"], "flue_brake_gain": 5.0}}, pid)
+    first = items[0]
+    # 1.5 h after the change is too little: no suggestions from yesterday's wave
+    assert first["title"] == "Za mało pracy od zmiany ustawień" and "0 → 5" in first["detail"]
+    assert not any(i["area"] == "Wzmocnienie (Kp)" for i in items)
