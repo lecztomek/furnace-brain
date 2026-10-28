@@ -1,0 +1,30 @@
+id: trend
+name: "Trend temperatury"
+description: "Liczy, jak szybko temperatura kotła rośnie albo spada (°C na 10 min). Widać to na stronie głównej pod temperaturą kotła."
+
+groups:
+  - id: basic
+    label: "Podstawowe"
+
+fields:
+  - key: window_min
+    label: "Okno trendu"
+    type: number
+    unit: "min"
+    min: 3
+    max: 60
+    step: 1
+    default: 10
+    group: basic
+    description: "Z ilu ostatnich minut liczony jest trend. Wynik zawsze w °C na 10 min."
+
+  - key: sample_s
+    label: "Próbka co"
+    type: number
+    unit: "s"
+    min: 5
+    max: 120
+    step: 5
+    default: 30
+    group: basic
+    description: "Co ile sekund brany jest odczyt temperatury kotła."

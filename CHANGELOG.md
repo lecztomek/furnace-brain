@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.49.0 · 28.10.2026 18:20
+- Strona główna: pod temperaturą kotła trend - o ile stopni na 10 min rośnie (▲, pomarańczowy) albo spada (▼, niebieski), np. „▼ −1,5°/10 min”; widać też w podglądzie zdalnym
+- Nowy moduł „Trend temperatury” (pomocniczy, nie steruje niczym): odczyt kotła co 30 s, trend z ostatnich 10 min liczony z dopasowania prostej, więc skoki czujnika o 0,06 °C nie udają trendu; bez odczytów (start, zgubiony czujnik) pokazuje „trend --”
+
 ## 1.48.2 · 28.10.2026 17:10
 - Symulator: Strojenie → "Po zmianach ustawień" działa także w symulatorze. Zmiana ustawień, historia ustawień i Strojenie liczą czas zegarem pieca, tak jak historia temperatur; w symulatorze ten zegar biegnie szybciej niż prawdziwy, więc wcześniej porównanie nie miało danych „po” albo brało złe okresy
 - Na Pi bez zmian: tam zegar pieca to zwykły zegar

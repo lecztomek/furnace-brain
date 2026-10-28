@@ -396,8 +396,10 @@
                     </g>
 
                      <g id="furnace-temp" class="temp-badge">
-                        <rect x="480" y="300" width="140" height="80" rx="30" />
-                        <text id="furnace-temp-text" style="fill: orange;" x="550" y="345">55°C</text>
+                        <!-- the trend under the temperature: °C per 10 min, up or down -->
+                        <rect x="470" y="296" width="160" height="100" rx="30" />
+                        <text id="furnace-temp-text" style="fill: orange;" x="550" y="333">55°C</text>
+                        <text id="furnace-trend-text" class="badge-sub" x="550" y="377"><title>Trend temperatury kotła: o ile °C zmieniła się w ostatnich 10 min</title>--</text>
                      </g>
                      <g id="fuel-in-tank" class="temp-badge" style="display: none;">
                         <rect x="220" y="300" width="200" height="80" rx="30" style="fill: #aaa;" />

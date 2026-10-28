@@ -248,9 +248,11 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const r = await fetch("/api/state/current", { cache: "no-store" });
       if (!r.ok) return;
-      const rad = (await r.json()).radiators || {};
+      const state = await r.json();
+      const rad = state.radiators || {};
       showMixerMoves(rad);
       showOutsideAvg(rad);
+      showBoilerTrend(state.trend || {});
       let v = Number(rad.target);
       if (rad.target == null || isNaN(v)) {
         // mixer not running yet - show the configured value
@@ -268,6 +270,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const avg = Number(rad.outside_avg);
     t.textContent = rad.outside_avg == null || isNaN(avg) ? "śr. --"
       : `śr. ${fmt(avg)}° z ${String(rad.outside_avg_h ?? "").replace(".", ",")} h`;
+  }
+
+  // under the boiler temperature: how fast it goes up or down ("▲ +1,2° / 10 min")
+  function showBoilerTrend(tr) {
+    const t = document.getElementById("furnace-trend-text");
+    if (!t) return;
+    const v = Number(tr.boiler_per_10m);
+    const title = t.querySelector("title");
+    const set = (text, cls) => {
+      t.textContent = text;
+      if (title) t.appendChild(title);
+      t.setAttribute("class", `badge-sub${cls}`);
+    };
+    if (tr.boiler_per_10m == null || isNaN(v)) return set("trend --", "");
+    const r = Math.round(v * 10) / 10;
+    if (r === 0) return set("= 0,0°/10 min", "");
+    set(`${r > 0 ? "▲ +" : "▼ −"}${Math.abs(r).toFixed(1).replace(".", ",")}°/10 min`, r > 0 ? " is-up" : " is-down");
   }
 
   // mixing valve: net seconds of opening (+) / closing (-) in the last 30 min

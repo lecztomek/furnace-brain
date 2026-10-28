@@ -118,6 +118,8 @@ def create_state_router(
             "radiators": {**(s.runtime.get("mixer") or {}), **(s.runtime.get("curve") or {})},
             # flame-out alarm (furnace stopped), until it is started again
             "flameout": s.runtime.get("flameout") or {},
+            # boiler °C per 10 min (trend module), None until it has enough readings
+            "trend": s.runtime.get("trend") or {},
             # everything the warning sign on the main page shows
             "problems": _problems(s),
             "modules": {

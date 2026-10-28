@@ -120,3 +120,10 @@ modules:
     enabled: true
     critical: false
     about: "Historia ustawień: wszystkie ustawienia z wersją programu na pendrive - przy starcie, po zmianie i codziennie."
+
+  # how fast the boiler goes up or down - the main page shows it under the boiler temperature
+  - id: trend
+    path: backend.modules.trend:TrendModule
+    enabled: true
+    critical: false
+    about: "Trend: o ile °C na 10 min rośnie albo spada temperatura kotła (strona główna, pod temperaturą kotła)."

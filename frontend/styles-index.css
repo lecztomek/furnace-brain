@@ -878,4 +878,7 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
 #mixer-moves.is-open text { fill: #f97316; }
 #mixer-moves.is-close text { fill: #38bdf8; }
 #radiators-temp text.badge-sub,
+#furnace-temp text.badge-sub,
 #outside-temp text.badge-sub { font-size: 20px; font-weight: 600; fill: #9ca3af; }
+#furnace-temp text.badge-sub.is-up { fill: #f59e0b; }
+#furnace-temp text.badge-sub.is-down { fill: #60a5fa; }
