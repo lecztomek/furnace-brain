@@ -40,17 +40,50 @@
       <span class="sv-tile__label">${label}</span><span class="sv-tile__val">${val}</span>${sub ? `<span class="sv-tile__sub">${sub}</span>` : ""}</div>`;
   }
 
+  const TONE = { ok: "#4ade80", warn: "#fbbf24", bad: "#f87171", info: "#cbd5e1" };
+
+  // ring gauge: how full / how good, coloured by the status, the number in the middle
+  function ring(pct, status, center, label, sub) {
+    const r = 34, c = 2 * Math.PI * r, f = Math.max(0, Math.min(100, Number(pct) || 0)) / 100;
+    return `<div class="sv-ring sv-ring--${status}">
+      <svg viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="${r}" class="sv-ring__track"/>
+        <circle cx="42" cy="42" r="${r}" class="sv-ring__arc" stroke="${TONE[status] || TONE.info}"
+          stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 42 42)"/></svg>
+      <span class="sv-ring__center">${center}</span>
+      <span class="sv-ring__label">${label}</span>${sub ? `<span class="sv-ring__sub">${sub}</span>` : ""}
+    </div>`;
+  }
+
+  // bar with the good / so-so / bad zones and a marker where the value is
+  function bullet(icon, label, valueText, v, lo, hi, zones, status) {
+    const pos = (x) => (100 * (Math.max(lo, Math.min(hi, x)) - lo)) / (hi - lo);
+    const bands = zones.map(([a, b, st]) => `<span class="sv-zone sv-zone--${st}" style="left:${pos(a)}%;width:${pos(b) - pos(a)}%"></span>`).join("");
+    return `<div class="sv-bullet sv-bullet--${status}">
+      <span class="sv-bullet__icon">${FBIcon(icon)}</span>
+      <span class="sv-bullet__label">${label}</span>
+      <span class="sv-bullet__track">${bands}<span class="sv-bullet__mark" style="left:${pos(v)}%"></span></span>
+      <span class="sv-bullet__val">${valueText}</span>
+    </div>`;
+  }
+
   function renderTuning(r) {
     verdict($("tn-verdict"), r.verdict.status, r.verdict.text);
     const reg = r.regulation;
     if (reg && reg.hours >= 1) {
       const st = (good, okish) => (good ? "ok" : okish ? "warn" : "bad");
       $("tn-period").textContent = `Liczone z: ostatnich ${num(reg.hours, 0)} h spokojnej pracy (od ${when(r.regulation_since)}, bez 2 h po rozpaleniu)`;
-      $("tn-hero").innerHTML = [
-        bigTile("target", "Od zadanej", `${signed(reg.mean_err)}°`, st(Math.abs(reg.mean_err) <= 1, Math.abs(reg.mean_err) <= 2)),
-        bigTile("activity", "Kołysanie", `±${num(reg.std)}°`, st(reg.std <= 1, reg.std <= 2)),
-        bigTile("gauge", "Moc średnio", `${reg.power_avg ?? "--"}%`, st(reg.power_avg >= 35 && reg.power_avg <= 75, true)),
-      ].join("");
+      const pa = reg.power_avg ?? 0;
+      $("tn-hero").innerHTML = `<div class="sv-hero2">
+        ${ring(reg.within_2, st(reg.within_2 >= 80, reg.within_2 >= 60), `${reg.within_2}%`, "w ±2°C", "od zadanej")}
+        <div class="sv-bullets">
+          ${bullet("target", "Od zadanej", `${signed(reg.mean_err)}°`, reg.mean_err, -4, 4,
+            [[-4, -2, "bad"], [-2, -1, "warn"], [-1, 1, "ok"], [1, 2, "warn"], [2, 4, "bad"]],
+            st(Math.abs(reg.mean_err) <= 1, Math.abs(reg.mean_err) <= 2))}
+          ${bullet("activity", "Kołysanie", `±${num(reg.std)}°`, reg.std, 0, 4,
+            [[0, 1, "ok"], [1, 2, "warn"], [2, 4, "bad"]], st(reg.std <= 1, reg.std <= 2))}
+          ${bullet("gauge", "Moc średnio", `${reg.power_avg ?? "--"}%`, pa, 0, 100,
+            [[0, 35, "warn"], [35, 75, "ok"], [75, 90, "warn"], [90, 100, "bad"]], st(pa >= 35 && pa <= 75, pa < 90))}
+        </div></div>`;
     } else {
       $("tn-period").textContent = "Liczone z: ostatnich 7 dni, praca od 2 h po rozpaleniu";
       $("tn-hero").innerHTML = `<div class="sv-empty">${FBIcon("hourglass", "ic--inline")} Za mało spokojnej pracy do oceny</div>`;
@@ -131,11 +164,19 @@
 
   // ---------------------------------------------------------------- diagnostics
 
-  const TILE_ICON = { "Procesor": "cpu", "Zasilanie": "plug", "Wolne miejsce": "drive", "Sterownik działa": "clock", "Internet": "globe", "Czujniki": "sensor" };
+  function statusTile(t) {
+    const dots = t.dots ? `<span class="sv-dots">${t.dots.map((st) => `<i class="sv-dot sv-dot--${st}"></i>`).join("")}</span>` : "";
+    return `<div class="sv-stat sv-stat--${t.status}"><span class="sv-stat__icon">${FBIcon(t.icon || "info")}</span>
+      <span class="sv-stat__text"><span class="sv-stat__label">${esc(t.label)}</span>
+      <span class="sv-stat__val">${esc(t.value)}</span>${dots}</span></div>`;
+  }
 
   function renderDiag(d) {
     verdict($("dg-verdict"), d.status);
-    $("dg-tiles").innerHTML = (d.tiles || []).map((t) => bigTile(TILE_ICON[t.label] || "info", t.label, esc(t.value), t.status)).join("");
+    const tiles = d.tiles || [];
+    $("dg-tiles").innerHTML =
+      `<div class="sv-rings">${tiles.filter((t) => t.kind === "ring").map((t) => ring(t.pct, t.status, esc(t.value), esc(t.label), esc(t.sub || ""))).join("")}</div>` +
+      `<div class="sv-stats">${tiles.filter((t) => t.kind !== "ring").map(statusTile).join("")}</div>`;
     const problems = d.groups.flatMap((g) => g.items).filter((i) => i.status === "warn" || i.status === "bad");
     $("dg-problems").innerHTML = problems.map((i) => `<button type="button" class="${cardClass(i.status, i.label)}" data-key="${esc(i.label)}">
       <span class="sv-card__top"><span class="sv-card__icon">${FBIcon(i.status === "bad" ? "stop" : "alert")}</span><span class="sv-card__name">${esc(i.label)}</span></span>

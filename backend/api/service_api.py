@@ -65,8 +65,12 @@ def _run(cmd: List[str]) -> Optional[str]:
     return out
 
 
-def _item(status: str, label: str, value: str, note: str = "") -> Dict[str, str]:
-    return {"status": status, "label": label, "value": value, "note": note}
+def _item(status: str, label: str, value: str, note: str = "", gauge: Optional[float] = None) -> Dict[str, Any]:
+    """gauge: how full (0-100) - drawn as a ring on the diagnostics tiles."""
+    out: Dict[str, Any] = {"status": status, "label": label, "value": value, "note": note}
+    if gauge is not None:
+        out["gauge"] = round(max(0.0, min(100.0, gauge)))
+    return out
 
 
 def _ago(ts: Optional[float], now: float) -> str:
@@ -111,33 +115,43 @@ def _newest_mtime(directory: Path) -> Optional[float]:
         return None
 
 
-def _tiles(groups: List[Dict[str, Any]]) -> List[Dict[str, str]]:
-    """The few numbers shown big at the top of the diagnostics tab."""
+def _tiles(groups: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Top of the diagnostics tab: rings for what fills up (CPU temperature, RAM,
+    disk) and small status tiles for the rest.
+    """
     items = {i["label"]: i for g in groups for i in g["items"]}
-    tiles: List[Dict[str, str]] = []
+    tiles: List[Dict[str, Any]] = []
 
-    def add(label: str, item: Optional[Dict[str, str]], value: str) -> None:
+    def ring(label: str, item: Optional[Dict[str, Any]], center: str, sub: str) -> None:
+        if item is not None and "gauge" in item:
+            tiles.append({"kind": "ring", "label": label, "value": center, "sub": sub,
+                          "pct": item["gauge"], "status": item["status"]})
+
+    def status(label: str, icon: str, item: Optional[Dict[str, Any]], value: str) -> None:
         if item is not None:
-            tiles.append({"label": label, "value": value, "status": item["status"]})
+            tiles.append({"kind": "status", "label": label, "icon": icon, "value": value, "status": item["status"]})
 
     cpu = items.get("Temperatura procesora")
-    add("Procesor", cpu, cpu["value"] if cpu else "")
-    power = items.get("Zasilanie")
-    add("Zasilanie", power, {"ok": "OK", "warn": "były spadki", "bad": "za słabe"}.get(power["status"], "") if power else "")
+    ring("Procesor", cpu, cpu["value"] if cpu else "", "temperatura")
+    ram = items.get("Pamięć RAM")
+    ring("Pamięć", ram, f"{ram['gauge']}%" if ram and "gauge" in ram else "", "zajęte")
     disk = items.get("Dane (pendrive)") or items.get("Karta SD (system)")
-    if disk:
-        pct = disk["value"].rsplit("(", 1)[-1].rstrip(")")
-        add("Wolne miejsce", disk, pct)
-    up = items.get("Sterownik działa od")
-    add("Sterownik działa", up, up["value"] if up else "")
+    ring("Dysk", disk, f"{disk['gauge']}%" if disk and "gauge" in disk else "", "zajęte")
+
+    power = items.get("Zasilanie")
+    status("Zasilanie", "plug", power,
+           {"ok": "OK", "warn": "były spadki", "bad": "za słabe"}.get(power["status"], "") if power else "")
     net = items.get("Podgląd zdalny (Firebase)") or items.get("Pogoda (internet)")
-    if net:
-        add("Internet", net, {"ok": "OK", "info": "wyłączony"}.get(net["status"], "problem"))
+    status("Internet", "globe", net, {"ok": "OK", "info": "wyłączony"}.get(net["status"], "problem") if net else "")
     sensors = next((g["items"] for g in groups if g["title"] == "Czujniki"), [])
     if sensors:
         good = sum(1 for i in sensors if i["status"] == "ok")
         worst = "bad" if any(i["status"] == "bad" for i in sensors) else "warn" if good < len(sensors) else "ok"
-        tiles.append({"label": "Czujniki", "value": f"{good}/{len(sensors)}", "status": worst})
+        tiles.append({"kind": "status", "label": "Czujniki", "icon": "sensor", "value": f"{good} z {len(sensors)}",
+                      "status": worst, "dots": [i["status"] for i in sensors]})
+    up = items.get("Sterownik działa od")
+    status("Działa od", "clock", up, up["value"] if up else "")
     return tiles
 
 
@@ -275,7 +289,8 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
         if raw:
             t = int(raw.strip()) / 1000.0
             pi.append(_item("ok" if t < 65 else "warn" if t < 80 else "bad", "Temperatura procesora",
-                            f"{t:.0f}°C", "" if t < 65 else "Pi się grzeje - sprawdź wentylację obudowy"))
+                            f"{t:.0f}°C", "" if t < 65 else "Pi się grzeje - sprawdź wentylację obudowy",
+                            gauge=100 * t / 85))
         thr = _run(["vcgencmd", "get_throttled"])
         if thr and "=" in thr:
             try:
@@ -304,7 +319,7 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
             total, avail = info.get("MemTotal", 0) * 1024, info.get("MemAvailable", 0) * 1024
             if total:
                 pi.append(_item("ok" if avail > 100e6 else "warn" if avail > 40e6 else "bad", "Pamięć RAM",
-                                f"wolne {avail / 1e6:.0f} z {total / 1e6:.0f} MB"))
+                                f"wolne {avail / 1e6:.0f} z {total / 1e6:.0f} MB", gauge=100 * (1 - avail / total)))
         status = _read("/proc/self/status")
         if status:
             rss = next((ln.split()[1] for ln in status.splitlines() if ln.startswith("VmRSS")), None)
@@ -335,7 +350,7 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
             seen.add(dev)
             free_pct = 100 * u.free / u.total if u.total else 0
             disks.append(_item("ok" if free_pct > 20 else "warn" if free_pct > 5 else "bad", label,
-                               f"wolne {_gb(u.free)} z {_gb(u.total)} ({free_pct:.0f}%)"))
+                               f"wolne {_gb(u.free)} z {_gb(u.total)} ({free_pct:.0f}%)", gauge=100 - free_pct))
         for label, sub in (("Zapis historii", "history"), ("Zapis logów", "eventlog"), ("Zapis statystyk", "stats")):
             m = _newest_mtime(modules_dir / sub / "data")
             limit = 600 if sub == "stats" else 180
