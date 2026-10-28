@@ -3,7 +3,7 @@ name: "Safety"
 description: >
   Moduł bezpieczeństwa reagujący na brak odczytów (None):
   - boiler_temp None: feeder OFF, (opcjonalnie) fan OFF, pompy CO+CWU ON
-  - radiators_temp None: blokada ruchu mieszacza
+  - radiators_temp None: brak wymuszeń (tylko event) - zawór bez swojego czujnika sam nie reguluje
   - hopper_temp None: brak wymuszeń (tylko event)
   - flue_gas_temp None: brak wymuszeń (tylko event)
 

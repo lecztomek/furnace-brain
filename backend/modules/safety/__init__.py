@@ -41,7 +41,7 @@ class SafetyModule(ModuleInterface):
     - boiler_temp None:
         feeder OFF, (opcjonalnie) fan OFF, pompy CO+CWU ON
     - radiators_temp None:
-        blokada ruchu mieszacza (mixer_open=False, mixer_close=False)
+        brak wymuszeń (tylko event) - zawór bez swojego czujnika sam nie reguluje
     - hopper_temp None:
         brak wymuszeń (tylko event)
     - flue_gas_temp None:
@@ -170,14 +170,10 @@ class SafetyModule(ModuleInterface):
                 outputs.pump_co_on = True
                 outputs.pump_cwu_on = True
 
-        # 2) radiators_temp None -> nie kręcimy mieszaczem.
-        # Except during a boiler overheat: then the valve opens anyway (the overheat module,
-        # which ticks just before, asks for it) - getting the heat out of the boiler matters
-        # more than knowing how hot the radiator water is.
-        boiler_overheat = bool((system_state.runtime.get("overheat") or {}).get("boiler"))
-        if missing["radiators_temp"] and not boiler_overheat:
-            outputs.mixer_open_on = False
-            outputs.mixer_close_on = False
+        # 2) radiators_temp None -> nothing forced here (only events above): the mixing valve
+        #    doesn't regulate without its own sensor (it holds still), and the overheat
+        #    protection, the manual mode and the valve's own cold-boiler protection may still
+        #    move it - none of them needs the radiator temperature.
 
         # 3) hopper_temp None -> nic nie wymuszamy (tylko eventy powyżej)
 

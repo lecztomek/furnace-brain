@@ -62,22 +62,28 @@ def test_purge_runs_its_minutes_even_if_the_hopper_reading_flickers(tmp_path):
 
 
 def test_overheat_opens_the_valve_even_without_the_radiator_sensor(tmp_path):
-    """The safety module (ticks after overheat) blocks the valve without a radiator reading -
-    but not during a boiler overheat: the heat must get out of the boiler."""
+    """Safety (ticks after overheat) doesn't block the valve without a radiator reading -
+    the overheat may open it; the valve alone doesn't regulate without its sensor."""
+    from backend.modules.mixer import MixerModule
     from backend.modules.safety import SafetyModule
-    (tmp_path / "o").mkdir()
-    (tmp_path / "s").mkdir()
+    for d in ("o", "s", "m"):
+        (tmp_path / d).mkdir()
     overheat = _module(tmp_path / "o")
     safety = SafetyModule(base_path=tmp_path / "s")
+    valve = MixerModule(base_path=tmp_path / "m")
     st = SystemState(mode=BoilerMode.WORK)
+    st.runtime["curve"] = {"target": 30.0}
 
     def step(t, boiler):
         st.ts_mono = t
         sensors = Sensors(boiler_temp=boiler, hopper_temp=28.0, radiators_temp=None, flue_gas_temp=60.0)
-        a = overheat.tick(now=t, sensors=sensors, system_state=st).partial_outputs
-        b = safety.tick(now=t, sensors=sensors, system_state=st).partial_outputs
-        return b.mixer_open_on if b.mixer_open_on is not None else a.mixer_open_on
+        result = None
+        for m in (valve, overheat, safety):              # the kernel's order
+            po = m.tick(now=t, sensors=sensors, system_state=st).partial_outputs
+            if po.mixer_open_on is not None:
+                result = po.mixer_open_on
+        return result
 
-    assert step(1.0, 56.0) is False          # normal work without the radiator sensor: the valve stays put
-    assert step(2.0, 67.0) is True           # boiler overheat: open anyway
-    assert step(3.0, 61.0) is False          # overheat over: blocked again
+    assert step(1.0, 56.0) is False          # normal work without the radiator sensor: the valve holds still
+    assert step(2.0, 67.0) is True           # boiler overheat: opens
+    assert step(3.0, 61.0) is False          # overheat over: holds still again

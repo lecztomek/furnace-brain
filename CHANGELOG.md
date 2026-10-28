@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.46.1 · 28.10.2026 15:41
+- Safety no longer looks into the overheat module: it doesn't block the mixing valve without a radiator reading at all - the valve doesn't regulate without its own sensor anyway (it holds still), while the overheat opening, the manual mode and the valve's cold-boiler closing (none needs the radiator temperature) still work
+
 ## 1.46.0 · 28.10.2026 15:38
 - New module "Krzywa grzewcza" (curve): decides the radiator target (the curve from the averaged outside temperature, or the fixed target) - split off the mixing valve, which now only goes to that target. The target and curve settings move to Ustawienia → Krzywa grzewcza; the saved ones are taken over once (and kept in the valve's file for a rollback)
 - The outside temperature is read from the shared state where the weather module puts it (backend/core/outside.py) - the kernel no longer copies the weather into the sensors
