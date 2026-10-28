@@ -93,7 +93,8 @@
   }
   // grey bands where the boiler was in STOP - that's when coal is added or ash taken out.
   // options.plugins.stopBands = { flags: [bool per label] }
-  const STOP_FILL = "rgba(148, 163, 184, 0.28)";
+  const STOP_FILL = "rgba(148, 163, 184, 0.35)";
+  const STOP_MARK = "#e2e8f0";
   Chart.register({
     id: "stopBands",
     beforeDatasetsDraw(chart, args, opts) {
@@ -109,11 +110,19 @@
         if (!flags[i]) continue;
         let j = i;
         while (j + 1 < flags.length && flags[j + 1]) j++;
-        const left = Math.max(area.left, x.getPixelForValue(i) - step / 2);
-        const right = Math.min(area.right, x.getPixelForValue(j) + step / 2);
-        const w = Math.max(3, right - left);
-        c.fillRect(left, area.top, w, area.bottom - area.top);
-        if (w >= 34) { c.fillStyle = "#e2e8f0"; c.fillText("STOP", left + w / 2, area.top + 14); c.fillStyle = STOP_FILL; }
+        // a STOP of a few minutes is 1-2 points: at least 10 px wide so it shows
+        const mid = (x.getPixelForValue(i) + x.getPixelForValue(j)) / 2;
+        const w = Math.max(10, (j - i + 1) * step);
+        const left = Math.max(area.left, mid - w / 2);
+        const right = Math.min(area.right, mid + w / 2);
+        c.fillRect(left, area.top, right - left, area.bottom - area.top);
+        // a marker on top of every band, with the word when there is room
+        c.fillStyle = STOP_MARK;
+        c.beginPath();
+        c.moveTo(mid - 6, area.top); c.lineTo(mid + 6, area.top); c.lineTo(mid, area.top + 8);
+        c.fill();
+        if (right - left >= 40) c.fillText("STOP", mid, area.top + 22);
+        c.fillStyle = STOP_FILL;
         i = j;
       }
       c.restore();
@@ -124,7 +133,7 @@
   function stopsText(stops) {
     if (!stops || !stops.length) return "";
     const items = stops.slice().reverse().map((x) => `${x.start.slice(11, 16)} · ${x.minutes} min`);
-    return `Postoje (STOP, szare pasy): ${stops.length} — ${items.join(", ")}`;
+    return `Postoje (STOP i rozpalenie po nim, szare pasy): ${stops.length} — ${items.join(", ")}`;
   }
 
   function draw(chart, id, data, options) {

@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.39.2 · 28.10.2026 10:27
+- STOP bands: a break is the STOP plus the ignition right after it (a 2 min STOP was a sliver), at least 10 px wide with a marker on top
+
 ## 1.39.1 · 28.10.2026 10:05
 - Tuning: the 2 h after a setpoint change (≥1 °C) are left out - a hot boiler overshooting a lower setpoint no longer reads as a PID swing
 - Tuning: a swing is reported from ±1.5 °C (was ±1.0), "bad" from ±2.5 °C - a coal bed reacts slowly, ±1-1.5 °C is normal

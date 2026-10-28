@@ -228,3 +228,14 @@ def test_days_read_again_for_new_fields_are_saved(tmp_path):
     saved = _json.loads(cache.read_text())["days"]
     recent = [d for k, d in saved.items() if k >= (date.today() - timedelta(days=30)).isoformat()]
     assert recent and all("pw_s" in d for d in recent)   # the last 30 days re-read once and saved
+
+
+def test_stop_break_includes_the_ignition_after_it():
+    from backend.core.analytics import stop_intervals
+    # like prod: STOP 2 min, a moment of WORK, ignition 5 min, WORK
+    start = datetime(2026, 10, 28, 8, 40)
+    modes = ["WORK"] * 8 + ["OFF"] * 4 + ["WORK"] + ["IGNITION"] * 10 + ["WORK"] * 10
+    rows = [{"data_czas": (start + timedelta(seconds=30 * i)).isoformat(), "tryb_pracy": m} for i, m in enumerate(modes)]
+    rows.append({"data_czas": (start + timedelta(hours=3)).isoformat(), "tryb_pracy": "IGNITION"})  # a real ignition later
+    st = stop_intervals(rows, start, start + timedelta(hours=4))
+    assert [(x["start"][11:16], x["end"][11:19], x["minutes"]) for x in st] == [("08:44", "08:51:00", 8)]

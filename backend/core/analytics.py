@@ -457,19 +457,21 @@ def fine_series(rows: List[Dict[str, str]], start: datetime, end: datetime,
     n = max(0, int((end - start).total_seconds() // step_s) + 1)
     sums = [[0.0, 0, 0.0, 0, 0.0, 0] for _ in range(n)]   # boiler, setpoint, power: sum and count each
     stopped = [False] * n
+    last_stop: Optional[datetime] = None
     for r in rows:
         mode = (r.get("tryb_pracy") or "").upper()
-        if mode not in ("WORK", "OFF"):
-            continue
         try:
             ts = datetime.fromisoformat(r.get("data_czas") or "")
         except ValueError:
             continue
+        hit = _in_stop(mode, last_stop, ts)
+        last_stop = hit or last_stop
         i = int((ts - start).total_seconds() // step_s)
         if not 0 <= i < n:
             continue
-        if mode == "OFF":
+        if hit:
             stopped[i] = True
+        if mode != "WORK":
             continue
         b = _float(r.get("temp_pieca"))
         if b is None:
@@ -495,30 +497,43 @@ def fine_series(rows: List[Dict[str, str]], start: datetime, end: datetime,
     return out
 
 
-STOP_GAP_S = 120   # rows are 30 s apart: a longer gap (backend down) ends a STOP
+STOP_GAP_S = 120   # rows are 30 s apart: a longer pause between STOP rows starts a new break
+
+
+STOP_IGNITION_S = 300   # an IGNITION this soon after a STOP row belongs to the same break
+
+
+def _in_stop(mode: str, last_stop: Optional[datetime], ts: datetime) -> Optional[datetime]:
+    """A STOP break: OFF rows and the IGNITION right after them (STOP, coal or ash, start again -
+    sometimes with a few WORK rows in between). Returns the time of this row if it is part of a break."""
+    if mode == "OFF":
+        return ts
+    if mode == "IGNITION" and last_stop is not None and (ts - last_stop).total_seconds() <= STOP_IGNITION_S:
+        return ts
+    return None
 
 
 def stop_intervals(rows: List[Dict[str, str]], start: datetime, end: datetime) -> List[Dict[str, Any]]:
-    """Every STOP (mode OFF) between start and end: [{start, end, minutes}], oldest first.
-    That's when coal is added or ash is taken out."""
-    out: List[Dict[str, Any]] = []
-    first = last = None
+    """Every STOP break between start and end: [{start, end, minutes}], oldest first.
+    That's when coal is added or ash is taken out - OFF plus the IGNITION right after it."""
+    out: List[Any] = []
+    first = last = last_stop = None
     for r in rows:
         try:
             ts = datetime.fromisoformat(r.get("data_czas") or "")
         except ValueError:
             continue
-        if not start <= ts <= end:
+        hit = _in_stop((r.get("tryb_pracy") or "").upper(), last_stop, ts)
+        last_stop = hit or last_stop
+        if not hit or not start <= ts <= end:
             continue
-        off = (r.get("tryb_pracy") or "").upper() == "OFF"
-        if off and last is not None and (ts - last).total_seconds() <= STOP_GAP_S:
+        # rows of one break: OFF, maybe a moment of WORK, IGNITION - a longer pause starts a new one
+        if first is not None and (ts - last).total_seconds() <= STOP_GAP_S:
             last = ts
             continue
         if first is not None:
             out.append((first, last))
-            first = last = None
-        if off:
-            first = last = ts
+        first = last = ts
     if first is not None:
         out.append((first, last))
     # a row stands for its 30 s, so a single row is still half a minute
