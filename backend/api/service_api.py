@@ -184,10 +184,27 @@ class LoopStats:
                 "late": sum(1 for x in d if x > self.interval_s)}
 
 
+CHANGELOG_PATH = Path(__file__).resolve().parents[2] / "CHANGELOG.md"
+
+
+def parse_changelog(text: str) -> List[Dict[str, Any]]:
+    """'## 1.37' sections with their '- ' items (nested ones too; a long item may wrap onto indented lines), newest first."""
+    out: List[Dict[str, Any]] = []
+    for line in text.splitlines():
+        if line.startswith("## "):
+            out.append({"version": line[3:].strip(), "items": []})
+        elif out and line.lstrip().startswith("- "):     # nested points become items of their own
+            out[-1]["items"].append(line.lstrip()[2:].strip())
+        elif out and out[-1]["items"] and line.startswith("  ") and line.strip():
+            out[-1]["items"][-1] += " " + line.strip()
+    return out
+
+
 def create_service_router(store: StateStore, config_store: ConfigStore, data_root: Path,
                           app_info: Dict[str, Any], loop_stats: Dict[str, LoopStats],
                           clock: Callable[[], float] = time.time,
-                          warm_up_s: Optional[float] = None) -> APIRouter:
+                          warm_up_s: Optional[float] = None,
+                          changelog_path: Path = CHANGELOG_PATH) -> APIRouter:
     router = APIRouter(prefix="/service", tags=["service"])
     modules_dir = data_root / "modules"
     tuning = TuningReport(history_dir=modules_dir / "history" / "data",
@@ -279,6 +296,15 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
         if report is None:
             return {"building": True, "progress": dict(tuning.progress), "settings": s, "live": live(s)}
         return {**report, "building": building.is_set(), "settings": s, "live": live(s)}
+
+    @router.get("/changelog")
+    def get_changelog():
+        """What each version brought (CHANGELOG.md of the running version)."""
+        try:
+            text = changelog_path.read_text(encoding="utf-8")
+        except OSError:
+            text = ""
+        return {"current": app_info.get("version"), "versions": parse_changelog(text)}
 
     @router.get("/diagnostics")
     def get_diagnostics():

@@ -228,11 +228,29 @@
       { status: c.status, icon: c.status === "bad" ? "stop" : "alert", name: c.label || c.title, text: c.detail, right: c.value })));
   }
 
+  // ---------------------------------------------------------------- changelog
+
+  // newest version first; the one running now is marked
+  function renderChangelog(d) {
+    const cur = String(d.current || "");
+    const minor = cur.split(".").slice(0, 2).join(".");
+    $("cl-current").textContent = cur ? `na piecu: ${cur}` : "";
+    $("cl-list").innerHTML = (d.versions || []).filter((v) => v.items.length).map((v, i) => {
+      const now = v.version === minor || v.version.startsWith(minor + " ") || v.version.split(/[–-]/)[0].trim() === minor;
+      return `<div class="sv-tl ${now ? "is-now" : ""} ${i === 0 ? "is-newest" : ""}">
+        <span class="sv-tl__dot"></span>
+        <div class="sv-tl__body">
+          <div class="sv-tl__head"><span class="sv-tl__ver">${esc(v.version)}</span>${now ? `<span class="sv-tl__tag">na piecu</span>` : ""}</div>
+          <ul class="sv-tl__items">${v.items.map((it) => `<li>${esc(it).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/:$/, "")}</li>`).join("")}</ul>
+        </div></div>`;
+    }).join("");
+  }
+
   // ---------------------------------------------------------------- loading
 
   async function load(fresh = false) {
     const url = { tuning: `/api/service/tuning${fresh ? "?fresh=true" : ""}`, checks: "/api/analytics/report",
-      diag: "/api/service/diagnostics" }[tab];
+      diag: "/api/service/diagnostics", changes: "/api/service/changelog" }[tab];
     try {
       const r = await fetch(url, { cache: "no-store" });
       if (tab === "checks" && r.status === 503) {
@@ -254,7 +272,10 @@
         load.retry = setTimeout(() => load(), 3000);
         return;
       }
-      if (tab === "tuning") renderTuning(data); else if (tab === "checks") renderChecks(data); else renderDiag(data);
+      if (tab === "tuning") renderTuning(data);
+      else if (tab === "checks") renderChecks(data);
+      else if (tab === "changes") renderChangelog(data);
+      else renderDiag(data);
       setStatus(at);
     } catch (e) {
       setStatus(`Nie udało się pobrać danych: ${e.message}`);
@@ -289,7 +310,7 @@
     });
     let saved = "tuning";
     try { saved = localStorage.getItem("service-tab") || "tuning"; } catch (e) { /* no storage */ }
-    showTab(["diag", "checks"].includes(saved) ? saved : "tuning");
+    showTab(["diag", "checks", "changes"].includes(saved) ? saved : "tuning");
     startTimer();
   });
 })();

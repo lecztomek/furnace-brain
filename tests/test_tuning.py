@@ -198,3 +198,25 @@ def test_diagnostics_show_how_long_the_analyses_took(tmp_path):
     assert items["Prognoza pogody"]["status"] == "warn" and "błąd" in items["Prognoza pogody"]["note"]
     assert items["Statystyki"]["value"] == "jeszcze nie liczone od startu"
     timings.reset()
+
+
+def test_changelog_sections_newest_first(tmp_path):
+    from backend.api.service_api import parse_changelog
+    text = "# Changelog\n\nintro\n\n## 1.37\n- One.\n- Two that\n  wraps.\n\n## 1.36\n- Old.\n"
+    out = parse_changelog(text)
+    assert [v["version"] for v in out] == ["1.37", "1.36"]
+    assert out[0]["items"] == ["One.", "Two that wraps."]
+    path = tmp_path / "CHANGELOG.md"
+    path.write_text(text, encoding="utf-8")
+    app = FastAPI()
+    cfg = ConfigStore(_config_dir(tmp_path), ["power_work", "feeder", "blower"])
+    app.include_router(create_service_router(StateStore(), cfg, tmp_path, {"version": "1.37.2"}, {}, changelog_path=path),
+                       prefix="/api")
+    body = TestClient(app).get("/api/service/changelog").json()
+    assert body["current"] == "1.37.2" and body["versions"][1]["items"] == ["Old."]
+
+
+def test_the_real_changelog_parses():
+    from backend.api.service_api import CHANGELOG_PATH, parse_changelog
+    versions = parse_changelog(CHANGELOG_PATH.read_text(encoding="utf-8"))
+    assert versions and all(v["items"] for v in versions)

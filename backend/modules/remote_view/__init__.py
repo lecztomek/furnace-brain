@@ -259,6 +259,7 @@ class RemoteViewModule(ModuleInterface):
             "service/tuning": js(self._get("/api/service/tuning")),
             "service/diagnostics": js(self._get("/api/service/diagnostics")),
             "service/forecast": js(self._get("/api/analytics/forecast")),
+            "service/changelog": js(self._get("/api/service/changelog")),
         }
 
     def _slow_config(self) -> Dict[str, Any]:

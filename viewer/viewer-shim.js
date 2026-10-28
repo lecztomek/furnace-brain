@@ -213,6 +213,7 @@
     if (p === "analytics/forecast") return json(await fbValue("service/forecast", 60 * 1000));
     if (p === "service/tuning") return json(await fbValue("service/tuning", 60 * 1000));
     if (p === "service/diagnostics") return json(await fbValue("service/diagnostics", 60 * 1000));
+    if (p === "service/changelog") return json(await fbValue("service/changelog", 60 * 1000));
     if (p === "config/modules") return json(await fbValue("config/modules", 60 * 1000));
     if (parts[1] === "config" && (parts[2] === "schema" || parts[2] === "values") && parts.length === 4) {
       const node = parts[2] === "schema" ? "schemas" : "values";

@@ -66,6 +66,8 @@ class LocalApi(BaseHTTPRequestHandler):
             body = {"status": "ok", "groups": []}
         elif p == "/api/analytics/forecast":
             body = {"available": True, "days": []}
+        elif p == "/api/service/changelog":
+            body = {"current": "1.0.0", "versions": []}
         elif p == "/api/config/modules":
             body = [{"id": "power_pid", "name": "PID"}]
         elif p == "/api/config/schema/power_pid":

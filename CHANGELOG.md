@@ -2,6 +2,9 @@
 
 Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.38
+- Service: "Zmiany" tab - what each version brought (this changelog), the version running now marked.
+
 ## 1.37
 - Pi diagnostics: everything that needs a look is listed under "Do sprawdzenia" (disks and RAM too); no false "logs not written" warning (logs are written only when something happens).
 - Pi diagnostics: details shown under a "Szczegóły" heading, not folded.

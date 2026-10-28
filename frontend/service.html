@@ -29,6 +29,7 @@
                 <button type="button" data-tab="tuning" class="active">Strojenie</button>
                 <button type="button" data-tab="checks">Kontrola</button>
                 <button type="button" data-tab="diag">Diagnostyka Pi</button>
+                <button type="button" data-tab="changes">Zmiany</button>
               </div>
               <div class="st2-status" id="sv-status">Wczytywanie…</div>
 
@@ -61,6 +62,12 @@
                 <div id="checks"></div>
                 <h3 class="sv-h3" id="ck-problems-head">Do sprawdzenia</h3>
                 <div id="ck-problems"></div>
+              </section>
+
+              <!-- ZMIANY: what each version brought (CHANGELOG.md) -->
+              <section class="st2-card" data-tab="changes">
+                <h2>Co nowego <span class="sv-sub" id="cl-current"></span></h2>
+                <div class="sv-timeline" id="cl-list"></div>
               </section>
 
               <!-- DIAGNOSTYKA -->
