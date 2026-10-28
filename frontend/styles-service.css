@@ -57,7 +57,7 @@
 
 /* all diagnostics details, folded */
 .sv-more summary { font-size: 18px; font-weight: 800; cursor: pointer; padding: 8px 0; color: #e5e7eb; }
-.sv-group { font-size: 17px; margin: 12px 0 4px; color: #e5e7eb; text-transform: uppercase; letter-spacing: 0.05em; }
+.sv-group { font-size: 16px; font-weight: 800; margin: 14px 0 4px; color: #fdba74; }
 .sv-row { display: grid; grid-template-columns: 14px minmax(140px, 220px) 1fr; align-items: center; gap: 10px; padding: 6px 4px; font-size: 16px; border-bottom: 1px solid #1f2937; }
 .sv-row__dot { width: 12px; height: 12px; border-radius: 50%; background: #64748b; }
 .sv-row--ok .sv-row__dot { background: #22c55e; }
