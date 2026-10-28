@@ -204,6 +204,14 @@ class MockHardware(HardwareInterface):
             door_open=s.door_open,
         )
 
+    def detected_sensors(self) -> list:
+        """Like RpiHardware.detected_sensors: the furnace's three DS18B20 and a spare one."""
+        st = self._state
+        return [{"rom": "28-000000506777", "field": "boiler_temp", "temp": round(st.boiler_temp, 2)},
+                {"rom": "28-00000052b809", "field": "hopper_temp", "temp": round(st.hopper_temp, 2)},
+                {"rom": "28-0000006f0738", "field": "radiators_temp", "temp": round(st.radiators_temp, 2)},
+                {"rom": "28-0000aaaa0001", "field": None, "temp": round(st.cwu_temp, 2)}]
+
     def apply_outputs(self, outputs: Outputs) -> None:
         self._outputs = Outputs(**outputs.__dict__)
 

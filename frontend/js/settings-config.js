@@ -210,7 +210,34 @@ async function loadModuleSchemaAndValues(moduleId) {
   schemaCache[moduleId] = schema;
   configState[moduleId] = { ...(values || {}) };
 
+  await fillSensorOptions(schema, values || {});
   renderModulePanel(moduleId, schema, values || {});
+}
+
+// fields with options_from "w1": the DS18B20 sensors found on the bus, with their
+// temperature (grab one by hand and watch it rise); "" = none. A saved number that is
+// not on the bus stays on the list, so nothing changes by itself.
+async function fillSensorOptions(schema, values) {
+  const fields = (schema.fields || []).filter((f) => f.options_from === "w1");
+  if (!fields.length) return;
+  let found = [];
+  try {
+    found = (await fetchJson("/api/service/w1")) || [];
+  } catch (e) {
+    found = [];   // remote view or no bus: only the saved numbers
+  }
+  const labels = { "": "— brak —" };
+  found.forEach((x) => {
+    const t = x.temp == null ? "brak odczytu" : `${Number(x.temp).toFixed(1).replace(".", ",")}°C`;
+    labels[x.rom] = `${x.rom} • ${t}`;
+  });
+  fields.forEach((f) => {
+    const saved = fields.map((g) => String(values[g.key] ?? "")).filter(Boolean);
+    const roms = [...new Set([...found.map((x) => x.rom), ...saved])];
+    roms.forEach((r) => { if (!labels[r]) labels[r] = `${r} • nie ma na przewodzie`; });
+    f.options = ["", ...roms];
+    f.option_labels = labels;
+  });
 }
 
 function renderModulePanel(moduleId, schema, values) {
@@ -432,7 +459,8 @@ function renderField(moduleId, key, def, rawValue) {
 
     function renderText() {
       const val = String(configState[moduleId][key] ?? "");
-      valueEl.textContent = val.toUpperCase();
+      // sensor numbers keep their case (as printed on the bus list)
+      valueEl.textContent = def.option_labels ? (def.option_labels[val] ?? val) : val.toUpperCase();
     }
 
     prevBtn.addEventListener("click", () => {

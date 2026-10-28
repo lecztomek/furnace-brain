@@ -21,9 +21,9 @@ def test_settings_api_refuses_a_wrong_setup_and_applies_a_swap(tmp_path):
     app = FastAPI()
     app.include_router(create_config_router(store, reload_module_config=applied.append), prefix="/api")
     c = TestClient(app)
-    r = c.put("/api/config/values/hardware", json={"pin_pump_co": 16})
-    assert r.status_code == 400 and "dwa razy" in r.json()["detail"] and applied == []   # nothing applied
-    r = c.put("/api/config/values/hardware", json={"pin_pump_co": 20, "pin_pump_cwu": 21})
+    r = c.put("/api/config/values/hardware", json={"gpio20": "pompa CO"})
+    assert r.status_code == 400 and "kilku wyjściach" in r.json()["detail"] and applied == []   # nothing applied
+    r = c.put("/api/config/values/hardware", json={"gpio20": "pompa CO", "gpio21": "pompa CWU"})
     assert r.status_code == 200 and applied == ["hardware"]
     assert H.pins(store.get_values("hardware"))["pump_co"] == 20
 
@@ -37,7 +37,9 @@ def test_diagnostics_lists_every_sensor_with_its_role(tmp_path):
     app.include_router(create_service_router(store=store, config_store=ConfigStore(tmp_path, []), data_root=tmp_path,
                                              app_info={"version": "1"}, loop_stats={"control": LoopStats(0.5)},
                                              sensor_inventory=lambda: inventory, hardware_problems=[]), prefix="/api")
-    d = TestClient(app).get("/api/service/diagnostics").json()
+    client = TestClient(app)
+    assert client.get("/api/service/w1").json() == inventory                     # the list in Ustawienia -> Sprzęt
+    d = client.get("/api/service/diagnostics").json()
     wire = next(g for g in d["groups"] if g["title"] == "Czujniki 1-Wire")["items"]
     assert wire[0]["label"] == "Kocioł" and wire[0]["value"] == "56,2°C" and wire[0]["note"] == "28-000000506777"
     assert wire[1]["label"] == "Nieprzypisany" and "48,0" in wire[1]["value"]

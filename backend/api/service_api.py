@@ -353,19 +353,24 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
             v.update(commits.get(v["version"], {}))
         return {"current": app_info.get("version"), "versions": versions}
 
-    # the 1-Wire inventory reads the unassigned sensors (~0.75 s each) - at most every 5 min
+    # the 1-Wire inventory reads the unassigned sensors (~0.75 s each) - at most every 30 s
     wire_cache: Dict[str, Any] = {"at": -1e9, "list": []}
 
     def inventory() -> List[Dict[str, Any]]:
         if sensor_inventory is None:
             return []
-        if clock() - wire_cache["at"] > 300:
+        if clock() - wire_cache["at"] > 30:
             try:
                 wire_cache["list"] = sensor_inventory() or []
             except Exception:  # pylint: disable=broad-except
                 wire_cache["list"] = []
             wire_cache["at"] = clock()
         return wire_cache["list"]
+
+    @router.get("/w1")
+    def get_w1():
+        """Every DS18B20 on the bus: [{rom, temp, field}] - the sensor list in Ustawienia -> Sprzęt."""
+        return inventory()
 
     @router.get("/diagnostics")
     def get_diagnostics():

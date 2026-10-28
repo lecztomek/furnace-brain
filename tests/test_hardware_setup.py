@@ -29,24 +29,37 @@ def test_defaults_are_the_wiring_that_was_hard_coded():
     assert yaml.safe_load((MODULES / "hardware" / "values.yaml.sample").read_text(encoding="utf-8")) == H.defaults()
 
 
-def test_swapped_pumps_are_fine_wrong_setups_are_not():
-    swapped = dict(H.defaults(), pin_pump_co=20, pin_pump_cwu=21)
-    assert H.validate(swapped) == [] and H.pins(swapped)["pump_co"] == 20
-    assert "dwa razy" in H.validate(dict(H.defaults(), pin_pump_co=16))[0]           # same GPIO as the feeder
-    assert "nie nadaje się" in H.validate(dict(H.defaults(), pin_feeder=4))[0]       # the 1-Wire bus
-    assert "nie nadaje się" in H.validate(dict(H.defaults(), pin_feeder=3))[0]       # I2C, HIGH at boot
-    assert "dmuchawa (PWM)" in H.validate(dict(H.defaults(), pin_pump_co=19))[0]       # the fan's fixed pin
-    assert "pin_fan_pwm" not in H.defaults()                                           # not a setting
-    assert "dwa razy" in H.validate(dict(H.defaults(), sensor_cwu="28-0000006f0738"))[0]
-    assert "kotła" in H.validate(dict(H.defaults(), sensor_boiler=""))[0]
-    assert "nie numer" in H.validate(dict(H.defaults(), sensor_cwu="abc"))[0]
+def swapped_pumps():
+    return dict(H.defaults(), gpio20="pompa CO", gpio21="pompa CWU")
+
+
+def test_each_output_gets_a_function_wrong_setups_are_refused():
+    assert H.validate(swapped_pumps()) == [] and H.pins(swapped_pumps())["pump_co"] == 20
+    # only one pump changed: CO on two outputs, CWU on none
+    one = dict(H.defaults(), gpio20="pompa CO")
+    assert any("pompa CO na kilku wyjściach" in e for e in H.validate(one))
+    assert any("pompa CWU nie ma wyjścia" in e for e in H.validate(one))
+    assert any("ślimak nie ma wyjścia" in e for e in H.validate(dict(H.defaults(), gpio16="nieużywane")))
+    assert "nieznana" in H.validate(dict(H.defaults(), gpio16="grzałka"))[0]
+
+
+def test_each_sensor_gets_a_role():
+    spare = dict(H.defaults(), sensor4="28-0000aaaa0001", sensor4_role="zasobnik CWU")
+    assert H.validate(spare) == [] and H.rom_to_field(spare)["28-0000aaaa0001"] == "cwu_temp"
+    assert "dwa razy" in H.validate(dict(H.defaults(), sensor4="28-0000006f0738", sensor4_role="powrót"))[0]
+    assert "dwa razy" in H.validate(dict(H.defaults(), sensor4="28-0000aaaa0001", sensor4_role="kocioł"))[0]
+    assert "kotła" in H.validate(dict(H.defaults(), sensor1_role="nieużywany"))[0]
+    assert "wybierz numer" in H.validate(dict(H.defaults(), sensor4_role="powrót"))[0]
+    # a sensor in a slot without a role is just not used
+    assert H.validate(dict(H.defaults(), sensor4="28-0000aaaa0001")) == []
+    assert "28-0000aaaa0001" not in H.rom_to_field(dict(H.defaults(), sensor4="28-0000aaaa0001"))
 
 
 def test_load_falls_back_to_the_defaults():
     assert H.load({}) == (H.defaults(), [])                                          # first start after the update
-    values, problems = H.load({"pin_pump_co": 21.0, "pin_pump_cwu": 20.0})          # numbers saved as floats
-    assert problems == [] and H.pins(values)["pump_co"] == 21
-    values, problems = H.load({"pin_pump_co": 16})                                   # broken: the old wiring
+    values, problems = H.load(swapped_pumps())
+    assert problems == [] and H.pins(values)["pump_co"] == 20
+    values, problems = H.load({"gpio20": "pompa CO"})                                # broken: the old wiring
     assert values == H.defaults() and problems
 
 
@@ -59,12 +72,12 @@ def test_the_settings_page_refuses_a_wrong_setup(tmp_path):
     store = _store(tmp_path)
     store.fill_missing_defaults()
     before = (tmp_path / "hardware" / "values.yaml").read_text(encoding="utf-8")
-    with pytest.raises(ValueError, match="dwa razy"):
-        store.set_values("hardware", {"pin_pump_co": 16})
-    with pytest.raises(ValueError, match="dwa razy"):
-        store.set_value("hardware", "pin_pump_cwu", 21)                             # one field: CO is still on 21
+    with pytest.raises(ValueError, match="kilku wyjściach"):
+        store.set_values("hardware", {"gpio20": "pompa CO"})
+    with pytest.raises(ValueError, match="kilku wyjściach"):
+        store.set_value("hardware", "gpio21", "pompa CWU")                           # one field: CWU on 20 still
     assert (tmp_path / "hardware" / "values.yaml").read_text(encoding="utf-8") == before   # untouched
-    saved = store.set_values("hardware", {"pin_pump_co": 20, "pin_pump_cwu": 21})   # a real swap
+    saved = store.set_values("hardware", {"gpio20": "pompa CO", "gpio21": "pompa CWU"})   # a real swap
     assert H.pins(saved)["pump_co"] == 20 and H.pins(saved)["pump_cwu"] == 21
 
 
@@ -137,7 +150,7 @@ def test_swapping_the_pumps_at_once(rpi):
     on = Outputs(pump_co_on=True, feeder_on=True)
     hw.apply_outputs(on)
     gpio.log.clear()
-    swapped = dict(H.defaults(), pin_pump_co=20, pin_pump_cwu=21)
+    swapped = swapped_pumps()
     hw.reconfigure(H.pins(swapped), H.rom_to_field(swapped))
     # first everything LOW - nothing runs on a wrong pin even for a moment
     assert all(v == 0 for (kind, _, v) in gpio.log if kind == "out") and gpio.level[16] == 0
@@ -147,10 +160,10 @@ def test_swapping_the_pumps_at_once(rpi):
     assert gpio.level[21] == 1 and gpio.level[20] == 0 and gpio.level[16] == 0
 
 
-def test_a_new_pin_is_set_up_before_use(rpi):
+def test_a_pin_not_set_up_yet_is_set_up_before_use(rpi):
     hw, gpio = rpi
-    moved = dict(H.defaults(), pin_pump_co=26)
-    hw.reconfigure(H.pins(moved), H.rom_to_field(moved))
+    pins = dict(H.pins(H.defaults()), pump_co=26)                                    # e.g. a channel added later
+    hw.reconfigure(pins, H.rom_to_field(H.defaults()))
     assert ("setup", 26, 0) in gpio.log
     hw.apply_outputs(Outputs(pump_co_on=True))
     assert gpio.level[26] == 1 and gpio.level[21] == 0                              # the old pin stays LOW
@@ -168,7 +181,7 @@ def test_swap_during_a_running_control_loop(rpi):
 
     t = threading.Thread(target=loop)
     t.start()
-    swapped = dict(H.defaults(), pin_pump_co=20, pin_pump_cwu=21)
+    swapped = swapped_pumps()
     for i in range(50):
         values = swapped if i % 2 == 0 else H.defaults()
         hw.reconfigure(H.pins(values), H.rom_to_field(values))
@@ -189,11 +202,11 @@ def test_sensor_assignment_and_inventory(rpi):
     assert found["28-0000aaaa0001"]["field"] is None and found["28-0000aaaa0001"]["temp"] == 48.0   # unassigned
     assert found["28-000000506777"]["field"] == "boiler_temp"
     # the spare sensor becomes the CWU tank
-    values = dict(H.defaults(), sensor_cwu="28-0000aaaa0001")
+    values = dict(H.defaults(), sensor4="28-0000aaaa0001", sensor4_role="zasobnik CWU")
     hw.reconfigure(H.pins(values), H.rom_to_field(values))
     _t.sleep(1.2)
     assert hw.read_sensors().cwu_temp == 48.0
     # a number that is not on the bus shows as missing
-    values = dict(H.defaults(), sensor_return="28-00000000dead")
+    values = dict(H.defaults(), sensor4="28-00000000dead", sensor4_role="powrót")
     hw.reconfigure(H.pins(values), H.rom_to_field(values))
     assert any(x.get("missing") and x["rom"] == "28-00000000dead" for x in hw.detected_sensors())

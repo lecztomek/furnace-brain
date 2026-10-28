@@ -58,16 +58,17 @@ journalctl -u furnace-update -e
 
 ## Wiring (GPIO and sensors)
 
-Ustawienia → Sprzęt says which GPIO (BCM) drives which relay output and which DS18B20 is
-which sensor. The defaults are the original wiring (feeder 16, CWU pump 20, CO pump 21,
-valve 6 / 12). The blower is not a relay - its speed is the PWM duty on GPIO19 to the
-YYAC-3S module, fixed (only "inverted PWM" is a setting). A save with one GPIO twice, a pin
-that is not safe as an output or one sensor in two places is refused. A change applies at
-once: every output goes LOW, the next control step (0.5 s) switches on what should be on.
-Serwis → Diagnostyka Pi → Czujniki 1-Wire lists every sensor on the bus with its
-temperature and role. The settings live in `modules/hardware/values.yaml` like every other
-setting (kept and backed up by updates). A version before 1.44 ignores them and uses the
-original wiring.
+Ustawienia → Sprzęt lists the physical relay outputs of the harness (GPIO16, 20, 21, 6, 12)
+and up to 6 DS18B20 sensors; each gets its function. The defaults are the original wiring
+(GPIO16 feeder, 20 CWU pump, 21 CO pump, 6 / 12 valve open / close; boiler, hopper and
+radiator sensors by their numbers). The sensor list shows every sensor found on the bus
+with its temperature. The blower is not a relay - its speed is the PWM duty on GPIO19 to
+the YYAC-3S module, fixed (only "inverted PWM" is a setting). A save with a function on two
+outputs or on none, a sensor or a role twice, or no boiler sensor is refused. A change
+applies at once: every output goes LOW, the next control step (0.5 s) switches on what
+should be on. Serwis → Diagnostyka Pi → Czujniki 1-Wire shows each sensor with its role.
+The settings live in `modules/hardware/values.yaml` like every other setting (kept and
+backed up by updates); a missing or broken file means the original wiring.
 
 ## Remote view
 GUI of the prod version on GitHub Pages, data from Firebase Realtime Database; read-only.

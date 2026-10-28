@@ -1,92 +1,104 @@
 """
-Which GPIO drives which output and which DS18B20 is which sensor - set in
-Ustawienia -> Sprzęt (modules/hardware/values.yaml) instead of main.py.
-The defaults are the wiring the furnace had when this was hard-coded.
+Ustawienia -> Sprzęt: the physical outputs and sensors, each with the function it has.
+Outputs: the relay channels of the harness (GPIO -> function). Sensors: up to SLOTS
+DS18B20 numbers, each with a role. The defaults are the wiring that was hard-coded in
+main.py, so an update never changes what the outputs drive. The blower is not a relay -
+its speed is the PWM duty on GPIO19 to the YYAC-3S module (fixed, not a setting).
 """
 from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple
 
-# output -> setting key, default BCM GPIO (pin on the header)
-OUTPUT_PINS = {
-    "feeder": ("pin_feeder", 16),          # pin 36
-    "pump_cwu": ("pin_pump_cwu", 20),      # pin 38
-    "pump_co": ("pin_pump_co", 21),        # pin 40
-    "mixer_open": ("pin_mixer_open", 6),   # pin 31
-    "mixer_close": ("pin_mixer_close", 12),  # pin 32
+# function -> its name in the GUI (each relay function on exactly one output)
+FUNCTIONS = {
+    "feeder": "ślimak",
+    "pump_cwu": "pompa CWU",
+    "pump_co": "pompa CO",
+    "mixer_open": "zawór - otwórz",
+    "mixer_close": "zawór - zamknij",
 }
-# the blower is not a relay: its speed is the PWM duty on GPIO19 (pin 35) to the YYAC-3S
-# module - fixed, not in the settings; the other outputs may not use it
-FAN_PWM_PIN = 19
+UNUSED = "nieużywane"
 
-# Sensors field -> setting key, default DS18B20 ROM id ("" = none)
-SENSOR_ROMS = {
-    "boiler_temp": ("sensor_boiler", "28-000000506777"),
-    "hopper_temp": ("sensor_hopper", "28-00000052b809"),
-    "radiators_temp": ("sensor_radiators", "28-0000006f0738"),
-    "cwu_temp": ("sensor_cwu", ""),
-    "return_temp": ("sensor_return", ""),
-    "mixer_temp": ("sensor_mixer", ""),
+# the relay outputs of the harness: (BCM GPIO, header pin, function it had when hard-coded)
+OUTPUTS = [(16, 36, "feeder"), (20, 38, "pump_cwu"), (21, 40, "pump_co"), (6, 31, "mixer_open"), (12, 32, "mixer_close")]
+FAN_PWM_PIN = 19   # pin 35, PWM to the YYAC-3S
+
+# sensor role -> (Sensors field, name in the GUI)
+ROLES = {
+    "kocioł": "boiler_temp",
+    "podajnik": "hopper_temp",
+    "grzejniki": "radiators_temp",
+    "zasobnik CWU": "cwu_temp",
+    "powrót": "return_temp",
+    "za zaworem": "mixer_temp",
 }
+NO_ROLE = "nieużywany"
+SLOTS = 6
+DEFAULT_SENSORS = [("28-000000506777", "kocioł"), ("28-00000052b809", "podajnik"), ("28-0000006f0738", "grzejniki")]
 
-# GPIOs on the 40-pin header that are safe as outputs (BCM). Left out: 0/1 (ID EEPROM),
-# 2/3 (I2C, pulled HIGH at boot - a relay there would click on while the Pi starts),
-# 4 (1-Wire), 7-11 (SPI of the MAX6675), 14/15 (serial console)
-USABLE_GPIO = [5, 6, 12, 13, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]
 
-LABELS = {
-    "pin_feeder": "ślimak", "pin_pump_cwu": "pompa CWU", "pin_pump_co": "pompa CO",
-    "pin_mixer_open": "zawór - otwórz", "pin_mixer_close": "zawór - zamknij", "pin_fan_pwm": "dmuchawa (PWM)",
-    "sensor_boiler": "kocioł", "sensor_hopper": "podajnik", "sensor_radiators": "grzejniki",
-    "sensor_cwu": "zasobnik CWU", "sensor_return": "powrót", "sensor_mixer": "za zaworem",
-}
+def out_key(gpio: int) -> str:
+    return f"gpio{gpio}"
 
 
 def defaults() -> Dict[str, Any]:
-    out: Dict[str, Any] = {key: pin for key, pin in OUTPUT_PINS.values()}
-    out.update({key: rom for key, rom in SENSOR_ROMS.values()})
+    out: Dict[str, Any] = {out_key(g): FUNCTIONS[f] for g, _, f in OUTPUTS}
+    for i in range(SLOTS):
+        rom, role = DEFAULT_SENSORS[i] if i < len(DEFAULT_SENSORS) else ("", NO_ROLE)
+        out[f"sensor{i + 1}"] = rom
+        out[f"sensor{i + 1}_role"] = role
     out["fan_inverted"] = False
     return out
-
-
-def _pin(values: Dict[str, Any], key: str, default: int) -> Any:
-    v = values.get(key, default)
-    try:
-        return int(float(v))
-    except (TypeError, ValueError):
-        return v
 
 
 def validate(values: Dict[str, Any]) -> List[str]:
     """Problems in Polish (shown in the GUI); an empty list = fine."""
     errors: List[str] = []
-    used: Dict[int, str] = {FAN_PWM_PIN: "pin_fan_pwm"}
-    for name, (key, default) in OUTPUT_PINS.items():
-        pin = _pin(values, key, default)
-        if not isinstance(pin, int) or pin not in USABLE_GPIO:
-            errors.append(f"{LABELS[key]}: GPIO {pin} nie nadaje się na wyjście (dozwolone: {', '.join(map(str, USABLE_GPIO))})")
+    by_name = {v: k for k, v in FUNCTIONS.items()}
+    where: Dict[str, List[str]] = {f: [] for f in FUNCTIONS}
+    for gpio, _, _ in OUTPUTS:
+        name = str(values.get(out_key(gpio), UNUSED))
+        if name == UNUSED:
             continue
-        if pin in used:
-            errors.append(f"GPIO {pin} przypisany dwa razy: {LABELS[used[pin]]} i {LABELS[key]}")
-        used[pin] = key
-    seen: Dict[str, str] = {}
-    for field, (key, _) in SENSOR_ROMS.items():
-        rom = str(values.get(key) or "").strip()
+        if name not in by_name:
+            errors.append(f"GPIO{gpio}: nieznana funkcja '{name}'")
+            continue
+        where[by_name[name]].append(f"GPIO{gpio}")
+    for f, gpios in where.items():
+        if len(gpios) > 1:
+            errors.append(f"{FUNCTIONS[f]} na kilku wyjściach naraz: {', '.join(gpios)}")
+        elif not gpios:
+            errors.append(f"{FUNCTIONS[f]} nie ma wyjścia")
+    roms: Dict[str, int] = {}
+    roles: Dict[str, int] = {}
+    for i in range(1, SLOTS + 1):
+        rom = str(values.get(f"sensor{i}") or "").strip()
+        role = str(values.get(f"sensor{i}_role") or NO_ROLE)
+        if role != NO_ROLE and role not in ROLES:
+            errors.append(f"Czujnik {i}: nieznana funkcja '{role}'")
+            continue
+        if role == NO_ROLE:
+            continue
         if not rom:
+            errors.append(f"Czujnik {i} ({role}): wybierz numer czujnika")
             continue
         if not rom.startswith("28-") or len(rom) < 6:
-            errors.append(f"{LABELS[key]}: '{rom}' to nie numer czujnika DS18B20 (np. 28-000000506777)")
-        elif rom in seen:
-            errors.append(f"Czujnik {rom} przypisany dwa razy: {LABELS[seen[rom]]} i {LABELS[key]}")
-        seen[rom] = key
-    if not str(values.get(SENSOR_ROMS["boiler_temp"][0]) or "").strip():
+            errors.append(f"Czujnik {i}: '{rom}' to nie numer czujnika DS18B20")
+        if rom in roms:
+            errors.append(f"Czujnik {rom} wybrany dwa razy: miejsca {roms[rom]} i {i}")
+        roms[rom] = i
+        if role in roles:
+            errors.append(f"Funkcja '{role}' przypisana dwa razy: czujniki {roles[role]} i {i}")
+        roles[role] = i
+    if "kocioł" not in roles:
         errors.append("Czujnik kotła musi być przypisany")
     return errors
 
 
 def pins(values: Dict[str, Any]) -> Dict[str, int]:
-    """Output name -> BCM GPIO (with the fixed fan PWM pin)."""
-    out = {name: _pin(values, key, default) for name, (key, default) in OUTPUT_PINS.items()}
+    """Function -> BCM GPIO (with the fixed fan PWM pin). Call on validated values."""
+    by_name = {v: k for k, v in FUNCTIONS.items()}
+    out = {by_name[str(values.get(out_key(g)))]: g for g, _, _ in OUTPUTS if str(values.get(out_key(g))) in by_name}
     out["fan_pwm"] = FAN_PWM_PIN
     return out
 
@@ -94,10 +106,11 @@ def pins(values: Dict[str, Any]) -> Dict[str, int]:
 def rom_to_field(values: Dict[str, Any]) -> Dict[str, str]:
     """DS18B20 ROM id -> Sensors field, only the assigned ones."""
     out: Dict[str, str] = {}
-    for field, (key, default) in SENSOR_ROMS.items():
-        rom = str(values.get(key, default) or "").strip()
-        if rom:
-            out[rom] = field
+    for i in range(1, SLOTS + 1):
+        rom = str(values.get(f"sensor{i}") or "").strip()
+        role = str(values.get(f"sensor{i}_role") or NO_ROLE)
+        if rom and role in ROLES:
+            out[rom] = ROLES[role]
     return out
 
 

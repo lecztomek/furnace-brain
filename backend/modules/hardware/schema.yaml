@@ -1,62 +1,53 @@
 id: hardware
 name: Sprzęt
-description: Które wyjście (GPIO) steruje którym urządzeniem i który czujnik DS18B20 jest którym. Dwa urządzenia na jednym GPIO albo jeden czujnik w dwóch miejscach - zapis zostanie odrzucony.
+description: Fizyczne wyjścia i czujniki - każdemu przypisujesz funkcję. Ta sama funkcja na dwóch wyjściach, funkcja bez wyjścia albo jeden czujnik w dwóch miejscach - zapis zostanie odrzucony.
 groups:
 - id: outputs
-  label: Wyjścia (GPIO)
+  label: Wyjścia
 - id: sensors
   label: Czujniki
 fields:
-- key: pin_feeder
-  label: Ślimak (podajnik)
-  type: number
-  unit: GPIO
-  min: 2
-  max: 27
-  step: 1
-  default: 16
+- key: gpio16
+  label: Wyjście GPIO16 (nóżka 36)
+  type: text
+  options: &id001
+  - ślimak
+  - pompa CWU
+  - pompa CO
+  - zawór - otwórz
+  - zawór - zamknij
+  - nieużywane
+  default: ślimak
   group: outputs
-  description: 'Numer GPIO (BCM), nie numer nóżki. Fabrycznie GPIO16 (nóżka 36). Zmiana działa od razu: wszystkie wyjścia na moment się wyłączają i wracają na nowych pinach.'
-- key: pin_pump_cwu
-  label: Pompa CWU
-  type: number
-  unit: GPIO
-  min: 2
-  max: 27
-  step: 1
-  default: 20
+  description: 'Co jest podłączone do przekaźnika na GPIO16 (nóżka 36 złącza Pi). Fabrycznie: ślimak. Każda funkcja musi być dokładnie na jednym wyjściu - np. zamiana pomp: tu pompa CO, na drugim wyjściu pompa CWU, i jeden zapis. Zmiana działa od razu: wszystkie wyjścia na moment się wyłączają i wracają z nowym przypisaniem.'
+- key: gpio20
+  label: Wyjście GPIO20 (nóżka 38)
+  type: text
+  options: *id001
+  default: pompa CWU
   group: outputs
-  description: 'Numer GPIO (BCM), nie numer nóżki. Fabrycznie GPIO20 (nóżka 38). Zmiana działa od razu: wszystkie wyjścia na moment się wyłączają i wracają na nowych pinach.'
-- key: pin_pump_co
-  label: Pompa CO
-  type: number
-  unit: GPIO
-  min: 2
-  max: 27
-  step: 1
-  default: 21
+  description: 'Co jest podłączone do przekaźnika na GPIO20 (nóżka 38 złącza Pi). Fabrycznie: pompa CWU. Każda funkcja musi być dokładnie na jednym wyjściu - np. zamiana pomp: tu pompa CO, na drugim wyjściu pompa CWU, i jeden zapis. Zmiana działa od razu: wszystkie wyjścia na moment się wyłączają i wracają z nowym przypisaniem.'
+- key: gpio21
+  label: Wyjście GPIO21 (nóżka 40)
+  type: text
+  options: *id001
+  default: pompa CO
   group: outputs
-  description: 'Numer GPIO (BCM), nie numer nóżki. Fabrycznie GPIO21 (nóżka 40). Zmiana działa od razu: wszystkie wyjścia na moment się wyłączają i wracają na nowych pinach.'
-- key: pin_mixer_open
-  label: Zawór mieszający - otwórz
-  type: number
-  unit: GPIO
-  min: 2
-  max: 27
-  step: 1
-  default: 6
+  description: 'Co jest podłączone do przekaźnika na GPIO21 (nóżka 40 złącza Pi). Fabrycznie: pompa CO. Każda funkcja musi być dokładnie na jednym wyjściu - np. zamiana pomp: tu pompa CO, na drugim wyjściu pompa CWU, i jeden zapis. Zmiana działa od razu: wszystkie wyjścia na moment się wyłączają i wracają z nowym przypisaniem.'
+- key: gpio6
+  label: Wyjście GPIO6 (nóżka 31)
+  type: text
+  options: *id001
+  default: zawór - otwórz
   group: outputs
-  description: 'Numer GPIO (BCM), nie numer nóżki. Fabrycznie GPIO6 (nóżka 31). Zmiana działa od razu: wszystkie wyjścia na moment się wyłączają i wracają na nowych pinach.'
-- key: pin_mixer_close
-  label: Zawór mieszający - zamknij
-  type: number
-  unit: GPIO
-  min: 2
-  max: 27
-  step: 1
-  default: 12
+  description: 'Co jest podłączone do przekaźnika na GPIO6 (nóżka 31 złącza Pi). Fabrycznie: zawór - otwórz. Każda funkcja musi być dokładnie na jednym wyjściu - np. zamiana pomp: tu pompa CO, na drugim wyjściu pompa CWU, i jeden zapis. Zmiana działa od razu: wszystkie wyjścia na moment się wyłączają i wracają z nowym przypisaniem.'
+- key: gpio12
+  label: Wyjście GPIO12 (nóżka 32)
+  type: text
+  options: *id001
+  default: zawór - zamknij
   group: outputs
-  description: 'Numer GPIO (BCM), nie numer nóżki. Fabrycznie GPIO12 (nóżka 32). Zmiana działa od razu: wszystkie wyjścia na moment się wyłączają i wracają na nowych pinach.'
+  description: 'Co jest podłączone do przekaźnika na GPIO12 (nóżka 32 złącza Pi). Fabrycznie: zawór - zamknij. Każda funkcja musi być dokładnie na jednym wyjściu - np. zamiana pomp: tu pompa CO, na drugim wyjściu pompa CWU, i jeden zapis. Zmiana działa od razu: wszystkie wyjścia na moment się wyłączają i wracają z nowym przypisaniem.'
 - key: fan_inverted
   label: Dmuchawa - odwrócone PWM
   type: bool
@@ -65,39 +56,94 @@ fields:
   default: false
   group: outputs
   description: 'Dmuchawa nie jest na przekaźniku: obroty ustawia sygnał PWM z GPIO19 (nóżka 35) do modułu YYAC-3S - ten pin jest stały. TAK, gdy moduł kręci odwrotnie (0% = pełne obroty). Zmiana po restarcie.'
-- key: sensor_boiler
-  label: Czujnik kotła
+- key: sensor1
+  label: Czujnik 1 - który
   type: text
+  options_from: w1
   default: 28-000000506777
   group: sensors
-  description: 'Numer czujnika DS18B20 (np. 28-000000506777), puste = brak. Wykryte czujniki z temperaturą i przypisaniem: Serwis → Diagnostyka Pi → Czujniki 1-Wire. Zmiana działa od razu.'
-- key: sensor_hopper
-  label: Czujnik podajnika
+  description: Czujnik DS18B20 z listy wykrytych na przewodzie (numer i obecna temperatura - złap czujnik ręką i zobacz, któremu rośnie). Puste = miejsce wolne. Zmiana działa od razu.
+- key: sensor1_role
+  label: Czujnik 1 - funkcja
   type: text
+  options: &id002
+  - kocioł
+  - podajnik
+  - grzejniki
+  - zasobnik CWU
+  - powrót
+  - za zaworem
+  - nieużywany
+  default: kocioł
+  group: sensors
+  description: Co mierzy ten czujnik. Każda funkcja najwyżej raz, czujnik kotła obowiązkowy.
+- key: sensor2
+  label: Czujnik 2 - który
+  type: text
+  options_from: w1
   default: 28-00000052b809
   group: sensors
-  description: 'Numer czujnika DS18B20 (np. 28-000000506777), puste = brak. Wykryte czujniki z temperaturą i przypisaniem: Serwis → Diagnostyka Pi → Czujniki 1-Wire. Zmiana działa od razu.'
-- key: sensor_radiators
-  label: Czujnik grzejników (za zaworem)
+  description: Czujnik DS18B20 z listy wykrytych na przewodzie (numer i obecna temperatura - złap czujnik ręką i zobacz, któremu rośnie). Puste = miejsce wolne. Zmiana działa od razu.
+- key: sensor2_role
+  label: Czujnik 2 - funkcja
   type: text
+  options: *id002
+  default: podajnik
+  group: sensors
+  description: Co mierzy ten czujnik. Każda funkcja najwyżej raz, czujnik kotła obowiązkowy.
+- key: sensor3
+  label: Czujnik 3 - który
+  type: text
+  options_from: w1
   default: 28-0000006f0738
   group: sensors
-  description: 'Numer czujnika DS18B20 (np. 28-000000506777), puste = brak. Wykryte czujniki z temperaturą i przypisaniem: Serwis → Diagnostyka Pi → Czujniki 1-Wire. Zmiana działa od razu.'
-- key: sensor_cwu
-  label: Czujnik zasobnika CWU
+  description: Czujnik DS18B20 z listy wykrytych na przewodzie (numer i obecna temperatura - złap czujnik ręką i zobacz, któremu rośnie). Puste = miejsce wolne. Zmiana działa od razu.
+- key: sensor3_role
+  label: Czujnik 3 - funkcja
   type: text
+  options: *id002
+  default: grzejniki
+  group: sensors
+  description: Co mierzy ten czujnik. Każda funkcja najwyżej raz, czujnik kotła obowiązkowy.
+- key: sensor4
+  label: Czujnik 4 - który
+  type: text
+  options_from: w1
   default: ''
   group: sensors
-  description: 'Numer czujnika DS18B20 (np. 28-000000506777), puste = brak. Wykryte czujniki z temperaturą i przypisaniem: Serwis → Diagnostyka Pi → Czujniki 1-Wire. Zmiana działa od razu.'
-- key: sensor_return
-  label: Czujnik powrotu
+  description: Czujnik DS18B20 z listy wykrytych na przewodzie (numer i obecna temperatura - złap czujnik ręką i zobacz, któremu rośnie). Puste = miejsce wolne. Zmiana działa od razu.
+- key: sensor4_role
+  label: Czujnik 4 - funkcja
   type: text
+  options: *id002
+  default: nieużywany
+  group: sensors
+  description: Co mierzy ten czujnik. Każda funkcja najwyżej raz, czujnik kotła obowiązkowy.
+- key: sensor5
+  label: Czujnik 5 - który
+  type: text
+  options_from: w1
   default: ''
   group: sensors
-  description: 'Numer czujnika DS18B20 (np. 28-000000506777), puste = brak. Wykryte czujniki z temperaturą i przypisaniem: Serwis → Diagnostyka Pi → Czujniki 1-Wire. Zmiana działa od razu.'
-- key: sensor_mixer
-  label: Czujnik za zaworem mieszającym
+  description: Czujnik DS18B20 z listy wykrytych na przewodzie (numer i obecna temperatura - złap czujnik ręką i zobacz, któremu rośnie). Puste = miejsce wolne. Zmiana działa od razu.
+- key: sensor5_role
+  label: Czujnik 5 - funkcja
   type: text
+  options: *id002
+  default: nieużywany
+  group: sensors
+  description: Co mierzy ten czujnik. Każda funkcja najwyżej raz, czujnik kotła obowiązkowy.
+- key: sensor6
+  label: Czujnik 6 - który
+  type: text
+  options_from: w1
   default: ''
   group: sensors
-  description: 'Numer czujnika DS18B20 (np. 28-000000506777), puste = brak. Wykryte czujniki z temperaturą i przypisaniem: Serwis → Diagnostyka Pi → Czujniki 1-Wire. Zmiana działa od razu.'
+  description: Czujnik DS18B20 z listy wykrytych na przewodzie (numer i obecna temperatura - złap czujnik ręką i zobacz, któremu rośnie). Puste = miejsce wolne. Zmiana działa od razu.
+- key: sensor6_role
+  label: Czujnik 6 - funkcja
+  type: text
+  options: *id002
+  default: nieużywany
+  group: sensors
+  description: Co mierzy ten czujnik. Każda funkcja najwyżej raz, czujnik kotła obowiązkowy.

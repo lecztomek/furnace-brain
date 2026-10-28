@@ -2,6 +2,10 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.44.2 · 28.10.2026 13:27
+- Ustawienia → Sprzęt the other way round: each physical output (GPIO16, 20, 21, 6, 12) gets a function from a list, each of 6 sensor places gets a sensor picked from the ones found on the bus (number and temperature) and a role. Swapping the pumps = GPIO20 → pompa CO, GPIO21 → pompa CWU, one save
+- A function on two outputs or on none, a sensor or a role twice, no boiler sensor - refused with the reason; the defaults are still the original wiring
+
 ## 1.44.1 · 28.10.2026 13:21
 - Ustawienia → Sprzęt: the blower is not in the GPIO list any more - it is not a relay, its speed is the PWM on GPIO19 to the YYAC-3S (fixed; the relay outputs may not use GPIO19). "Odwrócone PWM" stays
 

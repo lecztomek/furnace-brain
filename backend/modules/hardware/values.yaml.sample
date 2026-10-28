@@ -1,12 +1,18 @@
-pin_feeder: 16
-pin_pump_cwu: 20
-pin_pump_co: 21
-pin_mixer_open: 6
-pin_mixer_close: 12
-sensor_boiler: 28-000000506777
-sensor_hopper: 28-00000052b809
-sensor_radiators: 28-0000006f0738
-sensor_cwu: ''
-sensor_return: ''
-sensor_mixer: ''
+gpio16: ślimak
+gpio20: pompa CWU
+gpio21: pompa CO
+gpio6: zawór - otwórz
+gpio12: zawór - zamknij
+sensor1: 28-000000506777
+sensor1_role: kocioł
+sensor2: 28-00000052b809
+sensor2_role: podajnik
+sensor3: 28-0000006f0738
+sensor3_role: grzejniki
+sensor4: ''
+sensor4_role: nieużywany
+sensor5: ''
+sensor5_role: nieużywany
+sensor6: ''
+sensor6_role: nieużywany
 fan_inverted: false
