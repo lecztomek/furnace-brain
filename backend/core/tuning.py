@@ -39,7 +39,6 @@ FROST_C = (-10.0, -15.0)    # power reserve of the curve checked for these
 ROOM_C = 20.0               # rooms (no sensor)
 RAD_DROP_C = 2.0            # radiator mean below the supply
 RAD_EXP = 1.3               # radiator output ~ (mean - room) ^ 1.3
-CURVE_AVG_GOOD_H = 12.0
 
 EVENT_KEYS = ("FLAMEOUT", "OVERHEAT_ON", "MISSING_ON", "SETTINGS_CHANGED", "API_ERROR", ";ERROR;")
 
@@ -482,12 +481,6 @@ def advise(reg: Optional[Dict[str, Any]], rad: Optional[Dict[str, Any]], igns: L
                 f"przy {fmt(need[1][0], 0)}°C ok. {need[1][1]:.0f}% (dziś {reg['power_avg']}% przy {fmt(rad['rad_avg'])}°C).")
         else:
             add("Krzywa", "info", "Krzywa grzewcza", f"Krzywa: {values}. Zapas mocy na mróz policzę przy chłodniejszej pogodzie.")
-        avg_h = _float(mixer.get("curve_avg_h"))
-        if avg_h is not None and avg_h < CURVE_AVG_GOOD_H:
-            add("Krzywa", "hint", "Średnia z krótkiego czasu",
-                f"Krzywa patrzy na średnią z {fmt(avg_h, 0)} h: grzejniki gonią dzień i noc (najchłodniej wieczorem, "
-                "najcieplej rano), a dom zmienia temperaturę z opóźnieniem ok. doby. Dłuższa średnia = równiejsze grzejniki.",
-                f"Wydłuż średnią (curve_avg_h {fmt(avg_h, 0)} → {fmt(CURVE_AVG_GOOD_H, 0)} h).")
 
     # --- settings ---
     if mixer.get("curve_enabled") and sp is not None:

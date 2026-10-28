@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.41.3 · 28.10.2026 12:27
+- Tuning: no hint about the curve's outside average (a one-time setting, not worth a row)
+
 ## 1.41.2 · 28.10.2026 12:24
 - "W domu za ciepło albo za zimno" is a section of the "Co zmienić" card, not a card of its own
 

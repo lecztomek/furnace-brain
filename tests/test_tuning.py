@@ -262,7 +262,7 @@ def test_mild_regular_wave_gets_a_hint_not_a_problem():
     assert T.verdict(list(items.values()))["status"] == "ok"      # not counted as a problem
 
 
-def test_curve_power_reserve_and_short_average():
+def test_curve_power_reserve():
     curve = {"curve_enabled": True, "curve_at_0": 32.0, "curve_slope": 0.45, "curve_min": 22.0, "curve_max": 45.0,
              "curve_avg_h": 6.0}
     reg = {"power_avg": 67, "hours": 10}
@@ -277,7 +277,7 @@ def test_curve_power_reserve_and_short_average():
     k = [i for i in items if i["area"] == "Krzywa"]
     # -10 °C: 36.5 °C on the radiators, (14.5 / 8)^1.3 x 67% = ~145% - over 93%: a hint, not a problem
     assert k[0]["status"] == "hint" and "0,45 → 0,35" in k[0]["tip"] and "145%" in k[0]["detail"]
-    assert k[1]["status"] == "hint" and "6 → 12" in k[1]["tip"]
+    assert len(k) == 1
 
     gentle = {**curve, "curve_slope": 0.15, "curve_avg_h": 12.0}
     calm = T.regulation(T.settled(work_rows(12, lambda m: 56.0, lambda m: 50), 56.0), 20, 93)
