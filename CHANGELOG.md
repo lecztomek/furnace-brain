@@ -2,6 +2,10 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.47.0 · 28.10.2026 15:47
+- Serwis → Moduły: every module with what it is responsible for (English, from modules.yaml), whether it is key (control loop) or auxiliary, its health and the last error with its time and count (kept after the module recovers); tap a row for the last log entry, the last warning / alarm and the step time. Also in the remote view
+- The kernel and the aux loop keep the last error of a module after it recovers; the state store keeps the last ordinary and the last problem event of every source
+
 ## 1.46.1 · 28.10.2026 15:41
 - Safety no longer looks into the overheat module: it doesn't block the mixing valve without a radiator reading at all - the valve doesn't regulate without its own sensor anyway (it holds still), while the overheat opening, the manual mode and the valve's cold-boiler closing (none needs the radiator temperature) still work
 

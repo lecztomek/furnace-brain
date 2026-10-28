@@ -102,6 +102,10 @@ class ModuleStatus:
     last_error: Optional[str] = None
     last_tick_duration: float = 0.0
     last_updated: float = field(default_factory=time.time)
+    # the last error stays after the module recovers (last_error is cleared): Serwis -> Moduły
+    errors: int = 0
+    last_failure: Optional[str] = None
+    last_failure_at: Optional[float] = None
 
 
 # ============================

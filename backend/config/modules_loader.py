@@ -23,6 +23,7 @@ class ModuleDescriptor:
     path: str
     enabled: bool = True
     critical: bool = True
+    about: str = ""        # what the module is responsible for (English) - Serwis -> Moduły
 
 
 def load_module_descriptors() -> List[ModuleDescriptor]:
@@ -50,6 +51,7 @@ def _load_yaml_config(path: Path) -> List[ModuleDescriptor]:
                 path=item["path"],
                 enabled=item.get("enabled", True),
                 critical=item.get("critical", True),
+                about=item.get("about", ""),
             )
         )
 

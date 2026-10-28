@@ -3,9 +3,11 @@ from __future__ import annotations
 import threading
 from collections import deque
 from contextlib import contextmanager
-from typing import Iterator, List, Tuple
+from typing import Dict, Iterator, List, Tuple
 
 from backend.core.state import Event, SystemState
+
+PROBLEM_LEVELS = ("WARNING", "ERROR", "ALARM")
 
 
 class StateStore:
@@ -15,6 +17,8 @@ class StateStore:
 
         self._event_seq = 0
         self._event_buf: deque[Tuple[int, Event]] = deque(maxlen=event_buffer_size)
+        # per source: the last ordinary entry and the last warning / alarm (Serwis -> Moduły)
+        self._last_by_source: Dict[str, Dict[str, Event]] = {}
 
     @contextmanager
     def locked(self) -> Iterator[SystemState]:
@@ -38,6 +42,13 @@ class StateStore:
                     ev.data = {"_data": ev.data}
                 ev.data["seq"] = self._event_seq
                 self._event_buf.append((self._event_seq, ev))
+                kind = "problem" if str(getattr(ev.level, "name", ev.level)).upper() in PROBLEM_LEVELS else "info"
+                self._last_by_source.setdefault(ev.source or "?", {})[kind] = ev
+
+    def last_events(self) -> Dict[str, Dict[str, Event]]:
+        """{source: {"info": last ordinary event, "problem": last warning / alarm}} since the start."""
+        with self._lock:
+            return {src: dict(v) for src, v in self._last_by_source.items()}
 
     def events_since(self, last_seq: int) -> tuple[list[Event], int, bool]:
         with self._lock:

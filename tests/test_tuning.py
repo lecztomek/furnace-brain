@@ -329,3 +329,26 @@ def test_changes_from_the_settings_history_and_version_updates():
     ev = [{"ts": datetime(2026, 11, 9, 12, 1), "module": "power_work", "key": "kp", "label": "Kp", "old": 10.0, "new": 8.0}]
     merged = T.merge_changes(ev, found)
     assert len([c for c in merged if c["key"] == "kp"]) == 1 and len(merged) == 2
+
+
+def test_service_modules_lists_every_module_with_its_last_error_and_log(tmp_path):
+    from backend.core.state import Event, EventLevel, ModuleHealth, ModuleStatus
+    store = StateStore()
+    with store.locked() as st:
+        st.modules["mixer"] = ModuleStatus(id="mixer", health=ModuleHealth.OK, errors=2,
+                                           last_failure="KeyError: 'x'", last_failure_at=1000.0)
+        st.modules["weather"] = ModuleStatus(id="weather", health=ModuleHealth.ERROR, last_error="OSError: dns")
+    store.publish_events([Event(ts=1100.0, source="mixer", level=EventLevel.INFO, type="MIXER_MOVE", message="OPEN 1.5s"),
+                          Event(ts=1200.0, source="mixer", level=EventLevel.WARNING, type="X", message="coś nie tak"),
+                          Event(ts=1300.0, source="mixer", level=EventLevel.INFO, type="MIXER_MOVE", message="CLOSE 1.0s")])
+    app = FastAPI()
+    app.include_router(create_service_router(store=store, config_store=ConfigStore(tmp_path, []), data_root=tmp_path,
+                                             app_info={"version": "1", "started_at": 1.0},
+                                             loop_stats={"control": LoopStats(0.5)}), prefix="/api")
+    mods = {m["id"]: m for m in TestClient(app).get("/api/service/modules").json()["modules"]}
+    assert len(mods) >= 20 and all(m["about"] for m in mods.values())          # every module described
+    assert mods["power_work"]["critical"] is True and mods["weather"]["critical"] is False
+    mx = mods["mixer"]
+    assert mx["health"] == "OK" and mx["errors"] == 2 and mx["last_failure"] == "KeyError: 'x'"
+    assert mx["last_info"]["message"] == "CLOSE 1.0s" and mx["last_problem"]["message"] == "coś nie tak"
+    assert mods["weather"]["health"] == "ERROR" and mods["weather"]["error_now"] == "OSError: dns"

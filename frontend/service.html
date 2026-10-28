@@ -29,6 +29,7 @@
                 <button type="button" data-tab="tuning" class="active">Strojenie</button>
                 <button type="button" data-tab="checks">Kontrola</button>
                 <button type="button" data-tab="diag">Diagnostyka Pi</button>
+                <button type="button" data-tab="modules">Moduły</button>
                 <button type="button" data-tab="changes">Zmiany</button>
               </div>
               <div class="st2-status" id="sv-status">Wczytywanie…</div>
@@ -48,7 +49,7 @@
               <section class="st2-card" data-tab="tuning">
                 <h2>Co zmienić <span class="sv-sub">PID i grzejniki z 12 h, zdarzenia z 7 dni</span></h2>
                 <div id="tn-items"></div>
-                <h3 class="sv-h3">W domu za ciepło albo za zimno <span class="sv-sub">Ustawienia → Zawór mieszający</span></h3>
+                <h3 class="sv-h3">W domu za ciepło albo za zimno <span class="sv-sub">Ustawienia → Krzywa grzewcza</span></h3>
                 <div id="tn-rooms"></div>
                 <div class="sv-period">Jedna zmiana naraz i odczekaj dobę - dom zmienia temperaturę powoli. Zadana kotła nie zmienia ciepła w domu (zawór trzyma grzejniki).</div>
               </section>
@@ -65,6 +66,13 @@
                 <div id="checks"></div>
                 <h3 class="sv-h3" id="ck-problems-head">Do sprawdzenia</h3>
                 <div id="ck-problems"></div>
+              </section>
+
+              <!-- MODUŁY: what each module does, its health, the last error and log entries -->
+              <section class="st2-card" data-tab="modules">
+                <h2>Moduły <span class="sv-verdict" id="md-verdict"></span> <span class="sv-sub" id="md-sub"></span></h2>
+                <div class="sv-mods" id="md-list"></div>
+                <div class="sv-period">Kluczowe pracują w pętli sterowania co 0,5 s - bez nich piec nie działa. Pomocnicze co 2 s (pogoda, historia, statystyki…). Wpisy z logu od ostatniego startu sterownika.</div>
               </section>
 
               <!-- ZMIANY: what each version brought (CHANGELOG.md) -->

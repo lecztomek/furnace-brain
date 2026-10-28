@@ -369,6 +369,42 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
             wire_cache["at"] = clock()
         return wire_cache["list"]
 
+    @router.get("/modules")
+    def get_modules():
+        """Every module: what it does (English), whether the control loop needs it, its health,
+        the last error (kept after it recovered) and the last ordinary / problem log entry."""
+        from backend.config.modules_loader import load_module_descriptors
+        st = store.snapshot()
+        names = {m.id: m.name for m in config_store.list_modules()}
+        last = store.last_events() if hasattr(store, "last_events") else {}
+
+        def entry(ev):
+            if ev is None:
+                return None
+            return {"at": ev.ts, "level": str(getattr(ev.level, "name", ev.level)), "type": ev.type, "message": ev.message}
+
+        out = []
+        for d in load_module_descriptors():
+            ms = st.modules.get(d.id)
+            ev = last.get(d.id) or {}
+            out.append({
+                "id": d.id,
+                "name": names.get(d.id) or d.id,
+                "about": d.about,
+                "critical": d.critical,
+                "enabled": d.enabled,
+                "health": None if ms is None else str(getattr(ms.health, "name", ms.health)),
+                "error_now": None if ms is None else ms.last_error,
+                "errors": 0 if ms is None else getattr(ms, "errors", 0),
+                "last_failure": None if ms is None else getattr(ms, "last_failure", None),
+                "last_failure_at": None if ms is None else getattr(ms, "last_failure_at", None),
+                "tick_ms": None if ms is None else round(1000 * ms.last_tick_duration, 1),
+                "last_tick_at": None if ms is None else ms.last_updated,
+                "last_info": entry(ev.get("info")),
+                "last_problem": entry(ev.get("problem")),
+            })
+        return {"started_at": app_info.get("started_at"), "modules": out}
+
     @router.get("/w1")
     def get_w1():
         """Every DS18B20 on the bus: [{rom, temp, field}] - the sensor list in Ustawienia -> Sprzęt."""

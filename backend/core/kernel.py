@@ -191,6 +191,9 @@ class Kernel:
                     duration = time.time() - start
                     status.health = ModuleHealth.ERROR
                     status.last_error = f"{type(exc).__name__}: {exc}"
+                    status.errors += 1
+                    status.last_failure = status.last_error
+                    status.last_failure_at = now
                     status.last_tick_duration = duration
                     status.last_updated = now
     

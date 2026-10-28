@@ -314,11 +314,59 @@
       }).join("")}`).join("");
   }
 
+  // ---------------------------------------------------------------- modules
+
+  // "14:05" today, "27.10 14:05" earlier
+  function stamp(ts) {
+    if (!ts) return "";
+    const d = new Date(ts * 1000);
+    const hm = d.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", hour12: false });
+    return d.toDateString() === new Date().toDateString() ? hm
+      : `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")} ${hm}`;
+  }
+
+  // the module list: a row each (health, name, key or not, the last error), details on a tap
+  const openedMods = new Set();
+  function renderModules(d) {
+    const mods = d.modules || [];
+    const bad = mods.filter((m) => m.health === "ERROR");
+    const hadErrors = mods.filter((m) => m.health !== "ERROR" && m.errors > 0);
+    verdict($("md-verdict"), bad.length ? "bad" : hadErrors.length ? "warn" : "ok");
+    $("md-verdict").textContent = bad.length ? `Błąd: ${bad.length}` : hadErrors.length ? `Były błędy: ${hadErrors.length}` : "Wszystkie działają";
+    $("md-sub").textContent = `${mods.length} modułów, ${mods.filter((m) => m.critical).length} kluczowych`;
+    const row = (label, value, when) => value
+      ? `<div class="sv-mod__row"><span class="sv-mod__k">${label}</span><span class="sv-mod__v">${esc(value)}</span>${when ? `<span class="sv-mod__t">${when}</span>` : ""}</div>` : "";
+    $("md-list").innerHTML = mods.map((m) => {
+      const st = m.health === "ERROR" ? "bad" : m.errors > 0 ? "warn" : m.health ? "ok" : "off";
+      const err = m.health === "ERROR" ? m.error_now : m.last_failure;
+      const brief = m.health === "ERROR" ? `błąd: ${m.error_now}` : m.errors > 0 ? `ostatni błąd ${stamp(m.last_failure_at)} (${m.errors}×)` : m.health ? "OK" : "nie działa";
+      const info = m.last_info, prob = m.last_problem;
+      return `<details class="sv-mod sv-mod--${st}" data-id="${esc(m.id)}"${openedMods.has(m.id) ? " open" : ""}>
+        <summary>
+          <span class="sv-mod__dot"></span>
+          <span class="sv-mod__name">${esc(m.name)}<small>${esc(m.id)}</small></span>
+          ${m.critical ? '<span class="sv-mod__key">kluczowy</span>' : '<span class="sv-mod__aux">pomocniczy</span>'}
+          <span class="sv-mod__brief">${esc(brief)}</span>
+        </summary>
+        <div class="sv-mod__body">
+          <p class="sv-mod__about">${esc(m.about || "")}</p>
+          ${row("Ostatni błąd", err ? `${err}${m.errors ? ` (razem ${m.errors}×)` : ""}` : "", stamp(m.last_failure_at))}
+          ${row("Ostatni wpis", info ? info.message : "brak od startu", info ? stamp(info.at) : "")}
+          ${row("Ostatni problem", prob ? `${prob.level}: ${prob.message}` : "brak od startu", prob ? stamp(prob.at) : "")}
+          ${row("Krok modułu", m.tick_ms != null ? `${String(m.tick_ms).replace(".", ",")} ms` : "", m.last_tick_at ? `ostatnio ${stamp(m.last_tick_at)}` : "")}
+        </div>
+      </details>`;
+    }).join("");
+    $("md-list").querySelectorAll("details").forEach((el) => el.addEventListener("toggle", () => {
+      if (el.open) openedMods.add(el.dataset.id); else openedMods.delete(el.dataset.id);
+    }));
+  }
+
   // ---------------------------------------------------------------- loading
 
   async function load(fresh = false) {
     const url = { tuning: `/api/service/tuning${fresh ? "?fresh=true" : ""}`, checks: "/api/analytics/report",
-      diag: "/api/service/diagnostics", changes: "/api/service/changelog" }[tab];
+      diag: "/api/service/diagnostics", changes: "/api/service/changelog", modules: "/api/service/modules" }[tab];
     try {
       const r = await fetch(url, { cache: "no-store" });
       if (tab === "checks" && r.status === 503) {
@@ -343,6 +391,7 @@
       if (tab === "tuning") renderTuning(data);
       else if (tab === "checks") renderChecks(data);
       else if (tab === "changes") renderChangelog(data);
+      else if (tab === "modules") renderModules(data);
       else renderDiag(data);
       setStatus(at);
     } catch (e) {
@@ -383,7 +432,7 @@
     });
     let saved = "tuning";
     try { saved = localStorage.getItem("service-tab") || "tuning"; } catch (e) { /* no storage */ }
-    showTab(["diag", "checks", "changes"].includes(saved) ? saved : "tuning");
+    showTab(["diag", "checks", "changes", "modules"].includes(saved) ? saved : "tuning");
     startTimer();
   });
 })();
