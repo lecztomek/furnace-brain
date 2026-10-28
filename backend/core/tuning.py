@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from backend.core.analytics import _float, files_by_day, history_rows
+from backend.core.settings_log import read_entries
 
 SETTLE_S = 2 * 3600         # after an ignition the boiler swings for ~2 h - judged later
 SETPOINT_STEP_C = 1.0       # a setpoint change at least this big ...
@@ -276,6 +277,42 @@ def setting_changes(events: List[Dict[str, str]]) -> List[Dict[str, Any]]:
             label = TRACKED.get((module, key))
             if label:
                 out.append({"ts": ts, "module": module, "key": key, "label": label, "old": old, "new": new})
+    out.sort(key=lambda c: c["ts"], reverse=True)
+    return out
+
+
+def log_changes(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Changes of tracked settings and of the app version from the settings history, newest first.
+    The history also catches what the events miss: changes from before the events had them, a file
+    edited by hand, a version update."""
+    out: List[Dict[str, Any]] = []
+    prev_version: Optional[str] = None
+    for e in entries:
+        try:
+            ts = datetime.fromisoformat(e["ts"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        version = e.get("version")
+        if prev_version is not None and version and version != prev_version:
+            out.append({"ts": ts, "module": "app", "key": "version", "label": "wersja programu",
+                        "old": prev_version, "new": version})
+        prev_version = version or prev_version
+        for module, keys in (e.get("changed") or {}).items():
+            for key, pair in keys.items():
+                label = TRACKED.get((module, key))
+                if label and isinstance(pair, list) and len(pair) == 2 and pair[0] is not None:
+                    out.append({"ts": ts, "module": module, "key": key, "label": label, "old": pair[0], "new": pair[1]})
+    out.sort(key=lambda c: c["ts"], reverse=True)
+    return out
+
+
+def merge_changes(from_events: List[Dict[str, Any]], from_log: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Both sources, one entry per change (the same setting to the same value within 5 min = one), newest first."""
+    out = list(from_events)
+    for c in from_log:
+        if not any(o["module"] == c["module"] and o["key"] == c["key"] and o["new"] == c["new"]
+                   and abs((o["ts"] - c["ts"]).total_seconds()) <= 300 for o in out):
+            out.append(c)
     out.sort(key=lambda c: c["ts"], reverse=True)
     return out
 
@@ -578,9 +615,10 @@ class TuningReport:
     a fraction of a second on the Pi instead of seconds.
     """
 
-    def __init__(self, history_dir: Path, events_dir: Path) -> None:
+    def __init__(self, history_dir: Path, events_dir: Path, settings_dir: Optional[Path] = None) -> None:
         self.history_dir = history_dir
         self.events_dir = events_dir
+        self.settings_dir = settings_dir
         self._days: Dict[str, tuple] = {}   # "YYYY-MM-DD" -> (history rows, events) of a past day
         self.progress: Dict[str, int] = {"done": 0, "total": 0}
 
@@ -640,7 +678,9 @@ class TuningReport:
 
         steady = settled(rows, sp)
         recent = steady[-int(WINDOW_H * 3600 / 30):]
-        changes = setting_changes(events)[:10]
+        from_log = log_changes(read_entries(self.settings_dir, now - timedelta(days=EVENT_DAYS))) \
+            if self.settings_dir is not None else []
+        changes = merge_changes(setting_changes(events), from_log)[:10]
         # a PID setting changed within the window: judge only the work after it
         pid_change = next((c for c in changes if (c["module"], c["key"]) in PID_KEYS), None)
         if pid_change is not None and recent and pid_change["ts"] + timedelta(seconds=CHANGE_SKIP_S) > recent[0]["ts"]:

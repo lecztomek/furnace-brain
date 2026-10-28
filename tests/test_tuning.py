@@ -314,3 +314,18 @@ def test_after_a_pid_change_only_the_work_since_then_counts(tmp_path):
     # 1.5 h after the change is too little: no suggestions from yesterday's wave
     assert first["title"] == "Za mało pracy od zmiany ustawień" and "0 → 5" in first["detail"]
     assert not any(i["area"] == "Wzmocnienie (Kp)" for i in items)
+
+
+def test_changes_from_the_settings_history_and_version_updates():
+    entries = [
+        {"ts": "2026-11-09T10:00:00", "version": "1.44.6", "changed": {}},
+        {"ts": "2026-11-09T12:00:00", "version": "1.44.6", "changed": {"power_work": {"kp": [10.0, 8.0]}}},
+        {"ts": "2026-11-09T18:00:00", "version": "1.45.0", "changed": {}},                       # an update
+        {"ts": "2026-11-09T19:00:00", "version": "1.45.0", "changed": {"blower": {"cycle_time_s": [40, 30]}}},  # not tracked
+    ]
+    found = T.log_changes(entries)
+    assert [(c["label"], c["old"], c["new"]) for c in found] == [("wersja programu", "1.44.6", "1.45.0"), ("Kp", 10.0, 8.0)]
+    # the same Kp change from the events log as well: shown once
+    ev = [{"ts": datetime(2026, 11, 9, 12, 1), "module": "power_work", "key": "kp", "label": "Kp", "old": 10.0, "new": 8.0}]
+    merged = T.merge_changes(ev, found)
+    assert len([c for c in merged if c["key"] == "kp"]) == 1 and len(merged) == 2

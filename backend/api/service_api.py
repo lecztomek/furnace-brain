@@ -251,7 +251,8 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
     router = APIRouter(prefix="/service", tags=["service"])
     modules_dir = data_root / "modules"
     tuning = TuningReport(history_dir=modules_dir / "history" / "data",
-                          events_dir=modules_dir / "eventlog" / "data")
+                          events_dir=modules_dir / "eventlog" / "data",
+                          settings_dir=modules_dir / "settings_log" / "data")
     # the advice is built in a background thread and a request never waits
     # for it (the GUI would freeze); nothing is read until the page is opened,
     # the first build reads 8 days of files with pauses (the control loop

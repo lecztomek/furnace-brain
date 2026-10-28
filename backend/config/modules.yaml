@@ -89,3 +89,9 @@ modules:
     path: backend.modules.hardware:HardwareModule
     enabled: true
     critical: false
+
+  # how the furnace was set up: every setting with the version, on the USB stick
+  - id: settings_log
+    path: backend.modules.settings_log:SettingsLogModule
+    enabled: true
+    critical: false

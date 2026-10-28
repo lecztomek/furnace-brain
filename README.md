@@ -70,6 +70,14 @@ should be on. Serwis → Diagnostyka Pi → Czujniki 1-Wire shows each sensor wi
 The settings live in `modules/hardware/values.yaml` like every other setting (kept and
 backed up by updates); a missing or broken file means the original wiring.
 
+## Settings history
+
+The module `settings_log` (Ustawienia → Historia ustawień) writes every setting of every
+module with the app version and commit to `modules/settings_log/data/settings_YYYYMM.jsonl`
+on the USB stick: at the start (each update), when a `values.yaml` changes (from the GUI or
+by hand - it checks the files' times every 10 s) and once a day. A few lines a day, no secrets.
+Serwis → Strojenie takes setting and version changes from it for "Po zmianach ustawień".
+
 ## Remote view
 GUI of the prod version on GitHub Pages, data from Firebase Realtime Database; read-only.
 The Pi's `remote_view` module sends the state every 15 s, history and logs every 60 s,

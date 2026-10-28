@@ -2,6 +2,10 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.45.0 · 28.10.2026 15:18
+- New module "Historia ustawień" (settings_log): every setting of every module with the app version and commit to the USB stick (settings_YYYYMM.jsonl) - at the start (each update), when a settings file changes (GUI or by hand) and once a day; secrets left out
+- Serwis → Strojenie, "Po zmianach ustawień": changes also from the settings history (what the event log missed) and app version updates, each compared 12 h before / after
+
 ## 1.44.6 · 28.10.2026 14:24
 - Boiler overheat opens the mixing valve even when the radiator sensor has no reading (the safety module used to block the valve then, so the heat had nowhere to go to the house); outside an overheat a missing radiator reading still stops the valve
 
