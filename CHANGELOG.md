@@ -3,6 +3,7 @@
 Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
 ## 1.35
+- Kontrola counts the last 3 days; every card says which period its numbers come from.
 - Regulation chart for the last day in 10 min steps (dips like a bath show); periods named on the tiles.
 - Kontrola as small tiles (one number each); problems explained under them.
 - Remote view: Service page and the forecast work too (sent every 10 min).

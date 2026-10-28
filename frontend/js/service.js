@@ -35,9 +35,9 @@
   const WORD = { ok: "OK", warn: "Zmień", bad: "Pilne", info: "Sprawdź" };
   const PID_AREAS = ["PID", "Całka (Ki)", "Wzmocnienie (Kp)", "Ślimak", "Dmuchawa"];
 
-  function bigTile(icon, label, val, status) {
+  function bigTile(icon, label, val, status, sub) {
     return `<div class="sv-tile sv-tile--${status}"><span class="sv-tile__icon">${FBIcon(icon)}</span>
-      <span class="sv-tile__label">${label}</span><span class="sv-tile__val">${val}</span></div>`;
+      <span class="sv-tile__label">${label}</span><span class="sv-tile__val">${val}</span>${sub ? `<span class="sv-tile__sub">${sub}</span>` : ""}</div>`;
   }
 
   function renderTuning(r) {
@@ -45,12 +45,14 @@
     const reg = r.regulation;
     if (reg && reg.hours >= 1) {
       const st = (good, okish) => (good ? "ok" : okish ? "warn" : "bad");
+      $("tn-period").textContent = `Liczone z: ostatnich ${num(reg.hours, 0)} h spokojnej pracy (od ${when(r.regulation_since)}, bez 2 h po rozpaleniu)`;
       $("tn-hero").innerHTML = [
         bigTile("target", "Od zadanej", `${signed(reg.mean_err)}°`, st(Math.abs(reg.mean_err) <= 1, Math.abs(reg.mean_err) <= 2)),
         bigTile("activity", "Kołysanie", `±${num(reg.std)}°`, st(reg.std <= 1, reg.std <= 2)),
         bigTile("gauge", "Moc średnio", `${reg.power_avg ?? "--"}%`, st(reg.power_avg >= 35 && reg.power_avg <= 75, true)),
       ].join("");
     } else {
+      $("tn-period").textContent = "Liczone z: ostatnich 7 dni, praca od 2 h po rozpaleniu";
       $("tn-hero").innerHTML = `<div class="sv-empty">${FBIcon("hourglass", "ic--inline")} Za mało spokojnej pracy do oceny</div>`;
     }
 
@@ -150,12 +152,15 @@
   // the checks of the statistics report (last 7 days): one small tile each, the problems explained below
   function renderChecks(report) {
     const list = report.checks || [];
+    $("ck-period").textContent = report.checks_period ? `Liczone z: ${report.checks_period}` : "";
     const worst = list.some((c) => c.status === "bad") ? "bad" : list.some((c) => c.status === "warn") ? "warn" : "ok";
     const good = list.filter((c) => c.status === "ok").length;
     verdict($("ck-verdict"), worst, worst === "ok" ? `${good} z ${list.length} OK` : "");
     $("checks").innerHTML = `<div class="sv-tiles sv-tiles--checks">${list.map((c) => {
       const icon = (CHECK_ICONS.find(([k]) => c.title.startsWith(k)) || ["", "info"])[1];
-      return bigTile(icon, esc(c.label || c.title), esc(c.value || "--"), c.status);
+      // a check counted over another period than the rest says so on its tile
+      const own = c.period && c.period !== list[0].period ? esc(c.period) : "";
+      return bigTile(icon, esc(c.label || c.title), esc(c.value || "--"), c.status, own);
     }).join("")}</div>` + list.filter((c) => c.status === "warn" || c.status === "bad").map((c) =>
       `<div class="sv-card sv-card--${c.status} is-open ck-problem"><span class="sv-card__top"><span class="sv-card__icon">${FBIcon(c.status === "bad" ? "stop" : "alert")}</span>` +
       `<span class="sv-card__name">${esc(c.title)}</span></span><span class="sv-card__more">${esc(c.detail)}</span></div>`).join("");

@@ -595,13 +595,19 @@ def _avg_days(days: List[DayAgg], key: str) -> Optional[float]:
     return sum(d.sums.get(key, 0.0) for d in days) / w if w > 0 else None
 
 
+CHECK_DAYS = 3   # the checks look at the last 3 days (today included): recent, but not a single odd day
+
+
 def checks(period: Dict[str, Any], model: Dict[str, Any], last_full_day: Optional[DayAgg],
-           overheat_temp: float = 80.0, trend: Optional[Dict[str, Any]] = None) -> List[Dict[str, str]]:
+           overheat_temp: float = 80.0, trend: Optional[Dict[str, Any]] = None,
+           period_label: str = "ostatnie 3 dni") -> List[Dict[str, str]]:
     out: List[Dict[str, str]] = []
 
     # label / value: a short name and a number for the service page tile; detail: the full sentence
-    def add(status: str, title: str, detail: str, label: str = "", value: str = "") -> None:
-        out.append({"status": status, "title": title, "detail": detail, "label": label or title, "value": value})
+    # period: what the number is counted from, shown on the tile
+    def add(status: str, title: str, detail: str, label: str = "", value: str = "", over: str = "") -> None:
+        out.append({"status": status, "title": title, "detail": detail, "label": label or title, "value": value,
+                    "period": over or period_label})
 
     def pl(v: float, nd: int = 1) -> str:
         return f"{v:.{nd}f}".replace(".", ",")
@@ -651,16 +657,16 @@ def checks(period: Dict[str, Any], model: Dict[str, Any], last_full_day: Optiona
         st = "ok" if reg["within_2"] >= 80 else "warn" if reg["within_2"] >= 60 else "bad"
         add(st, "Regulacja temperatury",
             f"{reg['grade']}: {reg['within_2']:.0f}% czasu w ±2°C, średnio {reg['mean_abs_error']:.1f}°C od zadanej",
-            "W normie (7 dni)", f"{reg['within_2']:.0f}%")
+            "W normie ±2°", f"{reg['within_2']:.0f}%")
     else:
-        add("info", "Regulacja temperatury", "za mało pracy w trybie PRACA w tym okresie", "W normie (7 dni)", "--")
+        add("info", "Regulacja temperatury", "za mało pracy w trybie PRACA w tym okresie", "W normie ±2°", "--")
 
     change = (trend or {}).get("change_pct")
     if change is not None:
         add("warn" if change > 15 else "ok", "Efektywność (kg na stopniodzień)",
             f"ostatni tydzień {trend['recent_kg_per_degree_day']:.2f} vs wcześniej {trend['before_kg_per_degree_day']:.2f} "
             f"({change:+.0f}%)" + (" - kocioł pali więcej przy tej samej pogodzie: czyszczenie?" if change > 15 else ""),
-            "Sprawność", f"{change:+.0f}%")
+            "Sprawność", f"{change:+.0f}%", "tydzień vs 3 tyg. wcześniej")
 
     fit = (model.get("coal") or {}).get("fit")
     if fit and last_full_day and last_full_day.avg("outside") is not None and last_full_day.seconds > 0:
@@ -671,7 +677,7 @@ def checks(period: Dict[str, Any], model: Dict[str, Any], last_full_day: Optiona
             add("warn" if diff > 25 else "ok", "Zużycie względem pogody",
                 f"{last_full_day.date}: {actual:.1f} kg przy {last_full_day.avg('outside'):.1f}°C, "
                 f"oczekiwane ~{expected:.1f} kg ({diff:+.0f}%)" + (" - czas wyczyścić kocioł?" if diff > 25 else ""),
-                "Zużycie / pogoda", f"{diff:+.0f}%")
+                "Zużycie / pogoda", f"{diff:+.0f}%", f"doba {last_full_day.date[8:10]}.{last_full_day.date[5:7]}")
     return out
 
 
@@ -752,6 +758,7 @@ class Analytics:
         periods = {
             "today": summarize(since(today)),
             "yesterday": summarize([x for x in days if x.date == (today - timedelta(days=1)).isoformat()]),
+            "d3": summarize(since(today - timedelta(days=CHECK_DAYS - 1))),
             "d7": summarize(since(today - timedelta(days=6))),
             "d30": summarize(since(today - timedelta(days=29))),
             "season": summarize(since(season_start)),
@@ -816,7 +823,9 @@ class Analytics:
             "weather": model,
             "efficiency_trend": trend,
             "efficiency_assumptions": {"degree_day_base_c": HDD_BASE_C, "room_c": ROOM_C, "co2_pct": ASSUMED_CO2},
-            "checks": checks(periods["d7"], model, full_days[-1] if full_days else None, overheat_temp, trend),
+            "checks": checks(periods["d3"], model, full_days[-1] if full_days else None, overheat_temp, trend,
+                             f"3 dni (od {today - timedelta(days=CHECK_DAYS - 1):%d.%m})"),
+            "checks_period": f"ostatnie {CHECK_DAYS} dni (od {today - timedelta(days=CHECK_DAYS - 1):%d.%m})",
             "seasons": self._seasons(days, season_start, prev_start, today),
         }
 

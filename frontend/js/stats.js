@@ -116,9 +116,22 @@
 
   // ---------- render ----------
 
+  // "dziś od północy", "ostatnie 7 dni (od 22.10)" - what a card counts from, next to its title
+  function periodText(key) {
+    if (!report) return "";
+    if (key === "today") return "dziś od północy";
+    if (key === "yesterday") return "wczoraj";
+    const d = new Date(report.today + "T12:00:00");
+    if (key === "season") d.setTime(new Date((report.season_start || report.today) + "T12:00:00").getTime());
+    else d.setDate(d.getDate() - (key === "d7" ? 6 : 29));
+    const from = `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
+    return `${PERIOD_NAMES[key]} (od ${from})`;
+  }
+
   function markRanges() {
     document.querySelectorAll(".st2-range").forEach((g) =>
       g.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.period === periods[g.dataset.scope])));
+    document.querySelectorAll("[data-period-of]").forEach((el) => { el.textContent = periodText(periods[el.dataset.periodOf]); });
   }
 
   function renderUsage() {
@@ -157,7 +170,7 @@
     $("reg-grade").className = "st2-grade" + (r ? ` grade-${r.grade.replace(/\s/g, "-")}` : "");
     $("reg-tiles").innerHTML = r
       ? [
-          tile("W normie ±2°C", `${num(r.within_2, 0)}<small>%</small>`, period === "today" ? "dziś od północy" : PERIOD_NAMES[period],
+          tile("W normie ±2°C", `${num(r.within_2, 0)}<small>%</small>`, "",
                r.within_2 >= 80 ? "st2-tile--good" : r.within_2 < 60 ? "st2-tile--bad" : ""),
           tile("Od zadanej", `${num(r.mean_abs_error, 1)}<small>°</small>`, `najniżej −${num(r.max_under, 1)}°`),
         ].join("")
@@ -250,7 +263,8 @@
       ? `Najsłabiej o ${worst.hour}:00–${worst.hour + 1}:00`
       : "Bez wyraźnych spadków";
 
-    $("drops-head").textContent = drops.count ? `Spadki temperatury: ${drops.count} (ostatnie 5)` : "Spadki temperatury";
+    $("drops-head").innerHTML = (drops.count ? `Spadki temperatury: ${drops.count}` : "Spadki temperatury") +
+      ` <span class="st2-sub">${periodText(period)}</span>`;
     if (!drops.items.length) {
       $("drops").innerHTML = `<div class="st2-empty">${FBIcon("check", "ic--inline ic--ok")} Brak spadków ponad ${num(drops.below_c ?? 4, 0)}°C pod zadaną</div>`;
       return;
@@ -326,6 +340,7 @@
   function renderSeasons() {
     const s = report.seasons;
     if (!s) return;
+    $("season-period").textContent = `od ${report.season_start.slice(8, 10)}.${report.season_start.slice(5, 7)}.${report.season_start.slice(0, 4)}`;
     const f = s.forecast || {};
     // tonnes from 1 t up, kilograms below
     const mass = (kg) => (kg == null ? ["--", "t"] : kg >= 1000 ? [num(kg / 1000, 2), "t"] : [num(kg, 0), "kg"]);

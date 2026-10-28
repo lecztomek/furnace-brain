@@ -34,7 +34,7 @@
 
               <!-- WĘGIEL -->
               <section class="st2-card" data-tab="usage">
-                <div class="st2-card-head"><h2>Ile węgla</h2><div class="st2-periods st2-range" data-scope="usage"><button type="button" data-period="today">Dziś</button><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
+                <div class="st2-card-head"><h2>Ile węgla <span class="st2-sub" data-period-of="usage"></span></h2><div class="st2-periods st2-range" data-scope="usage"><button type="button" data-period="today">Dziś</button><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
                 <div class="st2-hero" id="usage-hero"></div>
                 <h3 class="st2-chart-title" id="daily-title"></h3>
                 <div class="st2-chart st2-chart--big"><canvas id="chart-daily"></canvas></div>
@@ -43,7 +43,7 @@
 
               <!-- SEZON -->
               <section class="st2-card" data-tab="usage">
-                <h2>Sezon</h2>
+                <h2>Sezon <span class="st2-sub" id="season-period"></span></h2>
                 <div class="st2-hero" id="season-tiles"></div>
                 <h3 class="st2-chart-title">Węgiel w każdym miesiącu: ten sezon obok zeszłego</h3>
                 <div class="st2-chart st2-chart--big"><canvas id="chart-seasons"></canvas></div>
@@ -69,13 +69,13 @@
 
               <!-- PRACA PIECA -->
               <section class="st2-card" data-tab="work">
-                <div class="st2-card-head"><h2>Praca pieca</h2><div class="st2-periods st2-range" data-scope="work"><button type="button" data-period="today">Dziś</button><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
+                <div class="st2-card-head"><h2>Praca pieca <span class="st2-sub" data-period-of="work"></span></h2><div class="st2-periods st2-range" data-scope="work"><button type="button" data-period="today">Dziś</button><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
                 <div class="st2-tiles" id="work-tiles"></div>
               </section>
 
               <!-- REGULACJA -->
               <section class="st2-card" data-tab="work">
-                <h2>Jak trzyma temperaturę <span class="st2-grade" id="reg-grade"></span></h2>
+                <h2>Jak trzyma temperaturę <span class="st2-sub" data-period-of="work"></span> <span class="st2-grade" id="reg-grade"></span></h2>
                 <div class="st2-hero" id="reg-tiles"></div>
                 <h3 class="st2-chart-title" id="hourly-title"></h3>
                 <div class="st2-chart st2-chart--big"><canvas id="chart-hourly"></canvas></div>
@@ -90,7 +90,7 @@
 
               <!-- EFEKTYWNOŚĆ -->
               <section class="st2-card" data-tab="efficiency">
-                <div class="st2-card-head"><h2>Sprawność</h2><div class="st2-periods st2-range" data-scope="eff"><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
+                <div class="st2-card-head"><h2>Sprawność <span class="st2-sub" data-period-of="eff"></span></h2><div class="st2-periods st2-range" data-scope="eff"><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
                 <div class="st2-hero" id="eff-tiles"></div>
                 <div class="st2-empty" id="eff-empty">Pojawi się po kilku pełnych dniach z temperaturą zewnętrzną (moduł Pogoda).</div>
                 <div id="eff-chart-box">

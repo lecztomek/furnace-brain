@@ -14,6 +14,10 @@
 .sv-verdict--warn { background: #92400e; }
 .sv-verdict--bad { background: #991b1b; }
 
+.sv-sub { font-size: 15px; font-weight: 500; color: #9ca3af; text-transform: none; letter-spacing: 0; }
+.sv-period { font-size: 15px; color: #cbd5e1; margin: -4px 0 10px; }
+.sv-period:empty { display: none; }
+
 .sv-empty { font-size: 18px; color: #cbd5e1; padding: 6px 2px; }
 
 /* PID now: boiler -> power -> feeder, blower */
