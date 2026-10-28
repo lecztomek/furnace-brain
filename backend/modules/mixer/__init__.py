@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from backend.core.history_tail import history_dir, recent_rows, to_mono
+from backend.core.history_tail import Refill, history_dir, recent_rows, to_mono
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
 from backend.core.state import (
     BoilerMode,
@@ -111,7 +111,7 @@ class MixerModule(ModuleInterface):
         self._outside: deque = deque()
         # the heating curve's outside average is refilled from the history after a restart
         self._history_dir = history_dir(data_root)
-        self._outside_refilled = False
+        self._outside_refill = Refill()
         self._target: float = self._config.target_temp
         self._curve_active: bool = False
 
@@ -629,12 +629,16 @@ class MixerModule(ModuleInterface):
 
     # ---------- heating curve ----------
 
-    def _refill_outside(self, now_ctrl: float) -> None:
-        """Outside temperatures of the last curve_avg_h hours from the history CSV, one a minute."""
-        hours = max(self._config.curve_avg_h, 0.25)
-        for t, _, v in to_mono(recent_rows(self._history_dir, hours), "temp_zewn", now_ctrl):
-            if not self._outside or t - self._outside[-1][0] >= CURVE_SAMPLE_S:
-                self._outside.append((t, v))
+    def _merge_outside(self, rows) -> None:
+        """Outside temperatures of the last curve_avg_h hours from the history (read in the background), one a minute."""
+        if not rows:
+            return
+        first_live = self._outside[0][0] if self._outside else float("inf")
+        old: List[tuple] = []
+        for t, _, v in rows:
+            if t < first_live - CURVE_SAMPLE_S / 2 and (not old or t - old[-1][0] >= CURVE_SAMPLE_S):
+                old.append((t, v))
+        self._outside = deque(old + list(self._outside))
 
     def _outside_avg(self, now_ctrl: float) -> Optional[float]:
         window = max(self._config.curve_avg_h, 0.25) * 3600.0
@@ -675,9 +679,10 @@ class MixerModule(ModuleInterface):
 
     def _update_target(self, now: float, now_ctrl: float, outside: Optional[float],
                        system_state: SystemState, events: List[Event]) -> None:
-        if not self._outside_refilled:
-            self._outside_refilled = True
-            self._refill_outside(now_ctrl)
+        if not self._outside_refill.started and self._history_dir is not None:
+            hours = max(self._config.curve_avg_h, 0.25)
+            self._outside_refill.start(lambda: to_mono(recent_rows(self._history_dir, hours), "temp_zewn", now_ctrl))
+        self._merge_outside(self._outside_refill.take())
         if outside is not None and (not self._outside or now_ctrl - self._outside[-1][0] >= CURVE_SAMPLE_S):
             self._outside.append((now_ctrl, float(outside)))
         avg = self._outside_avg(now_ctrl)

@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from backend.core.history_tail import history_dir, recent_rows, to_mono
+from backend.core.history_tail import Refill, history_dir, recent_rows, to_mono
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
 from backend.core.state import BoilerMode, Event, EventLevel, ModuleStatus, PartialOutputs, Sensors, SystemState
 
@@ -52,7 +52,7 @@ class FlameoutModule(ModuleInterface):
         # after a restart the window is refilled from the history, so the
         # protection works at once and not only after window_min
         self._history_dir = history_dir(data_root)
-        self._refilled = False
+        self._refill_job = Refill()
 
     @property
     def id(self) -> str:
@@ -68,10 +68,13 @@ class FlameoutModule(ModuleInterface):
         if self._tripped and mode in (BoilerMode.WORK, BoilerMode.IGNITION):
             self._tripped = None
 
-        if not self._refilled:
-            self._refilled = True
-            if mode == BoilerMode.WORK and self._config.enabled:
-                self._refill(now_ctrl)
+        if not self._refill_job.started and self._history_dir is not None:
+            window = max(self._config.window_min, 1.0) * 60.0
+            self._refill_job.start(lambda: to_mono(recent_rows(self._history_dir, (window + 300) / 3600.0),
+                                                   "temp_pieca", now_ctrl))
+        rows = self._refill_job.take()
+        if rows and mode == BoilerMode.WORK and self._config.enabled:
+            self._merge(rows, now_ctrl)
 
         if mode != BoilerMode.WORK or not self._config.enabled or boiler is None:
             self._samples.clear()
@@ -89,10 +92,11 @@ class FlameoutModule(ModuleInterface):
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
-    def _refill(self, now_ctrl: float) -> None:
-        """The last window of WORK from the history CSV (only the unbroken WORK stretch up to now)."""
+    def _merge(self, rows, now_ctrl: float) -> None:
+        """The last window of WORK from the history (read in the background): only the unbroken WORK stretch."""
         window = max(self._config.window_min, 1.0) * 60.0
-        rows = to_mono(recent_rows(self._history_dir, (window + 300) / 3600.0), "temp_pieca", now_ctrl)
+        first_live = self._samples[0][0] if self._samples else float("inf")
+        rows = [x for x in rows if x[0] < first_live - SAMPLE_S / 2]
         tail: List[tuple] = []
         for t, r, boiler in reversed(rows):
             gap = tail and tail[0][0] - t > 300           # a long gap = it didn't work in between
@@ -105,7 +109,7 @@ class FlameoutModule(ModuleInterface):
             except ValueError:
                 continue
             tail.insert(0, (t, boiler, power, flue_v))
-        self._samples.extend(tail)
+        self._samples = deque(tail + list(self._samples))
 
     def _flamed_out(self, window: float) -> bool:
         s = self._samples
