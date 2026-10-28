@@ -358,7 +358,8 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
             disks.append(disk)
         for label, sub in (("Zapis historii", "history"), ("Zapis logów", "eventlog"), ("Zapis statystyk", "stats")):
             m = _newest_mtime(modules_dir / sub / "data")
-            limit = 600 if sub == "stats" else 180
+            # history every 30 s; logs only when something happens (compacted); statistics every 5 min
+            limit = {"history": 180, "eventlog": 1800, "stats": 900}[sub]
             disks.append(_item("ok" if m and now - m < limit else "warn", label, f"ostatnio {_ago(m, now)}",
                                "" if m and now - m < limit else "Nic się nie zapisuje - sprawdź pendrive"))
         groups.append({"title": "Dyski i zapis danych", "items": disks})

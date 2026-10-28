@@ -200,7 +200,7 @@
     $("dg-tiles").innerHTML =
       `<div class="sv-disks">${tiles.filter((t) => t.kind === "bar").map(barTile).join("")}</div>` +
       `<div class="sv-stats">${tiles.filter((t) => t.kind === "status").map(statusTile).join("")}</div>`;
-    const issues = d.groups.flatMap((g) => g.items).filter((i) => (i.status === "warn" || i.status === "bad") && i.gauge == null);
+    const issues = d.groups.flatMap((g) => g.items).filter((i) => i.status === "warn" || i.status === "bad");
     problems("dg", issues.map((i) => ({ status: i.status, icon: i.status === "bad" ? "stop" : "alert", name: i.label,
                                          text: i.value, sub: i.note })));
     $("dg-groups").innerHTML = d.groups.filter((g) => g.items.length).map((g) => `

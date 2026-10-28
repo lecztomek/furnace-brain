@@ -3,6 +3,7 @@
 Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
 ## 1.37
+- Pi diagnostics: everything that needs a look is listed under "Do sprawdzenia" (disks and RAM too); no false "logs not written" warning (logs are written only when something happens).
 - Pi diagnostics: details shown under a "Szczegóły" heading, not folded.
 - Main page: the heating curve's outside average inside the outside temperature badge ("śr. 4,2° z 12 h"), like the setpoint on the radiators.
 - Statistics no longer stuck on "liczę aktualne": days re-read for the new power fields are saved (they were read again on every refresh).
