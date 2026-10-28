@@ -33,9 +33,12 @@ EVENT_DAYS = 7              # flame-outs, overheats, sensors, setting changes
 MIN_WORK_H = 3.0            # less settled WORK than this - no verdict
 SMOOTH_ROWS = 5             # ~2.5 min moving average before counting swings
 SWING_HYST = 0.3            # a swing must cross the mean by this much
-CHANGE_SIDE_H = 12          # setting change: compare 12 h before / after
+CHANGE_SIDE_H = 72          # setting change: compare up to 3 days after with as long before it
 CHANGE_SKIP_S = 30 * 60     # ... skipping the first 30 min after it
 CHANGE_MIN_H = 2.0
+CHANGE_SURE_H = 6.0         # less settled work on a side: "few data" next to the verdict
+CHANGE_WEATHER_C = 4.0      # outside average differing more: "different weather" next to the verdict
+HDD_BASE = 18.0
 WINTER_C = -15.0            # the curve is checked for this outside temperature
 FROST_C = (-10.0, -15.0)    # power reserve of the curve checked for these
 ROOM_C = 20.0               # rooms (no sensor)
@@ -103,6 +106,7 @@ def _parse(rows: List[Dict[str, str]]) -> List[Dict[str, Any]]:
             "rad": _float(r.get("temp_grzejnikow")),
             "outside": _float(r.get("temp_zewn")),
             "setpoint": _float(r.get("zadana")),
+            "flue": _float(r.get("temp_spalin")),
         })
     out.sort(key=lambda x: x["ts"])
     return out
@@ -286,21 +290,14 @@ def setting_changes(events: List[Dict[str, str]]) -> List[Dict[str, Any]]:
 
 
 def log_changes(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Changes of tracked settings and of the app version from the settings history, newest first.
-    The history also catches what the events miss: changes from before the events had them, a file
-    edited by hand, a version update."""
+    """Changes of tracked settings from the settings history, newest first. The history also
+    catches what the events miss: changes from before the events had them, a file edited by hand."""
     out: List[Dict[str, Any]] = []
-    prev_version: Optional[str] = None
     for e in entries:
         try:
             ts = datetime.fromisoformat(e["ts"])
         except (KeyError, ValueError, TypeError):
             continue
-        version = e.get("version")
-        if prev_version is not None and version and version != prev_version:
-            out.append({"ts": ts, "module": "app", "key": "version", "label": "wersja programu",
-                        "old": prev_version, "new": version})
-        prev_version = version or prev_version
         for module, keys in (e.get("changed") or {}).items():
             for key, pair in keys.items():
                 label = TRACKED.get((module, key))
@@ -308,6 +305,27 @@ def log_changes(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                     out.append({"ts": ts, "module": module, "key": key, "label": label, "old": pair[0], "new": pair[1]})
     out.sort(key=lambda c: c["ts"], reverse=True)
     return out
+
+
+def version_timeline(entries: List[Dict[str, Any]]) -> List[tuple]:
+    """[(since, version)] from the settings history, oldest first - which version ran when."""
+    out: List[tuple] = []
+    for e in entries:
+        try:
+            ts, v = datetime.fromisoformat(e["ts"]), e.get("version")
+        except (KeyError, ValueError, TypeError):
+            continue
+        if v and (not out or out[-1][1] != v):
+            out.append((ts, v))
+    return out
+
+
+def version_at(timeline: List[tuple], ts: datetime) -> Optional[str]:
+    v = None
+    for since, version in timeline:
+        if since <= ts:
+            v = version
+    return v
 
 
 def merge_changes(from_events: List[Dict[str, Any]], from_log: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -321,27 +339,81 @@ def merge_changes(from_events: List[Dict[str, Any]], from_log: List[Dict[str, An
     return out
 
 
+def _side(part: List[Dict[str, Any]], min_power: float, max_power: float) -> Optional[Dict[str, Any]]:
+    """What a stretch of settled work looked like."""
+    reg = regulation(part, min_power, max_power)
+    if reg is None or reg["hours"] < CHANGE_MIN_H:
+        return None
+    powers = [r["power"] for r in part if r["power"] is not None]
+    flues = [r["flue"] for r in part if r.get("flue") is not None]
+    outs = [r["outside"] for r in part if r["outside"] is not None]
+    pm = sum(powers) / len(powers) if powers else None
+    out = sum(outs) / len(outs) if outs else None
+    return {
+        **{k: reg[k] for k in ("hours", "mean_err", "std", "within_2", "power_avg", "power_jump")},
+        "power_std": round(math.sqrt(sum((p - pm) ** 2 for p in powers) / len(powers)), 1) if powers else None,
+        "flue_avg": round(sum(flues) / len(flues), 1) if flues else None,
+        "outside_avg": None if out is None else round(out, 1),
+        # power per degree of heating need: the coal used, with the weather taken out
+        "power_per_degree": round(pm / (HDD_BASE - out), 2) if pm is not None and out is not None and HDD_BASE - out >= 3 else None,
+    }
+
+
+# metric -> (label, unit, decimals, which way is better: -1 lower, +1 higher, 0 = just shown)
+CHANGE_METRICS = [
+    ("std", "Falowanie kotła", "±°C", 1, -1),
+    ("mean_err", "Średnio od zadanej", "°C", 1, 0),
+    ("within_2", "Czas w ±2°C", "%", 0, +1),
+    ("power_std", "Wahania mocy", "±pkt", 0, -1),
+    ("power_jump", "Szarpanie mocy", "pkt/30 s", 1, -1),
+    ("power_avg", "Średnia moc", "%", 0, 0),
+    ("power_per_degree", "Moc na stopień mrozu", "%/°C", 2, -1),
+    ("flue_avg", "Spaliny średnio", "°C", 0, 0),
+    ("outside_avg", "Na dworze", "°C", 1, 0),
+]
+
+
 def compare_change(change_ts: datetime, rows: List[Dict[str, Any]], min_power: float,
-                   max_power: float, next_change: Optional[datetime] = None) -> Dict[str, Any]:
-    before = [r for r in rows if change_ts - timedelta(hours=CHANGE_SIDE_H) <= r["ts"] < change_ts]
+                   max_power: float, next_change: Optional[datetime] = None,
+                   prev_change: Optional[datetime] = None, now: Optional[datetime] = None) -> Dict[str, Any]:
+    """The work after a change against as long a stretch before it: after = from 30 min after the
+    change to the next change (or now), at most CHANGE_SIDE_H; before = the same length, but not
+    past the previous change - one change at a time."""
     end = change_ts + timedelta(hours=CHANGE_SIDE_H)
     if next_change is not None:
         end = min(end, next_change)
-    after = [r for r in rows if change_ts + timedelta(seconds=CHANGE_SKIP_S) <= r["ts"] < end]
+    if now is not None:
+        end = min(end, now)
+    start_after = change_ts + timedelta(seconds=CHANGE_SKIP_S)
+    span = max(end - start_after, timedelta(hours=CHANGE_MIN_H))
+    start_before = change_ts - span
+    if prev_change is not None:
+        start_before = max(start_before, prev_change + timedelta(seconds=CHANGE_SKIP_S))
+    before = [r for r in rows if start_before <= r["ts"] < change_ts]
+    after = [r for r in rows if start_after <= r["ts"] < end]
+    b, a = _side(before, min_power, max_power), _side(after, min_power, max_power)
 
-    def side(part):
-        reg = regulation(part, min_power, max_power)
-        if reg is None or reg["hours"] < CHANGE_MIN_H:
-            return None
-        return {k: reg[k] for k in ("hours", "mean_err", "std", "within_2", "power_avg")}
-
-    b, a = side(before), side(after)
-    verdict = None
+    verdict, notes, metrics = None, [], []
     if b and a:
         score_b = b["within_2"] - 10 * b["std"]
         score_a = a["within_2"] - 10 * a["std"]
         verdict = "better" if score_a > score_b + 5 else "worse" if score_a < score_b - 5 else "same"
-    return {"before": b, "after": a, "verdict": verdict}
+        if min(a["hours"], b["hours"]) < CHANGE_SURE_H:
+            notes.append(f"mało danych ({min(a['hours'], b['hours']):.0f} h)".replace(".", ","))
+        if a["outside_avg"] is not None and b["outside_avg"] is not None \
+                and abs(a["outside_avg"] - b["outside_avg"]) > CHANGE_WEATHER_C:
+            notes.append(f"inna pogoda ({b['outside_avg']:+.0f} → {a['outside_avg']:+.0f}°C)")
+        for key, label, unit, nd, way in CHANGE_METRICS:
+            vb, va = b.get(key), a.get(key)
+            if vb is None and va is None:
+                continue
+            better = None
+            if way and vb is not None and va is not None:
+                tol = max(abs(vb) * 0.1, 10 ** -nd)          # within 10% (or the last digit): the same
+                better = "same" if abs(va - vb) <= tol else ("better" if (va - vb) * way > 0 else "worse")
+            metrics.append({"key": key, "label": label, "unit": unit, "decimals": nd,
+                            "before": vb, "after": va, "verdict": better})
+    return {"before": b, "after": a, "verdict": verdict, "notes": notes, "metrics": metrics}
 
 
 # ---------------------------------------------------------------- advice
@@ -682,9 +754,11 @@ class TuningReport:
 
         steady = settled(rows, sp)
         recent = steady[-int(WINDOW_H * 3600 / 30):]
-        from_log = log_changes(read_entries(self.settings_dir, now - timedelta(days=EVENT_DAYS))) \
+        # the history from a day earlier: the version running when the oldest change was made
+        entries = read_entries(self.settings_dir, now - timedelta(days=EVENT_DAYS + 1)) \
             if self.settings_dir is not None else []
-        changes = merge_changes(setting_changes(events), from_log)[:10]
+        versions = version_timeline(entries)
+        changes = merge_changes(setting_changes(events), log_changes(entries))[:10]
         # a PID setting changed within the window: judge only the work after it
         pid_change = next((c for c in changes if (c["module"], c["key"]) in PID_KEYS), None)
         if pid_change is not None and recent and pid_change["ts"] + timedelta(seconds=CHANGE_SKIP_S) > recent[0]["ts"]:
@@ -698,12 +772,20 @@ class TuningReport:
         items = advise(reg, rad, igns, ev, settings, pid_change)
 
         out_changes = []
-        for i, c in enumerate(changes):
-            newer = changes[i - 1]["ts"] if i > 0 else None
+        setting_ts = sorted(c["ts"] for c in changes)
+        for c in changes:
+            newer = next((t for t in setting_ts if t > c["ts"]), None)
+            older = next((t for t in reversed(setting_ts) if t < c["ts"]), None)
+            cmp = compare_change(c["ts"], steady, pmin, pmax, newer, older, now)
+            # updates don't split the comparison - only shown: which version ran, and any update in the "after" part
+            after_end = min(t for t in (newer, now, c["ts"] + timedelta(hours=CHANGE_SIDE_H)) if t is not None)
+            updated = [v for since, v in versions if c["ts"] < since <= after_end]
+            if updated:
+                cmp["notes"] = cmp.get("notes", []) + [f"w trakcie wgrano {', '.join(updated)}"]
             out_changes.append({
                 "at": c["ts"].isoformat(timespec="minutes"), "label": c["label"],
-                "old": c["old"], "new": c["new"],
-                **compare_change(c["ts"], steady, pmin, pmax, newer),
+                "old": c["old"], "new": c["new"], "version": version_at(versions, c["ts"]),
+                **cmp,
             })
         return {
             "generated_at": now.isoformat(timespec="seconds"),

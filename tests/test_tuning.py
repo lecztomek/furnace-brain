@@ -316,7 +316,7 @@ def test_after_a_pid_change_only_the_work_since_then_counts(tmp_path):
     assert not any(i["area"] == "Wzmocnienie (Kp)" for i in items)
 
 
-def test_changes_from_the_settings_history_and_version_updates():
+def test_changes_from_the_settings_history_and_the_version_then():
     entries = [
         {"ts": "2026-11-09T10:00:00", "version": "1.44.6", "changed": {}},
         {"ts": "2026-11-09T12:00:00", "version": "1.44.6", "changed": {"power_work": {"kp": [10.0, 8.0]}}},
@@ -324,12 +324,14 @@ def test_changes_from_the_settings_history_and_version_updates():
         {"ts": "2026-11-09T19:00:00", "version": "1.45.0", "changed": {"blower": {"cycle_time_s": [40, 30]}}},  # not tracked
     ]
     found = T.log_changes(entries)
-    assert [(c["label"], c["old"], c["new"]) for c in found] == [("wersja programu", "1.44.6", "1.45.0"), ("Kp", 10.0, 8.0)]
+    assert [(c["label"], c["old"], c["new"]) for c in found] == [("Kp", 10.0, 8.0)]       # updates are not changes
+    tl = T.version_timeline(entries)
+    assert T.version_at(tl, datetime(2026, 11, 9, 12, 0)) == "1.44.6"
+    assert T.version_at(tl, datetime(2026, 11, 9, 20, 0)) == "1.45.0"
     # the same Kp change from the events log as well: shown once
     ev = [{"ts": datetime(2026, 11, 9, 12, 1), "module": "power_work", "key": "kp", "label": "Kp", "old": 10.0, "new": 8.0}]
     merged = T.merge_changes(ev, found)
-    assert len([c for c in merged if c["key"] == "kp"]) == 1 and len(merged) == 2
-
+    assert len(merged) == 1
 
 def test_service_modules_lists_every_module_with_its_last_error_and_log(tmp_path):
     from backend.core.state import Event, EventLevel, ModuleHealth, ModuleStatus
@@ -352,3 +354,33 @@ def test_service_modules_lists_every_module_with_its_last_error_and_log(tmp_path
     assert mx["health"] == "OK" and mx["errors"] == 2 and mx["last_failure"] == "KeyError: 'x'"
     assert mx["last_info"]["message"] == "CLOSE 1.0s" and mx["last_problem"]["message"] == "coś nie tak"
     assert mods["weather"]["health"] == "ERROR" and mods["weather"]["error_now"] == "OSError: dns"
+
+
+def test_before_after_comparison_with_more_than_the_wave():
+    # 10 h at ±1.8 °C, Kp lowered, 10 h at ±0.5 °C with steadier power, the same weather
+    wave = work_rows(10, lambda m: 56 + 2.5 * math.sin(2 * math.pi * m / 75), lambda m: 60 + 25 * math.sin(2 * math.pi * m / 75))
+    change = wave[-1]["ts"] + timedelta(seconds=30)
+    calm = work_rows(10.5, lambda m: 56 + 0.7 * math.sin(2 * math.pi * m / 75), lambda m: 60 + 8 * math.sin(2 * math.pi * m / 75),
+                     start=change)
+    steady = [dict(r, err=r["boiler"] - 56.0, flue=70.0) for r in wave + calm]
+    c = T.compare_change(change, steady, 20, 93, now=calm[-1]["ts"])
+    m = {x["key"]: x for x in c["metrics"]}
+    assert c["verdict"] == "better" and c["notes"] == []
+    assert m["std"]["verdict"] == "better" and m["power_std"]["verdict"] == "better"
+    assert m["power_avg"]["verdict"] is None                                  # just shown
+    assert c["before"]["hours"] == c["after"]["hours"] == 10.0                # as long before as after
+
+
+def test_comparison_stops_at_the_previous_change_and_warns_about_weather():
+    rows = work_rows(30, lambda m: 56.0, lambda m: 60)
+    for r in rows[:1200]:                      # the first 10 h colder outside
+        r["outside"] = -8.0
+    for r in rows[1200:]:
+        r["outside"] = 0.0
+    steady = [dict(r, err=0.0) for r in rows]
+    prev, change = rows[1200]["ts"], rows[1800]["ts"]          # changes at 10 h and 15 h
+    c = T.compare_change(change, steady, 20, 93, prev_change=prev, now=rows[-1]["ts"])
+    assert c["before"]["hours"] <= 4.6                         # not past the previous change (+30 min)
+    assert any("mało danych" in n for n in c["notes"])
+    c2 = T.compare_change(prev, steady, 20, 93, next_change=change)
+    assert any("inna pogoda" in n for n in c2["notes"])

@@ -2,6 +2,10 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.48.0 · 28.10.2026 16:18
+- Strojenie, "Po zmianach ustawień": a fuller before / after - wave, mean off the setpoint, time in ±2 °C, power swing and jerks, average power, power per degree of frost (coal with the weather taken out), flue and outside temperature, each with better / worse
+- After = from 30 min after the change to the next change or now, up to 3 days; before = as long, but not past the previous change. Notes for few data and a different weather; the app version running at the change is shown (updates don't split the comparison)
+
 ## 1.47.1 · 28.10.2026 15:55
 - Tests: the remote view's fake local API knows /api/service/modules (1.47.0 was pushed with 4 failing tests - only the test fake was missing it)
 

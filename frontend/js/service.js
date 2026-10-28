@@ -156,17 +156,25 @@
   function renderChanges(list) {
     $("tn-changes-card").style.display = list.length ? "" : "none";
     const badge = { better: ["lepiej", "ok"], worse: ["gorzej", "bad"], same: ["bez różnicy", "info"] };
-    const bar = (label, s) => s
-      ? `<div class="sv-bar"><span class="sv-bar__label">${label}</span><span class="sv-bar__track"><span class="sv-bar__fill" style="width:${s.within_2}%"></span></span><b>${s.within_2}%</b></div>`
-      : `<div class="sv-bar"><span class="sv-bar__label">${label}</span><span class="sv-bar__wait">czekam na dane</span></div>`;
+    const arrow = { better: '<span class="sv-cmp__ok">▲ lepiej</span>', worse: '<span class="sv-cmp__bad">▼ gorzej</span>',
+                    same: '<span class="sv-cmp__same">=</span>' };
+    const n = (v, nd) => (v == null ? "--" : Number(v).toFixed(nd).replace(".", ","));
     $("tn-changes").innerHTML = list.map((c) => {
       const b = badge[c.verdict];
+      const hours = [c.version ? `wersja ${c.version}` : "",
+                     c.before && c.after ? `${n(c.before.hours, 0)} h przed • ${n(c.after.hours, 0)} h po` : ""].filter(Boolean).join(" • ");
+      const table = (c.metrics || []).length
+        ? `<table class="sv-cmp"><thead><tr><th></th><th>przed</th><th>po</th><th></th></tr></thead><tbody>${c.metrics.map((m) =>
+            `<tr><td>${esc(m.label)}</td><td>${n(m.before, m.decimals)}</td><td>${n(m.after, m.decimals)} <small>${esc(m.unit)}</small></td>` +
+            `<td>${m.verdict ? arrow[m.verdict] : ""}</td></tr>`).join("")}</tbody></table>`
+        : `<div class="sv-bar__wait">czekam na dane - po zmianie potrzeba co najmniej 2 h spokojnej pracy</div>`;
       return `<div class="sv-change">
         <div class="sv-change__head"><b>${esc(c.label)}</b> <span class="sv-change__val">${value(c.old)} → ${value(c.new)}</span>
           ${b ? `<span class="sv-badge sv-badge--${b[1]}">${b[0]}</span>` : ""}<span class="sv-change__when">${when(c.at)}</span></div>
-        ${bar("przed", c.before)}${bar("po", c.after)}
+        ${hours || (c.notes || []).length ? `<div class="sv-change__notes">${[hours, ...(c.notes || [])].filter(Boolean).map(esc).join(" • ")}</div>` : ""}
+        ${table}
       </div>`;
-    }).join("") + (list.length ? `<div class="sv-hint">Pasek = ile czasu kocioł był w ±2°C od zadanej</div>` : "");
+    }).join("") + (list.length ? `<div class="sv-hint">Porównanie spokojnej pracy (od 2 h po rozpaleniu) tak samo długo przed i po zmianie, do 3 dni, nie dalej niż do poprzedniej zmiany. Werdykt z falowania i czasu w ±2°C. Moc na stopień mrozu = zużycie węgla z poprawką na pogodę.</div>` : "");
   }
 
   // the PID chain now: boiler -> power (P + I) -> feeder and blower

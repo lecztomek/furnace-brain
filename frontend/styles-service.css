@@ -297,3 +297,14 @@
   .sv-mod__row { flex-wrap: wrap; }
   .sv-mod__k { width: 100%; }
 }
+
+/* ---- before / after a setting change ---- */
+.sv-change__notes { font-size: 15px; color: #9ca3af; margin: 2px 0 6px; }
+.sv-cmp { width: 100%; border-collapse: collapse; font-size: 15px; }
+.sv-cmp th { text-align: right; color: #9ca3af; font-weight: 600; padding: 2px 6px; }
+.sv-cmp td { padding: 3px 6px; border-top: 1px solid #1f2937; text-align: right; color: #e5e7eb; white-space: nowrap; }
+.sv-cmp td:first-child, .sv-cmp th:first-child { text-align: left; color: #cbd5e1; white-space: normal; }
+.sv-cmp small { color: #9ca3af; }
+.sv-cmp__ok { color: #4ade80; font-weight: 700; }
+.sv-cmp__bad { color: #f87171; font-weight: 700; }
+.sv-cmp__same { color: #9ca3af; }
