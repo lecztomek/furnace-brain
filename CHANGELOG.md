@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.44.4 · 28.10.2026 13:51
+- Ustawienia → Sprzęt: without the bus list (remote view) the saved sensors no longer show as "nie ma na przewodzie" - only the number; the remote view gets the list too (number and temperature)
+
 ## 1.44.3 · 28.10.2026 13:47
 - Hot water estimate by the radiator supply, not the outside temperature: at a warm noon the radiators get as much as at night (the curve follows a many-hour average, the house cools slowly), so the old model read the whole noon as hot water (prod 28.10: 10.7 kWh by 14:35, now 2.1 kWh). The last 30 days are read again once
 

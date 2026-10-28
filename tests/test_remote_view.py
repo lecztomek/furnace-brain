@@ -70,6 +70,8 @@ class LocalApi(BaseHTTPRequestHandler):
             body = {"available": True, "days": []}
         elif p == "/api/service/changelog":
             body = {"current": "1.0.0", "versions": []}
+        elif p == "/api/service/w1":
+            body = [{"rom": "28-000000506777", "field": "boiler_temp", "temp": 56.9}]
         elif p == "/api/config/modules":
             body = [{"id": "power_pid", "name": "PID"}]
         elif p == "/api/config/schema/power_pid":
@@ -123,6 +125,7 @@ def test_push_and_increments(setup):
     _push_cycle(mod)
     data = fb.root["furnace"]["klucz123"]
     assert json.loads(data["state"]) == STATE  # empty list survives
+    assert json.loads(data["service"]["w1"])[0]["rom"] == "28-000000506777"   # the sensor list for Ustawienia -> Sprzęt
     report = json.loads(data["report"])
     assert report["periods"]["d7"]["coal_kg"] == 12.5 and "stale" not in report and "progress" not in report
     assert json.loads(data["config"]["values"]["power_pid"]) == VALUES

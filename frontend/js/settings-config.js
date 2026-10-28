@@ -221,10 +221,12 @@ async function fillSensorOptions(schema, values) {
   const fields = (schema.fields || []).filter((f) => f.options_from === "w1");
   if (!fields.length) return;
   let found = [];
+  let listed = false;     // the bus list came - only then a saved number can be "missing"
   try {
     found = (await fetchJson("/api/service/w1")) || [];
+    listed = found.length > 0;
   } catch (e) {
-    found = [];   // remote view or no bus: only the saved numbers
+    found = [];   // no list: only the saved numbers, nothing said about them
   }
   const labels = { "": "— brak —" };
   found.forEach((x) => {
@@ -234,7 +236,7 @@ async function fillSensorOptions(schema, values) {
   fields.forEach((f) => {
     const saved = fields.map((g) => String(values[g.key] ?? "")).filter(Boolean);
     const roms = [...new Set([...found.map((x) => x.rom), ...saved])];
-    roms.forEach((r) => { if (!labels[r]) labels[r] = `${r} • nie ma na przewodzie`; });
+    roms.forEach((r) => { if (!labels[r]) labels[r] = listed ? `${r} • nie ma na przewodzie` : r; });
     f.options = ["", ...roms];
     f.option_labels = labels;
   });
