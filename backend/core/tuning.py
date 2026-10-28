@@ -381,8 +381,12 @@ def advise(reg: Optional[Dict[str, Any]], rad: Optional[Dict[str, Any]], igns: L
         add("Dmuchawa", "info", "Oceń po płomieniu i popiele",
             f"Obroty {fmt_num(fan) if fan else '--'}%. Sterownik nie mierzy tlenu w spalinach, "
             "więc nie oceni powietrza sam.",
-            "Żółty, dymiący płomień albo niedopalony węgiel w popiele: dodaj 2-3%. "
-            "Krótki, biały płomień i spieczony żużel: odejmij 2-3%.")
+            "Dobrze: płomień żółto-pomarańczowy, spokojny, nad całym żarem, z komina prawie bez dymu, "
+            "popiół jasny i sypki. "
+            "Za mało powietrza: płomień ciemnopomarańczowy, leniwy, kopci, ciemny dym z komina, sadza na drzwiczkach, "
+            "czarne kawałki węgla w popiele - dodaj 2-3%. "
+            "Za dużo: płomień krótki, prawie biały, huczy, żar wypalony zaraz przy ślimaku, spieczony żużel, "
+            "wysokie spaliny - odejmij 2-3%. Po zmianie odczekaj kilka godzin.")
 
     # --- ignition -> work ---
     if igns:

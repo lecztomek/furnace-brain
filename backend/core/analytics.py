@@ -452,19 +452,27 @@ FINE_STEP_S = 300   # the regulation chart for the last day: 5 min averages, so 
 
 def fine_series(rows: List[Dict[str, str]], start: datetime, end: datetime,
                 fallback_setpoint: Optional[float] = None, step_s: int = FINE_STEP_S) -> List[Dict[str, Any]]:
-    """Boiler temperature and setpoint in WORK as step_s averages from start to end (None where it didn't work)."""
+    """Boiler temperature and setpoint in WORK as step_s averages from start to end (None where it didn't work),
+    plus stop=True where the boiler was in STOP (OFF) for any part of the step."""
     n = max(0, int((end - start).total_seconds() // step_s) + 1)
     sums = [[0.0, 0, 0.0, 0, 0.0, 0] for _ in range(n)]   # boiler, setpoint, power: sum and count each
+    stopped = [False] * n
     for r in rows:
-        if (r.get("tryb_pracy") or "").upper() != "WORK":
+        mode = (r.get("tryb_pracy") or "").upper()
+        if mode not in ("WORK", "OFF"):
             continue
-        b = _float(r.get("temp_pieca"))
         try:
             ts = datetime.fromisoformat(r.get("data_czas") or "")
         except ValueError:
             continue
         i = int((ts - start).total_seconds() // step_s)
-        if b is None or not 0 <= i < n:
+        if not 0 <= i < n:
+            continue
+        if mode == "OFF":
+            stopped[i] = True
+            continue
+        b = _float(r.get("temp_pieca"))
+        if b is None:
             continue
         sums[i][0] += b
         sums[i][1] += 1
@@ -482,8 +490,40 @@ def fine_series(rows: List[Dict[str, str]], start: datetime, end: datetime,
     for i, (bs, bn, ss, sn, ps, pn) in enumerate(sums):
         t = start + timedelta(seconds=i * step_s)
         out.append({"time": t.strftime("%H:%M"), "boiler": round(bs / bn, 1) if bn else None,
-                    "setpoint": round(ss / sn, 1) if sn else None, "power": round(ps / pn) if pn else None})
+                    "setpoint": round(ss / sn, 1) if sn else None, "power": round(ps / pn) if pn else None,
+                    "stop": stopped[i]})
     return out
+
+
+STOP_GAP_S = 120   # rows are 30 s apart: a longer gap (backend down) ends a STOP
+
+
+def stop_intervals(rows: List[Dict[str, str]], start: datetime, end: datetime) -> List[Dict[str, Any]]:
+    """Every STOP (mode OFF) between start and end: [{start, end, minutes}], oldest first.
+    That's when coal is added or ash is taken out."""
+    out: List[Dict[str, Any]] = []
+    first = last = None
+    for r in rows:
+        try:
+            ts = datetime.fromisoformat(r.get("data_czas") or "")
+        except ValueError:
+            continue
+        if not start <= ts <= end:
+            continue
+        off = (r.get("tryb_pracy") or "").upper() == "OFF"
+        if off and last is not None and (ts - last).total_seconds() <= STOP_GAP_S:
+            last = ts
+            continue
+        if first is not None:
+            out.append((first, last))
+            first = last = None
+        if off:
+            first = last = ts
+    if first is not None:
+        out.append((first, last))
+    # a row stands for its 30 s, so a single row is still half a minute
+    return [{"start": a.isoformat(timespec="seconds"), "end": b.isoformat(timespec="seconds"),
+             "minutes": max(1, round(((b - a).total_seconds() + 30) / 60))} for a, b in out]
 
 
 def hour_min_boiler(rows: List[Dict[str, str]]) -> List[Optional[float]]:
@@ -836,6 +876,8 @@ class Analytics:
         y0 = datetime.combine(yday, datetime.min.time())
         periods["yesterday"]["fine"] = fine_series(day_rows[yday.isoformat()], y0,
                                                    y0 + timedelta(seconds=86400 - FINE_STEP_S), fallback_setpoint)
+        periods["today"]["stops24"] = stop_intervals(both, end - timedelta(hours=24), end + timedelta(seconds=FINE_STEP_S))
+        periods["yesterday"]["stops"] = stop_intervals(day_rows[yday.isoformat()], y0, y0 + timedelta(days=1))
         periods["today"]["last24"] = hourly_last24(
             by_date.get(yday.isoformat()), by_date.get(today.isoformat()), now_hour, hour_coal, hour_min)
         periods["yesterday"]["hours24"] = hours_of_day(by_date.get(yday.isoformat()), hour_coal, hour_min)

@@ -94,7 +94,7 @@
     $("tn-items").innerHTML = table(items.map((i) => {
       const [icon, name] = AREA[i.area] || ["info", i.area];
       const t = splitTip(i.tip);
-      const showSub = i.status === "warn" || i.status === "bad";
+      const showSub = i.status !== "ok";   // info rows carry how-to text (e.g. reading the flame)
       return { status: i.status, icon: i.status === "ok" ? "check" : icon, name, text: i.title,
                sub: showSub ? [t.action, i.detail].filter(Boolean).join(" • ") : "", right: t.change || (i.status === "ok" ? "OK" : "") };
     }));

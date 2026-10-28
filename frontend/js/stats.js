@@ -91,6 +91,42 @@
       },
     };
   }
+  // grey bands where the boiler was in STOP - that's when coal is added or ash taken out.
+  // options.plugins.stopBands = { flags: [bool per label] }
+  const STOP_FILL = "rgba(148, 163, 184, 0.28)";
+  Chart.register({
+    id: "stopBands",
+    beforeDatasetsDraw(chart, args, opts) {
+      const flags = opts && opts.flags;
+      if (!flags || !flags.some(Boolean)) return;
+      const x = chart.scales.x, area = chart.chartArea, c = chart.ctx;
+      const step = flags.length > 1 ? x.getPixelForValue(1) - x.getPixelForValue(0) : area.width;
+      c.save();
+      c.fillStyle = STOP_FILL;
+      c.font = "bold 13px sans-serif";
+      c.textAlign = "center";
+      for (let i = 0; i < flags.length; i++) {
+        if (!flags[i]) continue;
+        let j = i;
+        while (j + 1 < flags.length && flags[j + 1]) j++;
+        const left = Math.max(area.left, x.getPixelForValue(i) - step / 2);
+        const right = Math.min(area.right, x.getPixelForValue(j) + step / 2);
+        const w = Math.max(3, right - left);
+        c.fillRect(left, area.top, w, area.bottom - area.top);
+        if (w >= 34) { c.fillStyle = "#e2e8f0"; c.fillText("STOP", left + w / 2, area.top + 14); c.fillStyle = STOP_FILL; }
+        i = j;
+      }
+      c.restore();
+    },
+  });
+
+  // "06:20 · 15 min" for each STOP, newest first
+  function stopsText(stops) {
+    if (!stops || !stops.length) return "";
+    const items = stops.slice().reverse().map((x) => `${x.start.slice(11, 16)} · ${x.minutes} min`);
+    return `Postoje (STOP, szare pasy): ${stops.length} — ${items.join(", ")}`;
+  }
+
   function draw(chart, id, data, options) {
     if (chart) { chart.data = data; chart.options = options; chart.update(); return chart; }
     return new Chart($(id), { data, options });
@@ -251,6 +287,7 @@
       pctOpts.scales.x.ticks = { ...pctOpts.scales.x.ticks, autoSkip: false,
         callback: (v, i) => (pctLabels[i].endsWith(":00") && Number(pctLabels[i].slice(0, 2)) % every === 0 ? pctLabels[i].replace(/^0/, "") : "") };
     }
+    if (useFine) pctOpts.plugins.stopBands = { flags: fine.map((f) => !!f.stop) };
     powerPctChart = draw(powerPctChart, "chart-power-pct", {
       labels: pctLabels,
       datasets: [{ type: "line", label: "moc %", data: pct, borderColor: "#60a5fa", backgroundColor: "rgba(96, 165, 250, 0.15)",
@@ -308,6 +345,7 @@
       options.scales.x.ticks = { ...options.scales.x.ticks, autoSkip: false,
         callback: (v, i) => (labels[i].endsWith(":00") && Number(labels[i].slice(0, 2)) % every === 0 ? labels[i].replace(/^0/, "") : "") };
     }
+    if (fine) options.plugins.stopBands = { flags: fine.map((f) => !!f.stop) };
     hourlyChart = draw(hourlyChart, "chart-hourly", data, options);
 
     // worst hour of day over the chosen period (average per hour of day)
@@ -315,6 +353,9 @@
     $("hourly-note").textContent = worst && worst.below_pct > 0
       ? `Najsłabiej o ${worst.hour}:00–${worst.hour + 1}:00`
       : "Bez wyraźnych spadków";
+    const stops = fine ? stopsText(period === "today" ? p.stops24 : p.stops) : "";
+    $("hourly-stops").textContent = stops;
+    $("hourly-stops").style.display = stops ? "" : "none";
 
     $("drops-head").innerHTML = (drops.count ? `Spadki temperatury: ${drops.count}` : "Spadki temperatury") +
       ` <span class="st2-sub">${periodText(period)}</span>`;

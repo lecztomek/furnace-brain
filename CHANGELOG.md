@@ -2,6 +2,10 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.39.0 · 28.10.2026 09:59
+- Statistics, Praca: every STOP (coal added, ash taken out) as a grey band on the 5 min power and temperature charts, with a list of stops (time and minutes) under the temperature chart
+- Tuning: the blower row explains how to read the flame and ash (good / too little air / too much air)
+
 ## 1.38.3 · 28.10.2026 10:30
 - Changelog: each version shows its tag or commit - what to enter in "Deploy to prod" to go back to it
 

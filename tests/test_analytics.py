@@ -181,6 +181,22 @@ def test_fine_series_keeps_a_half_hour_dip():
     assert s[0]["setpoint"] == 56.0
 
 
+
+def test_stops_show_on_the_fine_series_and_as_intervals():
+    from backend.core.analytics import fine_series, stop_intervals
+    start = datetime(2026, 10, 27, 6, 0)
+    # 6:00-7:00 WORK, 6:20-6:34:30 STOP (coal added), a lone STOP row at 6:50, a 10 min gap then STOP again
+    modes = ["OFF" if 40 <= i < 70 or i == 100 else "WORK" for i in range(120)]
+    rows = [{"data_czas": (start + timedelta(seconds=30 * i)).isoformat(), "tryb_pracy": m, "zadana": "56",
+             "temp_pieca": "55", "power": "40"} for i, m in enumerate(modes)]
+    rows += [{"data_czas": (start + timedelta(minutes=70 + i)).isoformat(), "tryb_pracy": "OFF", "temp_pieca": "50"}
+             for i in range(3)]
+    s = fine_series(rows, start, start + timedelta(minutes=55))
+    assert [x["stop"] for x in s] == [False] * 4 + [True] * 3 + [False] * 3 + [True, False]
+    assert s[5]["boiler"] is None            # all STOP, no WORK reading
+    st = stop_intervals(rows, start, start + timedelta(hours=2))
+    assert [(x["start"][11:16], x["minutes"]) for x in st] == [("06:20", 15), ("06:50", 1), ("07:10", 2)]
+
 def test_power_stability_in_settled_work():
     from backend.core.analytics import aggregate_day, summarize
     day = date(2026, 11, 10)
