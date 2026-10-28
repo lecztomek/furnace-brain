@@ -7,7 +7,7 @@
   const $ = (id) => document.getElementById(id);
   let report = null;
   // each card/tab has its own range (what doesn't depend on a range has none)
-  const periods = { usage: "d7", work: "today", eff: "d30" };
+  const periods = { usage: "d7", work: "today", eff: "d30", water: "d7" };
   let period = "d7";   // the range of the card being drawn
   let dailyChart = null;
   let effChart = null;
@@ -17,6 +17,8 @@
   let powerPctChart = null;
   let seasonChart = null;
   let forecastChart = null;
+  let hwDaysChart = null;
+  let hwHoursChart = null;
   let forecast = null;
   const MONTHS = ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"];
 
@@ -64,7 +66,7 @@
 
   // big tile with an icon (same look as the service page): a short unit goes next to
   // the value, anything longer in one line under it
-  const TILE_ICONS = [["Węgiel na", "target"], ["Węgiel", "coal"], ["Koszt", "coins"], ["Średnia moc", "zap"], ["Szczyt", "trendUp"], ["Moc sterownika", "gauge"],
+  const TILE_ICONS = [["Na ciepłą wodę", "droplet"], ["Węgiel na wodę", "coal"], ["Woda na dobę", "shower"], ["Węgiel na", "target"], ["Węgiel", "coal"], ["Koszt", "coins"], ["Średnia moc", "zap"], ["Szczyt", "trendUp"], ["Moc sterownika", "gauge"],
     ["Na pełnej mocy", "flame"], ["Na minimum", "power"], ["Średnio", "bars"],
     ["Kocioł", "flame"], ["Grzejniki", "radiator"], ["Na zewnątrz", "thermometer"], ["Rozpalenia", "flame"], ["W normie", "target"],
     ["Od zadanej", "upDown"], ["Ostatni tydzień", "trendUp"], ["Ten sezon", "calendar"], ["Prognoza", "sparkles"], ["Zeszły sezon", "history"],
@@ -203,6 +205,49 @@
     $("coal-note").textContent = price() ? `Cena węgla: ${num(price(), 0)} zł/t` : "Wpisz cenę węgla w Ustawienia → Statystyki, żeby widzieć złotówki.";
 
     renderDaily();
+  }
+
+  // heating against hot water (estimate from the power above the night's line)
+  function renderHotWater() {
+    period = periods.water;
+    const hw = report.periods[period].hot_water;
+    $("hw-box").style.display = hw ? "" : "none";
+    $("hw-empty").style.display = hw ? "none" : "";
+    if (!hw) return;
+    $("hw-hours-icon").innerHTML = FBIcon("bath", "ic--inline ic--water");
+    const kgDay = hw.coal_kg_per_day;
+    $("hw-tiles").innerHTML = [
+      tile("Na ciepłą wodę", `${num(hw.share_pct, 0)}<small>%</small>`, "węgla"),
+      tile("Woda na dobę", num(hw.kwh_per_day, 1), "kWh"),
+      tile("Węgiel na wodę", num(kgDay, 1), price() && kgDay != null ? `kg/doba • ${num(pln(kgDay), 2)} zł` : "kg na dobę"),
+    ].join("");
+
+    // day by day: radiators and hot water stacked (longer periods only)
+    const { hourly, rows, labels } = periodSeries();
+    $("hw-days-box").style.display = hourly ? "none" : "";
+    $("hw-days-title").style.display = hourly ? "none" : "";
+    if (!hourly) {
+      $("hw-days-title").innerHTML = `${FBIcon("radiator", "ic--inline")} Każdego dnia [kWh]: grzejniki i ${FBIcon("droplet", "ic--inline ic--water")} ciepła woda - ${PERIOD_NAMES[period]}`;
+      const opts = baseOptions(true);
+      opts.scales.x.stacked = true;
+      opts.scales.y.stacked = true;
+      opts.scales.y.ticks.callback = (v) => `${num(v, 0)} kWh`;
+      hwDaysChart = draw(hwDaysChart, "chart-hw-days", {
+        labels,
+        datasets: [
+          { type: "bar", label: "Grzejniki", data: rows.map((d) => (d.cwu_kwh == null ? null : d.kwh - d.cwu_kwh)),
+            backgroundColor: "rgba(249, 115, 22, 0.8)", borderRadius: 4 },
+          { type: "bar", label: "Ciepła woda", data: rows.map((d) => d.cwu_kwh),
+            backgroundColor: "rgba(56, 189, 248, 0.85)", borderRadius: 4 },
+        ],
+      }, opts);
+    }
+    const hOpts = baseOptions();
+    hOpts.scales.y.ticks.callback = (v) => `${num(v, 1)}`;
+    hwHoursChart = draw(hwHoursChart, "chart-hw-hours", {
+      labels: hw.by_hour.map((_, h) => `${h}:00`),
+      datasets: [{ type: "bar", label: "kWh", data: hw.by_hour, backgroundColor: "rgba(56, 189, 248, 0.85)", borderRadius: 3 }],
+    }, hOpts);
   }
 
   function renderWork() {
@@ -488,6 +533,7 @@
     renderSeasons();
     renderWork();
     renderEfficiency();
+    renderHotWater();
     renderWeather();
   }
 
@@ -647,7 +693,7 @@
       if (!btn || !report) return;
       periods[g.dataset.scope] = btn.dataset.period;
       markRanges();
-      ({ usage: renderUsage, work: renderWork, eff: renderEfficiency })[g.dataset.scope]();
+      ({ usage: renderUsage, work: renderWork, eff: renderEfficiency, water: renderHotWater })[g.dataset.scope]();
     }));
     $("st2-refresh").addEventListener("click", () => { load(true); loadForecast(); });
     $("st2-tabs").addEventListener("click", (e) => {

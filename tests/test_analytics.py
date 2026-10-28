@@ -18,7 +18,8 @@ def rows(day, spec):
 
 def test_regulation_ignores_first_20_min_of_work():
     day = date(2026, 1, 10)
-    spec = [(s, "WORK", 40 if s < 1200 else 57.5, 57, 0) for s in range(0, 7200, 30)]
+    # lit at 06:00 (a day starting in WORK at midnight has been working since yesterday)
+    spec = [(6 * 3600 + s, "WORK", 40 if s < 1200 else 57.5, 57, 0) for s in range(0, 7200, 30)]
     agg = aggregate_day(day, rows(day, spec))
     reg = summarize([agg])["regulation"]
     assert reg["within_1"] == 100 and reg["mean_abs_error"] == 0.5
@@ -239,3 +240,30 @@ def test_stop_break_includes_the_ignition_after_it():
     rows.append({"data_czas": (start + timedelta(hours=3)).isoformat(), "tryb_pracy": "IGNITION"})  # a real ignition later
     st = stop_intervals(rows, start, start + timedelta(hours=4))
     assert [(x["start"][11:16], x["end"][11:19], x["minutes"]) for x in st] == [("08:44", "08:51:00", 8)]
+
+
+def test_hot_water_is_power_above_the_night_line():
+    from backend.core.analytics import hot_water_day, hot_water_summary
+    day = date(2026, 11, 5)
+    # outside 2 °C all day, night power 50%; 19-22 the boiler works at 70% (baths)
+    spec = []
+    for s in range(0, 86400, 30):
+        spec.append((s, "WORK", 56, 56, 2.0))
+    r = rows(day, spec)
+    for x in r:
+        h = int(x["data_czas"][11:13])
+        x["power"] = "70" if 19 <= h < 22 else "50"
+    agg = aggregate_day(day, r, energy_kwh=24 * 0.5 * 10 + 3 * 0.2 * 10)   # 10 kWh per hour at 100%
+    hw = hot_water_day(agg)
+    assert hw is not None
+    assert round(hw["kwh"], 1) == 6.0                       # 3 h x 20 points x 0.1 kWh
+    assert sum(hw["hours"][19:22]) == hw["kwh"] and sum(hw["hours"][:19]) == 0
+    s = hot_water_summary([agg])
+    assert s["share_pct"] == round(100 * 6 / 126) and s["by_hour"][20] == 2.0
+
+
+def test_hot_water_needs_a_night_in_work():
+    from backend.core.analytics import hot_water_day
+    day = date(2026, 11, 5)
+    spec = [(s, "OFF" if s < 8 * 3600 else "WORK", 56, 56, 2.0) for s in range(0, 86400, 30)]
+    assert hot_water_day(aggregate_day(day, rows(day, spec), energy_kwh=80)) is None

@@ -29,6 +29,7 @@
                 <button type="button" data-tab="forecast">Prognoza</button>
                 <button type="button" data-tab="work">Praca</button>
                 <button type="button" data-tab="efficiency">Sprawność</button>
+                <button type="button" data-tab="water">Woda</button>
               </div>
               <div class="st2-status" id="st2-status">Wczytywanie…</div>
 
@@ -39,6 +40,20 @@
                 <h3 class="st2-chart-title" id="daily-title"></h3>
                 <div class="st2-chart st2-chart--big"><canvas id="chart-daily"></canvas></div>
                 <div class="st2-note" id="coal-note"></div>
+              </section>
+
+              <!-- CIEPŁA WODA -->
+              <section class="st2-card st2-water" data-tab="water">
+                <div class="st2-card-head"><h2>Grzejniki a ciepła woda <span class="st2-sub" data-period-of="water"></span></h2><div class="st2-periods st2-range" data-scope="water"><button type="button" data-period="today">Dziś</button><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
+                <div id="hw-box">
+                  <div class="st2-hero" id="hw-tiles"></div>
+                  <h3 class="st2-chart-title" id="hw-days-title"></h3>
+                  <div class="st2-chart" id="hw-days-box"><canvas id="chart-hw-days"></canvas></div>
+                  <h3 class="st2-chart-title"><span id="hw-hours-icon"></span> Kiedy idzie ciepła woda [kWh w godzinie]</h3>
+                  <div class="st2-chart"><canvas id="chart-hw-hours"></canvas></div>
+                </div>
+                <div class="st2-empty" id="hw-empty">Za mało danych - potrzeba dnia, w którym piec pracował całą noc i jeszcze kilka godzin po niej.</div>
+                <div class="st2-note">Szacunek: noc 0–5 to samo grzanie domu. Co piec dał ponad to w innych godzinach przy tej samej pogodzie, poszło na ciepłą wodę. Liczone tylko z dni, gdy piec pracował całą noc.</div>
               </section>
 
               <!-- SEZON -->

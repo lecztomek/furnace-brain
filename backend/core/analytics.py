@@ -107,6 +107,8 @@ class DayAgg:
     pw_min_s: float = 0.0
     pw_jump: float = 0.0
     pw_jumps: int = 0
+    # hour of day in settled WORK (hot water estimate): [seconds, power*s, outside*s, outside seconds]
+    hw: List[List[float]] = field(default_factory=list)
 
     def avg(self, key: str) -> Optional[float]:
         w = self.weights.get(key, 0.0)
@@ -261,8 +263,23 @@ def aggregate_day(day: date, rows: List[Dict[str, str]], coal_kg: float = 0.0,
         else:
             ign_counted = False
         if mode == "WORK" and prev_mode != "WORK":
-            work_since = ts
+            # a day that starts in WORK has been working since yesterday - already settled
+            first_of_day = prev_mode is None and ts.hour == 0 and ts.minute < 5
+            work_since = ts - timedelta(days=1) if first_of_day else ts
         prev_mode = mode
+
+        # after lighting the boiler and the house catch up for ~2 h - not hot water
+        if mode == "WORK" and work_since is not None and (ts - work_since).total_seconds() >= HW_SETTLE_S:
+            pw, out = _float(r.get("power")), _float(r.get("temp_zewn"))
+            if pw is not None:
+                if not agg.hw:
+                    agg.hw = [[0.0] * 4 for _ in range(24)]
+                h = agg.hw[ts.hour]
+                h[0] += w
+                h[1] += pw * w
+                if out is not None:
+                    h[2] += out * w
+                    h[3] += w
 
         boiler = _float(r.get("temp_pieca"))
         values = {
@@ -783,6 +800,87 @@ def checks(period: Dict[str, Any], model: Dict[str, Any], last_full_day: Optiona
 
 # ---------------------------------------------------------------- whole report
 
+# ---------------------------------------------------------------- hot water (CWU) estimate
+# No tank sensor: the night (00-05, nobody takes water) is the heating alone. Any other hour gets
+# the night's power scaled to its outside temperature; what the boiler gave above that went to
+# hot water. Counted in 3 h blocks (the PID swings for ~1.5 h), a block below the line counts 0
+# (sun, a warmer house). Tank losses at night count as heating.
+HW_REF_HOURS = range(0, 5)
+HW_SETTLE_S = 2 * 3600       # after lighting, the boiler and the house catch up - not counted
+HW_REF_MIN_S = 3 * 3600      # at least 3 h of WORK in the night
+HW_HOUR_MIN_S = 45 * 60      # an hour counts with 45 min of WORK
+HW_MIN_DT = 4.0              # night at least 4 °C below HDD_BASE_C - a warm night says too little
+HW_BLOCKS = [(5, 8), (8, 11), (11, 14), (14, 17), (17, 20), (20, 23), (23, 24)]
+
+
+def _night_ref(agg: Optional["DayAgg"]) -> Optional[Tuple[float, float]]:
+    """(power %, outside °C) of the night 00-05 in WORK, or None."""
+    if agg is None or not agg.hw:
+        return None
+    ref_s = sum(agg.hw[h][0] for h in HW_REF_HOURS)
+    ref_out_s = sum(agg.hw[h][3] for h in HW_REF_HOURS)
+    if ref_s < HW_REF_MIN_S or ref_out_s < HW_REF_MIN_S:
+        return None
+    t_ref = sum(agg.hw[h][2] for h in HW_REF_HOURS) / ref_out_s
+    if HDD_BASE_C - t_ref < HW_MIN_DT:
+        return None
+    return sum(agg.hw[h][1] for h in HW_REF_HOURS) / ref_s, t_ref
+
+
+def hot_water_day(agg: "DayAgg") -> Optional[Dict[str, Any]]:
+    """{kwh, share, hours[24] (kWh above the heating line)} or None when the day can't tell.
+    Only days that worked through their night: on a day the boiler was lit the house is still
+    warming up in the evening, which would read as hot water."""
+    if not agg.hw or agg.energy_kwh <= 0:
+        return None
+    ref = _night_ref(agg)
+    if ref is None:
+        return None
+    p_ref, t_ref = ref
+    # kWh per (% power x hour) of this day - from the coal the feeder gave
+    pct_h = sum(h[1] for h in agg.hw) / 3600
+    if pct_h <= 0:
+        return None
+    kwh_per = agg.energy_kwh / pct_h
+    hours = [0.0] * 24
+    for a, b in HW_BLOCKS:
+        excess, per_hour = 0.0, {}
+        for h in range(a, b):
+            s_, ps, os_, on = agg.hw[h]
+            if s_ < HW_HOUR_MIN_S or on <= 0:
+                continue
+            t = os_ / on
+            expected = p_ref * max(0.0, HDD_BASE_C - t) / (HDD_BASE_C - t_ref)
+            per_hour[h] = (ps / s_ - expected) * s_ / 3600 * kwh_per
+            excess += per_hour[h]
+        if excess > 0:
+            pos = sum(v for v in per_hour.values() if v > 0)
+            for h, v in per_hour.items():
+                hours[h] = excess * v / pos if v > 0 else 0.0
+    kwh = sum(hours)
+    return {"kwh": kwh, "share": kwh / agg.energy_kwh, "hours": hours}
+
+
+def hot_water_summary(days: List["DayAgg"]) -> Optional[Dict[str, Any]]:
+    """The estimate over a period: kWh, share of the coal, per day and by hour of day."""
+    est = [(d, hot_water_day(d)) for d in days]
+    est = [(d, e) for d, e in est if e]
+    if not est:
+        return None
+    kwh = sum(e["kwh"] for _, e in est)
+    total = sum(d.energy_kwh for d, _ in est)
+    coal = sum(d.coal_kg for d, _ in est)
+    n = len(est)
+    return {
+        "days": n,
+        "kwh": round(kwh, 1),
+        "kwh_per_day": round(kwh / n, 1),
+        "share_pct": round(100 * kwh / total) if total else None,
+        "coal_kg_per_day": round(coal * kwh / total / n, 2) if total else None,
+        "by_hour": [round(sum(e["hours"][h] for _, e in est) / n, 2) for h in range(24)],
+    }
+
+
 class Analytics:
     def __init__(self, history_dir: Path, stats_dir: Path, events_dir: Path, cache_path: Path) -> None:
         self.history_dir = history_dir
@@ -811,8 +909,9 @@ class Analytics:
     def day(self, d: date, today: date, fallback_setpoint: Optional[float],
             indexes: Optional[Dict[str, Dict[str, List[Path]]]] = None) -> DayAgg:
         key = d.isoformat()
-        # days cached before the power stability fields: the last 30 are read again once
-        stale = key in self._cache and "pw_s" not in self._cache[key] and d >= today - timedelta(days=30)
+        # days cached before the power stability / hot water fields: the last 30 are read again once
+        stale = key in self._cache and ("pw_s" not in self._cache[key] or "hw" not in self._cache[key]) \
+            and d >= today - timedelta(days=30)
         if d < today and key in self._cache and not stale:
             return DayAgg.from_dict(self._cache[key])
         ix = indexes or {}
@@ -869,6 +968,12 @@ class Analytics:
             "d30": summarize(since(today - timedelta(days=29))),
             "season": summarize(since(season_start)),
         }
+        # hot water estimate: today and yesterday on their own, longer periods over their days
+        for key, part in (("today", since(today)),
+                          ("yesterday", [x for x in days if x.date == (today - timedelta(days=1)).isoformat()]),
+                          ("d7", since(today - timedelta(days=6))), ("d30", since(today - timedelta(days=29))),
+                          ("season", since(season_start))):
+            periods[key]["hot_water"] = hot_water_summary(part)
         by_date = {x.date: x for x in days}
         now_hour = datetime.now().hour if today == date.today() else 23
         # coal and the lowest boiler temp per hour only for the last two days - read on the fly, not cached
@@ -913,6 +1018,7 @@ class Analytics:
             **_settled_day(x),
             "power_work": _r(x.pw_sum / x.pw_s, 0) if x.pw_s >= 1800 else None,
             "power_std": _r(math.sqrt(max(0.0, x.pw_sq / x.pw_s - (x.pw_sum / x.pw_s) ** 2)), 1) if x.pw_s >= 1800 else None,
+            "cwu_kwh": _r((hot_water_day(x) or {}).get("kwh"), 1),
         } for x in since(min(season_start, today - timedelta(days=29)))]
 
         # efficiency trend: last 7 full days against the 3 weeks before

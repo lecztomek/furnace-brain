@@ -2,6 +2,10 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.40.0 · 28.10.2026 11:16
+- Statistics, new tab Woda: how much of the coal goes to hot water and how much to the radiators (estimate - the night 0-5 is heating alone, power above that line at the same outside temperature is hot water), per day and by hour of day, with water icons
+- A day that starts in WORK at midnight counts as settled from its first row (it has been working since yesterday)
+
 ## 1.39.5 · 28.10.2026 10:45
 - STOP breaks back as grey bands over the full chart height (behind the lines, lighter), the table of the last stops stays
 

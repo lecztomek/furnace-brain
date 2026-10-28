@@ -1440,3 +1440,7 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
 .wx--rain { color: #60a5fa; }
 .wx--snow { color: #bae6fd; }
 .wx--storm { color: #a78bfa; }
+/* hot water tab: blue instead of the fire orange */
+.st2-water .sv-tile__icon { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+.st2-water .sv-tile__val { color: #7dd3fc; }
+.ic--water { color: #38bdf8; }
