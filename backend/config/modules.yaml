@@ -3,120 +3,120 @@ modules:
     path: backend.modules.mode:ModeModule
     enabled: true
     critical: true
-    about: "Boiler mode: switches IGNITION to WORK once the boiler is hot enough and the ignition has lasted long enough."
+    about: "Tryb kotła: przełącza ROZPALANIE na PRACĘ, gdy kocioł jest dość gorący i rozpalanie trwało wystarczająco długo."
 
   - id: flameout
     path: backend.modules.flameout:FlameoutModule
     enabled: true
     critical: true
-    about: "Detects a fire that went out during WORK (no heat despite feeding) and stops the boiler (STOP)."
+    about: "Wykrywa wygaśnięcie ognia w PRACY (brak przyrostu ciepła mimo podawania) i zatrzymuje kocioł (STOP)."
 
   - id: power_ignition
     path: backend.modules.power_ignition:IgnitionPowerModule
     enabled: true
     critical: true
-    about: "Power % during IGNITION: brings the boiler up to the ignition setpoint."
+    about: "Moc % w ROZPALANIU: doprowadza kocioł do temperatury rozpalania."
 
   - id: power_work
     path: backend.modules.power_work:WorkPowerModule
     enabled: true
     critical: true
-    about: "Power % during WORK: PID to the boiler setpoint (optional lead from the flue gas), state kept across restarts."
+    about: "Moc % w PRACY: PID do zadanej kotła (opcjonalne wyprzedzanie spalinami), stan zachowany po restarcie."
 
   - id: blower
     path: backend.modules.blower:BlowerModule
     enabled: true
     critical: true
-    about: "Blower speed (PWM) from the power %, in its on/off cycle."
+    about: "Obroty dmuchawy (PWM) z mocy %, w jej cyklu pracy i przerwy."
 
   - id: feeder
     path: backend.modules.feeder:FeederModule
     enabled: true
     critical: true
-    about: "Auger: feed pulses and pauses from the power %."
+    about: "Ślimak: impulsy podawania i przerwy wyliczane z mocy %."
 
   - id: curve
     path: backend.modules.curve:CurveModule
     enabled: true
     critical: true
-    about: "Radiator target: the heating curve from the averaged outside temperature, or a fixed target."
+    about: "Zadana grzejników: krzywa grzewcza z uśrednionej temperatury zewnętrznej albo stała zadana."
 
   - id: mixer
     path: backend.modules.mixer:MixerModule
     enabled: true
     critical: true
-    about: "Mixing valve: open/close pulses to bring the radiator water to the target; closes when the boiler is too cold."
+    about: "Zawór mieszający: impulsy otwierania/zamykania, by woda na grzejniki miała zadaną; zamyka, gdy kocioł za zimny."
 
   - id: pump_cwu
     path: backend.modules.pump_cwu:CwuPumpModule
     enabled: true
     critical: true
-    about: "Hot water (CWU) pump: on above its boiler temperature, with hysteresis."
+    about: "Pompa ciepłej wody (CWU): włącza się powyżej swojej temperatury kotła, z histerezą."
 
   - id: pump_co
     path: backend.modules.pump_co:CoPumpModule
     enabled: true
     critical: true
-    about: "Central heating (CO) pump: on above its boiler temperature, with hysteresis (or forced on/off)."
+    about: "Pompa centralnego ogrzewania (CO): włącza się powyżej swojej temperatury kotła, z histerezą (albo wymuszona wł./wył.)."
 
   - id: stats
     path: backend.modules.stats:StatsModule
     enabled: true
     critical: true
-    about: "Coal and heat counting from the auger time: 5-minute and daily files, current kW and kg/h."
+    about: "Liczenie węgla i ciepła z czasu pracy ślimaka: pliki 5-minutowe i dobowe, bieżące kW i kg/h."
 
   - id: manual
     path: backend.modules.manual:ManualModule
     enabled: true
     critical: true
-    about: "MANUAL mode: sets the outputs chosen by hand on the manual page."
+    about: "Tryb RĘCZNY: ustawia wyjścia wybrane ręcznie na stronie sterowania ręcznego."
 
   - id: overheat
     path: backend.modules.overheat:OverheatModule
     enabled: true
     critical: true
-    about: "Overheat protection: boiler too hot (feed and air off, pumps on, valve open); hopper too hot (push the embers out)."
+    about: "Ochrona przed przegrzaniem: kocioł za gorący (stop podawania i powietrza, pompy wł., zawór otwarty); podajnik za gorący (wypchnięcie żaru)."
 
   - id: safety
     path: backend.modules.safety:SafetyModule
     enabled: true
     critical: true
-    about: "Missing sensor readings: without the boiler temperature feeding stops and the pumps run; events for the others."
+    about: "Brak odczytów czujników: bez temperatury kotła podawanie staje, a pompy pracują; dla pozostałych zdarzenia."
 
   - id: weather
     path: backend.modules.weather:WeatherModule
     enabled: true
     critical: false
-    about: "Outside temperature and forecast from the internet (Open-Meteo), published for the other modules."
+    about: "Temperatura zewnętrzna i prognoza z internetu (Open-Meteo), udostępniane innym modułom."
 
   - id: remote_view
     path: backend.modules.remote_view:RemoteViewModule
     enabled: true
     critical: false
-    about: "Pushes the state, history, logs and reports to Firebase for the read-only remote view."
+    about: "Wysyła stan, historię, logi i raporty do Firebase dla podglądu zdalnego (tylko odczyt)."
 
   - id: history
     path: backend.modules.history:HistoryModule
     enabled: true
     critical: false
-    about: "History: a CSV row every 30 s (temperatures, power, mode), one file per hour on the USB stick."
+    about: "Historia: wiersz CSV co 30 s (temperatury, moc, tryb), plik na każdą godzinę na pendrive."
 
   - id: eventlog
     path: backend.modules.eventlog:EventLogModule
     enabled: true
     critical: false
-    about: "Event log: every event of every module to CSV files on the USB stick."
+    about: "Dziennik zdarzeń: każde zdarzenie każdego modułu do plików CSV na pendrive."
 
   # settings only (Ustawienia -> Sprzęt): GPIO of each output, DS18B20 of each sensor
   - id: hardware
     path: backend.modules.hardware:HardwareModule
     enabled: true
     critical: false
-    about: "Wiring settings: which GPIO drives which output and which DS18B20 is which sensor."
+    about: "Podłączenia: który GPIO steruje którym wyjściem i który DS18B20 jest którym czujnikiem."
 
   # how the furnace was set up: every setting with the version, on the USB stick
   - id: settings_log
     path: backend.modules.settings_log:SettingsLogModule
     enabled: true
     critical: false
-    about: "Settings history: every setting with the app version on the USB stick - at the start, on a change, daily."
+    about: "Historia ustawień: wszystkie ustawienia z wersją programu na pendrive - przy starcie, po zmianie i codziennie."

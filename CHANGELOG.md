@@ -1,525 +1,529 @@
-# Changelog
+# Zmiany
 
-Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
+Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
+
+## 1.48.1 · 28.10.2026 16:25
+- Zmiany (Serwis → Zmiany) po polsku - cały changelog przetłumaczony, nowe wpisy też po polsku
+- Serwis → Moduły: opisy modułów po polsku
 
 ## 1.48.0 · 28.10.2026 16:18
-- Strojenie, "Po zmianach ustawień": a fuller before / after - wave, mean off the setpoint, time in ±2 °C, power swing and jerks, average power, power per degree of frost (coal with the weather taken out), flue and outside temperature, each with better / worse
-- After = from 30 min after the change to the next change or now, up to 3 days; before = as long, but not past the previous change. Notes for few data and a different weather; the app version running at the change is shown (updates don't split the comparison)
+- Strojenie, "Po zmianach ustawień": pełniejsze porównanie przed / po - fala, średnie odchylenie od zadanej, czas w ±2 °C, wahania i skoki mocy, średnia moc, moc na stopień mrozu (węgiel z odjętym wpływem pogody), temperatura spalin i na zewnątrz, każde z oceną lepiej / gorzej
+- Po = od 30 min po zmianie do następnej zmiany albo do teraz, maksymalnie 3 dni; przed = tyle samo, ale nie wcześniej niż poprzednia zmiana. Uwagi przy małej ilości danych i innej pogodzie; widać wersję aplikacji działającą w chwili zmiany (aktualizacje nie dzielą porównania)
 
 ## 1.47.1 · 28.10.2026 15:55
-- Tests: the remote view's fake local API knows /api/service/modules (1.47.0 was pushed with 4 failing tests - only the test fake was missing it)
+- Testy: udawane lokalne API podglądu zdalnego zna /api/service/modules (1.47.0 trafiła z 4 nieprzechodzącymi testami - brakowało tego tylko w atrapie testowej)
 
 ## 1.47.0 · 28.10.2026 15:47
-- Serwis → Moduły: every module with what it is responsible for (English, from modules.yaml), whether it is key (control loop) or auxiliary, its health and the last error with its time and count (kept after the module recovers); tap a row for the last log entry, the last warning / alarm and the step time. Also in the remote view
-- The kernel and the aux loop keep the last error of a module after it recovers; the state store keeps the last ordinary and the last problem event of every source
+- Serwis → Moduły: każdy moduł z opisem, za co odpowiada (po angielsku, z modules.yaml), czy jest kluczowy (pętla sterowania) czy pomocniczy, jego stan i ostatni błąd z godziną i liczbą wystąpień (zostaje po tym, jak moduł wróci do działania); dotknięcie wiersza pokazuje ostatni wpis w logu, ostatnie ostrzeżenie / alarm i czas kroku. Także w podglądzie zdalnym
+- Jądro i pętla pomocnicza pamiętają ostatni błąd modułu po jego naprawie; magazyn stanu trzyma ostatnie zwykłe i ostatnie problemowe zdarzenie każdego źródła
 
 ## 1.46.1 · 28.10.2026 15:41
-- Safety no longer looks into the overheat module: it doesn't block the mixing valve without a radiator reading at all - the valve doesn't regulate without its own sensor anyway (it holds still), while the overheat opening, the manual mode and the valve's cold-boiler closing (none needs the radiator temperature) still work
+- Moduł bezpieczeństwa nie zagląda już do modułu przegrzania: nie blokuje zaworu mieszającego, gdy w ogóle nie ma odczytu temperatury grzejników - zawór i tak nie reguluje bez własnego czujnika (stoi), a otwieranie przy przegrzaniu, tryb ręczny i zamykanie zaworu przy zimnym kotle (żadne z nich nie potrzebuje temperatury grzejników) nadal działają
 
 ## 1.46.0 · 28.10.2026 15:38
-- New module "Krzywa grzewcza" (curve): decides the radiator target (the curve from the averaged outside temperature, or the fixed target) - split off the mixing valve, which now only goes to that target. The target and curve settings move to Ustawienia → Krzywa grzewcza; the saved ones are taken over once (and kept in the valve's file for a rollback)
-- The outside temperature is read from the shared state where the weather module puts it (backend/core/outside.py) - the kernel no longer copies the weather into the sensors
-- Checked: 6 h of the simulator (ignition, work, weather +5 → -5 °C, curve on) give identical boiler and radiator temperatures and the same 243 valve moves before and after
+- Nowy moduł "Krzywa grzewcza" (curve): wyznacza zadaną dla grzejników (z krzywej według uśrednionej temperatury zewnętrznej albo stałą) - wydzielony z zaworu mieszającego, który teraz tylko dąży do tej zadanej. Ustawienia zadanej i krzywej przechodzą do Ustawienia → Krzywa grzewcza; zapisane wartości są przejmowane jednorazowo (i zostają w pliku zaworu na wypadek cofnięcia wersji)
+- Temperatura zewnętrzna jest czytana ze wspólnego stanu, do którego wpisuje ją moduł pogody (backend/core/outside.py) - jądro nie kopiuje już pogody do czujników
+- Sprawdzone: 6 h symulatora (rozpalanie, praca, pogoda +5 → -5 °C, krzywa włączona) daje identyczne temperatury kotła i grzejników oraz te same 243 ruchy zaworu przed i po zmianie
 
 ## 1.45.1 · 28.10.2026 15:28
-- Structure (no change in how the furnace works): the wiring moved out of main.py - the hardware layer reads it at the start (backend/hw/wiring.py), the Sprzęt module owns it (checks a save, passes a change to the hardware); main.py only puts the parts together
+- Porządki w kodzie (bez zmian w działaniu pieca): okablowanie wyniesione z main.py - warstwa sprzętowa czyta je przy starcie (backend/hw/wiring.py), należy ono do modułu Sprzęt (sprawdza zapis, przekazuje zmianę do sprzętu); main.py tylko składa części razem
 
 ## 1.45.0 · 28.10.2026 15:18
-- New module "Historia ustawień" (settings_log): every setting of every module with the app version and commit to the USB stick (settings_YYYYMM.jsonl) - at the start (each update), when a settings file changes (GUI or by hand) and once a day; secrets left out
-- Serwis → Strojenie, "Po zmianach ustawień": changes also from the settings history (what the event log missed) and app version updates, each compared 12 h before / after
+- Nowy moduł "Historia ustawień" (settings_log): każde ustawienie każdego modułu z wersją aplikacji i commitem zapisywane na pendrive (settings_YYYYMM.jsonl) - przy starcie (każda aktualizacja), przy zmianie pliku ustawień (w GUI albo ręcznie) i raz dziennie; bez sekretów
+- Serwis → Strojenie, "Po zmianach ustawień": zmiany także z historii ustawień (to, czego nie złapał dziennik zdarzeń) i aktualizacje wersji aplikacji, każda porównana 12 h przed / po
 
 ## 1.44.6 · 28.10.2026 14:24
-- Boiler overheat opens the mixing valve even when the radiator sensor has no reading (the safety module used to block the valve then, so the heat had nowhere to go to the house); outside an overheat a missing radiator reading still stops the valve
+- Przegrzanie kotła otwiera zawór mieszający nawet wtedy, gdy czujnik grzejników nie ma odczytu (wcześniej moduł bezpieczeństwa blokował wtedy zawór, więc ciepło nie miało jak odejść do domu); poza przegrzaniem brak odczytu grzejników nadal zatrzymuje zawór
 
 ## 1.44.5 · 28.10.2026 14:04
-- Overheat protection: the boiler (66 °C) and the hopper (burn-back, 60 °C) are guarded separately - before, a missing hopper reading (it drops out now and then) switched off the boiler overheat protection too, and the other way round
-- Without its reading a protection keeps its state: an alarm ends only when the sensor is back and has cooled down; the warning names the missing sensor
+- Ochrona przed przegrzaniem: kocioł (66 °C) i zasobnik (cofnięcie ognia, 60 °C) są pilnowane osobno - wcześniej brak odczytu zasobnika (od czasu do czasu znika) wyłączał też ochronę kotła przed przegrzaniem, i na odwrót
+- Bez odczytu ochrona zachowuje swój stan: alarm kończy się dopiero, gdy czujnik wróci i wystygnie; ostrzeżenie podaje, którego czujnika brakuje
 
 ## 1.44.4 · 28.10.2026 13:51
-- Ustawienia → Sprzęt: without the bus list (remote view) the saved sensors no longer show as "nie ma na przewodzie" - only the number; the remote view gets the list too (number and temperature)
+- Ustawienia → Sprzęt: bez listy z magistrali (podgląd zdalny) zapisane czujniki nie pokazują się już jako "nie ma na przewodzie" - tylko numer; podgląd zdalny też dostaje listę (numer i temperatura)
 
 ## 1.44.3 · 28.10.2026 13:47
-- Hot water estimate by the radiator supply, not the outside temperature: at a warm noon the radiators get as much as at night (the curve follows a many-hour average, the house cools slowly), so the old model read the whole noon as hot water (prod 28.10: 10.7 kWh by 14:35, now 2.1 kWh). The last 30 days are read again once
+- Szacunek ciepłej wody według zasilania grzejników, a nie temperatury zewnętrznej: w ciepłe południe grzejniki dostają tyle samo co w nocy (krzywa idzie za wielogodzinną średnią, dom wolno stygnie), więc stary model liczył całe południe jako ciepłą wodę (prod 28.10: 10.7 kWh do 14:35, teraz 2.1 kWh). Ostatnie 30 dni jest przeliczane jednorazowo
 
 ## 1.44.2 · 28.10.2026 13:27
-- Ustawienia → Sprzęt the other way round: each physical output (GPIO16, 20, 21, 6, 12) gets a function from a list, each of 6 sensor places gets a sensor picked from the ones found on the bus (number and temperature) and a role. Swapping the pumps = GPIO20 → pompa CO, GPIO21 → pompa CWU, one save
-- A function on two outputs or on none, a sensor or a role twice, no boiler sensor - refused with the reason; the defaults are still the original wiring
+- Ustawienia → Sprzęt odwrotnie: każde fizyczne wyjście (GPIO16, 20, 21, 6, 12) dostaje funkcję z listy, każde z 6 miejsc na czujnik dostaje czujnik wybrany spośród znalezionych na magistrali (numer i temperatura) i rolę. Zamiana pomp = GPIO20 → pompa CO, GPIO21 → pompa CWU, jeden zapis
+- Funkcja na dwóch wyjściach albo na żadnym, czujnik lub rola dwa razy, brak czujnika kotła - odrzucane z podaniem powodu; domyślnie nadal jest pierwotne okablowanie
 
 ## 1.44.1 · 28.10.2026 13:21
-- Ustawienia → Sprzęt: the blower is not in the GPIO list any more - it is not a relay, its speed is the PWM on GPIO19 to the YYAC-3S (fixed; the relay outputs may not use GPIO19). "Odwrócone PWM" stays
+- Ustawienia → Sprzęt: dmuchawy nie ma już na liście GPIO - to nie przekaźnik, jej obroty to PWM na GPIO19 do YYAC-3S (na stałe; wyjścia przekaźnikowe nie mogą używać GPIO19). "Odwrócone PWM" zostaje
 
 ## 1.44.0 · 28.10.2026 13:14
-- Ustawienia → Sprzęt: which GPIO drives the feeder, the CO and CWU pumps, the valve and the fan, and which DS18B20 is the boiler, hopper, radiators, CWU tank, return, after the valve - was hard-coded in main.py. The defaults are the old wiring, so the update changes nothing
-- A save with one GPIO twice, an unsafe pin (I2C, 1-Wire, SPI, serial) or one sensor in two places is refused with the reason; a broken file falls back to the old wiring (shown in Diagnostyka Pi)
-- A change applies at once and safely: all outputs LOW, then the next control step switches on what should be on (the fan PWM pin after a restart)
-- Serwis → Diagnostyka Pi → Czujniki 1-Wire: every sensor on the bus with its temperature and role, unassigned ones and assigned numbers missing from the bus
+- Ustawienia → Sprzęt: które GPIO steruje podajnikiem, pompami CO i CWU, zaworem i wentylatorem, i który DS18B20 to kocioł, zasobnik, grzejniki, zbiornik CWU, powrót, za zaworem - wcześniej wpisane na sztywno w main.py. Domyślnie stare okablowanie, więc aktualizacja niczego nie zmienia
+- Zapis z jednym GPIO dwa razy, z niebezpiecznym pinem (I2C, 1-Wire, SPI, port szeregowy) albo z jednym czujnikiem w dwóch miejscach jest odrzucany z podaniem powodu; uszkodzony plik oznacza powrót do starego okablowania (widać to w Diagnostyka Pi)
+- Zmiana działa od razu i bezpiecznie: wszystkie wyjścia na LOW, potem następny krok sterowania włącza to, co ma być włączone (pin PWM wentylatora po restarcie)
+- Serwis → Diagnostyka Pi → Czujniki 1-Wire: każdy czujnik na magistrali z temperaturą i rolą, nieprzypisane oraz przypisane numery, których nie ma na magistrali
 
 ## 1.43.0 · 28.10.2026 12:57
-- Tuning: a mild regular wave suggests the flue lead first ("Wyprzedzanie spalinami" 0 → 5, then up to 8); a softer Kp / Ki only once the lead is at 8
-- Tuning: after a PID setting change (Kp, Ki, flue lead, power limits, feeder dose) only the work since then counts - no suggestions from the old wave until 3 h of settled work after it
-- Tuning: the PID is judged from the last 12 h (was 24 h); the flue lead shows in "Po zmianach ustawień"
+- Strojenie: przy łagodnej, regularnej fali najpierw podpowiada wyprzedzanie spalinami ("Wyprzedzanie spalinami" 0 → 5, potem do 8); łagodniejsze Kp / Ki dopiero, gdy wyprzedzanie jest na 8
+- Strojenie: po zmianie ustawień PID (Kp, Ki, wyprzedzanie spalinami, limity mocy, dawka podajnika) liczy się tylko praca od tej chwili - żadnych podpowiedzi ze starej fali, dopóki nie minie 3 h ustabilizowanej pracy
+- Strojenie: PID oceniany z ostatnich 12 h (było 24 h); wyprzedzanie spalinami widać w "Po zmianach ustawień"
 
 ## 1.42.1 · 28.10.2026 12:51
-- The flue brake is called "Wyprzedzanie spalinami" in the settings - it works both ways: less power while the flue rises, more while it falls
+- Hamulec spalinowy nazywa się w ustawieniach "Wyprzedzanie spalinami" - działa w obie strony: mniej mocy, gdy spaliny rosną, więcej, gdy spadają
 
 ## 1.42.0 · 28.10.2026 12:46
-- Power in WORK: optional flue brake (Ustawienia → Moc w pracy → "Hamulec spalinowy", 0 = off, the default). The flue warms up 10-20 min before the boiler water, so power -= gain x flue trend [°C/min] (smoothed over 5 min, at most "Hamulec spalinowy - maks." points, a bad reading ignored, nothing without the sensor, starts over on entering WORK)
-- Checked on a boiler twin fitted to prod (wave ±1.4 °C every ~80 min, flue 14 min ahead): gain 8 brings the wave to ±0.5-1.0 °C, the same bath recovery, faster after a setpoint or load change
+- Moc w PRACY: opcjonalny hamulec spalinowy (Ustawienia → Moc w pracy → "Hamulec spalinowy", 0 = wyłączony, domyślnie). Spaliny nagrzewają się 10-20 min przed wodą w kotle, więc moc -= wzmocnienie x trend spalin [°C/min] (wygładzony z 5 min, maksymalnie "Hamulec spalinowy - maks." punktów, błędny odczyt pomijany, bez czujnika nic, liczone od nowa po wejściu w PRACĘ)
+- Sprawdzone na bliźniaku kotła dopasowanym do prod (fala ±1.4 °C co ~80 min, spaliny 14 min wcześniej): wzmocnienie 8 zmniejsza falę do ±0.5-1.0 °C, tak samo szybki powrót po kąpieli, szybciej po zmianie zadanej lub obciążenia
 
 ## 1.41.4 · 28.10.2026 12:36
-- Remote view: statistics no longer stuck on "liczę aktualne" - the pushed report is the last finished one, sent without the "still counting" mark
+- Podgląd zdalny: statystyki nie zawieszają się już na "liczę aktualne" - wysyłany raport to ostatni ukończony, bez znacznika "jeszcze liczę"
 
 ## 1.41.3 · 28.10.2026 12:27
-- Tuning: no hint about the curve's outside average (a one-time setting, not worth a row)
+- Strojenie: bez podpowiedzi o średniej zewnętrznej krzywej (ustawienie jednorazowe, nie warte osobnego wiersza)
 
 ## 1.41.2 · 28.10.2026 12:24
-- "W domu za ciepło albo za zimno" is a section of the "Co zmienić" card, not a card of its own
+- "W domu za ciepło albo za zimno" to sekcja karty "Co zmienić", a nie osobna karta
 
 ## 1.41.1 · 28.10.2026 12:23
-- "W domu za ciepło albo za zimno": by the outside temperature the curve is set for - too cold / too warm at 0 °C (curve_at_0), at -10 °C and at +10 °C (curve_slope), with the radiator temperatures before and after
-- Service tables on a phone: name and value on top, the text below - nothing cut off on the right
+- "W domu za ciepło albo za zimno": według temperatury zewnętrznej, dla której ustawia się krzywą - za zimno / za ciepło przy 0 °C (curve_at_0), przy -10 °C i przy +10 °C (curve_slope), z temperaturami grzejników przed i po
+- Tabele serwisowe na telefonie: nazwa i wartość u góry, tekst pod spodem - nic nie jest ucięte z prawej
 
 ## 1.41.0 · 28.10.2026 12:22
-- Tuning: a mild but regular boiler wave (±1-1.5 °C, every 40+ min) gets a hint to soften the PID (Kp and Ki -20%) - shown in yellow, not counted as a problem
-- Tuning: heating curve rows - the radiators at +5 / 0 / -10 / -15 °C and the power that would take in frost (rough, from today's work), a hint when the outside average is shorter than 12 h
-- Tuning: new card "W domu za ciepło albo za zimno" - which curve setting to change and to what, with the current values
+- Strojenie: łagodna, ale regularna fala kotła (±1-1.5 °C, co 40+ min) dostaje podpowiedź, by złagodzić PID (Kp i Ki -20%) - na żółto, nie liczona jako problem
+- Strojenie: wiersze krzywej grzewczej - grzejniki przy +5 / 0 / -10 / -15 °C i moc, jakiej wymagałoby to w mróz (z grubsza, z dzisiejszej pracy), podpowiedź, gdy średnia zewnętrzna jest krótsza niż 12 h
+- Strojenie: nowa karta "W domu za ciepło albo za zimno" - które ustawienie krzywej zmienić i na ile, z obecnymi wartościami
 
 ## 1.40.2 · 28.10.2026 11:44
-- Coal forecasts (tomorrow, season) and efficiency only use days the boiler burned for most of the day - a day it stood off half the time pulled every forecast down by about half
+- Prognozy węgla (jutro, sezon) i sprawność biorą tylko dni, w których kocioł palił się przez większość doby - dzień, w którym stał wyłączony przez połowę czasu, zaniżał każdą prognozę mniej więcej o połowę
 
 ## 1.40.1 · 28.10.2026 11:18
-- Hot water: the per-hour sums kept in the day cache are rounded (~0.7 KB a day instead of ~2 KB)
+- Ciepła woda: godzinowe sumy trzymane w pamięci dni są zaokrąglane (~0.7 KB na dzień zamiast ~2 KB)
 
 ## 1.40.0 · 28.10.2026 11:16
-- Statistics, new tab Woda: how much of the coal goes to hot water and how much to the radiators (estimate - the night 0-5 is heating alone, power above that line at the same outside temperature is hot water), per day and by hour of day, with water icons
-- A day that starts in WORK at midnight counts as settled from its first row (it has been working since yesterday)
+- Statystyki, nowa zakładka Woda: ile węgla idzie na ciepłą wodę, a ile na grzejniki (szacunek - noc 0-5 to samo ogrzewanie, moc ponad tę linię przy tej samej temperaturze zewnętrznej to ciepła woda), dziennie i według godziny doby, z ikonami wody
+- Dzień, który o północy zaczyna się w PRACY, liczy się jako ustabilizowany od pierwszego wiersza (pracuje od wczoraj)
 
 ## 1.39.5 · 28.10.2026 10:45
-- STOP breaks back as grey bands over the full chart height (behind the lines, lighter), the table of the last stops stays
+- Przerwy STOP wracają jako szare pasy na całą wysokość wykresu (za liniami, jaśniejsze), tabela ostatnich postojów zostaje
 
 ## 1.39.4 · 28.10.2026 10:44
-- Remote view: scripts and styles carry the version in their URL - after a deploy the page no longer mixes a new page with an old cached script ("Cannot set properties of null")
+- Podgląd zdalny: skrypty i style mają wersję w adresie - po wgraniu strona nie miesza już nowej strony ze starym skryptem z pamięci podręcznej ("Cannot set properties of null")
 
 ## 1.39.3 · 28.10.2026 10:31
-- STOP breaks no longer drawn over the charts: a strip under each 5 min chart (below the hours) and a table of the last stops (from, to, how long)
+- Przerwy STOP nie są już rysowane na wykresach: pasek pod każdym wykresem 5 min (pod godzinami) i tabela ostatnich postojów (od, do, jak długo)
 
 ## 1.39.2 · 28.10.2026 10:27
-- STOP bands: a break is the STOP plus the ignition right after it (a 2 min STOP was a sliver), at least 10 px wide with a marker on top
+- Pasy STOP: przerwa to STOP razem z rozpalaniem zaraz po nim (2-minutowy STOP był ledwie kreską), szerokość co najmniej 10 px ze znacznikiem u góry
 
 ## 1.39.1 · 28.10.2026 10:05
-- Tuning: the 2 h after a setpoint change (≥1 °C) are left out - a hot boiler overshooting a lower setpoint no longer reads as a PID swing
-- Tuning: a swing is reported from ±1.5 °C (was ±1.0), "bad" from ±2.5 °C - a coal bed reacts slowly, ±1-1.5 °C is normal
+- Strojenie: 2 h po zmianie zadanej (≥1 °C) są pomijane - gorący kocioł przestrzeliwujący niższą zadaną nie jest już brany za wahania PID
+- Strojenie: wahania zgłaszane od ±1.5 °C (było ±1.0), "źle" od ±2.5 °C - złoże węgla reaguje wolno, ±1-1.5 °C to norma
 
 ## 1.39.0 · 28.10.2026 09:59
-- Statistics, Praca: every STOP (coal added, ash taken out) as a grey band on the 5 min power and temperature charts, with a list of stops (time and minutes) under the temperature chart
-- Tuning: the blower row explains how to read the flame and ash (good / too little air / too much air)
+- Statystyki, Praca: każdy STOP (dosypanie węgla, wybranie popiołu) jako szary pas na 5-minutowych wykresach mocy i temperatury, z listą postojów (godzina i minuty) pod wykresem temperatury
+- Strojenie: wiersz dmuchawy wyjaśnia, jak oceniać płomień i popiół (dobrze / za mało powietrza / za dużo powietrza)
 
 ## 1.38.3 · 28.10.2026 10:30
-- Changelog: each version shows its tag or commit - what to enter in "Deploy to prod" to go back to it
+- Zmiany: każda wersja pokazuje swój tag albo commit - co wpisać w "Deploy to prod", żeby do niej wrócić
 
 ## 1.38.2 · 28.10.2026 10:25
-- Changelog as a timeline: versions grouped by day with their time, a strip of days on top (how many versions each day)
+- Zmiany jako oś czasu: wersje pogrupowane według dni z godziną, u góry pasek dni (ile wersji każdego dnia)
 
 ## 1.38.1 · 28.10.2026 10:23
-- Changelog lists every version (each fix too), with its date
+- Zmiany pokazują każdą wersję (także każdą poprawkę), z datą
 
 ## 1.38.0 · 28.10.2026 10:19
-- Service: 'Zmiany' tab with the changelog
+- Serwis: zakładka 'Zmiany' z listą zmian
 
 ## 1.37.9 · 28.10.2026 10:13
-- Pi diagnostics: all warnings under 'Do sprawdzenia'; no false logs warning
-- Disks / RAM low on space were only coloured bars - now listed too, so the 'są uwagi' badge always has its reason under it
-- The event log is compacted and written only when something happens: it is flagged after 30 min without a write, not after 3
+- Diagnostyka Pi: wszystkie ostrzeżenia pod 'Do sprawdzenia'; bez fałszywego ostrzeżenia o logach
+- Brak miejsca na dyskach / w RAM był tylko kolorowym paskiem - teraz jest też na liście, więc plakietka 'są uwagi' zawsze ma pod sobą powód
+- Dziennik zdarzeń jest kompaktowany i zapisywany tylko, gdy coś się dzieje: alarmuje po 30 min bez zapisu, a nie po 3
 
 ## 1.37.8 · 28.10.2026 10:09
-- Main page: outside average inside the temperature badge, like the radiators setpoint
+- Strona główna: średnia zewnętrzna w plakietce temperatury, tak jak zadana grzejników
 
 ## 1.37.7 · 28.10.2026 10:08
-- Pi diagnostics: details always shown under a heading
+- Diagnostyka Pi: szczegóły zawsze pod nagłówkiem
 
 ## 1.37.6 · 28.10.2026 10:03
-- Main page: outside average and its window under the outside temperature
+- Strona główna: średnia zewnętrzna i jej okno pod temperaturą zewnętrzną
 
 ## 1.37.5 · 28.10.2026 10:02
-- Statistics no longer stuck rebuilding; service tables; 5 min charts
-- Days re-read for the new power fields were never saved (the cache size didn't change), so every refresh read 30 days of files again and the page stayed on 'liczę aktualne'; now each day read from files counts as unsaved. A failed build is logged instead of swallowed.
-- Service: 'Co zmienić' and the problems in Kontrola / Diagnostyka as tables under a 'Do sprawdzenia' heading instead of cards
-- Regulation and power charts of the last day in 5 min steps
+- Statystyki nie zawieszają się już na przeliczaniu; tabele serwisowe; wykresy 5 min
+- Dni przeliczone na nowo dla nowych pól mocy nigdy nie były zapisywane (rozmiar pamięci dni się nie zmieniał), więc każde odświeżenie czytało 30 dni plików od nowa i strona stała na 'liczę aktualne'; teraz każdy dzień przeczytany z plików liczy się jako niezapisany. Nieudane przeliczenie trafia do logu, zamiast przepaść.
+- Serwis: 'Co zmienić' i problemy w Kontrola / Diagnostyka jako tabele pod nagłówkiem 'Do sprawdzenia' zamiast kart
+- Wykresy regulacji i mocy z ostatniej doby w krokach 5 min
 
 ## 1.37.4 · 28.10.2026 09:38
-- Pi diagnostics: one bar each for CPU, RAM, SD card and the USB stick
+- Diagnostyka Pi: po jednym pasku dla CPU, RAM, karty SD i pendrive'a
 
 ## 1.37.3 · 28.10.2026 09:30
-- Service page: rings and zone bars instead of plain tiles
-- Tuning: a ring with the share of time within 2 C of the setpoint and bars with good / so-so / bad zones and a marker for the deviation, the swing and the average power
-- Pi diagnostics: rings for CPU temperature, RAM and disk; status tiles with icons for power supply, internet, sensors (a dot each) and uptime
+- Strona serwisowa: pierścienie i paski stref zamiast zwykłych kafelków
+- Strojenie: pierścień z udziałem czasu w granicach 2 C od zadanej i paski ze strefami dobrze / średnio / źle oraz znacznikiem dla odchylenia, wahań i średniej mocy
+- Diagnostyka Pi: pierścienie dla temperatury CPU, RAM i dysku; kafelki stanu z ikonami dla zasilania, internetu, czujników (po kropce na każdy) i czasu działania
 
 ## 1.37.2 · 28.10.2026 09:26
-- Tuning advice rebuilt every 10 min instead of 30
+- Porady Strojenia przeliczane co 10 min zamiast co 30
 
 ## 1.37.1 · 28.10.2026 09:20
-- History refill after a restart: only the wanted hour files, in the background
+- Uzupełnianie historii po restarcie: tylko potrzebne pliki godzinowe, w tle
 
 ## 1.37.0 · 28.10.2026 09:07
-- Statistics: 'Moc pieca' card - kWh, power %, stability
-- Tiles: average and peak kW, average controller power with its spread, share of time at full power (>=90%) and at the minimum (<=25%)
-- Charts: heat per hour (last day) or per day in kWh; controller power in % every 10 min (last day) or the daily average in WORK
-- Per day: power sums in settled WORK; the last 30 cached days are read again once in the background to get them
+- Statystyki: karta 'Moc pieca' - kWh, moc %, stabilność
+- Kafelki: średnie i szczytowe kW, średnia moc regulatora z rozrzutem, udział czasu na pełnej mocy (>=90%) i na minimum (<=25%)
+- Wykresy: ciepło na godzinę (ostatnia doba) lub na dzień w kWh; moc regulatora w % co 10 min (ostatnia doba) lub średnia dzienna w PRACY
+- Dziennie: sumy mocy w ustabilizowanej PRACY; ostatnie 30 dni z pamięci jest jednorazowo przeliczane w tle, żeby je uzyskać
 
 ## 1.36.1 · 28.10.2026 08:57
-- Heating curve: 12 h average by default; a weather outage keeps the average
+- Krzywa grzewcza: domyślnie średnia z 12 h; awaria pogody zachowuje średnią
 
 ## 1.36.0 · 28.10.2026 08:56
-- Restart-proof: outputs parked while down, windows refilled from history
-- On shutdown the feeder, blower and mixing valve stop (the pins keep their state until the new process starts); with a boiler above 45 C the pumps run
-- Flame-out: the 30 min window is refilled from the history CSV, so the protection works right after a restart (only the unbroken WORK stretch)
-- Heating curve: the outside average (6 h) is refilled from the history instead of starting from the current reading
+- Odporność na restart: wyjścia wyłączone na czas przestoju, okna uzupełniane z historii
+- Przy wyłączaniu ślimak, dmuchawa i zawór mieszający stają (piny trzymają stan do startu nowego procesu); przy kotle powyżej 45 C pompy pracują
+- Wygaśnięcie: okno 30 min jest uzupełniane z pliku CSV historii, więc ochrona działa od razu po restarcie (tylko nieprzerwany odcinek PRACY)
+- Krzywa grzewcza: średnia zewnętrzna (6 h) jest uzupełniana z historii, zamiast zaczynać od bieżącego odczytu
 
 ## 1.35.6 · 28.10.2026 08:39
-- Kontrola over the last 3 days; every card names its period
-- Checks use a new 3-day period (today included); tiles counted over another period (efficiency trend, consumption vs weather) say so
-- Statistics cards show 'ostatnie 7 dni (od 22.10)' etc. next to the title, the season card its start; service cards say what they are counted from
+- Kontrola z ostatnich 3 dni; każda karta podaje swój okres
+- Sprawdzenia używają nowego okresu 3 dni (z dzisiejszym); kafelki liczone z innego okresu (trend sprawności, zużycie a pogoda) to zaznaczają
+- Karty statystyk pokazują 'ostatnie 7 dni (od 22.10)' itp. obok tytułu, karta sezonu jego początek; karty serwisowe mówią, z czego są liczone
 
 ## 1.35.5 · 28.10.2026 08:34
-- Regulation chart for the last day in 10 min steps
+- Wykres regulacji z ostatniej doby w krokach 10 min
 
 ## 1.35.4 · 28.10.2026 08:30
-- Regulation chart shows the lowest temperature of each hour; periods named on the tiles
+- Wykres regulacji pokazuje najniższą temperaturę każdej godziny; okresy podane na kafelkach
 
 ## 1.35.3 · 27.10.2026 21:14
-- Kontrola as small tiles with one number each, problems explained below
+- Kontrola jako małe kafelki z jedną liczbą każdy, problemy wyjaśnione poniżej
 
 ## 1.35.2 · 27.10.2026 21:00
-- Remote view: service page and forecast; README rewritten, CHANGELOG added
+- Podgląd zdalny: strona serwisowa i prognoza; README napisane od nowa, dodany CHANGELOG
 
 ## 1.35.1 · 27.10.2026 20:47
-- Kontrola moved from the statistics to the service page
+- Kontrola przeniesiona ze statystyk na stronę serwisową
 
 ## 1.35.0 · 27.10.2026 20:40
-- Statistics in the service page style; modern line icons instead of emoji
-- Statistics: big tiles with icons, short texts, checks as cards (details on tap, problems open), weather model as three tiles, bigger chart labels, nothing below 15 px
-- Js/icons.js: Lucide-style line icons in coloured chips on both pages, weather icons coloured by the sky
+- Statystyki w stylu strony serwisowej; nowoczesne ikony liniowe zamiast emoji
+- Statystyki: duże kafelki z ikonami, krótkie teksty, sprawdzenia jako karty (szczegóły po dotknięciu, problemy otwarte), model pogodowy jako trzy kafelki, większe opisy wykresów, nic poniżej 15 px
+- Js/icons.js: ikony liniowe w stylu Lucide w kolorowych plakietkach na obu stronach, ikony pogody barwione według nieba
 
 ## 1.34.0 · 27.10.2026 20:26
-- Service page redone: big icon tiles and cards, short texts, no small print
-- Tuning: three big tiles, the PID now as four boxes (power bar split into P and I), one card per area with the change in big digits; tap a card for its description; other areas only when something is wrong
-- Setting changes as before / after bars, hidden when there are none
-- Diagnostics: six big tiles, problems as cards, all details folded
-- Nothing smaller than 15 px
+- Strona serwisowa od nowa: duże kafelki z ikonami i karty, krótkie teksty, bez drobnego druku
+- Strojenie: trzy duże kafelki, PID teraz jako cztery pola (pasek mocy podzielony na P i I), jedna karta na obszar ze zmianą dużymi cyframi; dotknięcie karty pokazuje opis; pozostałe obszary tylko, gdy coś jest nie tak
+- Zmiany ustawień jako paski przed / po, ukryte, gdy ich nie ma
+- Diagnostyka: sześć dużych kafelków, problemy jako karty, wszystkie szczegóły zwinięte
+- Nic mniejszego niż 15 px
 
 ## 1.33.4 · 27.10.2026 19:41
-- Service page: burger menu works (missing app wrapper)
+- Strona serwisowa: menu (hamburger) działa (brakowało opakowania aplikacji)
 
 ## 1.33.3 · 27.10.2026 19:38
-- Diagnostics: when each background analysis ran and how long it took
+- Diagnostyka: kiedy uruchomiła się każda analiza w tle i ile trwała
 
 ## 1.33.2 · 27.10.2026 19:26
-- Service page and forecast refreshed less often
-- Tuning advice rebuilt at most every 30 min, nothing read before the page is opened
-- Service page refreshes every 30 s, system commands every 5 min
-- Weather forecast fetched every 3 h
+- Strona serwisowa i prognoza odświeżane rzadziej
+- Porady Strojenia przeliczane najwyżej co 30 min, nic nie jest czytane, zanim strona zostanie otwarta
+- Strona serwisowa odświeża się co 30 s, polecenia systemowe co 5 min
+- Prognoza pogody pobierana co 3 h
 
 ## 1.33.1 · 27.10.2026 19:23
-- Service page never waits for the analysis; past days read once
-- Tuning advice built in a background thread (first one with pauses, warm-up 2 min after start); a request returns at once, the page shows progress
-- Past days of history / events kept in memory, a rebuild reads only today
-- Data directories listed once per build instead of a glob per day
-- Diagnostics: system commands cached for a minute, newest data file found without a stat of every file
+- Strona serwisowa nigdy nie czeka na analizę; minione dni czytane raz
+- Porady Strojenia liczone w wątku w tle (pierwsze z przerwami, rozgrzewka 2 min po starcie); zapytanie wraca od razu, strona pokazuje postęp
+- Minione dni historii / zdarzeń trzymane w pamięci, przeliczenie czyta tylko dzisiejszy
+- Katalogi danych listowane raz na przeliczenie zamiast glob na każdy dzień
+- Diagnostyka: polecenia systemowe zapamiętywane na minutę, najnowszy plik danych znajdowany bez stat każdego pliku
 
 ## 1.33.0 · 27.10.2026 17:50
-- Service page instead of History: PID tuning advice and Raspberry Pi diagnostics; forecast tab in statistics
-- Serwis / Strojenie: integral (Ki), Kp, feeder dose and blower judged on the last 24 h of settled work (from 2 h after ignition), with concrete changes; the PID chain live (error, P, I, power, feeder rhythm, blower); setting changes compared 12 h before / after
-- Every settings change is logged (SETTINGS_CHANGED, old -> new)
-- Serwis / Diagnostyka Pi: CPU temperature, power supply (throttling), load, memory, disks, data recording, loop timing, internet, sensors, modules
-- Statystyki / Prognoza: Open-Meteo forecast for 3 days (fetched hourly) with the coal, cost and heat expected from the days the furnace ran
+- Strona serwisowa zamiast Historii: porady strojenia PID i diagnostyka Raspberry Pi; zakładka prognozy w statystykach
+- Serwis / Strojenie: całka (Ki), Kp, dawka podajnika i dmuchawa oceniane z ostatnich 24 h ustabilizowanej pracy (od 2 h po rozpaleniu), z konkretnymi zmianami; łańcuch PID na żywo (uchyb, P, I, moc, rytm podajnika, dmuchawa); zmiany ustawień porównywane 12 h przed / po
+- Każda zmiana ustawień jest logowana (SETTINGS_CHANGED, stara -> nowa)
+- Serwis / Diagnostyka Pi: temperatura CPU, zasilanie (dławienie), obciążenie, pamięć, dyski, zapis danych, czasy pętli, internet, czujniki, moduły
+- Statystyki / Prognoza: prognoza Open-Meteo na 3 dni (pobierana co godzinę) z węglem, kosztem i ciepłem oczekiwanymi na podstawie dni, w których piec pracował
 
 ## 1.32.2 · 27.10.2026 17:13
-- Statistics: kg on the left axis, zl on the right one, on the same grid lines
+- Statystyki: kg na lewej osi, zł na prawej, na tych samych liniach siatki
 
 ## 1.32.1 · 27.10.2026 17:10
-- Simulator: CWU tank 140 l like the real one
+- Symulator: zbiornik CWU 140 l, jak prawdziwy
 
 ## 1.32.0 · 27.10.2026 17:04
-- Statistics: simpler and bigger; ranges per card, only where they apply
-- Each card/tab has its own range (Dziś = last 24 h / 7 dni / 30 dni / Sezon) and everything under it follows it; the season chart, weather and checks have no range. 'Wczoraj' dropped.
-- Big headline numbers (coal, cost, per day; 'w normie' % of time).
-- Charts: one thing each, titled in words, thick lines without dots, bigger labels, one axis. Coal: bars only (kg/zl axis; tooltip kg, zl, kWh, outside temp). Regulation: boiler line over a green band (setpoint +-2 C) with room around it. Efficiency: hidden with a note until there are days with outside temperature. Drops: the last 5.
+- Statystyki: prostsze i większe; zakresy osobno dla każdej karty, tylko tam, gdzie mają sens
+- Każda karta/zakładka ma własny zakres (Dziś = ostatnie 24 h / 7 dni / 30 dni / Sezon) i wszystko pod nią za nim idzie; wykres sezonu, pogoda i sprawdzenia nie mają zakresu. Usunięte 'Wczoraj'.
+- Duże liczby na górze (węgiel, koszt, na dzień; 'w normie' % czasu).
+- Wykresy: każdy pokazuje jedną rzecz, z tytułem słownym, grube linie bez kropek, większe opisy, jedna oś. Węgiel: same słupki (oś kg/zł; dymek kg, zł, kWh, temperatura zewnętrzna). Regulacja: linia kotła na zielonym pasie (zadana +-2 C) z zapasem wokół. Sprawność: ukryta z dopiskiem, dopóki nie ma dni z temperaturą zewnętrzną. Spadki: ostatnie 5.
 
 ## 1.31.1 · 27.10.2026 16:56
-- Main page: the warning sign is just '!', a tap opens the list of problems
+- Strona główna: znak ostrzegawczy to samo '!', dotknięcie otwiera listę problemów
 
 ## 1.31.0 · 27.10.2026 16:56
-- Flame-out module; warning sign on the main page for every problem
+- Moduł wygaśnięcia; znak ostrzegawczy na stronie głównej przy każdym problemie
 
 ## 1.30.4 · 27.10.2026 16:46
-- Statistics: cost in zl on the coal charts
+- Statystyki: koszt w zł na wykresach węgla
 
 ## 1.30.3 · 27.10.2026 16:43
-- Statistics: coal per hour only for today and yesterday, read on the fly
+- Statystyki: węgiel na godzinę tylko dla dziś i wczoraj, czytany na bieżąco
 
 ## 1.30.2 · 27.10.2026 16:39
-- Statistics: charts follow the chosen period; energy in kWh instead of power %
+- Statystyki: wykresy idą za wybranym okresem; energia w kWh zamiast % mocy
 
 ## 1.30.1 · 27.10.2026 16:25
-- Statistics: requests never wait for a report build; build progress shown; coal price 1200 zl/t
+- Statystyki: zapytania nigdy nie czekają na przeliczenie raportu; widać postęp przeliczania; cena węgla 1200 zł/t
 
 ## 1.30.0 · 27.10.2026 16:17
-- Statistics: tabs, costs, season forecast and last season comparison; fewer misleading numbers
-- Tabs at the top: Zużycie / Praca / Sprawność / Kontrola (remembered).
-- Coal price setting (Statistics, zł/t): cost of the period, per day, of the season so far and forecast.
-- Season: used so far vs the same part of last season, forecast for the whole season (coal per degree-day x typical Nowy Sącz weather until the end of May), and a monthly chart of this season next to the previous one. The report now also reads last season's days.
-- Removed: peak power (5 min feeder bursts), energy in the coal, flue loss and flue temperature (the flue probe reads far too low), fan / feeder %. 'Jak trzyma temperaturę' cut to 3 tiles.
-- Checks: ignitions count only IGNITION lasting 5+ min (not clicks), the boiler sensor is bad only above 5% missing readings, no flue check.
+- Statystyki: zakładki, koszty, prognoza sezonu i porównanie z poprzednim sezonem; mniej mylących liczb
+- Zakładki u góry: Zużycie / Praca / Sprawność / Kontrola (zapamiętywane).
+- Ustawienie ceny węgla (Statystyki, zł/t): koszt okresu, na dzień, sezonu do tej pory i prognoza.
+- Sezon: zużycie do tej pory a ta sama część poprzedniego sezonu, prognoza na cały sezon (węgiel na stopniodzień x typowa pogoda w Nowym Sączu do końca maja) i miesięczny wykres tego sezonu obok poprzedniego. Raport czyta teraz także dni z poprzedniego sezonu.
+- Usunięte: moc szczytowa (5-minutowe serie podajnika), energia w węglu, strata kominowa i temperatura spalin (czujnik spalin pokazuje o wiele za nisko), % wentylatora / podajnika. 'Jak trzyma temperaturę' skrócone do 3 kafelków.
+- Sprawdzenia: rozpalenia liczą tylko ROZPALANIE trwające 5+ min (nie kliknięcia), czujnik kotła jest zły dopiero powyżej 5% brakujących odczytów, bez sprawdzania spalin.
 
 ## 1.29.1 · 27.10.2026 16:01
-- PID: changing ki doesn't make the power jump
+- PID: zmiana ki nie powoduje skoku mocy
 
 ## 1.29.0 · 27.10.2026 15:53
-- Simulator fitted to the real boiler; staging settings = prod; all tests pass
-- Coal reaches the fire 6 min after the feeder (retort) and burns over ~15 min; boiler inertia 240 kg water equivalent (real: temperature keeps going ~30 min after a power drop, ignition 33->55 C in ~1 h);
-- House load ~4.3 kW at 0 C / half at +10 C, ~75% efficiency, small boiler/CWU losses, feeder 12 kg/h, unburnt coal only ~5% with the fan off (was ~70% at a 28% fan, so the boiler needed 90% power);
-- With last season's settings it reproduces the real boiler: 1.5 C below the setpoint, swing 0.57 C, 56% power at 0 C (real 1.1-1.8 / 0.6 / 53%).
+- Symulator dopasowany do prawdziwego kotła; ustawienia staging = prod; wszystkie testy przechodzą
+- Węgiel dociera do ognia 6 min po podaniu ślimakiem (retorta) i spala się przez ~15 min; bezwładność kotła 240 kg ekwiwalentu wody (w rzeczywistości temperatura rośnie jeszcze ~30 min po spadku mocy, rozpalanie 33->55 C w ~1 h);
+- Zapotrzebowanie domu ~4.3 kW przy 0 C / połowa przy +10 C, sprawność ~75%, małe straty kotła/CWU, podajnik 12 kg/h, niespalony węgiel tylko ~5% przy wyłączonym wentylatorze (było ~70% przy wentylatorze 28%, więc kocioł potrzebował 90% mocy);
+- Z ustawieniami z poprzedniego sezonu odtwarza prawdziwy kocioł: 1.5 C poniżej zadanej, wahania 0.57 C, 56% mocy przy 0 C (w rzeczywistości 1.1-1.8 / 0.6 / 53%).
 
 ## 1.28.3 · 27.10.2026 15:08
-- Curve change logged with the new target; statistics: last 24 h always, power in kW; mixer tests fixed
-- Mixer: saving new heating curve settings logs MIXER_CURVE_CHANGED with the target it gives now.
-- Statistics: 'Regulacja w ciągu doby' always shows the last 24 hours (the page opens on 7 days, which showed the 0-23 average); the period buttons change the drops table and the worst-hour note. 'Praca pieca' shows the average power in kW (controller % in the unit line).
-- Test_mixer_module: advance the monotonic clock the module times its pulses on, and use its own settings directory.
+- Zmiana krzywej logowana z nową zadaną; statystyki: zawsze ostatnie 24 h, moc w kW; poprawione testy zaworu mieszającego
+- Zawór mieszający: zapis nowych ustawień krzywej grzewczej loguje MIXER_CURVE_CHANGED z zadaną, jaką daje w tej chwili.
+- Statystyki: 'Regulacja w ciągu doby' zawsze pokazuje ostatnie 24 godziny (strona otwiera się na 7 dniach, co pokazywało średnią 0-23); przyciski okresu zmieniają tabelę spadków i uwagę o najgorszej godzinie. 'Praca pieca' pokazuje średnią moc w kW (% regulatora w wierszu jednostki).
+- Test_mixer_module: przesuwa zegar monotoniczny, według którego moduł odmierza impulsy, i używa własnego katalogu ustawień.
 
 ## 1.28.2 · 27.10.2026 14:40
-- Less SD card wear: no log line per HTTP request
+- Mniejsze zużycie karty SD: bez wpisu w logu przy każdym zapytaniu HTTP
 
 ## 1.28.1 · 27.10.2026 14:20
-- Statistics: regulation chart shows the last 24 hours for 'today'
+- Statystyki: wykres regulacji pokazuje ostatnie 24 godziny dla 'dziś'
 
 ## 1.28.0 · 27.10.2026 14:09
-- PID: classic integral doesn't wind up while the boiler heads for the setpoint
+- PID: klasyczna całka nie narasta, gdy kocioł dochodzi do zadanej
 
 ## 1.27.4 · 27.10.2026 13:19
-- Classic PID integral back on by default
+- Klasyczna całka PID znów domyślnie włączona
 
 ## 1.27.3 · 27.10.2026 13:13
-- Remote view: log entries with the same timestamp no longer overwrite each other
+- Podgląd zdalny: wpisy w logu z tym samym czasem nie nadpisują się już nawzajem
 
 ## 1.27.2 · 27.10.2026 12:55
-- Classic PID integral off by default
+- Klasyczna całka PID domyślnie wyłączona
 
 ## 1.27.1 · 27.10.2026 12:53
-- Remote view: 15 min summary in the log of what was sent
+- Podgląd zdalny: co 15 min podsumowanie w logu tego, co zostało wysłane
 
 ## 1.27.0 · 27.10.2026 12:02
-- PID holds the setpoint: classic integral with anti-windup
+- PID trzyma zadaną: klasyczna całka z ochroną przed nasyceniem (anti-windup)
 
 ## 1.24.0 · 27.10.2026 10:44
-- Remove the fuzzy and predictive power regulators
+- Usunięte regulatory mocy rozmyty i predykcyjny
 
 ## 1.23.6 · 27.10.2026 09:25
-- Main page: pump status dots were swapped
+- Strona główna: kropki stanu pomp były zamienione
 
 ## 1.23.5 · 27.10.2026 09:22
-- CO pump: settings changed in the GUI apply at once; its mode works
+- Pompa CO: ustawienia zmienione w GUI działają od razu; jej tryb działa
 
 ## 1.23.4 · 27.10.2026 09:14
-- Main page: radiators temperature on the radiator, with its setpoint
+- Strona główna: temperatura grzejników na grzejniku, z jej zadaną
 
 ## 1.23.3 · 27.10.2026 08:55
-- Phone: menu button in one place on every page; history scrolls
-- The menu button sits in the bottom right corner on every page on a phone (main, manual, statistics too - before it was on the left there)
-- History: the page scrolls, so all series buttons under the chart can be reached; compact series buttons, fixed chart height
-- Manual mode: long names wrap instead of pushing the switches off the screen
+- Telefon: przycisk menu w jednym miejscu na każdej stronie; historia się przewija
+- Przycisk menu jest w prawym dolnym rogu na każdej stronie na telefonie (także główna, ręczna, statystyki - wcześniej był tam po lewej)
+- Historia: strona się przewija, więc da się dojść do wszystkich przycisków serii pod wykresem; zwarte przyciski serii, stała wysokość wykresu
+- Tryb ręczny: długie nazwy się zawijają, zamiast wypychać przełączniki poza ekran
 
 ## 1.23.2 · 27.10.2026 08:53
-- Statistics show at once after a restart
-- The last report is saved to analytics_report.json; after a restart the page shows it right away ("Stan na HH:MM • liczę aktualne…") while a fresh one is built in the background, and reloads itself when it's ready
-- The per-day cache is saved every 10 newly computed days, so a restart in the middle of a long first build (months of CSV on the Pi) no longer throws the work away - with many deploys in a row it restarted from zero every time
-- The background build starts 5 s after start instead of 20 s
+- Statystyki widać od razu po restarcie
+- Ostatni raport jest zapisywany do analytics_report.json; po restarcie strona od razu go pokazuje ("Stan na HH:MM • liczę aktualne…"), a w tle liczy się nowy, i sama się przeładowuje, gdy jest gotowy
+- Pamięć dni jest zapisywana co 10 nowo policzonych dni, więc restart w środku długiego pierwszego przeliczania (miesiące CSV na Pi) nie wyrzuca już pracy - przy wielu wgraniach z rzędu za każdym razem zaczynało się od zera
+- Przeliczanie w tle startuje 5 s po starcie zamiast 20 s
 
 ## 1.23.1 · 26.10.2026 19:46
-- Steady kW / kg/h on the main page: measured over whole feeder cycles
+- Stabilne kW / kg/h na stronie głównej: mierzone z pełnych cykli podajnika
 
 ## 1.23.0 · 26.10.2026 19:44
-- Main page: current coal use in kg/h under the heat output
+- Strona główna: bieżące zużycie węgla w kg/h pod mocą cieplną
 
 ## 1.22.4 · 26.10.2026 19:04
-- Settings on the 800x480 panel: modules in one scrolled row
+- Ustawienia na panelu 800x480: moduły w jednym przewijanym rzędzie
 
 ## 1.22.3 · 26.10.2026 19:01
-- Settings usable on a phone
+- Ustawienia da się obsługiwać na telefonie
 
 ## 1.22.2 · 26.10.2026 18:59
-- Logs and history readable on a phone
-- Logs (screens up to 640 px wide): each entry as a card - time, source and level on the first line, the message (2 lines) under it; filters in two columns; no column header row
-- History: compact range bar (one row of buttons, compare and refresh under it), taller chart
-- Both: the menu button moves to the bottom right corner, so it doesn't cover the list / chart
-- Log times in Polish short format ("26.10, 18:00:04") everywhere
+- Logi i historia czytelne na telefonie
+- Logi (ekrany do 640 px szerokości): każdy wpis jako karta - czas, źródło i poziom w pierwszej linii, wiadomość (2 linie) pod spodem; filtry w dwóch kolumnach; bez wiersza nagłówków kolumn
+- Historia: zwarty pasek zakresu (jeden rząd przycisków, porównanie i odświeżanie pod nim), wyższy wykres
+- Obie: przycisk menu przechodzi do prawego dolnego rogu, żeby nie zasłaniał listy / wykresu
+- Czasy w logach wszędzie w krótkim polskim formacie ("26.10, 18:00:04")
 
 ## 1.22.1 · 26.10.2026 18:56
-- Revert phone alerts (ntfy) - postponed
+- Wycofane powiadomienia na telefon (ntfy) - przełożone na później
 
 ## 1.22.0 · 26.10.2026 18:55
-- Phone alerts through ntfy - cold flue gas at high power
+- Powiadomienia na telefon przez ntfy - zimne spaliny przy dużej mocy
 
 ## 1.21.3 · 26.10.2026 18:53
-- Page icon: flame in the browser tab and on phone/tablet home screens
+- Ikona strony: płomień w karcie przeglądarki i na ekranie głównym telefonu/tabletu
 
 ## 1.21.2 · 26.10.2026 17:12
-- No-data warning sign: main page only, bottom left corner
+- Znak ostrzegawczy braku danych: tylko na stronie głównej, w lewym dolnym rogu
 
 ## 1.21.1 · 26.10.2026 17:10
-- No-data warning as a big road-sign triangle over the tank
+- Ostrzeżenie o braku danych jako duży trójkątny znak drogowy nad zbiornikiem
 
 ## 1.21.0 · 26.10.2026 17:08
-- Statistics: regulation over the day; warning when data stops
-- Statistics page, card "Regulacja w ciągu doby": for each hour of the day the average boiler temperature vs the setpoint, the share of time more than 4 C below it and the average power, plus the list of drops (when, how long, lowest temperature, power before and at most) - the evening bath dips show up at once
-- Every page (also the remote view): "⚠ Brak nowych danych od HH:MM (N min)" at the top when the control loop timestamp stops changing for 30 s (90 s in the remote view) or the backend doesn't answer; data older than 5 min is flagged right at page load
+- Statystyki: regulacja w ciągu doby; ostrzeżenie, gdy przestają płynąć dane
+- Strona statystyk, karta "Regulacja w ciągu doby": dla każdej godziny doby średnia temperatura kotła a zadana, udział czasu ponad 4 C poniżej niej i średnia moc, do tego lista spadków (kiedy, jak długo, najniższa temperatura, moc przed i maksymalna) - wieczorne spadki przy kąpieli widać od razu
+- Każda strona (także podgląd zdalny): "⚠ Brak nowych danych od HH:MM (N min)" u góry, gdy znacznik czasu pętli sterowania nie zmienia się przez 30 s (90 s w podglądzie zdalnym) albo backend nie odpowiada; dane starsze niż 5 min są oznaczane od razu przy ładowaniu strony
 
 ## 1.20.0 · 26.10.2026 16:52
-- Errors on the logs page say what failed and why
-- Every unexpected API error (HTTP 500) is logged with the request, the error and the last lines of the traceback (source "api"), at most every 10 min for the same error; the answer carries the error text
-- Remote view: each part (state, history and logs, statistics, settings, 5 min history, cleanup) is sent and reported separately - a failing endpoint is named with the HTTP status and the server's answer, and the rest still goes out
-- Remote view and weather: a problem is logged when it starts or changes, repeated every 30 min while it lasts (with the number of attempts) and logged again when it is fixed; DNS, timeouts and refused connections are described in plain words
+- Błędy na stronie logów mówią, co nie zadziałało i dlaczego
+- Każdy nieoczekiwany błąd API (HTTP 500) jest logowany z zapytaniem, błędem i ostatnimi liniami śladu (traceback) (źródło "api"), najwyżej co 10 min dla tego samego błędu; odpowiedź zawiera treść błędu
+- Podgląd zdalny: każda część (stan, historia i logi, statystyki, ustawienia, historia 5 min, sprzątanie) jest wysyłana i raportowana osobno - niedziałający endpoint jest podawany ze statusem HTTP i odpowiedzią serwera, a reszta i tak wychodzi
+- Podgląd zdalny i pogoda: problem jest logowany, gdy się zaczyna lub zmienia, powtarzany co 30 min, dopóki trwa (z liczbą prób), i logowany ponownie, gdy zostanie naprawiony; DNS, przekroczenia czasu i odrzucone połączenia opisane prostymi słowami
 
 ## 1.19.3 · 26.10.2026 16:41
-- Main page: pump dots back beside the pumps, only lower
+- Strona główna: kropki pomp z powrotem obok pomp, tylko niżej
 
 ## 1.19.2 · 26.10.2026 16:39
-- Main page: pump status dots under the pumps
+- Strona główna: kropki stanu pomp pod pompami
 
 ## 1.19.1 · 26.10.2026 16:35
-- Main page: heat output next to the power percent
+- Strona główna: moc cieplna obok procentu mocy
 
 ## 1.19.0 · 26.10.2026 16:28
-- Main page: current heat output in kW
+- Strona główna: bieżąca moc cieplna w kW
 
 ## 1.18.1 · 26.10.2026 15:33
-- GUI reloads itself after an update
+- GUI samo się przeładowuje po aktualizacji
 
 ## 1.18.0 · 26.10.2026 15:21
-- Main page: "DMUCHAWA RĘCZNIE" switch next to the blower
+- Strona główna: przełącznik "DMUCHAWA RĘCZNIE" obok dmuchawy
 
 ## 1.17.0 · 26.10.2026 15:13
-- Boiler mode survives restarts - updates and power cuts
+- Tryb kotła przetrwa restarty - aktualizacje i zaniki prądu
 
 ## 1.16.4 · 26.10.2026 14:52
-- Logs: filtered search reads only the last two hour files
+- Logi: wyszukiwanie z filtrem czyta tylko dwa ostatnie pliki godzinowe
 
 ## 1.16.3 · 26.10.2026 14:51
-- Logs: fast search by source on the Pi
-- For a rarely logging module the page waited for minutes. Files that
+- Logi: szybkie wyszukiwanie według źródła na Pi
+- Przy rzadko logującym module strona czekała minutami. Pliki, które nie zawierają szukanej wartości, są teraz pomijane bez parsowania, a wyszukiwanie z filtrem kończy się po 10 s i zwraca to, co znalazło
 
 ## 1.16.2 · 26.10.2026 14:38
-- Statistics: read damaged CSV files; menu on narrow screens
+- Statystyki: czytanie uszkodzonych plików CSV; menu na wąskich ekranach
 
 ## 1.16.1 · 26.10.2026 14:30
-- Fix: backend stopped answering on the Raspberry Pi
+- Poprawka: backend przestawał odpowiadać na Raspberry Pi
 
 ## 1.16.0 · 26.10.2026 13:22
-- Remote view on GitHub Pages + Firebase instead of Render
+- Podgląd zdalny na GitHub Pages + Firebase zamiast Render
 
 ## 1.15.0 · 26.10.2026 13:09
-- Statistics: efficiency - coal per degree-day and estimated flue loss
-- Kg of coal per heating degree-day (base 18 °C) per period and per day: the same house at the same weather should need the same coal, so a rise points at a dirty boiler
-- Estimated flue gas loss (Siegert, coal coefficients, assumed 10 % CO2, 20 °C boiler room) from the flue temperature in WORK
-- Trend: last 7 full days vs the 3 weeks before; check warns at +15 %
-- "Efektywność" card with tiles, a 30-day trend chart and an explanation; per-day values only for (nearly) full days
+- Statystyki: sprawność - węgiel na stopniodzień i szacowana strata kominowa
+- Kg węgla na grzewczy stopniodzień (baza 18 °C) dla okresu i dla każdego dnia: ten sam dom przy tej samej pogodzie powinien potrzebować tyle samo węgla, więc wzrost wskazuje na brudny kocioł
+- Szacowana strata kominowa (Siegert, współczynniki dla węgla, założone 10 % CO2, 20 °C w kotłowni) z temperatury spalin w PRACY
+- Trend: ostatnie 7 pełnych dni a 3 tygodnie wcześniej; sprawdzenie ostrzega przy +15 %
+- Karta "Efektywność" z kafelkami, wykresem trendu z 30 dni i wyjaśnieniem; wartości dzienne tylko dla (prawie) pełnych dni
 
 ## 1.14.0 · 26.10.2026 13:04
-- History: 7 days with averaging, compare with yesterday; faster statistics
-- History API: max_points averages rows in time buckets (numbers averaged, mode = most frequent), only files inside the range are read; the page asks for at most 900 points - 7 days load as ~840 points instead of ~19k
-- History page: "7 dni" range, "porównaj z wczoraj" (same series 24 h earlier, dashed), real time axis, gaps in the data stay empty, label for the setpoint series
-- Statistics: report precomputed in the background after start-up and reused for a minute (refresh button recomputes)
-- Viewer: same max_points support
+- Historia: 7 dni z uśrednianiem, porównanie z wczoraj; szybsze statystyki
+- API historii: max_points uśrednia wiersze w przedziałach czasu (liczby uśredniane, tryb = najczęstszy), czytane są tylko pliki z zakresu; strona prosi o najwyżej 900 punktów - 7 dni ładuje się jako ~840 punktów zamiast ~19k
+- Strona historii: zakres "7 dni", "porównaj z wczoraj" (ta sama seria 24 h wcześniej, przerywana), prawdziwa oś czasu, luki w danych zostają puste, opis serii zadanej
+- Statystyki: raport liczony z góry w tle po starcie i używany ponownie przez minutę (przycisk odświeżania liczy od nowa)
+- Podgląd: ta sama obsługa max_points
 
 ## 1.13.0 · 26.10.2026 12:51
-- Statistics: energy in kWh, average and peak heat output
-- Energy from coal (kWh, per day), average heat output (kW) and the highest 5 min output per period; kWh per day in the weather model
-- Note on the page: energy in the fuel (calorific value), without boiler efficiency
-- Demo data energy computed like the stats module (no efficiency factor)
+- Statystyki: energia w kWh, średnia i szczytowa moc cieplna
+- Energia z węgla (kWh, na dzień), średnia moc cieplna (kW) i najwyższa moc z 5 min dla okresu; kWh na dzień w modelu pogodowym
+- Dopisek na stronie: energia w paliwie (wartość opałowa), bez sprawności kotła
+- Energia w danych demo liczona jak w module statystyk (bez współczynnika sprawności)
 
 ## 1.12.0 · 26.10.2026 12:49
-- Remote read-only view of the furnace
-- New aux module "Podgląd zdalny" (remote_view, off by default): a background thread reads the local API (state, manual, history and log increments, statistics report, settings) and pushes it gzipped to the viewer; server address and token from /etc/furnace-brain.env; only sends, never receives
-- Backend/viewer.py: separate app serving the unchanged GUI on the pushed data, same read API shapes as the Pi; every write is accepted and ignored (replies carry the real values); push requires the token; optional viewing password; health endpoint
-- Render.yaml: furnace-brain-view service on the prod branch (token generated by Render)
-- Tests for the viewer (push, token, ignored writes, gzip)
+- Zdalny podgląd pieca tylko do odczytu
+- Nowy moduł pomocniczy "Podgląd zdalny" (remote_view, domyślnie wyłączony): wątek w tle czyta lokalne API (stan, tryb ręczny, przyrosty historii i logów, raport statystyk, ustawienia) i wysyła je skompresowane gzipem do podglądu; adres serwera i token z /etc/furnace-brain.env; tylko wysyła, nigdy nie odbiera
+- Backend/viewer.py: osobna aplikacja serwująca niezmienione GUI na wysłanych danych, z tymi samymi kształtami API odczytu co na Pi; każdy zapis jest przyjmowany i ignorowany (odpowiedzi zawierają prawdziwe wartości); wysyłanie wymaga tokenu; opcjonalne hasło do oglądania; endpoint stanu zdrowia
+- Render.yaml: usługa furnace-brain-view na gałęzi prod (token generowany przez Render)
+- Testy podglądu (wysyłanie, token, ignorowane zapisy, gzip)
 
 ## 1.11.0 · 26.10.2026 12:33
-- New statistics page: coal, averages, regulation quality, checks, weather model
-- Backend/core/analytics.py: per-day aggregates from history (30 s rows), coal buckets and event log; past days cached in analytics_days.json; periods today / yesterday / 7 d / 30 d / season
-- GET /api/analytics/report: coal (total, per day, per hour), averages (power, boiler, radiators, flue, outside, blower, feeder), time in modes, ignitions, regulation quality in settled WORK (within ±1/±2 °C, mean error, σ, max over/under, grade), health checks with ok/warn/bad, and a linear model of coal and power vs outside temperature
-- History records the WORK setpoint ("zadana") for the regulation stats
-- Stats page rebuilt around the report (period buttons, daily coal vs outside temperature chart, scatter with trend line)
-- Test environment: FURNACE_BRAIN_DEMO_DAYS seeds past days of demo data (simulator only), set to 30 on Render
+- Nowa strona statystyk: węgiel, średnie, jakość regulacji, sprawdzenia, model pogodowy
+- Backend/core/analytics.py: dzienne zestawienia z historii (wiersze co 30 s), porcji węgla i dziennika zdarzeń; minione dni zapamiętywane w analytics_days.json; okresy dziś / wczoraj / 7 d / 30 d / sezon
+- GET /api/analytics/report: węgiel (łącznie, na dzień, na godzinę), średnie (moc, kocioł, grzejniki, spaliny, na zewnątrz, dmuchawa, podajnik), czas w poszczególnych trybach, rozpalenia, jakość regulacji w ustabilizowanej PRACY (w granicach ±1/±2 °C, średni uchyb, σ, maks. powyżej/poniżej, ocena), sprawdzenia stanu z ok/warn/bad oraz liniowy model węgla i mocy względem temperatury zewnętrznej
+- Historia zapisuje zadaną PRACY ("zadana") na potrzeby statystyk regulacji
+- Strona statystyk przebudowana wokół raportu (przyciski okresu, wykres dziennego węgla a temperatury zewnętrznej, wykres punktowy z linią trendu)
+- Środowisko testowe: FURNACE_BRAIN_DEMO_DAYS generuje minione dni danych demo (tylko symulator), na Render ustawione na 30
 
 ## 1.10.0 · 26.10.2026 12:25
-- Compact logs; blower and feeder series in history
-- Mixer: one entry per movement (direction, real run time, CO vs target, mode) instead of decision + start + stop; boiler protection: first close plus a summary when it ends
-- Blower: no entry per power change; mode changes + a 15 min summary (average power, share of time running)
-- Feeder: no ON/OFF entries; a 15 min summary (feeds, total time); manual feeding in MANUAL mode logged right away
-- History: "dmuchawa" (average %) and "slimak" (% of time feeding) per row, off by default on the chart
-- Fix: changing the event log settings moved the log directory into the code folder, so new entries disappeared from the logs page
+- Zwięzłe logi; serie dmuchawy i podajnika w historii
+- Zawór mieszający: jeden wpis na ruch (kierunek, rzeczywisty czas pracy, CO a zadana, tryb) zamiast decyzji + startu + stopu; ochrona kotła: pierwsze zamknięcie plus podsumowanie, gdy się kończy
+- Dmuchawa: bez wpisu przy każdej zmianie mocy; zmiany trybu + podsumowanie co 15 min (średnia moc, udział czasu pracy)
+- Podajnik: bez wpisów ON/OFF; podsumowanie co 15 min (podania, łączny czas); ręczne podawanie w trybie RĘCZNYM logowane od razu
+- Historia: "dmuchawa" (średni %) i "slimak" (% czasu podawania) w każdym wierszu, domyślnie wyłączone na wykresie
+- Poprawka: zmiana ustawień dziennika zdarzeń przenosiła katalog logów do folderu z kodem, więc nowe wpisy znikały ze strony logów
 
 ## 1.9.3 · 26.10.2026 12:09
-- Logs: full source/level lists from /logs/meta
-- New GET /api/logs/meta: every event level and every source (enabled modules + kernel/aux_runner); the logs page already requested it and got a 404 - it now fills both filters from that single call instead of deriving sources from the latest entries
-- Level filter: ALARM added (with its own colour), unused DEBUG removed
+- Logi: pełne listy źródeł/poziomów z /logs/meta
+- Nowe GET /api/logs/meta: każdy poziom zdarzeń i każde źródło (włączone moduły + kernel/aux_runner); strona logów już o to pytała i dostawała 404 - teraz wypełnia oba filtry z tego jednego zapytania, zamiast wyciągać źródła z najnowszych wpisów
+- Filtr poziomu: dodany ALARM (z własnym kolorem), usunięty nieużywany DEBUG
 
 ## 1.9.2 · 26.10.2026 12:05
-- CWU tank closer to the hopper; logs source filter searches all logs
-- The redrawn CWU tank moves right, next to the fuel hopper, so the weather window has more room around it
-- Logs: the source filter is sent to the backend (which searches all log files) instead of filtering only the latest N entries, and the source list contains every module - rare events like the weather module's were invisible behind frequent feeder/mixer entries
+- Zbiornik CWU bliżej zasobnika; filtr źródła w logach przeszukuje wszystkie logi
+- Narysowany na nowo zbiornik CWU przesuwa się w prawo, obok zasobnika paliwa, więc okno pogody ma więcej miejsca wokół
+- Logi: filtr źródła jest wysyłany do backendu (który przeszukuje wszystkie pliki logów) zamiast filtrować tylko ostatnie N wpisów, a lista źródeł zawiera każdy moduł - rzadkie zdarzenia, np. modułu pogody, ginęły za częstymi wpisami podajnika/zaworu mieszającego
 
 ## 1.9.1 · 26.10.2026 12:00
-- Weather window further left of the pipe, temperature overlapping it
+- Okno pogody dalej na lewo od rury, temperatura na nią zachodzi
 
 ## 1.9.0 · 26.10.2026 11:56
-- Outside temperature on the main page: window with sun/moon
+- Temperatura zewnętrzna na stronie głównej: okno ze słońcem/księżycem
 
 ## 1.8.0 · 26.10.2026 11:18
-- Outside temperature from Open-Meteo, saved in history
-- New aux module "weather" (Pogoda): location in the settings (default Nowy Sącz), fetches the current temperature from Open-Meteo every 15 min in a background thread with a 10 s timeout - never blocks any loop; retries after 5 min on errors, one warning event per outage
-- Aux modules can publish data to SystemState.runtime; the kernel uses runtime["weather"] as sensors.outside_temp when there is no outside sensor and the data is fresh (max 60 min old)
-- History records temp_zewn; /history/fields returns the union of headers so the new column shows up next to older files; chart label/colour added
-- The simulator reports no outside sensor, like the real furnace
+- Temperatura zewnętrzna z Open-Meteo, zapisywana w historii
+- Nowy moduł pomocniczy "weather" (Pogoda): lokalizacja w ustawieniach (domyślnie Nowy Sącz), pobiera bieżącą temperaturę z Open-Meteo co 15 min w wątku w tle z limitem 10 s - nigdy nie blokuje żadnej pętli; przy błędach ponawia po 5 min, jedno ostrzeżenie na awarię
+- Moduły pomocnicze mogą publikować dane w SystemState.runtime; jądro używa runtime["weather"] jako sensors.outside_temp, gdy nie ma czujnika zewnętrznego, a dane są świeże (najwyżej 60 min)
+- Historia zapisuje temp_zewn; /history/fields zwraca sumę nagłówków, więc nowa kolumna pojawia się obok starszych plików; dodany opis/kolor na wykresie
+- Symulator zgłasza brak czujnika zewnętrznego, jak prawdziwy piec
 
 ## 1.7.0 · 26.10.2026 11:11
-- Boiler popup: one setpoint, switch and ignition set automatically
+- Okienko kotła: jedna zadana, temperatura przełączenia i rozpalania ustawiane automatycznie
 
 ## 1.6.1 · 26.10.2026 11:05
-- Show the version box reliably on Safari
+- Pole wersji pokazuje się niezawodnie w Safari
 
 ## 1.6.0 · 26.10.2026 11:03
-- Log details in a popup; no stale cached files after deploys
-- Logs: tapping an entry opens a popup (full message, source, type, event data as key/value rows) instead of expanding the row; compact toolbar on short screens so the list is usable on an 800x480 panel
-- Static files are served with "Cache-Control: no-cache" (Render and the Pi gateway), so a browser revalidates and never mixes a new page with an old cached stylesheet (Safari showed the feeder switch as a black box)
-- The feeder switch carries its colours as svg attributes as well
+- Szczegóły logu w okienku; po wgraniu żadnych nieaktualnych plików z pamięci podręcznej
+- Logi: dotknięcie wpisu otwiera okienko (pełna wiadomość, źródło, typ, dane zdarzenia jako wiersze klucz/wartość) zamiast rozwijać wiersz; zwarty pasek narzędzi na niskich ekranach, więc lista nadaje się do użycia na panelu 800x480
+- Pliki statyczne są serwowane z "Cache-Control: no-cache" (Render i bramka na Pi), więc przeglądarka sprawdza je ponownie i nigdy nie miesza nowej strony ze starym arkuszem stylów z pamięci podręcznej (Safari pokazywało przełącznik podajnika jako czarny prostokąt)
+- Przełącznik podajnika ma kolory zapisane także jako atrybuty svg
 
 ## 1.5.0 · 26.10.2026 10:56
-- Ignition->work switch temperature in the boiler popup; plain-svg feeder switch
-- Boiler popup: work / switch / ignition setpoints kept in order (work <= switch <= ignition), so ignition can't get stuck
-- "ŚLIMAK RĘCZNIE" switch drawn as plain svg instead of a foreignObject, which Safari on iPad placed in the wrong spot
-- Slightly smaller popups on very short screens
+- Temperatura przełączenia rozpalanie->praca w okienku kotła; przełącznik podajnika w zwykłym svg
+- Okienko kotła: zadane pracy / przełączenia / rozpalania trzymane w kolejności (praca <= przełączenie <= rozpalanie), więc rozpalanie nie może utknąć
+- Przełącznik "ŚLIMAK RĘCZNIE" rysowany jako zwykłe svg zamiast foreignObject, który Safari na iPadzie umieszczało w złym miejscu
+- Nieco mniejsze okienka na bardzo niskich ekranach
 
 ## 1.4.0 · 26.10.2026 10:46
-- Manual feeder switch on the fuel hopper
+- Ręczny przełącznik podajnika na zasobniku paliwa
 
 ## 1.3.0 · 26.10.2026 10:36
-- Boiler setpoint popup on the main page
-- The WORK setpoint, written to PID, fuzzy and predictive at once (shown when they currently differ, saving aligns them)
-- The IGNITION setpoint, which can't go below the WORK one (raising WORK above it raises IGNITION too)
+- Okienko zadanej kotła na stronie głównej
+- Zadana PRACY, wpisywana jednocześnie do PID, regulatora rozmytego i predykcyjnego (pokazywane, gdy obecnie się różnią, zapis je wyrównuje)
+- Zadana ROZPALANIA, która nie może zejść poniżej zadanej PRACY (podniesienie PRACY ponad nią podnosi też ROZPALANIE)
 
 ## 1.2.0 · 26.10.2026 10:31
-- Pumps and blower settable from the main page; popups fit short screens
-- The setpoint popup is generic: one or more fields per diagram element, ranges/steps/units/labels from the module schema, only changed fields saved
-- Pump CO and CWU: switch-on temperature; blower: cycle time and speed
-- All clickable elements get the pencil badge
-- Popups (incl. the feeder one) shrink on screens below 900px height instead of overflowing; feeder presets in one row there
+- Pompy i dmuchawa ustawiane ze strony głównej; okienka mieszczą się na niskich ekranach
+- Okienko zadanej jest uniwersalne: jedno lub więcej pól na element schematu, zakresy/kroki/jednostki/opisy ze schematu modułu, zapisywane tylko zmienione pola
+- Pompa CO i CWU: temperatura włączenia; dmuchawa: czas cyklu i obroty
+- Wszystkie klikalne elementy dostają plakietkę z ołówkiem
+- Okienka (także okienko podajnika) zmniejszają się na ekranach poniżej 900px wysokości, zamiast się nie mieścić; ustawienia wstępne podajnika w jednym rzędzie
 
 ## 1.1.2 · 26.10.2026 10:25
-- Fit pages to the visible screen height on tablets and phones
+- Dopasowanie stron do widocznej wysokości ekranu na tabletach i telefonach
 
 ## 1.1.1 · 26.10.2026 10:21
-- Smaller tap badge in the page's badge colours
+- Mniejsza plakietka dotknięcia w kolorach plakietek strony
 
 ## 1.1.0 · 26.10.2026 10:18
-- Mark tappable parts of the main page with a pencil badge
+- Oznaczenie klikalnych części strony głównej plakietką z ołówkiem

@@ -23,7 +23,7 @@ class ModuleDescriptor:
     path: str
     enabled: bool = True
     critical: bool = True
-    about: str = ""        # what the module is responsible for (English) - Serwis -> Moduły
+    about: str = ""        # what the module is responsible for (Polish, shown in the GUI) - Serwis -> Moduły
 
 
 def load_module_descriptors() -> List[ModuleDescriptor]:

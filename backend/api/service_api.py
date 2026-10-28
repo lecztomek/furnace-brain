@@ -371,7 +371,7 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
 
     @router.get("/modules")
     def get_modules():
-        """Every module: what it does (English), whether the control loop needs it, its health,
+        """Every module: what it does (Polish), whether the control loop needs it, its health,
         the last error (kept after it recovered) and the last ordinary / problem log entry."""
         from backend.config.modules_loader import load_module_descriptors
         st = store.snapshot()
