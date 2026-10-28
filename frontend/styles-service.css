@@ -218,6 +218,18 @@
   .sv-td-name { white-space: normal; font-size: 16px; }
   .sv-td-right { font-size: 18px; }
 }
+/* phone: name and value on top, the text below over the full width - no sideways overflow */
+@media (max-width: 520px) {
+  .sv-table, .sv-table tbody { display: block; }
+  .sv-tr { display: grid; grid-template-columns: 40px 1fr auto; column-gap: 8px; row-gap: 4px; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid #1f2937; }
+  .sv-tr:last-child { border-bottom: 0; }
+  .sv-tr td { display: block; padding: 0; border: 0; }
+  .sv-td-icon { grid-row: 1 / span 2; align-self: start; width: auto; }
+  .sv-td-name { grid-column: 2; grid-row: 1; }
+  .sv-td-right { grid-column: 3; grid-row: 1; white-space: normal; }
+  .sv-td-text { grid-column: 2 / span 2; grid-row: 2; }
+}
 
 /* ---- changelog: a strip of days, then a timeline per day, newest first ---- */
 .sv-strip { display: flex; align-items: flex-end; gap: 6px; overflow-x: auto; padding: 4px 2px 12px;

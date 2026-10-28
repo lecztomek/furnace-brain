@@ -117,18 +117,25 @@
       return;
     }
     const n2 = (v) => num(v, 2);
+    // the curve turns around 0 °C: curve_at_0 moves the whole line, curve_slope turns it around 0 °C
+    const at = (t) => at0 - slope * t;
     $("tn-rooms").innerHTML = table([
-      { status: "info", icon: "snowflake", name: "Za zimno zawsze", text: "Podnieś całą krzywą o 1°C",
-        sub: "curve_at_0 - grzejniki o 1°C cieplejsze przy każdej pogodzie", right: `${num(at0, 0)} → ${num(at0 + 1, 0)}` },
-      { status: "info", icon: "sun", name: "Za ciepło zawsze", text: "Obniż całą krzywą o 1°C",
-        sub: "curve_at_0 - grzejniki o 1°C chłodniejsze przy każdej pogodzie", right: `${num(at0, 0)} → ${num(at0 - 1, 0)}` },
-      { status: "info", icon: "snowflake", name: "Za zimno w mróz", text: "Stromsza krzywa",
-        sub: "curve_slope - w ciepłe dni bez zmian, przy −10°C o 0,5°C cieplej", right: `${n2(slope)} → ${n2(slope + 0.05)}` },
-      { status: "info", icon: "sun", name: "Za ciepło w mróz", text: "Łagodniejsza krzywa",
-        sub: "curve_slope - w ciepłe dni bez zmian, przy −10°C o 0,5°C chłodniej", right: `${n2(slope)} → ${n2(slope - 0.05)}` },
-      { status: "info", icon: "cloudSun", name: "Za ciepło jesienią, OK w mróz", text: "Niżej i stromiej",
-        sub: "curve_at_0 −1 i curve_slope +0,1 - przy +5°C chłodniej o 1,5°C, przy −10°C bez zmian",
-        right: `${num(at0 - 1, 0)} / ${n2(slope + 0.1)}` },
+      { status: "info", icon: "snowflake", name: "Za zimno przy 0°C", text: "Podnieś krzywą o 1°C",
+        sub: `curve_at_0 - grzejniki przy 0°C ${num(at0, 0)} → ${num(at0 + 1, 0)}°C (cała krzywa o 1°C wyżej)`, right: `${num(at0, 0)} → ${num(at0 + 1, 0)}` },
+      { status: "info", icon: "sun", name: "Za ciepło przy 0°C", text: "Obniż krzywą o 1°C",
+        sub: `curve_at_0 - grzejniki przy 0°C ${num(at0, 0)} → ${num(at0 - 1, 0)}°C (cała krzywa o 1°C niżej)`, right: `${num(at0, 0)} → ${num(at0 - 1, 0)}` },
+      { status: "info", icon: "snowflake", name: "Za zimno przy −10°C", text: "Stromsza krzywa",
+        sub: `curve_slope - przy −10°C ${num(at(-10))} → ${num(at(-10) + 0.5)}°C, przy 0°C bez zmian, przy +10°C o 0,5°C chłodniej`,
+        right: `${n2(slope)} → ${n2(slope + 0.05)}` },
+      { status: "info", icon: "sun", name: "Za ciepło przy −10°C", text: "Łagodniejsza krzywa",
+        sub: `curve_slope - przy −10°C ${num(at(-10))} → ${num(at(-10) - 0.5)}°C, przy 0°C bez zmian, przy +10°C o 0,5°C cieplej`,
+        right: `${n2(slope)} → ${n2(slope - 0.05)}` },
+      { status: "info", icon: "cloudSun", name: "Za ciepło przy +10°C", text: "Stromsza krzywa",
+        sub: `curve_slope - przy +10°C ${num(at(10))} → ${num(at(10) - 0.5)}°C, przy 0°C bez zmian, przy −10°C o 0,5°C cieplej`,
+        right: `${n2(slope)} → ${n2(slope + 0.05)}` },
+      { status: "info", icon: "cloudSun", name: "Za zimno przy +10°C", text: "Łagodniejsza krzywa",
+        sub: `curve_slope - przy +10°C ${num(at(10))} → ${num(at(10) + 0.5)}°C, przy 0°C bez zmian, przy −10°C o 0,5°C chłodniej`,
+        right: `${n2(slope)} → ${n2(slope - 0.05)}` },
     ]);
   }
 

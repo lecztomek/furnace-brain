@@ -2,6 +2,10 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.41.1 · 28.10.2026 12:23
+- "W domu za ciepło albo za zimno": by the outside temperature the curve is set for - too cold / too warm at 0 °C (curve_at_0), at -10 °C and at +10 °C (curve_slope), with the radiator temperatures before and after
+- Service tables on a phone: name and value on top, the text below - nothing cut off on the right
+
 ## 1.41.0 · 28.10.2026 12:22
 - Tuning: a mild but regular boiler wave (±1-1.5 °C, every 40+ min) gets a hint to soften the PID (Kp and Ki -20%) - shown in yellow, not counted as a problem
 - Tuning: heating curve rows - the radiators at +5 / 0 / -10 / -15 °C and the power that would take in frost (rough, from today's work), a hint when the outside average is shorter than 12 h
