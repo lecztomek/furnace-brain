@@ -62,6 +62,10 @@ jobs:
           cp -r src/frontend site
           cp tools/viewer/viewer-shim.js site/js/
           printf 'window.FURNACE_VIEWER_DB = %s;\n' "$(jq -Rn --arg v "$DB" '$v')" > site/js/viewer-config.js
+          # Pages caches every file for 10 min on its own: a new page with an old script
+          # breaks. The version in the URLs makes each deploy load its own files.
+          VER="$(tr -d '[:space:]' < src/VERSION 2>/dev/null || date +%s)"
+          sed -i -E "s#(src=\"js/[^\"?]+\.js)\"#\1?v=$VER\"#g; s#(href=\"[^\"?:]+\.css)\"#\1?v=$VER\"#g" site/*.html
           # both scripts go before everything else in <head>
           for f in site/*.html; do
             sed -i '0,/<head>/s//<head>\n    <script src="js\/viewer-config.js"><\/script>\n    <script src="js\/viewer-shim.js"><\/script>/' "$f"

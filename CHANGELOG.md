@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.39.4 · 28.10.2026 10:44
+- Remote view: scripts and styles carry the version in their URL - after a deploy the page no longer mixes a new page with an old cached script ("Cannot set properties of null")
+
 ## 1.39.3 · 28.10.2026 10:31
 - STOP breaks no longer drawn over the charts: a strip under each 5 min chart (below the hours) and a table of the last stops (from, to, how long)
 
