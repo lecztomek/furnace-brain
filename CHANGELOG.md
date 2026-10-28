@@ -3,7 +3,7 @@
 Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
 ## 1.37
-- Service page: tuning as a ring (time in ±2 °C) and bars with good / so-so / bad zones; Pi diagnostics as rings (CPU, RAM, disk) and status tiles.
+- Service page: tuning as a ring (time in ±2 °C) and bars with good / so-so / bad zones; Pi diagnostics as bars (CPU, RAM, SD card, USB stick) and status tiles.
 - Tuning advice rebuilt every 10 min (was 30).
 - Statistics / Praca: "Moc pieca" card - heat in kWh, controller power in %, stability, time at full power and at the minimum.
 - Restart refill reads only the history files of the wanted hours, in a background thread.

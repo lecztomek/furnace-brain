@@ -117,27 +117,30 @@ def _newest_mtime(directory: Path) -> Optional[float]:
 
 def _tiles(groups: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    Top of the diagnostics tab: rings for what fills up (CPU temperature, RAM,
-    disk) and small status tiles for the rest.
+    Top of the diagnostics tab: bars for what fills up (CPU temperature, RAM,
+    SD card, USB stick) and small status tiles for the rest.
     """
     items = {i["label"]: i for g in groups for i in g["items"]}
     tiles: List[Dict[str, Any]] = []
-
-    def ring(label: str, item: Optional[Dict[str, Any]], center: str, sub: str) -> None:
-        if item is not None and "gauge" in item:
-            tiles.append({"kind": "ring", "label": label, "value": center, "sub": sub,
-                          "pct": item["gauge"], "status": item["status"]})
 
     def status(label: str, icon: str, item: Optional[Dict[str, Any]], value: str) -> None:
         if item is not None:
             tiles.append({"kind": "status", "label": label, "icon": icon, "value": value, "status": item["status"]})
 
+    # what fills up - one bar each: CPU temperature, RAM, the SD card, the USB stick with the data
+    def bar(label: str, icon: str, item: Optional[Dict[str, Any]], big: str, small: str) -> None:
+        if item is not None and "gauge" in item:
+            tiles.append({"kind": "bar", "label": label, "icon": icon, "big": big, "small": small,
+                          "pct": item["gauge"], "status": item["status"]})
+
     cpu = items.get("Temperatura procesora")
-    ring("Procesor", cpu, cpu["value"] if cpu else "", "temperatura")
+    bar("Procesor", "cpu", cpu, cpu["value"] if cpu else "", "temperatura, limit 85°C")
     ram = items.get("Pamięć RAM")
-    ring("Pamięć", ram, f"{ram['gauge']}%" if ram and "gauge" in ram else "", "zajęte")
-    disk = items.get("Dane (pendrive)") or items.get("Karta SD (system)")
-    ring("Dysk", disk, f"{disk['gauge']}%" if disk and "gauge" in disk else "", "zajęte")
+    if ram and " z " in ram["value"]:
+        free_mb, total_mb = ram["value"].replace("wolne ", "").replace(" MB", "").split(" z ")
+        bar("Pamięć RAM", "database", ram, f"{free_mb} MB", f"wolne z {total_mb} MB")
+    for i in (x for g in groups for x in g["items"] if x.get("disk")):
+        bar("Karta SD (system)" if "SD" in i["label"] else "Pendrive (dane)", "drive", i, i["free"], f"wolne z {i['total']}")
 
     power = items.get("Zasilanie")
     status("Zasilanie", "plug", power,
@@ -349,8 +352,10 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
                 continue
             seen.add(dev)
             free_pct = 100 * u.free / u.total if u.total else 0
-            disks.append(_item("ok" if free_pct > 20 else "warn" if free_pct > 5 else "bad", label,
-                               f"wolne {_gb(u.free)} z {_gb(u.total)} ({free_pct:.0f}%)", gauge=100 - free_pct))
+            disk = _item("ok" if free_pct > 20 else "warn" if free_pct > 5 else "bad", label,
+                         f"wolne {_gb(u.free)} z {_gb(u.total)} ({free_pct:.0f}%)", gauge=100 - free_pct)
+            disk.update(disk=True, free=_gb(u.free), total=_gb(u.total))
+            disks.append(disk)
         for label, sub in (("Zapis historii", "history"), ("Zapis logów", "eventlog"), ("Zapis statystyk", "stats")):
             m = _newest_mtime(modules_dir / sub / "data")
             limit = 600 if sub == "stats" else 180

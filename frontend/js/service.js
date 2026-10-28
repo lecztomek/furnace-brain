@@ -171,13 +171,24 @@
       <span class="sv-stat__val">${esc(t.value)}</span>${dots}</span></div>`;
   }
 
+  // what fills up: name, the number that matters in big digits, a bar of how full it is
+  function barTile(t) {
+    return `<div class="sv-disk sv-disk--${t.status}">
+      <span class="sv-stat__icon">${FBIcon(t.icon || "drive")}</span>
+      <span class="sv-disk__body">
+        <span class="sv-disk__head"><span class="sv-disk__name">${esc(t.label)}</span>
+          <span class="sv-disk__free"><b>${esc(t.big)}</b> ${esc(t.small)}</span></span>
+        <span class="sv-disk__track"><span class="sv-disk__fill" style="width:${t.pct}%"></span></span>
+      </span></div>`;
+  }
+
   function renderDiag(d) {
     verdict($("dg-verdict"), d.status);
     const tiles = d.tiles || [];
     $("dg-tiles").innerHTML =
-      `<div class="sv-rings">${tiles.filter((t) => t.kind === "ring").map((t) => ring(t.pct, t.status, esc(t.value), esc(t.label), esc(t.sub || ""))).join("")}</div>` +
-      `<div class="sv-stats">${tiles.filter((t) => t.kind !== "ring").map(statusTile).join("")}</div>`;
-    const problems = d.groups.flatMap((g) => g.items).filter((i) => i.status === "warn" || i.status === "bad");
+      `<div class="sv-disks">${tiles.filter((t) => t.kind === "bar").map(barTile).join("")}</div>` +
+      `<div class="sv-stats">${tiles.filter((t) => t.kind === "status").map(statusTile).join("")}</div>`;
+    const problems = d.groups.flatMap((g) => g.items).filter((i) => (i.status === "warn" || i.status === "bad") && i.gauge == null);
     $("dg-problems").innerHTML = problems.map((i) => `<button type="button" class="${cardClass(i.status, i.label)}" data-key="${esc(i.label)}">
       <span class="sv-card__top"><span class="sv-card__icon">${FBIcon(i.status === "bad" ? "stop" : "alert")}</span><span class="sv-card__name">${esc(i.label)}</span></span>
       <span class="sv-card__title">${esc(i.value)}</span>
