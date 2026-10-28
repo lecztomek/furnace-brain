@@ -3,7 +3,7 @@
 Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
 ## 1.37
-- Statistics / Praca: "Moc pieca" card (moved from the 1.36 notes).
+- Statistics / Praca: "Moc pieca" card - heat in kWh, controller power in %, stability, time at full power and at the minimum.
 - Restart refill reads only the history files of the wanted hours, in a background thread.
 
 ## 1.36
