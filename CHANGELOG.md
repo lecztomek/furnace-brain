@@ -2,6 +2,10 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.39.1 · 28.10.2026 10:05
+- Tuning: the 2 h after a setpoint change (≥1 °C) are left out - a hot boiler overshooting a lower setpoint no longer reads as a PID swing
+- Tuning: a swing is reported from ±1.5 °C (was ±1.0), "bad" from ±2.5 °C - a coal bed reacts slowly, ±1-1.5 °C is normal
+
 ## 1.39.0 · 28.10.2026 09:59
 - Statistics, Praca: every STOP (coal added, ash taken out) as a grey band on the 5 min power and temperature charts, with a list of stops (time and minutes) under the temperature chart
 - Tuning: the blower row explains how to read the flame and ash (good / too little air / too much air)

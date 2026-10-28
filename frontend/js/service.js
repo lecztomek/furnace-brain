@@ -71,7 +71,7 @@
     const reg = r.regulation;
     if (reg && reg.hours >= 1) {
       const st = (good, okish) => (good ? "ok" : okish ? "warn" : "bad");
-      $("tn-period").textContent = `Liczone z: ostatnich ${num(reg.hours, 0)} h spokojnej pracy (od ${when(r.regulation_since)}, bez 2 h po rozpaleniu)`;
+      $("tn-period").textContent = `Liczone z: ostatnich ${num(reg.hours, 0)} h spokojnej pracy (od ${when(r.regulation_since)}, bez 2 h po rozpaleniu i po zmianie zadanej)`;
       const pa = reg.power_avg ?? 0;
       $("tn-hero").innerHTML = `<div class="sv-hero2">
         ${ring(reg.within_2, st(reg.within_2 >= 80, reg.within_2 >= 60), `${reg.within_2}%`, "w ±2°C", "od zadanej")}
@@ -80,12 +80,12 @@
             [[-4, -2, "bad"], [-2, -1, "warn"], [-1, 1, "ok"], [1, 2, "warn"], [2, 4, "bad"]],
             st(Math.abs(reg.mean_err) <= 1, Math.abs(reg.mean_err) <= 2))}
           ${bullet("activity", "Kołysanie", `±${num(reg.std)}°`, reg.std, 0, 4,
-            [[0, 1, "ok"], [1, 2, "warn"], [2, 4, "bad"]], st(reg.std <= 1, reg.std <= 2))}
+            [[0, 1.5, "ok"], [1.5, 2.5, "warn"], [2.5, 4, "bad"]], st(reg.std <= 1.5, reg.std <= 2.5))}
           ${bullet("gauge", "Moc średnio", `${reg.power_avg ?? "--"}%`, pa, 0, 100,
             [[0, 35, "warn"], [35, 75, "ok"], [75, 90, "warn"], [90, 100, "bad"]], st(pa >= 35 && pa <= 75, pa < 90))}
         </div></div>`;
     } else {
-      $("tn-period").textContent = "Liczone z: ostatnich 7 dni, praca od 2 h po rozpaleniu";
+      $("tn-period").textContent = "Liczone z: ostatnich 7 dni, praca od 2 h po rozpaleniu i po zmianie zadanej";
       $("tn-hero").innerHTML = `<div class="sv-empty">${FBIcon("hourglass", "ic--inline")} Za mało spokojnej pracy do oceny</div>`;
     }
 

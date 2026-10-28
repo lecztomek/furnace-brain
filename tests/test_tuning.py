@@ -65,13 +65,13 @@ def test_too_little_coal_suggests_a_longer_feed_and_more_air():
 
 
 def test_fast_swing_blames_kp_slow_swing_blames_ki():
-    fast = work_rows(12, lambda m: 56 + 3.5 * math.sin(2 * math.pi * m / 30), lambda m: 50)
+    fast = work_rows(12, lambda m: 56 + 4.5 * math.sin(2 * math.pi * m / 30), lambda m: 50)
     items, reg = advice(fast)
     assert 25 <= reg["period_min"] <= 35
     assert items["Wzmocnienie (Kp)"]["status"] == "bad"
     assert "10 → 8" in items["Wzmocnienie (Kp)"]["tip"]
 
-    slow = work_rows(14, lambda m: 56 + 3.5 * math.sin(2 * math.pi * m / 120), lambda m: 50)
+    slow = work_rows(14, lambda m: 56 + 4.5 * math.sin(2 * math.pi * m / 120), lambda m: 50)
     items, reg = advice(slow)
     assert reg["period_min"] >= 100
     assert items["Całka (Ki)"]["status"] == "bad"
@@ -238,3 +238,15 @@ def test_versions_get_their_commit_and_tag(tmp_path):
     assert "tag" not in c["1.0.1"]
     service_api._commits_cache.clear()
     assert service_api.version_commits(tmp_path / "no-git") == {}
+
+
+def test_setpoint_change_overshoot_is_not_judged():
+    # 59 °C for 4 h, then 56 °C: the hot boiler overshoots for ~2 h, then holds ±1.3 °C with a 90 min wave
+    before = work_rows(4, lambda m: 59 + 0.3 * math.sin(m / 10), lambda m: 50, setpoint=59.0)
+    after = work_rows(12, lambda m: 56 + (8 * (1 - m / 120) if m < 120 else 1.8 * math.sin(2 * math.pi * m / 90)),
+                      lambda m: 50, start=before[-1]["ts"] + timedelta(seconds=30))
+    items, reg = advice(before + after)
+    assert reg["max_over"] < 2.5                     # the overshoot after the change is left out
+    assert 1.0 < reg["std"] < 1.5                     # a mild wave - fine for a coal bed
+    assert items["Całka (Ki)"]["status"] == "ok"
+    assert items["Wzmocnienie (Kp)"]["status"] == "ok"

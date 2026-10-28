@@ -20,6 +20,10 @@ from typing import Any, Dict, List, Optional
 from backend.core.analytics import _float, files_by_day, history_rows
 
 SETTLE_S = 2 * 3600         # after an ignition the boiler swings for ~2 h - judged later
+SETPOINT_STEP_C = 1.0       # a setpoint change at least this big ...
+SETPOINT_SETTLE_S = 2 * 3600  # ... also needs ~2 h before it's judged (a hot boiler overshoots a lower setpoint)
+SWING_STD = 1.5             # swing worth a suggestion (±°C) - a coal bed reacts slowly, ±1-1.5 is fine
+SWING_BAD_STD = 2.5
 IGNITION_MIN_S = 300        # a shorter IGNITION is a click, not an ignition
 WINDOW_H = 24               # regulation: the last 24 h of settled WORK (within EVENT_DAYS)
 EVENT_DAYS = 7              # flame-outs, overheats, sensors, setting changes
@@ -87,10 +91,13 @@ def _parse(rows: List[Dict[str, str]]) -> List[Dict[str, Any]]:
 
 
 def settled(rows: List[Dict[str, Any]], fallback_setpoint: Optional[float]) -> List[Dict[str, Any]]:
-    """Rows of WORK at least SETTLE_S after entering it, with a boiler reading and a setpoint."""
+    """Rows of WORK at least SETTLE_S after entering it and SETPOINT_SETTLE_S after a setpoint change,
+    with a boiler reading and a setpoint."""
     out = []
     since: Optional[datetime] = None
     prev_ts: Optional[datetime] = None
+    last_sp: Optional[float] = None
+    sp_since: Optional[datetime] = None
     for r in rows:
         gap = prev_ts is not None and (r["ts"] - prev_ts).total_seconds() > 300
         prev_ts = r["ts"]
@@ -100,7 +107,13 @@ def settled(rows: List[Dict[str, Any]], fallback_setpoint: Optional[float]) -> L
         if since is None:
             since = r["ts"]
         sp = r["setpoint"] if r["setpoint"] is not None else fallback_setpoint
+        if sp is not None:
+            if last_sp is not None and abs(sp - last_sp) >= SETPOINT_STEP_C:
+                sp_since = r["ts"]
+            last_sp = sp
         if r["boiler"] is None or sp is None or (r["ts"] - since).total_seconds() < SETTLE_S:
+            continue
+        if sp_since is not None and (r["ts"] - sp_since).total_seconds() < SETPOINT_SETTLE_S:
             continue
         out.append({**r, "setpoint": sp, "err": r["boiler"] - sp})
     return out
@@ -294,13 +307,13 @@ def advise(reg: Optional[Dict[str, Any]], rad: Optional[Dict[str, Any]], igns: L
     if reg is None or reg["hours"] < MIN_WORK_H:
         add("PID", "info", "Za mało pracy do oceny",
             f"W ostatnich {EVENT_DAYS} dniach {fmt(reg['hours'] if reg else 0)} h ustabilizowanej pracy "
-            f"(liczonej od 2 h po rozpaleniu; potrzeba {fmt(MIN_WORK_H, 0)} h). Ocena całki, Kp, ślimaka i dmuchawy pojawi się później.")
+            f"(liczonej od 2 h po rozpaleniu i po zmianie zadanej; potrzeba {fmt(MIN_WORK_H, 0)} h). Ocena całki, Kp, ślimaka i dmuchawy pojawi się później.")
     else:
         m, std, period = reg["mean_err"], reg["std"], reg["period_min"]
         starved = m < -1.0 and reg["at_max_pct"] >= 25
         flooded = m > 1.0 and reg["at_min_pct"] >= 25
-        slow_swing = std > 1.0 and period is not None and period >= 60
-        fast_swing = std > 1.0 and not slow_swing
+        slow_swing = std > SWING_STD and period is not None and period >= 60
+        fast_swing = std > SWING_STD and not slow_swing
 
         # --- integral (Ki): holds the setpoint on average ---
         lower = f"{fmt_num(ki)} → {fmt_num(round(ki * 0.7, 4))}" if ki else ""
@@ -308,7 +321,7 @@ def advise(reg: Optional[Dict[str, Any]], rad: Optional[Dict[str, Any]], igns: L
             add("Całka (Ki)", "ok", "Całka bez zmian",
                 "Odchyłka od zadanej wynika z dawki ślimaka (moc stoi na granicy), nie z całki.")
         elif slow_swing:
-            add("Całka (Ki)", "bad" if std > 2.0 else "warn", "Wolne kołysanie - całka przestrzeliwuje",
+            add("Całka (Ki)", "bad" if std > SWING_BAD_STD else "warn", "Wolne kołysanie - całka przestrzeliwuje",
                 f"Rozrzut ±{fmt(std)}°C, jedno wahnięcie co ok. {period} min.",
                 f"Zmniejsz Ki ({lower})." if ki else "Zmniejsz Ki.")
         elif m < -1.0:
@@ -326,7 +339,7 @@ def advise(reg: Optional[Dict[str, Any]], rad: Optional[Dict[str, Any]], igns: L
         jump = reg["power_jump"]
         if fast_swing:
             per = f", jedno wahnięcie co ok. {period} min" if period else ""
-            add("Wzmocnienie (Kp)", "bad" if std > 2.0 else "warn", "Szybkie kołysanie",
+            add("Wzmocnienie (Kp)", "bad" if std > SWING_BAD_STD else "warn", "Szybkie kołysanie",
                 f"Rozrzut ±{fmt(std)}°C (od +{fmt(reg['max_over'])} do −{fmt(reg['max_under'])}°C){per}.",
                 f"Zmniejsz Kp o ok. 20% ({fmt_num(kp)} → {fmt_num(round(kp * 0.8, 1))})." if kp else "Zmniejsz Kp.")
         elif jump is not None and jump > 1.5:
