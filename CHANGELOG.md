@@ -2,6 +2,9 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.49.1 · 28.10.2026 18:30
+- Trend pod temperaturą kotła bez strzałek - sam znak i kolor: „+1,2°/10 min” (pomarańczowy), „−1,5°/10 min” (niebieski)
+
 ## 1.49.0 · 28.10.2026 18:20
 - Strona główna: pod temperaturą kotła trend - o ile stopni na 10 min rośnie (▲, pomarańczowy) albo spada (▼, niebieski), np. „▼ −1,5°/10 min”; widać też w podglądzie zdalnym
 - Nowy moduł „Trend temperatury” (pomocniczy, nie steruje niczym): odczyt kotła co 30 s, trend z ostatnich 10 min liczony z dopasowania prostej, więc skoki czujnika o 0,06 °C nie udają trendu; bez odczytów (start, zgubiony czujnik) pokazuje „trend --”

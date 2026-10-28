@@ -272,7 +272,7 @@ document.addEventListener("DOMContentLoaded", () => {
       : `śr. ${fmt(avg)}° z ${String(rad.outside_avg_h ?? "").replace(".", ",")} h`;
   }
 
-  // under the boiler temperature: how fast it goes up or down ("▲ +1,2° / 10 min")
+  // under the boiler temperature: how fast it goes up or down ("+1,2°/10 min", "−1,5°/10 min")
   function showBoilerTrend(tr) {
     const t = document.getElementById("furnace-trend-text");
     if (!t) return;
@@ -285,8 +285,8 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     if (tr.boiler_per_10m == null || isNaN(v)) return set("trend --", "");
     const r = Math.round(v * 10) / 10;
-    if (r === 0) return set("= 0,0°/10 min", "");
-    set(`${r > 0 ? "▲ +" : "▼ −"}${Math.abs(r).toFixed(1).replace(".", ",")}°/10 min`, r > 0 ? " is-up" : " is-down");
+    if (r === 0) return set("0,0°/10 min", "");
+    set(`${r > 0 ? "+" : "−"}${Math.abs(r).toFixed(1).replace(".", ",")}°/10 min`, r > 0 ? " is-up" : " is-down");
   }
 
   // mixing valve: net seconds of opening (+) / closing (-) in the last 30 min
