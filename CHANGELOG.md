@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.47.1 · 28.10.2026 15:55
+- Tests: the remote view's fake local API knows /api/service/modules (1.47.0 was pushed with 4 failing tests - only the test fake was missing it)
+
 ## 1.47.0 · 28.10.2026 15:47
 - Serwis → Moduły: every module with what it is responsible for (English, from modules.yaml), whether it is key (control loop) or auxiliary, its health and the last error with its time and count (kept after the module recovers); tap a row for the last log entry, the last warning / alarm and the step time. Also in the remote view
 - The kernel and the aux loop keep the last error of a module after it recovers; the state store keeps the last ordinary and the last problem event of every source

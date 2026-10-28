@@ -70,6 +70,8 @@ class LocalApi(BaseHTTPRequestHandler):
             body = {"available": True, "days": []}
         elif p == "/api/service/changelog":
             body = {"current": "1.0.0", "versions": []}
+        elif p == "/api/service/modules":
+            body = {"started_at": 1.0, "modules": [{"id": "mixer", "health": "OK"}]}
         elif p == "/api/service/w1":
             body = [{"rom": "28-000000506777", "field": "boiler_temp", "temp": 56.9}]
         elif p == "/api/config/modules":
