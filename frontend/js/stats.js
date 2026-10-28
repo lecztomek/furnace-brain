@@ -91,33 +91,36 @@
       },
     };
   }
-  // STOP breaks (coal added, ash taken out) as a strip under the chart, below the hour labels -
-  // nothing is drawn over the lines. options.plugins.stopBands = { flags: [bool per label] }
-  // (stopOptions() also makes room for the strip)
-  const STOP_STRIP_H = 10;
-  const STOP_COLOR = "#cbd5e1";
+  // STOP breaks (coal added, ash taken out) as grey bands behind the lines, the full height
+  // of the chart, with a marker on top. options.plugins.stopBands = { flags: [bool per label] }
+  const STOP_FILL = "rgba(148, 163, 184, 0.22)";
+  const STOP_MARK = "#e2e8f0";
   Chart.register({
     id: "stopBands",
-    afterDraw(chart, args, opts) {
+    beforeDatasetsDraw(chart, args, opts) {
       const flags = opts && opts.flags;
       if (!flags || !flags.some(Boolean)) return;
       const x = chart.scales.x, area = chart.chartArea, c = chart.ctx;
       const step = flags.length > 1 ? x.getPixelForValue(1) - x.getPixelForValue(0) : area.width;
-      const top = chart.height - STOP_STRIP_H - 2;
       c.save();
-      // the track: where there was no STOP
-      c.fillStyle = "rgba(255, 255, 255, 0.07)";
-      c.fillRect(area.left, top, area.right - area.left, STOP_STRIP_H);
-      c.fillStyle = STOP_COLOR;
+      c.font = "bold 13px sans-serif";
+      c.textAlign = "center";
       for (let i = 0; i < flags.length; i++) {
         if (!flags[i]) continue;
         let j = i;
         while (j + 1 < flags.length && flags[j + 1]) j++;
-        // a STOP of a few minutes is 1-2 points: at least 8 px wide so it shows
+        // a STOP of a few minutes is 1-2 points: at least 10 px wide so it shows
         const mid = (x.getPixelForValue(i) + x.getPixelForValue(j)) / 2;
-        const w = Math.max(8, (j - i + 1) * step);
+        const w = Math.max(10, (j - i + 1) * step);
         const left = Math.max(area.left, mid - w / 2);
-        c.fillRect(left, top, Math.min(area.right, mid + w / 2) - left, STOP_STRIP_H);
+        const right = Math.min(area.right, mid + w / 2);
+        c.fillStyle = STOP_FILL;
+        c.fillRect(left, area.top, right - left, area.bottom - area.top);
+        c.fillStyle = STOP_MARK;
+        c.beginPath();
+        c.moveTo(mid - 6, area.top); c.lineTo(mid + 6, area.top); c.lineTo(mid, area.top + 8);
+        c.fill();
+        if (right - left >= 40) c.fillText("STOP", mid, area.top + 22);
         i = j;
       }
       c.restore();
@@ -125,7 +128,6 @@
   });
   function stopOptions(options, fine) {
     options.plugins.stopBands = { flags: fine.map((f) => !!f.stop) };
-    options.layout = { padding: { bottom: STOP_STRIP_H + 8 } };
   }
 
   // the last STOP breaks as a table: when, until, how long

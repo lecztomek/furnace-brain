@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.39.5 · 28.10.2026 10:45
+- STOP breaks back as grey bands over the full chart height (behind the lines, lighter), the table of the last stops stays
+
 ## 1.39.4 · 28.10.2026 10:44
 - Remote view: scripts and styles carry the version in their URL - after a deploy the page no longer mixes a new page with an old cached script ("Cannot set properties of null")
 
