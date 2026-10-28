@@ -59,3 +59,25 @@ def test_purge_runs_its_minutes_even_if_the_hopper_reading_flickers(tmp_path):
     assert _tick(m, st, 60.0, 56.0, None).partial_outputs.feeder_on is True    # 1 min in, sensor gone
     assert _tick(m, st, 240.0, 56.0, 61.0).partial_outputs.feeder_on is True   # 4 min
     assert _tick(m, st, 301.0, 56.0, 61.0).partial_outputs.feeder_on is False  # 5 min over, still hot: fan off, no feed
+
+
+def test_overheat_opens_the_valve_even_without_the_radiator_sensor(tmp_path):
+    """The safety module (ticks after overheat) blocks the valve without a radiator reading -
+    but not during a boiler overheat: the heat must get out of the boiler."""
+    from backend.modules.safety import SafetyModule
+    (tmp_path / "o").mkdir()
+    (tmp_path / "s").mkdir()
+    overheat = _module(tmp_path / "o")
+    safety = SafetyModule(base_path=tmp_path / "s")
+    st = SystemState(mode=BoilerMode.WORK)
+
+    def step(t, boiler):
+        st.ts_mono = t
+        sensors = Sensors(boiler_temp=boiler, hopper_temp=28.0, radiators_temp=None, flue_gas_temp=60.0)
+        a = overheat.tick(now=t, sensors=sensors, system_state=st).partial_outputs
+        b = safety.tick(now=t, sensors=sensors, system_state=st).partial_outputs
+        return b.mixer_open_on if b.mixer_open_on is not None else a.mixer_open_on
+
+    assert step(1.0, 56.0) is False          # normal work without the radiator sensor: the valve stays put
+    assert step(2.0, 67.0) is True           # boiler overheat: open anyway
+    assert step(3.0, 61.0) is False          # overheat over: blocked again

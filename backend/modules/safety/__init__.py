@@ -170,8 +170,12 @@ class SafetyModule(ModuleInterface):
                 outputs.pump_co_on = True
                 outputs.pump_cwu_on = True
 
-        # 2) radiators_temp None -> nie kręcimy mieszaczem
-        if missing["radiators_temp"]:
+        # 2) radiators_temp None -> nie kręcimy mieszaczem.
+        # Except during a boiler overheat: then the valve opens anyway (the overheat module,
+        # which ticks just before, asks for it) - getting the heat out of the boiler matters
+        # more than knowing how hot the radiator water is.
+        boiler_overheat = bool((system_state.runtime.get("overheat") or {}).get("boiler"))
+        if missing["radiators_temp"] and not boiler_overheat:
             outputs.mixer_open_on = False
             outputs.mixer_close_on = False
 

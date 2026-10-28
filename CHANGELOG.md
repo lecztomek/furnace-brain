@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.44.6 · 28.10.2026 14:24
+- Boiler overheat opens the mixing valve even when the radiator sensor has no reading (the safety module used to block the valve then, so the heat had nowhere to go to the house); outside an overheat a missing radiator reading still stops the valve
+
 ## 1.44.5 · 28.10.2026 14:04
 - Overheat protection: the boiler (66 °C) and the hopper (burn-back, 60 °C) are guarded separately - before, a missing hopper reading (it drops out now and then) switched off the boiler overheat protection too, and the other way round
 - Without its reading a protection keeps its state: an alarm ends only when the sensor is back and has cooled down; the warning names the missing sensor
