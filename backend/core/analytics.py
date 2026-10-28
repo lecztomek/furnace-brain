@@ -403,23 +403,42 @@ def hourly_profile(days: List[DayAgg]) -> List[Dict[str, Any]]:
 
 
 HourCoal = Dict[str, List[List[float]]]   # date -> 24 x [kg, kWh], only for the last two days
+HourMin = Dict[str, List[Optional[float]]]  # date -> 24 x lowest boiler temp in WORK, only for the last two days
 
 
-def _day_hour(day: Optional[DayAgg], hour: int, coal: Optional[HourCoal] = None) -> Dict[str, Any]:
+def hour_min_boiler(rows: List[Dict[str, str]]) -> List[Optional[float]]:
+    """Lowest boiler temperature in WORK for each hour of a day - a short dip shows even if the hour's average hides it."""
+    out: List[Optional[float]] = [None] * 24
+    for r in rows:
+        b = _float(r.get("temp_pieca"))
+        if b is None or (r.get("tryb_pracy") or "").upper() != "WORK":
+            continue
+        try:
+            hour = int((r.get("data_czas") or "")[11:13])
+        except ValueError:
+            continue
+        if 0 <= hour < 24 and (out[hour] is None or b < out[hour]):
+            out[hour] = b
+    return out
+
+
+def _day_hour(day: Optional[DayAgg], hour: int, coal: Optional[HourCoal] = None,
+              mins: Optional[HourMin] = None) -> Dict[str, Any]:
     t = list(day.hours[hour]) if day is not None and len(day.hours) == 24 else [0.0] * 6
     per_hour = (coal or {}).get(day.date) if day is not None else None
     kg, kwh = per_hour[hour] if per_hour else (0.0, 0.0)
+    low = ((mins or {}).get(day.date) or [None] * 24)[hour] if day is not None else None
     return {**_hour_entry(hour, t), "date": day.date if day is not None else None,
-            "coal_kg": round(kg, 2), "kwh": round(kwh, 1)}
+            "coal_kg": round(kg, 2), "kwh": round(kwh, 1), "boiler_min": _r(low)}
 
 
 def hourly_last24(yesterday: Optional[DayAgg], today: Optional[DayAgg], now_hour: int,
-                  coal: Optional[HourCoal] = None) -> List[Dict[str, Any]]:
+                  coal: Optional[HourCoal] = None, mins: Optional[HourMin] = None) -> List[Dict[str, Any]]:
     """The last 24 hours one by one, oldest first: yesterday after the current hour, then today up to now."""
     out = []
     for day, hours in ((yesterday, range(now_hour + 1, 24)), (today, range(0, now_hour + 1))):
         for hour in hours:
-            out.append(_day_hour(day, hour, coal))
+            out.append(_day_hour(day, hour, coal, mins))
     return out
 
 
@@ -429,9 +448,10 @@ def _settled_day(day: DayAgg) -> Dict[str, Any]:
     return {"setpoint": e["setpoint"], "boiler_work": e["boiler"], "below_pct": e["below_pct"]}
 
 
-def hours_of_day(day: Optional[DayAgg], coal: Optional[HourCoal] = None) -> List[Dict[str, Any]]:
+def hours_of_day(day: Optional[DayAgg], coal: Optional[HourCoal] = None,
+                 mins: Optional[HourMin] = None) -> List[Dict[str, Any]]:
     """One day hour by hour (0-23)."""
-    return [_day_hour(day, hour, coal) for hour in range(24)]
+    return [_day_hour(day, hour, coal, mins) for hour in range(24)]
 
 
 def drops_list(days: List[DayAgg], limit: int = 50) -> Dict[str, Any]:
@@ -596,9 +616,9 @@ def checks(period: Dict[str, Any], model: Dict[str, Any], last_full_day: Optiona
         st = "ok" if reg["within_2"] >= 80 else "warn" if reg["within_2"] >= 60 else "bad"
         add(st, "Regulacja temperatury",
             f"{reg['grade']}: {reg['within_2']:.0f}% czasu w ±2°C, średnio {reg['mean_abs_error']:.1f}°C od zadanej",
-            "W normie ±2°", f"{reg['within_2']:.0f}%")
+            "W normie (7 dni)", f"{reg['within_2']:.0f}%")
     else:
-        add("info", "Regulacja temperatury", "za mało pracy w trybie PRACA w tym okresie", "W normie ±2°", "--")
+        add("info", "Regulacja temperatury", "za mało pracy w trybie PRACA w tym okresie", "W normie (7 dni)", "--")
 
     change = (trend or {}).get("change_pct")
     if change is not None:
@@ -703,16 +723,18 @@ class Analytics:
         }
         by_date = {x.date: x for x in days}
         now_hour = datetime.now().hour if today == date.today() else 23
-        # coal per hour only for the last two days - read on the fly, not kept in the cache
+        # coal and the lowest boiler temp per hour only for the last two days - read on the fly, not cached
         yday = today - timedelta(days=1)
         hour_coal: HourCoal = {}
+        hour_min: HourMin = {}
         for d in (yday, today):
             per_hour = [[0.0, 0.0] for _ in range(24)]
             coal_for_day(self.stats_dir, d, index=indexes["stats"], hourly=per_hour)
             hour_coal[d.isoformat()] = per_hour
+            hour_min[d.isoformat()] = hour_min_boiler(history_rows(self.history_dir, d, index=indexes["history"]))
         periods["today"]["last24"] = hourly_last24(
-            by_date.get(yday.isoformat()), by_date.get(today.isoformat()), now_hour, hour_coal)
-        periods["yesterday"]["hours24"] = hours_of_day(by_date.get(yday.isoformat()), hour_coal)
+            by_date.get(yday.isoformat()), by_date.get(today.isoformat()), now_hour, hour_coal, hour_min)
+        periods["yesterday"]["hours24"] = hours_of_day(by_date.get(yday.isoformat()), hour_coal, hour_min)
         model = weather_model(since(today - timedelta(days=365)))
         full_days = [x for x in days if x.date < today.isoformat() and x.seconds >= FULL_DAY_SHARE * 86400]
         daily = [{

@@ -158,3 +158,13 @@ def test_coal_forecast_per_day_with_cost():
     assert tomorrow["tmin"] == -4 and tomorrow["code"] == 71        # the daily summary
     assert tomorrow["energy_kwh"] == 195.0
     assert coal_forecast(None, model, datetime(2026, 11, 10))["available"] is False
+
+
+def test_hour_min_boiler_shows_a_short_dip():
+    from backend.core.analytics import hour_min_boiler
+    rows = [{"data_czas": f"2026-10-27T21:{m:02d}:00", "temp_pieca": str(56 - (4 if 30 <= m < 50 else 0)), "tryb_pracy": "WORK"}
+            for m in range(60)]
+    rows.append({"data_czas": "2026-10-27T22:00:00", "temp_pieca": "30", "tryb_pracy": "IGNITION"})  # not WORK
+    mins = hour_min_boiler(rows)
+    assert mins[21] == 52.0          # the hour's average is ~54.7, the dip still shows
+    assert mins[22] is None
