@@ -230,19 +230,48 @@
 
   // ---------------------------------------------------------------- changelog
 
-  // newest version first; the one running now is marked
+  // newest version first, grouped by day; a strip of days on top (how many versions each day)
   function renderChangelog(d) {
     const cur = String(d.current || "");
     $("cl-current").textContent = cur ? `na piecu: ${cur}` : "";
-    $("cl-list").innerHTML = (d.versions || []).filter((v) => v.items.length).map((v, i) => {
-      const now = v.version === cur;
-      return `<div class="sv-tl ${now ? "is-now" : ""} ${i === 0 ? "is-newest" : ""}">
-        <span class="sv-tl__dot"></span>
-        <div class="sv-tl__body">
-          <div class="sv-tl__head"><span class="sv-tl__ver">${esc(v.version)}</span>${v.date ? `<span class="sv-tl__date">${esc(v.date)}</span>` : ""}${now ? `<span class="sv-tl__tag">na piecu</span>` : ""}</div>
-          <ul class="sv-tl__items">${v.items.map((it, k) => k === 0 ? `<li class="sv-tl__title">${esc(it)}</li>` : `<li>${esc(it).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/:$/, "")}</li>`).join("")}</ul>
-        </div></div>`;
+    const versions = (d.versions || []).filter((v) => v.items.length);
+    const days = [];
+    versions.forEach((v) => {
+      const [day, time] = String(v.date || "").split(" ");
+      let g = days[days.length - 1];
+      if (!g || g.day !== (day || "")) days.push(g = { day: day || "", list: [] });
+      g.list.push({ ...v, time: time || "" });
+    });
+    const today = new Date();
+    const dd = (x) => `${String(x.getDate()).padStart(2, "0")}.${String(x.getMonth() + 1).padStart(2, "0")}.${x.getFullYear()}`;
+    const yesterday = new Date(today.getTime() - 86400000);
+    const dayName = (day) => (day === dd(today) ? "Dziś" : day === dd(yesterday) ? "Wczoraj" : day.slice(0, 5));
+    const most = Math.max(1, ...days.map((g) => g.list.length));
+    const forms = (n) => (n === 1 ? "wersja" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? "wersje" : "wersji");
+
+    // the strip: oldest day on the left, bar height = versions that day
+    $("cl-strip").innerHTML = days.slice().reverse().map((g) => {
+      const has = g.list.some((v) => v.version === cur);
+      return `<button type="button" class="sv-strip__day ${has ? "is-now" : ""}" data-day="${esc(g.day)}">
+        <span class="sv-strip__n">${g.list.length}</span>
+        <span class="sv-strip__bar" style="height:${Math.round(8 + 64 * g.list.length / most)}px"></span>
+        <span class="sv-strip__label">${esc(dayName(g.day))}</span></button>`;
     }).join("");
+
+    $("cl-list").innerHTML = days.map((g) => `
+      <h3 class="sv-day" id="cl-day-${esc(g.day.replace(/\./g, "-"))}">${esc(dayName(g.day))}
+        <span class="sv-sub">${esc(g.day)} • ${g.list.length} ${forms(g.list.length)}</span></h3>
+      ${g.list.map((v) => {
+        const now = v.version === cur;
+        return `<div class="sv-tl ${now ? "is-now" : ""}">
+          <span class="sv-tl__time">${esc(v.time)}</span>
+          <span class="sv-tl__dot"></span>
+          <div class="sv-tl__body">
+            <div class="sv-tl__head"><span class="sv-tl__ver">${esc(v.version)}</span>${now ? `<span class="sv-tl__tag">na piecu</span>` : ""}</div>
+            <ul class="sv-tl__items">${v.items.map((it, k) => k === 0 ? `<li class="sv-tl__title">${esc(it)}</li>` :
+              `<li>${esc(it).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/:$/, "")}</li>`).join("")}</ul>
+          </div></div>`;
+      }).join("")}`).join("");
   }
 
   // ---------------------------------------------------------------- loading
@@ -301,6 +330,11 @@
       if (b) showTab(b.dataset.tab);
     });
     $("sv-refresh").addEventListener("click", () => load(true));
+    $("cl-strip").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-day]");
+      const el = b && document.getElementById(`cl-day-${b.dataset.day.replace(/\./g, "-")}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     document.addEventListener("click", (e) => {
       const card = e.target.closest(".sv-card");
       if (!card) return;
