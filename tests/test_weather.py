@@ -109,3 +109,20 @@ def test_forecast_fetched_with_the_temperature_and_published(tmp_path):
     assert result.runtime["forecast"]["hourly"] == forecast["hourly"]
     assert result.runtime["forecast"]["location"] == "Nowy Sącz"
     assert calls == [1]      # once an hour, not with every 15 min temperature fetch
+
+
+def test_history_writes_the_weather_temperature(tmp_path):
+    """No outside sensor on the furnace: the history column temp_zewn comes from the weather."""
+    import csv
+    from backend.modules.history import HistoryModule
+    from backend.core.state import BoilerMode
+    m = HistoryModule(data_root=tmp_path)
+    st = SystemState(mode=BoilerMode.WORK)
+    st.runtime["weather"] = {"temp": -3.5, "valid_until": time.time() + 600}
+    t = time.time()
+    for i in range(40):
+        st.ts_mono = i * 2.0
+        m.tick(now=t + i * 2.0, sensors=Sensors(boiler_temp=56.0, radiators_temp=30.0), system_state=st)
+    files = list(tmp_path.rglob("boiler_*.csv"))
+    rows = list(csv.DictReader(files[0].open(encoding="utf-8"), delimiter=";"))
+    assert rows and all(r["temp_zewn"] == "-3.5" for r in rows)
