@@ -179,3 +179,15 @@ def test_fine_series_keeps_a_half_hour_dip():
     assert len(s) == 12 and s[0]["time"] == "21:00"
     assert [x["boiler"] for x in s[3:6]] == [52.0, 52.0, 52.0]      # the dip is there, not averaged away
     assert s[0]["setpoint"] == 56.0
+
+
+def test_power_stability_in_settled_work():
+    from backend.core.analytics import aggregate_day, summarize
+    day = date(2026, 11, 10)
+    start = datetime(2026, 11, 10, 0, 0)
+    # 3 h of WORK; power swings 40/60 every 10 min; the first 20 min after entering WORK don't count
+    rows = [{"data_czas": (start + timedelta(seconds=30 * i)).isoformat(), "tryb_pracy": "WORK", "temp_pieca": "56",
+             "zadana": "56", "power": "40" if (i // 20) % 2 else "60"} for i in range(360)]
+    ps = summarize([aggregate_day(day, rows)])["power_stats"]
+    assert ps["avg_pct"] == 50 and 9.5 <= ps["std_pct"] <= 10.5
+    assert ps["at_max_pct"] == 0 and ps["at_min_pct"] == 0 and ps["grade"] == "stabilnie"

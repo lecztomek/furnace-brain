@@ -13,6 +13,8 @@
   let effChart = null;
   let weatherChart = null;
   let hourlyChart = null;
+  let powerKwhChart = null;
+  let powerPctChart = null;
   let seasonChart = null;
   let forecastChart = null;
   let forecast = null;
@@ -62,7 +64,8 @@
 
   // big tile with an icon (same look as the service page): a short unit goes next to
   // the value, anything longer in one line under it
-  const TILE_ICONS = [["Węgiel na", "target"], ["Węgiel", "coal"], ["Koszt", "coins"], ["Średnia moc", "zap"], ["Średnio", "bars"],
+  const TILE_ICONS = [["Węgiel na", "target"], ["Węgiel", "coal"], ["Koszt", "coins"], ["Średnia moc", "zap"], ["Szczyt", "trendUp"], ["Moc sterownika", "gauge"],
+    ["Na pełnej mocy", "flame"], ["Na minimum", "power"], ["Średnio", "bars"],
     ["Kocioł", "flame"], ["Grzejniki", "radiator"], ["Na zewnątrz", "thermometer"], ["Rozpalenia", "flame"], ["W normie", "target"],
     ["Od zadanej", "upDown"], ["Ostatni tydzień", "trendUp"], ["Ten sezon", "calendar"], ["Prognoza", "sparkles"], ["Zeszły sezon", "history"],
     ["Przy 0", "cloudSun"], ["Przy -10", "snowflake"], ["Każdy stopień", "thermometer"]];
@@ -158,7 +161,6 @@
       .map(([m, v]) => `${MODE_NAMES[m]} ${num(v, 0)}%`)
       .join(", ");
     $("work-tiles").innerHTML = [
-      tile("Średnia moc", num(p.power_kw_avg, 1), "kW"),
       tile("Kocioł", num(a.boiler), "°C"),
       tile("Grzejniki", num(a.radiators), "°C"),
       tile("Na zewnątrz", num(a.outside), "°C"),
@@ -176,6 +178,7 @@
         ].join("")
       : `<div class="st2-empty">${FBIcon("hourglass", "ic--inline")} Za mało pracy w tym okresie</div>`;
     renderHourly();
+    renderPower();
   }
 
   function renderEfficiency() {
@@ -203,6 +206,56 @@
     $("eff-chart-box").style.display = any ? "" : "none";
     $("eff-empty").style.display = any ? "none" : "";
     effChart = draw(effChart, "chart-efficiency", data, baseOptions());
+  }
+
+  // heat output in kWh, the controller's power in % and how steady it was
+  function renderPower() {
+    const p = report.periods[period];
+    const ps = p.power_stats;
+    const { hourly, rows, labels } = periodSeries();
+    const grade = $("power-grade");
+    grade.textContent = ps ? ps.grade : "";
+    grade.className = "st2-grade" + (ps ? ` grade-${{ stabilnie: "dobra", umiarkowanie: "przeciętna", nerwowo: "słaba" }[ps.grade]}` : "");
+    $("power-tiles").innerHTML = [
+      tile("Średnia moc", num(p.power_kw_avg, 1), "kW"),
+      tile("Szczyt", num(p.power_kw_max, 1), "kW"),
+      tile("Moc sterownika", ps ? `${num(ps.avg_pct, 0)}<small>%</small>` : "--", ps ? `wahania ±${num(ps.std_pct, 0)}%` : "",
+           ps ? (ps.std_pct < 12 ? "st2-tile--good" : ps.std_pct >= 22 ? "st2-tile--bad" : "") : ""),
+      tile("Na pełnej mocy", ps ? `${num(ps.at_max_pct, 0)}<small>%</small>` : "--", ps ? `czasu (≥${num(ps.high_pct, 0)}%)` : "",
+           ps && ps.at_max_pct >= 40 ? "st2-tile--bad" : ""),
+      tile("Na minimum", ps ? `${num(ps.at_min_pct, 0)}<small>%</small>` : "--", ps ? `czasu (≤${num(ps.low_pct, 0)}%)` : "",
+           ps && ps.at_min_pct >= 40 ? "st2-tile--bad" : ""),
+    ].join("");
+
+    // kWh: per hour for the last day, per day for longer periods
+    const span = period === "today" ? " • ostatnie 24 h" : "";
+    $("power-kwh-title").textContent = (hourly ? "Ciepło w każdej godzinie [kWh] = średnia moc [kW]" : "Ciepło każdego dnia [kWh]") + span;
+    const kwhOpts = baseOptions();
+    kwhOpts.scales.y.ticks.callback = (v) => `${num(v, 0)} kWh`;
+    powerKwhChart = draw(powerKwhChart, "chart-power-kwh", {
+      labels,
+      datasets: [{ type: "bar", label: "kWh", data: rows.map((r) => r.kwh), backgroundColor: "rgba(250, 204, 21, 0.75)", borderRadius: 4 }],
+    }, kwhOpts);
+
+    // %: 10 min averages for the last day, daily average in WORK for longer periods
+    const fine = period === "today" ? p.fine24 : period === "yesterday" ? p.fine : null;
+    const useFine = fine && fine.length && fine.some((f) => f.power != null);
+    const pctLabels = useFine ? fine.map((f) => f.time) : labels;
+    const pct = useFine ? fine.map((f) => f.power) : rows.map((r) => (hourly ? r.power : r.power_work));
+    $("power-pct-title").textContent = `Moc sterownika [%]${useFine ? " co 10 min" : hourly ? " w każdej godzinie" : " - średnia w pracy każdego dnia"}${span}`;
+    const pctOpts = baseOptions();
+    pctOpts.scales.y.max = 100;
+    pctOpts.scales.y.ticks.callback = (v) => `${v}%`;
+    if (useFine) {
+      const every = window.innerWidth < 700 ? 6 : 3;
+      pctOpts.scales.x.ticks = { ...pctOpts.scales.x.ticks, autoSkip: false,
+        callback: (v, i) => (pctLabels[i].endsWith(":00") && Number(pctLabels[i].slice(0, 2)) % every === 0 ? pctLabels[i].replace(/^0/, "") : "") };
+    }
+    powerPctChart = draw(powerPctChart, "chart-power-pct", {
+      labels: pctLabels,
+      datasets: [{ type: "line", label: "moc %", data: pct, borderColor: "#60a5fa", backgroundColor: "rgba(96, 165, 250, 0.15)",
+        fill: true, spanGaps: false, borderWidth: 2 }],
+    }, pctOpts);
   }
 
   // hour-of-day profile (when the boiler doesn't keep up) and the list of drops
@@ -491,7 +544,7 @@
     document.querySelectorAll("#st2-tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     document.querySelectorAll(".st2-card[data-tab]").forEach((c) => c.classList.toggle("is-hidden", c.dataset.tab !== tab));
     // charts drawn while hidden have no size - redraw the visible ones
-    [dailyChart, seasonChart, hourlyChart, effChart, weatherChart, forecastChart].forEach((c) => c && c.resize());
+    [dailyChart, seasonChart, hourlyChart, effChart, weatherChart, forecastChart, powerKwhChart, powerPctChart].forEach((c) => c && c.resize());
     try { localStorage.setItem("stats-tab", tab); } catch (err) { /* private mode */ }
   }
 

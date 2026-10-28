@@ -28,6 +28,8 @@ GAP_S = 120.0              # a longer pause between rows is a gap in the data
 SETTLE_S = 20 * 60         # regulation quality: skip the first 20 min after entering WORK
 # temperature drops: settled WORK, boiler this far below the setpoint
 DROP_BELOW_C = 4.0
+POWER_HIGH = 90.0          # power stability: "at full power" from this %
+POWER_LOW = 25.0           # ... and "at the minimum" up to this %
 DROP_MIN_S = 300.0         # shorter dips are not listed
 DROP_GAP_S = 120.0         # a short return above the line doesn't split a drop
 FULL_DAY_SHARE = 0.8       # days with less data don't go into the weather model
@@ -96,6 +98,15 @@ class DayAgg:
     hours: List[List[float]] = field(default_factory=lambda: [[0.0] * 6 for _ in range(24)])
     # drops below setpoint - DROP_BELOW_C: start, minutes, lowest temp, setpoint, power
     drops: List[Dict[str, Any]] = field(default_factory=list)
+    # power in settled WORK: seconds, sum, sum of squares, at full power / minimum, |change| per row
+    # (days cached before these fields have zeros - left out of the power stability)
+    pw_s: float = 0.0
+    pw_sum: float = 0.0
+    pw_sq: float = 0.0
+    pw_max_s: float = 0.0
+    pw_min_s: float = 0.0
+    pw_jump: float = 0.0
+    pw_jumps: int = 0
 
     def avg(self, key: str) -> Optional[float]:
         w = self.weights.get(key, 0.0)
@@ -230,6 +241,7 @@ def aggregate_day(day: date, rows: List[Dict[str, str]], coal_kg: float = 0.0,
             })
 
     recent_power: List[float] = []
+    last_settled_power: Optional[float] = None
     for i, (ts, r) in enumerate(parsed):
         nxt = parsed[i + 1][0] if i + 1 < len(parsed) else None
         step = (nxt - ts).total_seconds() if nxt else 30.0
@@ -303,6 +315,16 @@ def aggregate_day(day: date, rows: List[Dict[str, str]], coal_kg: float = 0.0,
                 hb[4] += w
             if below:
                 hb[5] += w
+        if settled and power is not None:
+            agg.pw_s += w
+            agg.pw_sum += power * w
+            agg.pw_sq += power * power * w
+            agg.pw_max_s += w if power >= POWER_HIGH else 0.0
+            agg.pw_min_s += w if power <= POWER_LOW else 0.0
+            if last_settled_power is not None and step <= GAP_S:
+                agg.pw_jump += abs(power - last_settled_power)
+                agg.pw_jumps += 1
+        last_settled_power = power if settled else None
         if settled:
             err = boiler - setpoint
             agg.st_s += w
@@ -335,6 +357,24 @@ def summarize(days: List[DayAgg]) -> Dict[str, Any]:
     for d in days:
         for m, s in d.mode_s.items():
             mode_s[m] = mode_s.get(m, 0.0) + s
+
+    pw_days = [d for d in days if d.pw_s > 0]
+    pw_s = sum(d.pw_s for d in pw_days)
+    power_stats = None
+    if pw_s >= 1800:
+        mean = sum(d.pw_sum for d in pw_days) / pw_s
+        std = math.sqrt(max(0.0, sum(d.pw_sq for d in pw_days) / pw_s - mean * mean))
+        jumps = sum(d.pw_jumps for d in pw_days)
+        power_stats = {
+            "hours": _r(pw_s / 3600),
+            "avg_pct": _r(mean, 0),
+            "std_pct": _r(std, 1),
+            "at_max_pct": _r(100 * sum(d.pw_max_s for d in pw_days) / pw_s, 0),
+            "at_min_pct": _r(100 * sum(d.pw_min_s for d in pw_days) / pw_s, 0),
+            "jump_pct": _r(sum(d.pw_jump for d in pw_days) / jumps, 2) if jumps else None,
+            "high_pct": POWER_HIGH, "low_pct": POWER_LOW,
+            "grade": "stabilnie" if std < 12 else "umiarkowanie" if std < 22 else "nerwowo",
+        }
 
     st_s = sum(d.st_s for d in days)
     regulation = None
@@ -373,6 +413,7 @@ def summarize(days: List[DayAgg]) -> Dict[str, Any]:
         "rows": sum(d.rows for d in days),
         "alarms": sum(d.alarms for d in days),
         "regulation": regulation,
+        "power_stats": power_stats,
         "efficiency": {
             "degree_days": _r(sum(h for h in (degree_days(d) for d in days) if h is not None), 1),
             "kg_per_degree_day": _r(kg_per_degree_day(days), 3),
@@ -413,7 +454,7 @@ def fine_series(rows: List[Dict[str, str]], start: datetime, end: datetime,
                 fallback_setpoint: Optional[float] = None, step_s: int = FINE_STEP_S) -> List[Dict[str, Any]]:
     """Boiler temperature and setpoint in WORK as step_s averages from start to end (None where it didn't work)."""
     n = max(0, int((end - start).total_seconds() // step_s) + 1)
-    sums = [[0.0, 0, 0.0, 0] for _ in range(n)]   # boiler sum, count, setpoint sum, count
+    sums = [[0.0, 0, 0.0, 0, 0.0, 0] for _ in range(n)]   # boiler, setpoint, power: sum and count each
     for r in rows:
         if (r.get("tryb_pracy") or "").upper() != "WORK":
             continue
@@ -433,11 +474,15 @@ def fine_series(rows: List[Dict[str, str]], start: datetime, end: datetime,
         if sp is not None:
             sums[i][2] += sp
             sums[i][3] += 1
+        pw = _float(r.get("power"))
+        if pw is not None:
+            sums[i][4] += pw
+            sums[i][5] += 1
     out = []
-    for i, (bs, bn, ss, sn) in enumerate(sums):
+    for i, (bs, bn, ss, sn, ps, pn) in enumerate(sums):
         t = start + timedelta(seconds=i * step_s)
         out.append({"time": t.strftime("%H:%M"), "boiler": round(bs / bn, 1) if bn else None,
-                    "setpoint": round(ss / sn, 1) if sn else None})
+                    "setpoint": round(ss / sn, 1) if sn else None, "power": round(ps / pn) if pn else None})
     return out
 
 
@@ -711,7 +756,9 @@ class Analytics:
     def day(self, d: date, today: date, fallback_setpoint: Optional[float],
             indexes: Optional[Dict[str, Dict[str, List[Path]]]] = None) -> DayAgg:
         key = d.isoformat()
-        if d < today and key in self._cache:
+        # days cached before the power stability fields: the last 30 are read again once
+        stale = key in self._cache and "pw_s" not in self._cache[key] and d >= today - timedelta(days=30)
+        if d < today and key in self._cache and not stale:
             return DayAgg.from_dict(self._cache[key])
         ix = indexes or {}
         coal, energy, power_max = coal_for_day(self.stats_dir, d, index=ix.get("stats"))
@@ -737,7 +784,9 @@ class Analytics:
         self.progress = {"done": 0, "total": (today - first).days + 1}
         while d <= today:
             self.progress["done"] = (d - first).days
-            from_files = not (d < today and d.isoformat() in self._cache)
+            cached = self._cache.get(d.isoformat())
+            from_files = not (d < today and cached is not None
+                              and ("pw_s" in cached or d < today - timedelta(days=30)))
             agg = self.day(d, today, fallback_setpoint, indexes)
             if from_files and pause_s:
                 time.sleep(pause_s)
@@ -802,6 +851,8 @@ class Analytics:
             "kg_per_degree_day": _r(kg_per_degree_day([x]), 3) if x.seconds >= FULL_DAY_SHARE * 86400 else None,
             # regulation per day (settled WORK, like the hourly chart)
             **_settled_day(x),
+            "power_work": _r(x.pw_sum / x.pw_s, 0) if x.pw_s >= 1800 else None,
+            "power_std": _r(math.sqrt(max(0.0, x.pw_sq / x.pw_s - (x.pw_sum / x.pw_s) ** 2)), 1) if x.pw_s >= 1800 else None,
         } for x in since(min(season_start, today - timedelta(days=29)))]
 
         # efficiency trend: last 7 full days against the 3 weeks before
