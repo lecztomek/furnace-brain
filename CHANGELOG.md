@@ -3,6 +3,7 @@
 Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
 ## 1.36
+- Heating curve: outside average over 12 h by default; missing weather (internet) keeps the last average instead of falling back to the fixed target.
 - Restart-proof: feeder, blower and valve stop while the backend is down (pumps run with a warm boiler).
 - Flame-out window and the heating curve's outside average refilled from the history after a restart.
 

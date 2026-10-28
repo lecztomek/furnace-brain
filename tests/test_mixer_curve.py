@@ -47,7 +47,9 @@ def test_averaged_over_hours(tmp_path):
 def test_no_outside_temperature_falls_back(tmp_path):
     m = _module(tmp_path, curve_enabled=True)
     _tick(m, 0.0, -10.0)
-    rt, types = _tick(m, 2 * 3600.0, None)   # weather gone for 2 h
+    rt, _ = _tick(m, 2 * 3600.0, None)       # weather gone for 2 h: the average still holds
+    assert rt["curve_active"] and rt["outside_avg"] == -10.0
+    rt, types = _tick(m, 13 * 3600.0, None)  # gone for longer than the whole 12 h window
     assert rt["target"] == 30.0 and not rt["curve_active"]
     assert "MIXER_CURVE_NO_WEATHER" in types
 

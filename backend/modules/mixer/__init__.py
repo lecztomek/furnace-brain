@@ -58,13 +58,12 @@ class MixerConfig:
     curve_slope: float = 0.45         # C of water per C of outside temperature
     curve_min: float = 22.0
     curve_max: float = 45.0
-    curve_avg_h: float = 6.0          # outside temperature averaged over (house and water inertia)
+    curve_avg_h: float = 12.0         # outside temperature averaged over (house and water inertia)
 
 
 MOVES_WINDOW_S = 30 * 60.0     # net valve movement shown on the main page
 
 CURVE_SAMPLE_S = 60.0          # outside temperature sampled once a minute
-CURVE_STALE_S = 3600.0         # no outside temperature for an hour -> fixed target_temp
 
 
 class MixerModule(ModuleInterface):
@@ -641,7 +640,10 @@ class MixerModule(ModuleInterface):
         window = max(self._config.curve_avg_h, 0.25) * 3600.0
         while self._outside and self._outside[0][0] < now_ctrl - window:
             self._outside.popleft()
-        if not self._outside or now_ctrl - self._outside[-1][0] > CURVE_STALE_S:
+        # no new readings (internet down, weather service failing): the average of
+        # what is left keeps working; only a whole window without data falls back
+        # to the fixed target_temp
+        if not self._outside:
             return None
         return sum(v for _, v in self._outside) / len(self._outside)
 
