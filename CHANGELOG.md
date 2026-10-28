@@ -2,6 +2,9 @@
 
 Every version, newest first. Version in `VERSION`: Z = fix, Y = feature, X = big change.
 
+## 1.42.1 · 28.10.2026 12:51
+- The flue brake is called "Wyprzedzanie spalinami" in the settings - it works both ways: less power while the flue rises, more while it falls
+
 ## 1.42.0 · 28.10.2026 12:46
 - Power in WORK: optional flue brake (Ustawienia → Moc w pracy → "Hamulec spalinowy", 0 = off, the default). The flue warms up 10-20 min before the boiler water, so power -= gain x flue trend [°C/min] (smoothed over 5 min, at most "Hamulec spalinowy - maks." points, a bad reading ignored, nothing without the sensor, starts over on entering WORK)
 - Checked on a boiler twin fitted to prod (wave ±1.4 °C every ~80 min, flue 14 min ahead): gain 8 brings the wave to ±0.5-1.0 °C, the same bath recovery, faster after a setpoint or load change

@@ -103,7 +103,7 @@ fields:
     description: "Wzmocnienie części różniczkującej PID. Reaguje na szybkość zmian temperatury i pomaga wyhamować przed przeregulowaniem."
 
   - key: flue_brake_gain
-    label: "Hamulec spalinowy"
+    label: "Wyprzedzanie spalinami"
     type: number
     unit: "%/(°C/min)"
     min: 0
@@ -112,12 +112,13 @@ fields:
     default: 0
     group: pid
     description: >
-      0 = wyłączony. Spaliny nagrzewają się 10–20 min wcześniej niż woda w kotle.
-      Gdy spaliny szybko rosną, regulator zawczasu ujmuje mocy (gdy spadają - dodaje),
-      zamiast dokładać węgla do przestrzału. Np. 8: spaliny rosną 1°C/min → moc −8 pkt.
+      0 = wyłączone. Spaliny zmieniają się 10–20 min wcześniej niż woda w kotle.
+      Gdy spaliny szybko rosną (ogień się rozkręca), regulator zawczasu ujmuje mocy, zamiast
+      dokładać węgla do przestrzału. Gdy spadają (ogień przygasa), wcześniej dodaje mocy,
+      żeby kocioł mniej zjechał. Np. 8: spaliny ±1°C/min → moc ∓8 pkt.
 
   - key: flue_brake_max
-    label: "Hamulec spalinowy - maks."
+    label: "Wyprzedzanie spalinami - maks."
     type: number
     unit: "%"
     min: 0
@@ -125,7 +126,7 @@ fields:
     step: 1
     default: 20
     group: pid
-    description: "Najwięcej, o ile hamulec spalinowy może zmienić moc (w punktach procentowych)."
+    description: "Najwięcej, o ile wyprzedzanie spalinami może zmienić moc w górę albo w dół (w punktach procentowych)."
 
   - key: integral_classic
     label: "Całka bez zapominania"
