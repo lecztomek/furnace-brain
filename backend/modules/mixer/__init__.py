@@ -715,6 +715,7 @@ class MixerModule(ModuleInterface):
             "curve_enabled": bool(self._config.curve_enabled),
             "curve_active": active,
             "outside_avg": None if avg is None else round(avg, 1),
+            "outside_avg_h": self._config.curve_avg_h,
         }
 
     def set_config_values(self, values: Dict[str, Any], persist: bool = True) -> None:

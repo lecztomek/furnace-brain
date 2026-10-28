@@ -250,6 +250,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!r.ok) return;
       const rad = (await r.json()).radiators || {};
       showMixerMoves(rad);
+      showOutsideAvg(rad);
       let v = Number(rad.target);
       if (rad.target == null || isNaN(v)) {
         // mixer not running yet - show the configured value
@@ -260,6 +261,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!isNaN(v)) el.textContent = `${rad.curve_active ? "krzywa" : "zadana"} ${fmt(v)}°C`;
     } catch (e) { /* keep the last value */ }
   }
+  // under the outside temperature: the average the heating curve uses and its window ("śr. 4,2° / 12 h")
+  function showOutsideAvg(rad) {
+    const t = document.getElementById("outside-avg-text");
+    if (!t) return;
+    const avg = Number(rad.outside_avg);
+    t.textContent = rad.outside_avg == null || isNaN(avg) ? ""
+      : `śr. ${fmt(avg)}° / ${String(rad.outside_avg_h ?? "").replace(".", ",")} h`;
+  }
+
   // mixing valve: net seconds of opening (+) / closing (-) in the last 30 min
   function showMixerMoves(rad) {
     const g = document.getElementById("mixer-moves");
