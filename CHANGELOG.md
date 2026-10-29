@@ -2,6 +2,9 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.53.2 · 29.10.2026 11:50
+- Serwis → Diagnostyka → Internet: „Powiadomienia (ntfy)” - zielone „wysłane 2 h temu (Piec wygasł)” albo „włączone, jeszcze nic nie wysłano”, żółte „ponawiam wysyłanie” / „nie wysłano … (błąd)”, szare „wyłączone”; pod spodem temat i co jest zaznaczone do wysyłania
+
 ## 1.53.1 · 29.10.2026 11:20
 - Powiadomienia: temat ntfy wylicza się z klucza podglądu zdalnego (jest tylko na Pi), więc jest znany przed pierwszym startem i nie ma go w publicznym repozytorium; bez tego klucza - losowy jak wcześniej
 

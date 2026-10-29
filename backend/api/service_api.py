@@ -79,6 +79,26 @@ def _item(status: str, label: str, value: str, note: str = "", gauge: Optional[f
     return out
 
 
+def _notify_item(nt: Dict[str, Any], now: float) -> Dict[str, Any]:
+    """Phone notifications (ntfy): off / sent when / failing - with the topic and what is sent."""
+    label = "Powiadomienia (ntfy)"
+    sends = ", ".join(nt.get("sends") or []) or "nic nie zaznaczone"
+    note = f"temat {nt.get('topic')} • wysyła: {sends}"
+    if nt.get("simulated"):
+        note += " • symulator - nic nie wysyła naprawdę"
+    if not nt.get("enabled"):
+        return _item("info", label, "wyłączone", note)
+    failed = nt.get("failed")
+    if failed:
+        return _item("warn", label, f"nie wysłano „{failed.get('title')}” {_ago(failed.get('at'), now)}",
+                     f"{failed.get('error')} • {note}")
+    if nt.get("last_error"):
+        return _item("warn", label, "ponawiam wysyłanie", f"{nt['last_error']} • {note}")
+    if nt.get("last_sent"):
+        return _item("ok", label, f"wysłane {_ago(nt['last_sent'], now)} ({nt.get('last_title')})", note)
+    return _item("ok", label, "włączone, jeszcze nic nie wysłano", note)
+
+
 def _ago(ts: Optional[float], now: float) -> str:
     if not ts:
         return "nigdy"
@@ -563,6 +583,9 @@ def create_service_router(store: StateStore, config_store: ConfigStore, data_roo
                              f"wysłane {_ago(rv.get('last_ok'), now)}", problems))
         elif rv:
             net.append(_item("info", "Podgląd zdalny (Firebase)", "wyłączony"))
+        nt = st.runtime.get("notify") or {}
+        if nt:
+            net.append(_notify_item(nt, now))
         groups.append({"title": "Internet", "items": net})
 
         # --- sensors ---

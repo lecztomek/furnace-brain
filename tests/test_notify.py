@@ -121,3 +121,33 @@ def test_the_simulator_never_sends(monkeypatch):
     assert not N.on_the_real_furnace()
     monkeypatch.setenv("FURNACE_BRAIN_HW_RPI", "1")
     assert N.on_the_real_furnace()
+
+
+def test_shown_in_the_diagnostics():
+    from backend.api.service_api import _notify_item
+    now = time.time()
+    base = {"enabled": True, "topic": "piec-abc", "sends": ["wygaśnięcie"], "simulated": False}
+    assert _notify_item({**base}, now)["value"] == "włączone, jeszcze nic nie wysłano"
+    ok = _notify_item({**base, "last_sent": now - 7200, "last_title": "Piec wygasł"}, now)
+    assert ok["status"] == "ok" and "Piec wygasł" in ok["value"] and "piec-abc" in ok["note"]
+    bad = _notify_item({**base, "failed": {"at": now - 60, "title": "Piec wygasł", "error": "URLError"}}, now)
+    assert bad["status"] == "warn" and "nie wysłano" in bad["value"]
+    assert _notify_item({**base, "enabled": False}, now)["value"] == "wyłączone"
+
+
+def test_the_diagnostics_data_after_a_failure_and_a_success(tmp_path, monkeypatch):
+    monkeypatch.setattr(N, "RETRY_S", (0.01,))
+    sent = []
+    m = _module(tmp_path, sent, fail=2)                       # the first message fails twice: given up
+    _tick(m, _ev("FLAMEOUT"))
+    end = time.time() + 2
+    while not _tick(m).runtime.get("failed") and time.time() < end:
+        time.sleep(0.01)
+    rt = _tick(m).runtime
+    assert rt["failed"]["title"] == "Piec wygasł" and rt["sends"] == ["wygaśnięcie"]
+    m._config.send_test = True
+    _tick(m)
+    _wait(sent, 1)
+    time.sleep(0.05)
+    rt = _tick(m).runtime
+    assert rt["failed"] is None and rt["last_title"] == "Test powiadomień" and rt["last_sent"]

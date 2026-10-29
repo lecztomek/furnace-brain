@@ -53,6 +53,9 @@ KINDS: Dict[str, Tuple[str, str, int, str]] = {
     "MODULE_ERROR": ("send_module_error", "Błąd modułu", 3, "warning"),
     "AUX_MODULE_ERROR": ("send_module_error", "Błąd modułu", 3, "warning"),
 }
+# the ticked settings in words, for the diagnostics
+LABELS = {"send_flameout": "wygaśnięcie", "send_fading": "ogień słabnie", "send_overheat": "przegrzanie",
+          "send_sensor": "brak czujnika", "send_module_error": "błąd modułu"}
 SAME_KIND_S = 300.0                    # the same kind at most once in this long (a module failing every tick)
 RETRY_S = (30.0, 60.0, 120.0, 300.0, 600.0)
 BOOL_KEYS = ("enabled", "send_flameout", "send_fading", "send_overheat", "send_sensor", "send_module_error", "send_test")
@@ -96,13 +99,16 @@ class NotifyModule(ModuleInterface):
         if not self._config.topic:
             self._config.topic = new_topic()
             self._save()
+        self._simulated = sender is None and not on_the_real_furnace()
         self._send = sender or (post_ntfy if on_the_real_furnace() else log_only)
         self._queue: "queue.Queue[Dict[str, Any]]" = queue.Queue(maxsize=50)
         self._last_kind: Dict[str, float] = {}
         self._results: List[Event] = []      # sent / failed - reported on the next tick
         self._lock = threading.Lock()
         self._last_sent: Optional[float] = None
-        self._last_error: Optional[str] = None
+        self._last_title: Optional[str] = None
+        self._last_error: Optional[str] = None      # the last attempt failed (retrying, or given up)
+        self._failed: Optional[Dict[str, Any]] = None   # the last message given up on, until one goes through
         threading.Thread(target=self._worker, daemon=True, name="notify").start()
 
     @property
@@ -134,7 +140,10 @@ class NotifyModule(ModuleInterface):
             events, self._results = self._results, []
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
         runtime = {"enabled": bool(c.enabled), "topic": c.topic, "server": c.server,
-                   "last_sent": self._last_sent, "last_error": self._last_error}
+                   "sends": [label for key, label in LABELS.items() if getattr(c, key, False)],
+                   "simulated": self._simulated, "pending": self._queue.qsize(),
+                   "last_sent": self._last_sent, "last_title": self._last_title,
+                   "last_error": self._last_error, "failed": dict(self._failed) if self._failed else None}
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status, runtime=runtime)
 
     @staticmethod
@@ -162,7 +171,8 @@ class NotifyModule(ModuleInterface):
                 try:
                     self._send(item["server"], item["payload"])
                     with self._lock:
-                        self._last_sent, self._last_error = time.time(), None
+                        self._last_sent, self._last_error, self._failed = time.time(), None, None
+                        self._last_title = item["payload"]["title"]
                         self._results.append(Event(
                             ts=time.time(), source=self.id, level=EventLevel.INFO, type="NOTIFY_SENT",
                             message=f"Powiadomienie wysłane: {item['payload']['title']}",
@@ -175,6 +185,7 @@ class NotifyModule(ModuleInterface):
                     log.warning("ntfy: %s (attempt %d)", err, attempt + 1)
             else:
                 with self._lock:
+                    self._failed = {"at": time.time(), "title": item["payload"]["title"], "error": self._last_error}
                     self._results.append(Event(
                         ts=time.time(), source=self.id, level=EventLevel.WARNING, type="NOTIFY_ERROR",
                         message=f"Nie udało się wysłać powiadomienia „{item['payload']['title']}”: {self._last_error}",
