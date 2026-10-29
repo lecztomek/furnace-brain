@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.52.1 · 29.10.2026 10:25
+- Strona główna: zawsze najwyżej jeden znak - jest problem: czerwony ośmiokąt (zakrywa ostrzeżenie), są same ostrzeżenia: żółty trójkąt. Dotknięcie pokazuje wszystko: najpierw problemy, pod nimi ostrzeżenia
+- Znak znika sam, gdy obie listy są puste - idzie za stanem sterownika (co kilka sekund): wygaśnięcie do ponownego rozpalenia, przegrzanie i brak czujnika do powrotu do normy, ostrzeżenie o węglu do powrotu ognia albo zatrzymania, brak danych do pierwszych świeżych danych
+
 ## 1.52.0 · 29.10.2026 10:10
 - Strona główna: dwa różne znaki - problemy (czerwony ośmiokąt: coś stanęło albo się zepsuło - wygaśnięcie, przegrzanie, brak czujnika, błąd modułu, brak danych) i ostrzeżenia (żółty trójkąt: jeszcze działa, ale coś się szykuje). Mogą być oba naraz, obok siebie; dotknięcie pokazuje listę danego rodzaju, pasek na dole liczy jedne i drugie
 - Wraca ostrzeżenie „ogień słabnie mimo pełnej mocy - sprawdź węgiel w zasypie” (żółty znak, logi, podgląd zdalny) - w chwili, gdy zaczyna się liczyć wcześniejsze zatrzymanie: 29.10 ostrzeżenie o 05:12, zatrzymanie ok. 05:22, jeśli ogień nie wróci. Gdy wróci, ostrzeżenie znika samo
