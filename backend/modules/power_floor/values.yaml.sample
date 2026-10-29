@@ -1,0 +1,7 @@
+enabled: true
+min_at_0: 50.0
+slope: 1.5
+floor_low: 20.0
+floor_high: 70.0
+avg_h: 3.0
+release_above_C: 3.0

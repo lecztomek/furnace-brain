@@ -199,7 +199,9 @@
       <span class="sv-pbar__p" style="width:${Math.min(100, P)}%"></span><span class="sv-pbar__i" style="width:${Math.min(100 - Math.min(100, P), I)}%"></span></span>`;
     el.innerHTML = [
       box("flame", "Kocioł", `${num(l.boiler)}° <span class="sv-arrowtrend">${arrow}</span>`, `zadana ${num(l.setpoint, 0)}°`),
-      box("gauge", "Moc", `${num(l.power, 0)}%`, `<span class="sv-key sv-key--p">P ${num(P, 0)}</span> <span class="sv-key sv-key--i">I ${num(I, 0)} ${iState}</span>`, powerBar),
+      box("gauge", "Moc", `${num(l.power, 0)}%`, `<span class="sv-key sv-key--p">P ${num(P, 0)}</span> <span class="sv-key sv-key--i">I ${num(I, 0)} ${iState}</span>` +
+        // the curve of the minimum power holds the PID up (above the fixed minimum)
+        (p.min_now != null && p.min_now > (pw.min_power ?? 0) ? ` • min ${num(p.min_now, 0)}%` : ""), powerBar),
       box("auger", "Ślimak", feed ? `${num(feed.on_s, 0)} s` : "stoi", feed ? `co ${num(feed.on_s + feed.off_s, 0)} s` : ""),
       box("wind", "Dmuchawa", `${value(l.fan_percent)}%`, l.fan_duty_pct != null ? `${num(l.fan_duty_pct, 0)}% czasu` : "stoi"),
     ].join('<span class="sv-arrow">➜</span>');

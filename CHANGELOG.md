@@ -2,6 +2,13 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.50.0 · 29.10.2026 01:40
+- Nowy moduł „Krzywa minimum mocy” (domyślnie włączony): jak nisko PID może zejść z mocą w pracy, ustawiane jak krzywa grzejników - minimum przy 0 °C na dworze (50 %) i wzrost na stopień mrozu (1,5 %), z temperatury uśrednionej z 3 h. Przy ok. 10 °C minimum to 35 %, przy -10 °C 65 %; granice 20-70 %
+- Powód: 28.10 o 18:00 i 23:20 kocioł spadał o 4-6 °C - PID przez godzinę trzymał 25-35 % mocy przy kotle lekko ponad zadaną, żar się wypalał, a nowy węgiel rozpalał ok. 40 min
+- PID nie schodzi poniżej minimum i nie zbija wtedy całki (anti-windup). Minimum działa w całości do +3 °C ponad zadaną, wyżej znika płynnie w ciągu 1 °C (od +4 °C korekta przegrzania). Bez pogody albo gdy moduł przestanie działać - tylko stała „Minimalna moc”, jak wcześniej
+- Symulator kotła: falowanie ±0,8 °C zamiast ±1,37 °C, płytsze dołki po spadku poboru i po mrozie, zużycie bez zmian
+- Serwis → Strojenie: przy mocy widać „min X%”, gdy krzywa minimum podtrzymuje PID; zmiany jej ustawień są na liście "Po zmianach ustawień"
+
 ## 1.49.2 · 28.10.2026 18:55
 - Strojenie, "Po zmianach ustawień": zmiany zrobione w odstępie do 15 min to jedna pozycja z jednym porównaniem - "przed" kończy się na pierwszej z nich, "po" zaczyna 30 min po ostatniej. Wcześniej każda dostawała osobne porównanie i np. wyprzedzanie spalinami zmienione 2 min przed krzywą miało tylko 2 min "po", więc nigdy nie dostało oceny
 - Na liście zmian także uśrednianie krzywej (curve_avg_h) - zmienia zadaną grzejników

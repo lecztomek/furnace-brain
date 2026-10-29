@@ -50,7 +50,8 @@ RAD_EXP = 1.3               # radiator output ~ (mean - room) ^ 1.3
 # yesterday's wave says nothing about the new settings
 PID_KEYS = {("power_work", k) for k in ("kp", "ki", "flue_brake_gain", "min_power", "max_power",
                                        "max_slew_rate_percent_per_min")} | {("feeder", "feed_on_base_s"),
-                                                                            ("feeder", "feed_off_base_s")}
+                                                                            ("feeder", "feed_off_base_s")} \
+    | {("power_floor", k) for k in ("enabled", "min_at_0", "slope")}
 
 EVENT_KEYS = ("FLAMEOUT", "OVERHEAT_ON", "MISSING_ON", "SETTINGS_CHANGED", "API_ERROR", ";ERROR;")
 
@@ -63,6 +64,9 @@ TRACKED = {
     ("power_work", "min_power"): "moc min",
     ("power_work", "max_power"): "moc max",
     ("power_work", "max_slew_rate_percent_per_min"): "szybkość zmian mocy",
+    ("power_floor", "enabled"): "krzywa minimum mocy",
+    ("power_floor", "min_at_0"): "minimum mocy przy 0°C",
+    ("power_floor", "slope"): "minimum mocy: wzrost na stopień mrozu",
     ("feeder", "feed_on_base_s"): "podanie ślimaka",
     ("feeder", "feed_off_base_s"): "przerwa ślimaka",
     ("mode", "switch_temp"): "przejście rozpalanie → praca",

@@ -1,0 +1,76 @@
+id: power_floor
+name: Krzywa minimum mocy
+description: 'Jak nisko PID może zejść z mocą w pracy - ustawiane jak krzywa grzejników: minimum przy 0°C na dworze i o ile rośnie na każdy stopień mrozu. Godzina lub dłużej na mocy dużo niższej, niż dom potrzebuje, wypala żar: kocioł jeszcze chwilę trzyma, a potem spada o 3-6°C, bo nowy węgiel rozpala się ok. 40 min. Bez temperatury zewnętrznej działa tylko stała "Minimalna moc" z regulatora PRACA - ona zostaje też dolnym bezpiecznikiem.'
+groups:
+- id: basic
+  label: Krzywa minimum
+- id: limits
+  label: Granice i puszczanie
+fields:
+- key: enabled
+  label: Krzywa minimum mocy
+  type: bool
+  label_on: WŁĄCZONA
+  label_off: WYŁĄCZONA
+  default: true
+  group: basic
+  description: 'Wyłączona - działa tylko stała "Minimalna moc" z regulatora PRACA, jak wcześniej.'
+- key: min_at_0
+  label: Minimum przy 0°C na dworze
+  type: number
+  unit: '%'
+  min: 0
+  max: 90
+  step: 1
+  default: 50
+  group: basic
+  description: 'Najniższa moc w pracy, gdy na dworze średnio 0°C. 28.10 przy ok. 10°C dom brał ok. 60% mocy - minimum ma być wyraźnie niżej niż to, ile dom bierze.'
+- key: slope
+  label: Wzrost na stopień mrozu
+  type: number
+  unit: '%/°C'
+  min: 0
+  max: 5
+  step: 0.1
+  default: 1.5
+  group: basic
+  description: 'O ile punktów wyższe minimum na każdy stopień poniżej 0°C (i o tyle niższe na każdy stopień powyżej). Np. 50% i 1,5: przy -10°C 65%, przy +10°C 35%.'
+- key: avg_h
+  label: Temperatura na dworze uśredniona z
+  type: number
+  unit: h
+  min: 0.5
+  max: 24
+  step: 0.5
+  default: 3
+  group: basic
+  description: Dom i woda reagują powoli - minimum idzie za średnią temperaturą z tylu godzin, nie za każdą chwilową zmianą.
+- key: floor_low
+  label: Nigdy poniżej
+  type: number
+  unit: '%'
+  min: 0
+  max: 90
+  step: 1
+  default: 20
+  group: limits
+- key: floor_high
+  label: Nigdy powyżej
+  type: number
+  unit: '%'
+  min: 0
+  max: 93
+  step: 1
+  default: 70
+  group: limits
+  description: Minimum nie przekroczy też maksymalnej mocy regulatora PRACA.
+- key: release_above_C
+  label: Puść, gdy kocioł ponad zadaną o
+  type: number
+  unit: °C
+  min: 0.5
+  max: 5
+  step: 0.5
+  default: 3
+  group: limits
+  description: 'Do tylu stopni ponad zadaną minimum działa w całości (żar wypala się właśnie wtedy, gdy kocioł jest lekko za ciepły), powyżej znika płynnie w ciągu 1°C. Od +4°C działa korekta przegrzania regulatora.'

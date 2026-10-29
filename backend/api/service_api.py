@@ -22,7 +22,7 @@ from backend.core.state_store import StateStore
 from backend.core import timings
 from backend.core.tuning import TuningReport
 
-TUNING_MODULES = ("power_work", "feeder", "blower", "mixer", "curve", "mode", "pump_co", "overheat", "flameout")
+TUNING_MODULES = ("power_work", "power_floor", "feeder", "blower", "mixer", "curve", "mode", "pump_co", "overheat", "flameout")
 TUNING_REUSE_S = 600   # rebuilt at most every 10 min (only today is read again - fast)
 
 SENSOR_NAMES = {"boiler_temp": "Kocioł", "radiators_temp": "Grzejniki", "hopper_temp": "Podajnik",

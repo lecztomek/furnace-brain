@@ -110,6 +110,8 @@ RATE_SAMPLE_S = 30.0      # trend sampled every 30 s
 RATE_TAU_S = 180.0        # and smoothed over ~3 min
 RATE_DEADBAND = 0.05      # C/min - slower than this counts as standing still
 FLUE_TAU_S = 300.0        # flue trend smoothed over ~5 min (the sensor jumps by 0.25-0.5 C)
+FLOOR_FRESH_S = 10.0      # runtime["power_floor"] older than this (module stopped): the fixed minimum only
+FLOOR_FADE_C = 1.0        # above release_above the floor fades out over this many degrees
 FLUE_MAX_RATE = 10.0      # C/min - faster is a bad reading (the fire in WORK changes the flue ~1 C/min)
 
 
@@ -166,6 +168,7 @@ class WorkPowerModule(ModuleInterface):
         self._flue_rate: float = 0.0
         self._flue_sample: Optional[tuple] = None
         self._brake: float = 0.0
+        self._min_now: float = self._config.min_power   # the lower limit now (fixed or the moving floor)
         self._last_error: Optional[float] = None
         self._last_tick_ts: Optional[float] = None
 
@@ -263,6 +266,9 @@ class WorkPowerModule(ModuleInterface):
                 status=status,
             )
 
+        # the lower limit in WORK: the fixed minimum, or the moving one (power_floor) when higher
+        self._min_now = self._effective_min(system_state, boiler_temp) if in_work else self._config.min_power
+
         # --- AKTUALIZACJA STANU PID / TRACKING ---
 
         if boiler_temp is not None:
@@ -319,7 +325,7 @@ class WorkPowerModule(ModuleInterface):
                 power -= penalty
 
         # Ograniczenia min/max
-        power = max(self._config.min_power, min(power, self._config.max_power))
+        power = max(self._min_now, min(power, self._config.max_power))
 
         # --- OGRANICZENIE SZYBKOŚCI ZMIANY MOCY (SLEW RATE) W TRYBIE WORK ---
 
@@ -347,7 +353,7 @@ class WorkPowerModule(ModuleInterface):
             limited_power = power
 
         # Jeszcze raz upewniamy się, że w zakresie min/max
-        limited_power = max(self._config.min_power, min(limited_power, self._config.max_power))
+        limited_power = max(self._min_now, min(limited_power, self._config.max_power))
 
 
         self._power = limited_power
@@ -461,9 +467,28 @@ class WorkPowerModule(ModuleInterface):
             "power": self._power,
             "flue_rate": round(self._flue_rate, 2),
             "brake": round(self._brake, 1),
+            "min_now": round(self._min_now, 1),
             "overtemp": boiler_temp is not None
             and boiler_temp > self._config.boiler_set_temp + max(self._config.overtemp_start_degC, 0.0),
         }
+
+    def _effective_min(self, system_state: SystemState, boiler_temp: Optional[float]) -> float:
+        """The fixed min_power, or the moving floor (power_floor) when it is higher - never above
+        max_power. The floor lets go while the boiler is well above the setpoint, without a boiler
+        reading, and when it stopped updating (the module failed or is off)."""
+        base = self._config.min_power
+        fl = system_state.runtime.get("power_floor") or {}
+        floor, ts = fl.get("min"), fl.get("ts")
+        if floor is None or ts is None or boiler_temp is None:
+            return base
+        if abs(system_state.ts_mono - float(ts)) > FLOOR_FRESH_S:
+            return base
+        # the whole floor up to release_above over the setpoint (the bed burns thin exactly while
+        # the boiler is a little too warm), then it fades out over FLOOR_FADE_C - a floor
+        # dropping at once would step the power down and start a wave
+        over = boiler_temp - self._config.boiler_set_temp - float(fl.get("release_above", 3.0))
+        share = 1.0 if over <= 0 else max(0.0, 1.0 - over / FLOOR_FADE_C)
+        return max(base, min(float(floor) * share, self._config.max_power))
 
     def _set_ki(self, ki: float) -> None:
         """New ki without a power jump: the integral is rescaled so that the I part stays the same."""
@@ -487,7 +512,7 @@ class WorkPowerModule(ModuleInterface):
         candidate = self._integral + error * dt
         if self._config.ki > 0:
             out = self._config.kp * error + self._config.ki * candidate
-            saturated = (out > self._config.max_power and error > 0) or (out < self._config.min_power and error < 0)
+            saturated = (out > self._config.max_power and error > 0) or (out < self._min_now and error < 0)
             if not saturated:
                 self._integral = candidate
             hi = max(self._config.max_power, 1.0) / self._config.ki

@@ -17,6 +17,13 @@ modules:
     critical: true
     about: "Moc % w ROZPALANIU: doprowadza kocioł do temperatury rozpalania."
 
+  # how low the PID may go: a curve of the outside temperature, set by hand (the fuel bed must not burn thin)
+  - id: power_floor
+    path: backend.modules.power_floor:PowerFloorModule
+    enabled: true
+    critical: true
+    about: "Krzywa minimum mocy: jak nisko PID może zejść w pracy, z temperatury na dworze (ustawiane jak krzywa grzejników), żeby żar się nie wypalił; puszcza, gdy kocioł wyraźnie za ciepły."
+
   - id: power_work
     path: backend.modules.power_work:WorkPowerModule
     enabled: true
