@@ -61,13 +61,9 @@ def create_state_router(
         fo = rt.get("flameout") or {}
         if fo.get("at"):
             at = time.strftime("%H:%M", time.localtime(fo["at"]))
-            out.append({"short": "WYGASŁ", "text": f"Piec wygasł o {at} (kocioł {fo.get('boiler_temp')}°C) - "
+            why = " - węgiel nie dochodził do paleniska, sprawdź zasyp" if fo.get("early") else ""
+            out.append({"short": "WYGASŁ", "text": f"Piec wygasł o {at} (kocioł {fo.get('boiler_temp')}°C){why} - "
                                                     "ślimak i dmuchawa zatrzymane, rozpal ponownie"})
-        warn = fo.get("warning") or {}
-        if warn.get("at"):
-            at = time.strftime("%H:%M", time.localtime(warn["at"]))
-            out.append({"short": "WĘGIEL", "text": f"Od {at} ogień słabnie mimo pełnej mocy (spaliny {warn.get('flue')}°C "
-                                                    "i spadają) - sprawdź węgiel w zasypie"})
         oh = rt.get("overheat") or {}
         if oh.get("boiler"):
             out.append({"short": "GORĄCO", "text": f"Przegrzanie kotła ({s.sensors.boiler_temp}°C) - ślimak i dmuchawa wyłączone, pompy włączone"})

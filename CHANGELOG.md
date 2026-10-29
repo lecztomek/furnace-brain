@@ -2,6 +2,11 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.51.1 · 29.10.2026 09:40
+- Zamiast ostrzeżenia z 1.51.0 - wcześniejsze zatrzymanie: gdy przy pełnej mocy (co najmniej 85 % od 5 min) spaliny są poniżej 55 °C i dalej spadają, a przez kolejne 10 min nie wzrosną o 3 °C i kocioł nie rośnie, wykrywanie wygaśnięcia zatrzymuje ślimak i dmuchawę (STOP + alarm), nie czekając, aż kocioł spadnie poniżej 40 °C
+- 29.10 węgiel przestał dochodzić do paleniska ok. 05:05, ślimak pchał węgiel do zgasłego paleniska do 07:13 - teraz STOP ok. 05:21. Na historii 26-29.10: zatrzymuje tylko prawdziwe wygaśnięcia, żadnego dołka, z którego ogień wrócił (28.10 18:00 i 23:20). Kocioł rosnący przy pełnej mocy (ogień się pali, a czujnik spalin kłamie) - bez zatrzymania
+- Alarm i znak ostrzegawczy mówią wtedy, że węgiel nie dochodził do paleniska - sprawdź zasyp. Ustawienia: Wykrywanie wygaśnięcia → Wcześniejsze zatrzymanie; stary warunek (kocioł poniżej 40 °C) działa dalej
+
 ## 1.51.0 · 29.10.2026 08:55
 - Wczesne ostrzeżenie o gasnącym ogniu (moduł wykrywania wygaśnięcia, tylko ostrzeżenie - nic nie zatrzymuje): moc co najmniej 85 % od 5 min, spaliny poniżej 55 °C i dalej spadają co najmniej 0,3 °C/min. Po zwykłym dołku przy pełnej mocy ogień wraca i spaliny zaczynają rosnąć po kilku minutach; gdy dalej spadają, do paleniska nic nie dochodzi - węgiel zawieszony w zasypie albo się skończył
 - 29.10 w nocy węgiel przestał dochodzić ok. 05:05, alarm wygaśnięcia przyszedł dopiero o 07:13 (czeka na kocioł poniżej 40 °C) - ostrzeżenie byłoby o 05:12. Na historii 26-29.10 łapie wszystkie 3 prawdziwe wygaśnięcia, bez fałszywych ostrzeżeń (dołki 28.10 o 18:00 i 23:20 - ogień wrócił - bez ostrzeżenia)

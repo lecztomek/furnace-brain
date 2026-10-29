@@ -7,8 +7,8 @@ description: >
 groups:
   - id: basic
     label: "Podstawowe"
-  - id: warn
-    label: "Wczesne ostrzeżenie"
+  - id: early
+    label: "Wcześniejsze zatrzymanie"
 
 fields:
   - key: enabled
@@ -73,26 +73,26 @@ fields:
     group: basic
     description: "Jeśli spaliny w tym czasie urosły więcej, coś się pali - nie zatrzymujemy. Bez odczytu spalin warunek jest pomijany."
 
-  - key: warn_enabled
-    label: "Wczesne ostrzeżenie"
+  - key: early_enabled
+    label: "Wcześniejsze zatrzymanie"
     type: bool
     label_on: "WŁĄCZONE"
     label_off: "WYŁĄCZONE"
     default: true
-    group: warn
-    description: "Tylko ostrzeżenie (nic nie zatrzymuje): przy pełnej mocy spaliny dalej spadają - do paleniska nic nie dochodzi (węgiel zawieszony albo się skończył). 29.10 ostrzegłoby o 05:11, alarm wygaśnięcia przyszedł o 07:13."
+    group: early
+    description: "Nie czeka, aż kocioł spadnie poniżej progu (to trwa 1-2 h, a ślimak cały czas pcha węgiel do zgasłego paleniska): przy pełnej mocy spaliny dalej spadają - do paleniska nic nie dochodzi (węgiel zawieszony albo się skończył). 29.10 zatrzymałoby ok. 05:22 zamiast 07:13."
 
-  - key: warn_power_percent
-    label: "Ostrzeż, gdy moc co najmniej"
+  - key: early_power_percent
+    label: "Gdy moc co najmniej"
     type: number
     unit: "%"
     min: 50
     max: 100
     step: 1
     default: 85
-    group: warn
+    group: early
 
-  - key: warn_after_min
+  - key: early_after_min
     label: "...od"
     type: number
     unit: "min"
@@ -100,10 +100,10 @@ fields:
     max: 30
     step: 1
     default: 5
-    group: warn
+    group: early
     description: "Po dołku przy pełnej mocy ogień wraca - spaliny zaczynają rosnąć po kilku minutach."
 
-  - key: warn_flue_below
+  - key: early_flue_below
     label: "...spaliny poniżej"
     type: number
     unit: "°C"
@@ -111,10 +111,10 @@ fields:
     max: 100
     step: 1
     default: 55
-    group: warn
-    description: "Przy wyższych spalinach ogień jeszcze się pali - zwykłe wahania nie ostrzegają."
+    group: early
+    description: "Przy wyższych spalinach ogień jeszcze się pali - zwykłe wahania nic nie robią."
 
-  - key: warn_flue_drop
+  - key: early_flue_drop
     label: "...i spadają co najmniej"
     type: number
     unit: "°C/min"
@@ -122,5 +122,16 @@ fields:
     max: 2
     step: 0.1
     default: 0.3
-    group: warn
+    group: early
     description: "Liczone z ostatnich 5 minut."
+
+  - key: early_hold_min
+    label: "Zatrzymaj, gdy to trwa"
+    type: number
+    unit: "min"
+    min: 3
+    max: 60
+    step: 1
+    default: 10
+    group: early
+    description: "Przez ten czas spaliny nie mogą wzrosnąć o 3°C od najniższego punktu, a kocioł nie może rosnąć - inaczej ogień wrócił (albo czujnik spalin kłamie) i nic się nie dzieje."
