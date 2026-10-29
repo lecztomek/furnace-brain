@@ -1,6 +1,6 @@
 id: notify
 name: Powiadomienia na telefon
-description: 'Wybrane zdarzenia pieca na telefon przez ntfy: zainstaluj aplikację ntfy, dodaj subskrypcję i wpisz w niej temat pokazany niżej (serwer ntfy.sh). Temat to losowa nazwa wygenerowana przy pierwszym starcie - działa jak hasło, kto go zna, widzi powiadomienia. Wysyłane w tle, z kilkoma próbami, gdy nie ma internetu; sterowanie nigdy na to nie czeka. Gdy padnie samo Pi albo prąd, nic nie przyjdzie.'
+description: 'Wybrane zdarzenia pieca na telefon przez ntfy: zainstaluj aplikację ntfy, dodaj subskrypcję i wpisz w niej temat pokazany niżej (serwer ntfy.sh). Temat wylicza się przy pierwszym starcie z klucza podglądu zdalnego (tylko na Pi) - działa jak hasło, kto go zna, widzi powiadomienia. Wysyłane w tle, z kilkoma próbami, gdy nie ma internetu; sterowanie nigdy na to nie czeka. Gdy padnie samo Pi albo prąd, nic nie przyjdzie.'
 groups:
 - id: basic
   label: Podstawowe
@@ -19,7 +19,7 @@ fields:
   type: text
   default: ''
   group: basic
-  description: Wygenerowany przy pierwszym starcie. Żeby zmienić, trzeba wyczyścić go w pliku notify/values.yaml na Pi - wygeneruje się nowy.
+  description: Wyliczony przy pierwszym starcie z klucza podglądu zdalnego. Żeby zmienić, trzeba wyczyścić go w pliku notify/values.yaml na Pi - wygeneruje się nowy.
 - key: server
   label: Serwer
   type: text

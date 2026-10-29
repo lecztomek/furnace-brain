@@ -1,13 +1,15 @@
 """
 Powiadomienia: chosen events of the controller sent to a phone through ntfy (the ntfy
-app subscribes to a topic - a random name that works as a password, generated on the
-first start). Only what is ticked in the settings goes out; at first only the flame-out.
+app subscribes to a topic - a name that works as a password: on the Pi made from the
+remote view key, so it is known before the first start and never in this public
+repository; random without that key). Only what is ticked in the settings goes out; at first only the flame-out.
 Sent in a background thread with a few retries - the control never waits for the
 internet. Controls nothing. If the Pi itself is down nothing can be sent - that has to
 be watched from outside.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -57,6 +59,10 @@ BOOL_KEYS = ("enabled", "send_flameout", "send_fading", "send_overheat", "send_s
 
 
 def new_topic() -> str:
+    """From the remote view key when there is one (a secret that lives only on the Pi), else random."""
+    key = (os.getenv("FURNACE_BRAIN_VIEWER_KEY") or "").strip()
+    if len(key) >= 20:
+        return "piec-" + hashlib.sha256(("ntfy:" + key).encode("utf-8")).hexdigest()[:16]
     alphabet = string.ascii_lowercase + string.digits
     return "piec-" + "".join(secrets.choice(alphabet) for _ in range(16))
 

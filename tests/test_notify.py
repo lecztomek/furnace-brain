@@ -36,6 +36,15 @@ def _wait(sent, n, timeout=2.0):
         time.sleep(0.01)
 
 
+def test_the_topic_comes_from_the_remote_view_key(monkeypatch):
+    import hashlib
+    monkeypatch.setenv("FURNACE_BRAIN_VIEWER_KEY", "k" * 32)
+    assert N.new_topic() == "piec-" + hashlib.sha256(("ntfy:" + "k" * 32).encode()).hexdigest()[:16]
+    assert N.new_topic() == N.new_topic()                                  # the same every time
+    monkeypatch.delenv("FURNACE_BRAIN_VIEWER_KEY")
+    assert N.new_topic() != N.new_topic()                                  # random without the key
+
+
 def test_a_topic_is_generated_once_and_kept(tmp_path):
     m = _module(tmp_path, [])
     topic = m.get_config_values()["topic"]

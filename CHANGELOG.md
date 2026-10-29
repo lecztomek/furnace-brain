@@ -2,6 +2,9 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.53.1 · 29.10.2026 11:20
+- Powiadomienia: temat ntfy wylicza się z klucza podglądu zdalnego (jest tylko na Pi), więc jest znany przed pierwszym startem i nie ma go w publicznym repozytorium; bez tego klucza - losowy jak wcześniej
+
 ## 1.53.0 · 29.10.2026 11:00
 - Nowy moduł „Powiadomienia na telefon” (ntfy): w Ustawieniach zaznaczasz, co wysyłać - wygaśnięcie (domyślnie włączone, najwyższy priorytet, dźwięk także w nocy), ogień słabnie mimo pełnej mocy, przegrzanie, brak czujnika, błąd modułu (domyślnie wyłączone)
 - Temat ntfy generuje się sam przy pierwszym starcie (losowa nazwa, działa jak hasło) i jest widoczny w Ustawieniach → Powiadomienia na telefon - wpisz go w aplikacji ntfy (serwer ntfy.sh). „Wyślij powiadomienie testowe” - jedno powiadomienie testowe
