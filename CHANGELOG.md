@@ -2,6 +2,11 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.53.0 · 29.10.2026 11:00
+- Nowy moduł „Powiadomienia na telefon” (ntfy): w Ustawieniach zaznaczasz, co wysyłać - wygaśnięcie (domyślnie włączone, najwyższy priorytet, dźwięk także w nocy), ogień słabnie mimo pełnej mocy, przegrzanie, brak czujnika, błąd modułu (domyślnie wyłączone)
+- Temat ntfy generuje się sam przy pierwszym starcie (losowa nazwa, działa jak hasło) i jest widoczny w Ustawieniach → Powiadomienia na telefon - wpisz go w aplikacji ntfy (serwer ntfy.sh). „Wyślij powiadomienie testowe” - jedno powiadomienie testowe
+- Wysyłane w tle, z kilkoma próbami przez ok. 20 min, gdy nie ma internetu - sterowanie nigdy nie czeka; ten sam rodzaj najwyżej raz na 5 min. Symulator (testy, środowisko testowe) nigdy nie wysyła. Gdy padnie samo Pi albo prąd, nic nie przyjdzie
+
 ## 1.52.1 · 29.10.2026 10:25
 - Strona główna: zawsze najwyżej jeden znak - jest problem: czerwony ośmiokąt (zakrywa ostrzeżenie), są same ostrzeżenia: żółty trójkąt. Dotknięcie pokazuje wszystko: najpierw problemy, pod nimi ostrzeżenia
 - Znak znika sam, gdy obie listy są puste - idzie za stanem sterownika (co kilka sekund): wygaśnięcie do ponownego rozpalenia, przegrzanie i brak czujnika do powrotu do normy, ostrzeżenie o węglu do powrotu ognia albo zatrzymania, brak danych do pierwszych świeżych danych

@@ -134,3 +134,10 @@ modules:
     enabled: true
     critical: false
     about: "Trend: o ile °C na 10 min rośnie albo spada temperatura kotła (strona główna, pod temperaturą kotła)."
+
+  # chosen events to the phone through ntfy (at first only the flame-out)
+  - id: notify
+    path: backend.modules.notify:NotifyModule
+    enabled: true
+    critical: false
+    about: "Powiadomienia na telefon (ntfy): wybrane zdarzenia - na razie wygaśnięcie pieca; wysyłane w tle, nic nie steruje."

@@ -1,0 +1,73 @@
+id: notify
+name: Powiadomienia na telefon
+description: 'Wybrane zdarzenia pieca na telefon przez ntfy: zainstaluj aplikację ntfy, dodaj subskrypcję i wpisz w niej temat pokazany niżej (serwer ntfy.sh). Temat to losowa nazwa wygenerowana przy pierwszym starcie - działa jak hasło, kto go zna, widzi powiadomienia. Wysyłane w tle, z kilkoma próbami, gdy nie ma internetu; sterowanie nigdy na to nie czeka. Gdy padnie samo Pi albo prąd, nic nie przyjdzie.'
+groups:
+- id: basic
+  label: Podstawowe
+- id: what
+  label: Co wysyłać
+fields:
+- key: enabled
+  label: Powiadomienia
+  type: bool
+  label_on: WŁĄCZONE
+  label_off: WYŁĄCZONE
+  default: true
+  group: basic
+- key: topic
+  label: Temat (wpisz w aplikacji ntfy)
+  type: text
+  default: ''
+  group: basic
+  description: Wygenerowany przy pierwszym starcie. Żeby zmienić, trzeba wyczyścić go w pliku notify/values.yaml na Pi - wygeneruje się nowy.
+- key: server
+  label: Serwer
+  type: text
+  default: https://ntfy.sh
+  group: basic
+- key: send_test
+  label: Wyślij powiadomienie testowe
+  type: bool
+  label_on: WYŚLIJ
+  label_off: NIE
+  default: false
+  group: basic
+  description: Włącz i zapisz - przyjdzie jedno powiadomienie testowe, a przełącznik sam wróci na „NIE”.
+- key: send_flameout
+  label: Piec wygasł (STOP)
+  type: bool
+  label_on: WYSYŁAJ
+  label_off: NIE
+  default: true
+  group: what
+  description: Najwyższy priorytet - dźwięk także w nocy.
+- key: send_fading
+  label: Ogień słabnie mimo pełnej mocy
+  type: bool
+  label_on: WYSYŁAJ
+  label_off: NIE
+  default: false
+  group: what
+  description: Ok. 10 min przed zatrzymaniem - czas, żeby sprawdzić zasyp.
+- key: send_overheat
+  label: Przegrzanie kotła albo podajnika
+  type: bool
+  label_on: WYSYŁAJ
+  label_off: NIE
+  default: false
+  group: what
+- key: send_sensor
+  label: Brak odczytu czujnika
+  type: bool
+  label_on: WYSYŁAJ
+  label_off: NIE
+  default: false
+  group: what
+- key: send_module_error
+  label: Błąd modułu
+  type: bool
+  label_on: WYSYŁAJ
+  label_off: NIE
+  default: false
+  group: what
+  description: Ten sam rodzaj najwyżej raz na 5 min.
