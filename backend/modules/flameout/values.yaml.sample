@@ -4,3 +4,8 @@ power_min_percent: 85.0
 window_min: 30.0
 rise_max_degC: 0.5
 flue_rise_max_degC: 1.0
+warn_enabled: true
+warn_power_percent: 85.0
+warn_after_min: 5.0
+warn_flue_below: 55.0
+warn_flue_drop: 0.3

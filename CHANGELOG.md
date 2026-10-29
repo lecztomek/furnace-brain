@@ -2,6 +2,11 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.51.0 · 29.10.2026 08:55
+- Wczesne ostrzeżenie o gasnącym ogniu (moduł wykrywania wygaśnięcia, tylko ostrzeżenie - nic nie zatrzymuje): moc co najmniej 85 % od 5 min, spaliny poniżej 55 °C i dalej spadają co najmniej 0,3 °C/min. Po zwykłym dołku przy pełnej mocy ogień wraca i spaliny zaczynają rosnąć po kilku minutach; gdy dalej spadają, do paleniska nic nie dochodzi - węgiel zawieszony w zasypie albo się skończył
+- 29.10 w nocy węgiel przestał dochodzić ok. 05:05, alarm wygaśnięcia przyszedł dopiero o 07:13 (czeka na kocioł poniżej 40 °C) - ostrzeżenie byłoby o 05:12. Na historii 26-29.10 łapie wszystkie 3 prawdziwe wygaśnięcia, bez fałszywych ostrzeżeń (dołki 28.10 o 18:00 i 23:20 - ogień wrócił - bez ostrzeżenia)
+- Widać je w znaku ostrzegawczym na stronie głównej („WĘGIEL”), w logach i w podglądzie zdalnym; trzyma się, aż spaliny wzrosną o 3 °C od najniższego punktu albo moc zejdzie z maksimum. Ustawienia: Wykrywanie wygaśnięcia → Wczesne ostrzeżenie
+
 ## 1.50.1 · 29.10.2026 02:05
 - Krzywa minimum mocy: domyślnie 55 % przy 0 °C i +1 % na stopień mrozu (było 50 % i 1,5 %). Przy 9 °C minimum 46 % zamiast 36 % - z poprzednimi wartościami dołek z 28.10 23:20 nie zostałby złapany (PID schodził tylko do 33-42 %, a żar przerzedzał się już poniżej ok. 45 %)
 - Symulator kotła: falowanie ±0,46 °C (bez minimum ±1,37), dołki najniżej 53-55 °C (bez minimum 51,4-53,7), przy mrozie -5 °C przestrzał do 60 °C (próg przegrzania 66 °C), zużycie bez zmian

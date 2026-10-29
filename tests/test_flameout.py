@@ -69,3 +69,38 @@ def test_problems_for_the_warning_sign(tmp_path):
     problems = TestClient(app).get("/api/state/current").json()["problems"]
     assert [p["short"] for p in problems] == ["WYGASŁ", "GORĄCO", "CZUJNIK"]
     assert "38.5" in problems[0]["text"] and "podajnika" in problems[2]["text"]
+
+
+def _replay(rows):
+    """Prod history, one row a minute: (HH:MM, boiler, power, flue) - fed every 10 s."""
+    m = FlameoutModule(base_path=__import__("pathlib").Path("/nonexistent"))
+    st = SystemState(mode=BoilerMode.WORK)
+    warned = []
+    for i, (hm, boiler, power, flue) in enumerate(rows):
+        for k in range(6):
+            t = i * 60.0 + k * 10.0
+            st.ts_mono = t
+            st.outputs.power_percent = power
+            res = m.tick(now=t, sensors=Sensors(boiler_temp=boiler, flue_gas_temp=flue), system_state=st)
+            warned += [hm for e in res.events if e.type == "FLAMEOUT_WARNING"]
+    return warned, st
+
+
+def test_early_warning_on_the_real_nights():
+    import json
+    from pathlib import Path
+    data = json.loads((Path(__file__).parent / "data" / "flameout_prod.json").read_text())
+    warned, st = _replay(data["29.10 wygasł (zasyp)"])
+    # the coal hung up: full power from ~05:06, the flue kept falling - warned once, ~05:11 (the alarm came at 07:13)
+    assert len(warned) == 1 and "05:09" <= warned[0] <= "05:14", warned
+    assert st.mode == BoilerMode.WORK                                  # only a warning, nothing stopped
+    assert st.runtime["flameout"]["warning"]["flue"] < 55
+    for name in ("28.10 23:20 dołek, ogień wrócił", "28.10 18:00 dołek, ogień wrócił"):
+        assert _replay(data[name])[0] == [], name                      # deep dips at full power, the fire came back
+
+
+def test_the_warning_goes_when_the_flue_rises_again():
+    m, st, events, t = _run(12, boiler=lambda t: 50.0, flue=lambda t: 50.0 - t / 60)       # -1 C/min at 93 %
+    assert "FLAMEOUT_WARNING" in events and st.runtime["flameout"].get("warning")
+    _, st, events, _ = _run(10, boiler=lambda t: 50.0, flue=lambda t: 38.0 + (t - 720) / 30, m=m, st=st, t0=720)
+    assert "FLAMEOUT_WARNING" not in events and not st.runtime["flameout"].get("warning")
