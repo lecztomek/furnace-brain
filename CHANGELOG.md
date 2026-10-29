@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.52.0 · 29.10.2026 10:10
+- Strona główna: dwa różne znaki - problemy (czerwony ośmiokąt: coś stanęło albo się zepsuło - wygaśnięcie, przegrzanie, brak czujnika, błąd modułu, brak danych) i ostrzeżenia (żółty trójkąt: jeszcze działa, ale coś się szykuje). Mogą być oba naraz, obok siebie; dotknięcie pokazuje listę danego rodzaju, pasek na dole liczy jedne i drugie
+- Wraca ostrzeżenie „ogień słabnie mimo pełnej mocy - sprawdź węgiel w zasypie” (żółty znak, logi, podgląd zdalny) - w chwili, gdy zaczyna się liczyć wcześniejsze zatrzymanie: 29.10 ostrzeżenie o 05:12, zatrzymanie ok. 05:22, jeśli ogień nie wróci. Gdy wróci, ostrzeżenie znika samo
+
 ## 1.51.1 · 29.10.2026 09:40
 - Zamiast ostrzeżenia z 1.51.0 - wcześniejsze zatrzymanie: gdy przy pełnej mocy (co najmniej 85 % od 5 min) spaliny są poniżej 55 °C i dalej spadają, a przez kolejne 10 min nie wzrosną o 3 °C i kocioł nie rośnie, wykrywanie wygaśnięcia zatrzymuje ślimak i dmuchawę (STOP + alarm), nie czekając, aż kocioł spadnie poniżej 40 °C
 - 29.10 węgiel przestał dochodzić do paleniska ok. 05:05, ślimak pchał węgiel do zgasłego paleniska do 07:13 - teraz STOP ok. 05:21. Na historii 26-29.10: zatrzymuje tylko prawdziwe wygaśnięcia, żadnego dołka, z którego ogień wrócił (28.10 18:00 i 23:20). Kocioł rosnący przy pełnej mocy (ogień się pali, a czujnik spalin kłamie) - bez zatrzymania

@@ -55,7 +55,7 @@ def create_state_router(
                     "flue_gas_temp": "spalin"}
 
     def _problems(s: SystemState) -> list:
-        """What the warning sign on the main page shows, most important first."""
+        """What the problem sign (red) on the main page shows, most important first."""
         out = []
         rt = s.runtime
         fo = rt.get("flameout") or {}
@@ -74,6 +74,16 @@ def create_state_router(
         for mid, st in s.modules.items():
             if st.health.name == "ERROR":
                 out.append({"short": "BŁĄD", "text": f"Moduł {mid}: {st.last_error or st.health.name}"})
+        return out
+
+    def _warnings(s: SystemState) -> list:
+        """What the warning sign (yellow triangle) shows: it still works, but something is coming."""
+        out = []
+        warn = (s.runtime.get("flameout") or {}).get("warning") or {}
+        if warn.get("at"):
+            at = time.strftime("%H:%M", time.localtime(warn["at"]))
+            out.append({"short": "WĘGIEL", "text": f"Od {at} ogień słabnie mimo pełnej mocy (spaliny {float(warn.get('flue') or 0):.0f}°C "
+                                                    "i spadają) - sprawdź węgiel w zasypie; jeśli nie wróci, piec stanie"})
         return out
 
     def _serialize_state(s: SystemState) -> dict:
@@ -121,8 +131,9 @@ def create_state_router(
             "flameout": s.runtime.get("flameout") or {},
             # boiler °C per 10 min (trend module), None until it has enough readings
             "trend": s.runtime.get("trend") or {},
-            # everything the warning sign on the main page shows
+            # the main page: problems (red sign - something stopped or broke) and warnings (yellow sign)
             "problems": _problems(s),
+            "warnings": _warnings(s),
             "modules": {
                 mid: {
                     "health": status.health.name,

@@ -17,7 +17,8 @@ or two - the feeder pushes coal into a dead retort all that time. Earlier sign: 
 power at least early_power_percent for early_after_min, the flue gas below
 early_flue_below and still falling at early_flue_drop C/min. After a dip at full power
 the fire comes back - the flue rises within minutes; when it keeps falling nothing
-reaches the grate (coal hung up in the hopper, or none left). Held for early_hold_min
+reaches the grate (coal hung up in the hopper, or none left) - a warning at once
+(runtime["flameout"]["warning"], the warning sign on the main page). Held for early_hold_min
 with the flue not back up and the boiler not rising (a broken flue sensor with the
 fire burning: the boiler rises at full power) - the same stop as above. Fitted to
 26-29.10: all 3 real flame-outs (29.10 ~05:22 instead of 07:13), none of the dips
@@ -109,10 +110,13 @@ class FlameoutModule(ModuleInterface):
                 self._samples.popleft()
             if self._flamed_out(window):
                 events.append(self._trip(now, system_state))
-            elif self._fading_held(now):
+            elif self._fading_held(now, events):
                 events.append(self._trip(now, system_state, early=True))
 
-        system_state.runtime["flameout"] = dict(self._tripped) if self._tripped else {}
+        out = dict(self._tripped) if self._tripped else {}
+        if self._fading:
+            out["warning"] = {"at": self._fading["at"], "flue": round(self._fading["flue"], 1)}
+        system_state.runtime["flameout"] = out
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
 
@@ -135,8 +139,9 @@ class FlameoutModule(ModuleInterface):
             tail.insert(0, (t, boiler, power, flue_v))
         self._samples = deque(tail + list(self._samples))
 
-    def _fading_held(self, now: float) -> bool:
-        """The early stop: True once the fire has faded at full power for early_hold_min."""
+    def _fading_held(self, now: float, events: List[Event]) -> bool:
+        """The early stop: True once the fire has faded at full power for early_hold_min
+        (a warning when the fading starts)."""
         c = self._config
         s = self._samples
         if not c.early_enabled or len(s) < 3:
@@ -164,7 +169,14 @@ class FlameoutModule(ModuleInterface):
         t_then, flue_then = before[-1][0], before[-1][3]
         if (flue_now - flue_then) / max(t_now - t_then, 1.0) * 60.0 > -c.early_flue_drop:
             return False
-        self._fading = {"since": t_now, "flue_min": flue_now, "boiler": boiler_now}
+        self._fading = {"since": t_now, "at": now, "flue": flue_now, "flue_min": flue_now, "boiler": boiler_now}
+        events.append(Event(
+            ts=now, source=self.id, level=EventLevel.WARNING, type="FLAMEOUT_WARNING",
+            message=(f"Ogień słabnie mimo pełnej mocy: spaliny {flue_now:.0f}°C i spadają - sprawdź węgiel w zasypie "
+                     f"(zawieszony albo się skończył). Jeśli ogień nie wróci, za {self._config.early_hold_min:.0f} min "
+                     f"ślimak i dmuchawa staną."),
+            data={"flue": flue_now},
+        ))
         return False
 
     def _flamed_out(self, window: float) -> bool:

@@ -71,17 +71,36 @@ def test_problems_for_the_warning_sign(tmp_path):
     assert "38.5" in problems[0]["text"] and "podajnika" in problems[2]["text"]
 
 
+def test_warnings_are_apart_from_problems(tmp_path):
+    """The fire fading at full power: a warning (yellow sign), not a problem (red sign)."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from backend.api.state_api import create_state_router
+    from backend.core.config_store import ConfigStore
+    from backend.core.state_store import StateStore
+    store = StateStore()
+    with store.locked() as st:
+        st.runtime["flameout"] = {"warning": {"at": 1793100000.0, "flue": 38.0}}
+    app = FastAPI()
+    app.include_router(create_state_router(store, ConfigStore(tmp_path, [])), prefix="/api")
+    data = TestClient(app).get("/api/state/current").json()
+    assert data["problems"] == [] and [w["short"] for w in data["warnings"]] == ["WĘGIEL"]
+    assert "zasyp" in data["warnings"][0]["text"]
 
-def _replay(rows):
+
+
+def _replay(rows, warned=None):
     """Prod history, one row a minute: (HH:MM, boiler, power, flue) - fed every 10 s."""
     m = FlameoutModule(base_path=__import__("pathlib").Path("/nonexistent"))
     st = SystemState(mode=BoilerMode.WORK)
+    warned = [] if warned is None else warned
     for i, (hm, boiler, power, flue) in enumerate(rows):
         for k in range(6):
             t = i * 60.0 + k * 10.0
             st.ts_mono = t
             st.outputs.power_percent = power
             res = m.tick(now=t, sensors=Sensors(boiler_temp=boiler, flue_gas_temp=flue), system_state=st)
+            warned += [hm for e in res.events if e.type == "FLAMEOUT_WARNING"]
             if any(e.type == "FLAMEOUT" for e in res.events):
                 return hm, st, res.events
     return None, st, []
@@ -91,13 +110,18 @@ def test_early_stop_on_the_real_nights():
     import json
     from pathlib import Path
     data = json.loads((Path(__file__).parent / "data" / "flameout_prod.json").read_text())
-    at, st, events = _replay(data["29.10 wygasł (zasyp)"])
-    # the coal hung up: full power from ~05:06, the flue kept falling - stopped ~05:22 (the old rule: 07:13)
+    warned = []
+    at, st, events = _replay(data["29.10 wygasł (zasyp)"], warned)
+    # the coal hung up: full power from ~05:06, the flue kept falling - a warning ~05:12,
+    # stopped ~05:22 (the old rule: 07:13)
+    assert len(warned) == 1 and "05:09" <= warned[0] <= "05:14", warned
     assert at is not None and "05:18" <= at <= "05:26", at
+    assert "warning" not in st.runtime["flameout"]                       # after the stop only the alarm
     assert st.mode == BoilerMode.OFF and st.runtime["flameout"]["early"] is True
     assert "zasyp" in events[0].message
     for name in ("28.10 23:20 dołek, ogień wrócił", "28.10 18:00 dołek, ogień wrócił"):
-        assert _replay(data[name])[0] is None, name                    # deep dips at full power, the fire came back
+        warned = []
+        assert _replay(data[name], warned)[0] is None and warned == [], name   # the fire came back: nothing at all
 
 
 def test_fire_coming_back_cancels_the_early_stop():
@@ -118,3 +142,11 @@ def test_early_stop_can_be_switched_off():
     m._apply({"early_enabled": False})
     _, st, events, _ = _run(30, boiler=lambda t: 50.0, flue=lambda t: 50.0 - t / 60, m=m)
     assert "FLAMEOUT" not in events and st.mode == BoilerMode.WORK
+
+
+def test_the_warning_is_on_while_fading_and_goes_when_the_fire_is_back():
+    flue = lambda t: 50.0 - t / 60 if t < 9 * 60 else 41.0 + (t - 9 * 60) / 60
+    m, st, events, _ = _run(8, boiler=lambda t: 50.0, flue=flue)
+    assert "FLAMEOUT_WARNING" in events and st.runtime["flameout"]["warning"]["flue"] < 55
+    _, st, events, _ = _run(10, boiler=lambda t: 50.0, flue=flue, m=m, st=st, t0=8 * 60)
+    assert "warning" not in st.runtime["flameout"] and st.mode == BoilerMode.WORK
