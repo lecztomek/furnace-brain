@@ -118,7 +118,6 @@ def test_early_stop_on_the_real_nights():
     assert at is not None and "05:18" <= at <= "05:26", at
     assert "warning" not in st.runtime["flameout"]                       # after the stop only the alarm
     assert st.mode == BoilerMode.OFF and st.runtime["flameout"]["early"] is True
-    assert st.mode_source == "wygaśnięcie - węgiel nie dochodził (alarm)"     # who stopped it, in MODE_CHANGED
     assert "zasyp" in events[0].message
     for name in ("28.10 23:20 dołek, ogień wrócił", "28.10 18:00 dołek, ogień wrócił"):
         warned = []

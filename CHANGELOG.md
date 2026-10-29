@@ -2,6 +2,9 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.54.1 · 29.10.2026 12:35
+- Cofnięte 1.54.0 (kto zmienił tryb w logach, adres przeglądarki z bramki) - kod jak w 1.53.2
+
 ## 1.54.0 · 29.10.2026 12:20
 - Logi: przy każdej zmianie trybu widać, kto ją zrobił - „Tryb pracy kotła: IGNITION -> WORK (ręcznie z ekranu przy piecu)”, „(ręcznie z przeglądarki (192.168.1.23))”, „(wygaśnięcie (alarm))”, „(przywrócony po restarcie)”, „(start programu)”. Automatyczne przejście rozpalanie → praca dalej ma swój wpis „Automatyczna zmiana trybu …”
 - Bramka na Pi przekazuje backendowi prawdziwy adres przeglądarki (X-Forwarded-For) - dzięki temu odróżnia ekran przy piecu od telefonu w sieci domowej

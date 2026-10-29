@@ -208,7 +208,6 @@ class FlameoutModule(ModuleInterface):
             text = (f"Piec wygasł: kocioł {boiler:.1f}°C, kocioł i spaliny nie rosną od {minutes} min mimo mocy "
                     f"{avg_power:.0f}% - ślimak i dmuchawa zatrzymane (tryb STOP). Rozpal ponownie.")
         system_state.mode = BoilerMode.OFF           # feeder and fan stop
-        system_state.mode_source = "wygaśnięcie - węgiel nie dochodził (alarm)" if early else "wygaśnięcie (alarm)"
         self._samples.clear()
         self._fading = None
         self._tripped = {"at": now, "boiler_temp": round(boiler, 1), "power": round(avg_power), "early": early}

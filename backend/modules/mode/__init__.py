@@ -103,8 +103,6 @@ class ModeModule(ModuleInterface):
 
         # 1) Wykrywanie zmiany trybu (np. użytkownik kliknął w GUI)
         if self._last_mode is None or self._last_mode != current_mode:
-            source = system_state.mode_source or ("start programu" if self._last_mode is None else "nieznane")
-            system_state.mode_source = ""
             events.append(
                 Event(
                     ts=now,
@@ -113,12 +111,11 @@ class ModeModule(ModuleInterface):
                     type="MODE_CHANGED",
                     message=(
                         f"Tryb pracy kotła: "
-                        f"{self._mode_to_str(self._last_mode)} -> {self._mode_to_str(current_mode)} ({source})"
+                        f"{self._mode_to_str(self._last_mode)} -> {self._mode_to_str(current_mode)}"
                     ),
                     data={
                         "prev_mode": self._mode_to_str(self._last_mode),
                         "mode": self._mode_to_str(current_mode),
-                        "source": source,
                     },
                 )
             )
