@@ -115,6 +115,7 @@ restored_mode = mode_file.load()
 if restored_mode is not None:
     with store.locked() as st:
         st.mode = restored_mode
+        st.mode_source = "przywrócony po restarcie"
     logger.info("Mode restored after restart: %s", restored_mode.name)
 
 # --- CONFIG STORE ---

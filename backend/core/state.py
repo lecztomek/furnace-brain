@@ -175,6 +175,9 @@ class SystemState:
 
     # Tryb pracy kotła:
     mode: BoilerMode = BoilerMode.WORK
+    # who changed the mode last (the screen, the automat, a flame-out, a restart) - set next to
+    # every change of `mode`, written into MODE_CHANGED by the mode module and cleared there
+    mode_source: str = ""
 
     # NOWE: żądania ręczne z GUI (używane przez ManualModule)
     manual: ManualRequests = field(default_factory=ManualRequests)

@@ -38,6 +38,8 @@ class Handler(SimpleHTTPRequestHandler):
 
         headers = {k: v for (k, v) in self.headers.items() if k.lower() not in HOP_BY_HOP}
         headers["Host"] = f"{BACKEND_HOST}:{BACKEND_PORT}"
+        # who really asked (the screen on the Pi or a browser on the network) - the backend logs it
+        headers["X-Forwarded-For"] = self.client_address[0]
 
         conn.request(self.command, self.path, body=body, headers=headers)
         resp = conn.getresponse()

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from backend.core.config_store import ConfigStore
 from backend.core.outside import outside_temp
@@ -150,8 +150,18 @@ def create_state_router(
         s: SystemState = store.snapshot()
         return _serialize_state(s)
 
+    LOCAL = ("127.0.0.1", "::1", "localhost", "testclient")
+
+    def _who(request: Request) -> str:
+        """The screen next to the furnace runs on the Pi itself; anything else is a browser on the network.
+        The gateway on the Pi passes the real address in X-Forwarded-For - trusted only from a local peer."""
+        host = request.client.host if request.client else ""
+        if host in LOCAL:
+            host = (request.headers.get("x-forwarded-for") or host).split(",")[0].strip()
+        return "ręcznie z ekranu przy piecu" if host in LOCAL else f"ręcznie z przeglądarki ({host})"
+
     @router.post("/mode/{mode_name}")
-    def set_mode(mode_name: str):
+    def set_mode(mode_name: str, request: Request):
         """
         Zmiana trybu pracy kotła.
 
@@ -176,6 +186,7 @@ def create_state_router(
         # UWAGA: modyfikujemy ŹRÓDŁO PRAWDY (store), nie snapshot
         with store.locked() as s:
             s.mode = enum_value
+            s.mode_source = _who(request)
 
         # zwracamy świeży snapshot po zmianie
         return _serialize_state(store.snapshot())
