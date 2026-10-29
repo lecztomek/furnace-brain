@@ -22,9 +22,9 @@ fields:
   min: 0
   max: 90
   step: 1
-  default: 50
+  default: 55
   group: basic
-  description: 'Najniższa moc w pracy, gdy na dworze średnio 0°C. 28.10 przy ok. 10°C dom brał ok. 60% mocy - minimum ma być wyraźnie niżej niż to, ile dom bierze.'
+  description: 'Najniższa moc w pracy, gdy na dworze średnio 0°C. 28.10 przy ok. 9°C dom brał ok. 60% mocy, a żar przerzedzał się poniżej ok. 45% - minimum ma być między tymi wartościami.'
 - key: slope
   label: Wzrost na stopień mrozu
   type: number
@@ -32,9 +32,9 @@ fields:
   min: 0
   max: 5
   step: 0.1
-  default: 1.5
+  default: 1
   group: basic
-  description: 'O ile punktów wyższe minimum na każdy stopień poniżej 0°C (i o tyle niższe na każdy stopień powyżej). Np. 50% i 1,5: przy -10°C 65%, przy +10°C 35%.'
+  description: 'O ile punktów wyższe minimum na każdy stopień poniżej 0°C (i o tyle niższe na każdy stopień powyżej). Np. 55% i 1: przy -10°C 65%, przy +10°C 45%. Za dużo przy mrozie - kocioł przestrzeliwuje, bo minimum dochodzi do tego, ile dom bierze.'
 - key: avg_h
   label: Temperatura na dworze uśredniona z
   type: number

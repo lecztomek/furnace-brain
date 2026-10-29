@@ -27,9 +27,9 @@ from backend.core.state import Event, EventLevel, ModuleStatus, PartialOutputs, 
 @dataclass
 class PowerFloorConfig:
     enabled: bool = True
-    # 28.10 at ~10 C outside the house took ~60 % - the floor well below that
-    min_at_0: float = 50.0         # the minimum at 0 C outside [%]
-    slope: float = 1.5             # % more per degree of frost (less per degree above 0)
+    # 28.10 at ~9 C outside the house took ~60 % and the bed thinned below ~45 %
+    min_at_0: float = 55.0         # the minimum at 0 C outside [%]
+    slope: float = 1.0             # % more per degree of frost (less per degree above 0)
     floor_low: float = 20.0        # never below
     floor_high: float = 70.0       # never above
     avg_h: float = 3.0             # outside temperature averaged over

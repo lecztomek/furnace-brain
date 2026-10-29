@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.50.1 · 29.10.2026 02:05
+- Krzywa minimum mocy: domyślnie 55 % przy 0 °C i +1 % na stopień mrozu (było 50 % i 1,5 %). Przy 9 °C minimum 46 % zamiast 36 % - z poprzednimi wartościami dołek z 28.10 23:20 nie zostałby złapany (PID schodził tylko do 33-42 %, a żar przerzedzał się już poniżej ok. 45 %)
+- Symulator kotła: falowanie ±0,46 °C (bez minimum ±1,37), dołki najniżej 53-55 °C (bez minimum 51,4-53,7), przy mrozie -5 °C przestrzał do 60 °C (próg przegrzania 66 °C), zużycie bez zmian
+
 ## 1.50.0 · 29.10.2026 01:40
 - Nowy moduł „Krzywa minimum mocy” (domyślnie włączony): jak nisko PID może zejść z mocą w pracy, ustawiane jak krzywa grzejników - minimum przy 0 °C na dworze (50 %) i wzrost na stopień mrozu (1,5 %), z temperatury uśrednionej z 3 h. Przy ok. 10 °C minimum to 35 %, przy -10 °C 65 %; granice 20-70 %
 - Powód: 28.10 o 18:00 i 23:20 kocioł spadał o 4-6 °C - PID przez godzinę trzymał 25-35 % mocy przy kotle lekko ponad zadaną, żar się wypalał, a nowy węgiel rozpalał ok. 40 min
