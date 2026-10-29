@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.55.0 · 29.10.2026 12:10
+- Powiadomienia na telefon: przy każdym zdarzeniu jeden wybór - NIE / CICHO (bez dźwięku) / ZWYKLE / GŁOŚNO / ALARM (najmocniej, także w nocy) - zamiast „WYSYŁAJ / NIE”. Domyślnie wygaśnięcie: ALARM, reszta: NIE
+- Ustawienia z 1.53 przechodzą same: „WYSYŁAJ” → ALARM przy wygaśnięciu i przegrzaniu, GŁOŚNO przy słabnącym ogniu i braku czujnika, ZWYKLE przy błędzie modułu; „NIE” zostaje NIE. Diagnostyka pokazuje przy każdym, jak mocno
+
 ## 1.54.1 · 29.10.2026 12:35
 - Cofnięte 1.54.0 (kto zmienił tryb w logach, adres przeglądarki z bramki) - kod jak w 1.53.2
 

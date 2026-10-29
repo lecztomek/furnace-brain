@@ -1,9 +1,9 @@
 enabled: true
 server: https://ntfy.sh
 topic: ''
-send_flameout: true
-send_fading: false
-send_overheat: false
-send_sensor: false
-send_module_error: false
 send_test: false
+flameout: alarm
+fading: nie
+overheat: nie
+sensor: nie
+module_error: nie

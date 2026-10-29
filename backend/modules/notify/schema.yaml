@@ -33,41 +33,36 @@ fields:
   default: false
   group: basic
   description: Włącz i zapisz - przyjdzie jedno powiadomienie testowe, a przełącznik sam wróci na „NIE”.
-- key: send_flameout
+- key: flameout
   label: Piec wygasł (STOP)
-  type: bool
-  label_on: WYSYŁAJ
-  label_off: NIE
-  default: true
+  type: text
+  options: [nie, cicho, zwykle, głośno, alarm]
+  default: alarm
   group: what
-  description: Najwyższy priorytet - dźwięk także w nocy.
-- key: send_fading
+  description: 'nie - nie wysyłaj; cicho - bez dźwięku, tylko na liście w aplikacji; zwykle - zwykły dźwięk; głośno - wyraźniejszy dźwięk; alarm - najmocniej, długo, także w nocy.'
+- key: fading
   label: Ogień słabnie mimo pełnej mocy
-  type: bool
-  label_on: WYSYŁAJ
-  label_off: NIE
-  default: false
+  type: text
+  options: [nie, cicho, zwykle, głośno, alarm]
+  default: nie
   group: what
   description: Ok. 10 min przed zatrzymaniem - czas, żeby sprawdzić zasyp.
-- key: send_overheat
+- key: overheat
   label: Przegrzanie kotła albo podajnika
-  type: bool
-  label_on: WYSYŁAJ
-  label_off: NIE
-  default: false
+  type: text
+  options: [nie, cicho, zwykle, głośno, alarm]
+  default: nie
   group: what
-- key: send_sensor
+- key: sensor
   label: Brak odczytu czujnika
-  type: bool
-  label_on: WYSYŁAJ
-  label_off: NIE
-  default: false
+  type: text
+  options: [nie, cicho, zwykle, głośno, alarm]
+  default: nie
   group: what
-- key: send_module_error
+- key: module_error
   label: Błąd modułu
-  type: bool
-  label_on: WYSYŁAJ
-  label_off: NIE
-  default: false
+  type: text
+  options: [nie, cicho, zwykle, głośno, alarm]
+  default: nie
   group: what
   description: Ten sam rodzaj najwyżej raz na 5 min.

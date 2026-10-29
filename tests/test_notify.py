@@ -68,7 +68,7 @@ def test_only_the_flameout_by_default(tmp_path):
 
 def test_what_is_ticked_goes(tmp_path):
     sent = []
-    m = _module(tmp_path, sent, send_fading=True, send_sensor=True)
+    m = _module(tmp_path, sent, fading="głośno", sensor="głośno")
     _tick(m, _ev("FLAMEOUT_WARNING"), _ev("SENSOR_FLUE_GAS_TEMP_MISSING_ON"), _ev("BOILER_OVERHEAT_ON"))
     _wait(sent, 2)
     assert sorted(p["title"] for _, p in sent) == ["Brak odczytu czujnika", "Ogień słabnie"]
@@ -84,7 +84,7 @@ def test_switched_off_sends_nothing(tmp_path):
 
 def test_the_same_kind_at_most_every_5_min(tmp_path):
     sent = []
-    m = _module(tmp_path, sent, send_module_error=True)
+    m = _module(tmp_path, sent, module_error="zwykle")
     t = time.time()
     _tick(m, _ev("MODULE_ERROR"), now=t)
     _tick(m, _ev("MODULE_ERROR"), now=t + 2)
@@ -144,10 +144,32 @@ def test_the_diagnostics_data_after_a_failure_and_a_success(tmp_path, monkeypatc
     while not _tick(m).runtime.get("failed") and time.time() < end:
         time.sleep(0.01)
     rt = _tick(m).runtime
-    assert rt["failed"]["title"] == "Piec wygasł" and rt["sends"] == ["wygaśnięcie"]
+    assert rt["failed"]["title"] == "Piec wygasł" and rt["sends"] == ["wygaśnięcie (alarm)"]
     m._config.send_test = True
     _tick(m)
     _wait(sent, 1)
     time.sleep(0.05)
     rt = _tick(m).runtime
     assert rt["failed"] is None and rt["last_title"] == "Test powiadomień" and rt["last_sent"]
+
+
+def test_how_loud_is_chosen_per_event(tmp_path):
+    sent = []
+    m = _module(tmp_path, sent, overheat="cicho", flameout="głośno")
+    _tick(m, _ev("FLAMEOUT"), _ev("BOILER_OVERHEAT_ON"))
+    _wait(sent, 2)
+    prio = {p["title"]: p["priority"] for _, p in sent}
+    assert prio == {"Piec wygasł": 4, "Przegrzanie kotła": 2}
+    m._apply({"flameout": "bzdura"})                                    # not on the list: kept
+    assert m.get_config_values()["flameout"] == "głośno"
+
+
+def test_the_old_on_off_settings_are_taken_over_once(tmp_path):
+    # values.yaml from 1.53/1.54 (new keys already added with the defaults at the start)
+    sent = []
+    m = _module(tmp_path, sent, send_flameout=True, send_overheat=True, send_fading=False,
+                flameout="alarm", overheat="nie")
+    v = m.get_config_values()
+    assert v["flameout"] == "alarm" and v["overheat"] == "alarm" and v["fading"] == "nie"
+    saved = yaml.safe_load((tmp_path / "values.yaml").read_text())
+    assert "send_overheat" not in saved and saved["overheat"] == "alarm"   # the old keys dropped

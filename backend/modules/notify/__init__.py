@@ -36,29 +36,36 @@ class NotifyConfig:
     enabled: bool = True
     server: str = "https://ntfy.sh"
     topic: str = ""                     # generated on the first start
-    send_flameout: bool = True          # the fire went out - the furnace stopped
-    send_fading: bool = False           # the fire fades at full power (check the hopper)
-    send_overheat: bool = False         # boiler / hopper overheating
-    send_sensor: bool = False           # a sensor stopped reading
-    send_module_error: bool = False     # a module failed
     send_test: bool = False             # set in the settings: one test message, then back to off
+    # each event: "nie" (not sent) or how loud on the phone (LEVELS)
+    flameout: str = "alarm"             # the fire went out - the furnace stopped
+    fading: str = "nie"                 # the fire fades at full power (check the hopper)
+    overheat: str = "nie"               # boiler / hopper overheating
+    sensor: str = "nie"                 # a sensor stopped reading
+    module_error: str = "nie"           # a module failed
 
 
-# event type -> (setting, title, ntfy priority 1-5, tags)
-KINDS: Dict[str, Tuple[str, str, int, str]] = {
-    "FLAMEOUT": ("send_flameout", "Piec wygasł", 5, "rotating_light,fire"),
-    "FLAMEOUT_WARNING": ("send_fading", "Ogień słabnie", 4, "warning"),
-    "BOILER_OVERHEAT_ON": ("send_overheat", "Przegrzanie kotła", 5, "rotating_light,hot_face"),
-    "HOPPER_OVERHEAT_ON": ("send_overheat", "Przegrzanie podajnika", 5, "rotating_light,hot_face"),
-    "MODULE_ERROR": ("send_module_error", "Błąd modułu", 3, "warning"),
-    "AUX_MODULE_ERROR": ("send_module_error", "Błąd modułu", 3, "warning"),
+# the loudness chosen in the settings -> ntfy priority (2 no sound ... 5 urgent: long, also at night)
+LEVELS = {"cicho": 2, "zwykle": 3, "głośno": 4, "alarm": 5}
+WHAT = ("flameout", "fading", "overheat", "sensor", "module_error")
+# up to 1.54: send_<what> on/off - "on" becomes this loudness (once, then the old keys are dropped)
+OLD_SEND_LEVEL = {"flameout": "alarm", "fading": "głośno", "overheat": "alarm", "sensor": "głośno",
+                  "module_error": "zwykle"}
+# event type -> (what: the setting, title, tags)
+KINDS: Dict[str, Tuple[str, str, str]] = {
+    "FLAMEOUT": ("flameout", "Piec wygasł", "rotating_light,fire"),
+    "FLAMEOUT_WARNING": ("fading", "Ogień słabnie", "warning"),
+    "BOILER_OVERHEAT_ON": ("overheat", "Przegrzanie kotła", "rotating_light,hot_face"),
+    "HOPPER_OVERHEAT_ON": ("overheat", "Przegrzanie podajnika", "rotating_light,hot_face"),
+    "MODULE_ERROR": ("module_error", "Błąd modułu", "warning"),
+    "AUX_MODULE_ERROR": ("module_error", "Błąd modułu", "warning"),
 }
-# the ticked settings in words, for the diagnostics
-LABELS = {"send_flameout": "wygaśnięcie", "send_fading": "ogień słabnie", "send_overheat": "przegrzanie",
-          "send_sensor": "brak czujnika", "send_module_error": "błąd modułu"}
+# the settings in words, for the diagnostics
+LABELS = {"flameout": "wygaśnięcie", "fading": "ogień słabnie", "overheat": "przegrzanie",
+          "sensor": "brak czujnika", "module_error": "błąd modułu"}
 SAME_KIND_S = 300.0                    # the same kind at most once in this long (a module failing every tick)
 RETRY_S = (30.0, 60.0, 120.0, 300.0, 600.0)
-BOOL_KEYS = ("enabled", "send_flameout", "send_fading", "send_overheat", "send_sensor", "send_module_error", "send_test")
+BOOL_KEYS = ("enabled", "send_test")
 
 
 def new_topic() -> str:
@@ -128,9 +135,10 @@ class NotifyModule(ModuleInterface):
                 kind = self._kind(e)
                 if kind is None:
                     continue
-                setting, title, prio, tags = kind
-                if not getattr(c, setting, False):
-                    continue
+                what, title, tags = kind
+                prio = LEVELS.get(getattr(c, what, "nie"))
+                if prio is None:
+                    continue                    # "nie"
                 key = e.type if not e.type.startswith("SENSOR_") else "SENSOR"
                 if now - self._last_kind.get(key, -1e18) < SAME_KIND_S:
                     continue
@@ -140,18 +148,19 @@ class NotifyModule(ModuleInterface):
             events, self._results = self._results, []
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
         runtime = {"enabled": bool(c.enabled), "topic": c.topic, "server": c.server,
-                   "sends": [label for key, label in LABELS.items() if getattr(c, key, False)],
+                   "sends": [f"{label} ({getattr(c, key)})" for key, label in LABELS.items()
+                             if getattr(c, key, "nie") in LEVELS],
                    "simulated": self._simulated, "pending": self._queue.qsize(),
                    "last_sent": self._last_sent, "last_title": self._last_title,
                    "last_error": self._last_error, "failed": dict(self._failed) if self._failed else None}
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status, runtime=runtime)
 
     @staticmethod
-    def _kind(e: Event) -> Optional[Tuple[str, str, int, str]]:
+    def _kind(e: Event) -> Optional[Tuple[str, str, str]]:
         if e.type in KINDS:
             return KINDS[e.type]
         if e.type.startswith("SENSOR_") and e.type.endswith("_MISSING_ON"):
-            return ("send_sensor", "Brak odczytu czujnika", 4, "warning")
+            return ("sensor", "Brak odczytu czujnika", "warning")
         return None
 
     def _enqueue(self, etype: str, title: str, message: str, prio: int, tags: str, now: float) -> None:
@@ -221,7 +230,13 @@ class NotifyModule(ModuleInterface):
         if not self._config_path.exists():
             return
         with self._config_path.open("r", encoding="utf-8") as f:
-            self._apply(yaml.safe_load(f) or {})
+            values = yaml.safe_load(f) or {}
+        old = [w for w in WHAT if "send_" + w in values]
+        for w in old:                           # up to 1.54: on/off - kept as the user had it
+            values[w] = OLD_SEND_LEVEL[w] if values["send_" + w] else "nie"
+        self._apply(values)
+        if old:
+            self._save()                        # written without the old keys - taken over once
 
     def _apply(self, values: Dict[str, Any]) -> None:
         for name in BOOL_KEYS:
@@ -230,3 +245,6 @@ class NotifyModule(ModuleInterface):
         for name in ("server", "topic"):
             if name in values and values[name] not in (None, ""):
                 setattr(self._config, name, str(values[name]).strip())
+        for name in WHAT:
+            if values.get(name) == "nie" or values.get(name) in LEVELS:
+                setattr(self._config, name, values[name])
