@@ -2,6 +2,11 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.56.0 · 01.11.2026 11:45
+- Statystyki → Sprawność: nowy widok „Dziś” - punkt co godzinę z ostatnich 24 h (węgiel w godzinie przeliczony na stopniodzień z temperatury na dworze w tej godzinie) i kafelek dla całego dnia; 7 dni / 30 dni / sezon z kropką na każdym dniu
+- Oś wykresu dopasowana do wartości (wcześniej od zera i różnice wyglądały na płaskie)
+- Statystyki zapisują temperaturę zewnętrzną dla każdej godziny; dni policzone wcześniej jej nie mają - ich godziny są bez punktu, od dziś wszystko się wypełnia
+
 ## 1.55.0 · 29.10.2026 12:10
 - Powiadomienia na telefon: przy każdym zdarzeniu jeden wybór - NIE / CICHO (bez dźwięku) / ZWYKLE / GŁOŚNO / ALARM (najmocniej, także w nocy) - zamiast „WYSYŁAJ / NIE”. Domyślnie wygaśnięcie: ALARM, reszta: NIE
 - Ustawienia z 1.53 przechodzą same: „WYSYŁAJ” → ALARM przy wygaśnięciu i przegrzaniu, GŁOŚNO przy słabnącym ogniu i braku czujnika, ZWYKLE przy błędzie modułu; „NIE” zostaje NIE. Diagnostyka pokazuje przy każdym, jak mocno

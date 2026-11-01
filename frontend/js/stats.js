@@ -294,16 +294,37 @@
     ].join("");
     $("eff-note").textContent = `Stopniodzień: dzień ze średnią 3°C = ${num((a.degree_day_base_c ?? 18) - 3, 0)}. Mniej kg = sprawniej.`;
 
-    const { rows: days, labels } = periodSeries(period);
+    const { hourly, rows, labels } = periodSeries(period);
+    // a day: each hour's coal against that hour's outside temperature, scaled to a whole day
+    // (kg in the hour x 24 / degrees below 18) - the same unit as the daily points
+    const base = a.degree_day_base_c ?? 18;
+    const perHour = (h) => (h.hours >= 0.5 && h.outside != null && base - h.outside >= 0.5 && h.coal_kg > 0
+      ? (h.coal_kg / h.hours) * 24 / (base - h.outside) : null);
+    const values = hourly ? rows.map(perHour) : rows.map((d) => d.kg_per_degree_day);
+    if (hourly) {
+      // the tile for the day: all its hours together
+      const use = rows.filter((h) => perHour(h) != null);
+      const kg = use.reduce((s, h) => s + h.coal_kg, 0);
+      const dd = use.reduce((s, h) => s + (base - h.outside) * h.hours / 24, 0);
+      $("eff-tiles").firstElementChild.outerHTML = tile("Węgiel na stopniodzień", dd > 0 ? num(kg / dd, 2) : "--", "kg");
+    }
+    $("eff-chart-title").textContent = hourly
+      ? "Węgiel na stopniodzień w każdej godzinie (ostatnie 24 h) - im niżej, tym sprawniej"
+      : "Węgiel na stopniodzień każdego dnia - im niżej, tym sprawniej";
     const data = {
       labels,
-      datasets: [{ type: "line", label: "kg na stopniodzień", data: days.map((d) => d.kg_per_degree_day), borderColor: "#f97316", backgroundColor: "#f97316", spanGaps: true }],
+      datasets: [{ type: "line", label: "kg na stopniodzień", data: values, borderColor: "#f97316", backgroundColor: "#f97316",
+                   spanGaps: true, pointRadius: hourly ? 4 : 5, pointHoverRadius: 7, borderWidth: hourly ? 2 : 3 }],
     };
     // nothing to draw without outside temperatures - say so instead of an empty chart
-    const any = days.some((d) => d.kg_per_degree_day != null);
+    const any = values.some((v) => v != null);
     $("eff-chart-box").style.display = any ? "" : "none";
     $("eff-empty").style.display = any ? "none" : "";
-    effChart = draw(effChart, "chart-efficiency", data, baseOptions());
+    // the axis fits the values - from zero the day-to-day differences looked flat
+    const opts = baseOptions();
+    opts.scales.y.beginAtZero = false;
+    opts.scales.y.grace = "10%";
+    effChart = draw(effChart, "chart-efficiency", data, opts);
   }
 
   // heat output in kWh, the controller's power in % and how steady it was

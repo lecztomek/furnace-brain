@@ -287,3 +287,16 @@ def test_a_warm_noon_is_not_hot_water():
         x["temp_grzejnikow"] = "29.7"
     hw = hot_water_day(aggregate_day(day, r, energy_kwh=110.0))
     assert hw is not None and hw["kwh"] < 0.5          # the old model (by the outside temperature) said ~40 kWh
+
+
+def test_hours_carry_the_outside_temperature():
+    """The hourly efficiency (Sprawność → Dziś) needs each hour's outside temperature."""
+    from datetime import date
+    from backend.core.analytics import aggregate_day, hours_of_day
+    rows = [{"data_czas": f"2026-11-01T{h:02d}:{m:02d}:00", "temp_pieca": "56", "power": "50",
+             "temp_grzejnikow": "30", "temp_spalin": "70", "tryb_pracy": "WORK", "temp_zewn": str(5 + h)}
+            for h in range(3) for m in range(0, 60, 1)]
+    day = aggregate_day(date(2026, 11, 1), rows)
+    hours = hours_of_day(day)
+    assert [hours[h]["outside"] for h in range(3)] == [5.0, 6.0, 7.0]
+    assert hours[5]["outside"] is None                                   # no rows that hour

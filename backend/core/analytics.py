@@ -116,6 +116,9 @@ class DayAgg:
     pw_jumps: int = 0
     # hour of day in settled WORK (hot water estimate): [seconds, power*s, radiators*s, radiator seconds]
     hwr: List[List[float]] = field(default_factory=list)
+    # outside temperature by hour of day: [seconds, outside*s] (the hourly efficiency); days cached
+    # before it have none - their hours simply show no efficiency
+    hout: List[List[float]] = field(default_factory=list)
 
     def avg(self, key: str) -> Optional[float]:
         w = self.weights.get(key, 0.0)
@@ -287,6 +290,13 @@ def aggregate_day(day: date, rows: List[Dict[str, str]], coal_kg: float = 0.0,
                 if rad is not None:
                     h[2] += rad * w
                     h[3] += w
+
+        out_t = _float(r.get("temp_zewn"))
+        if out_t is not None:
+            if not agg.hout:
+                agg.hout = [[0.0, 0.0] for _ in range(24)]
+            agg.hout[ts.hour][0] += w
+            agg.hout[ts.hour][1] += out_t * w
 
         boiler = _float(r.get("temp_pieca"))
         values = {
@@ -588,8 +598,10 @@ def _day_hour(day: Optional[DayAgg], hour: int, coal: Optional[HourCoal] = None,
     per_hour = (coal or {}).get(day.date) if day is not None else None
     kg, kwh = per_hour[hour] if per_hour else (0.0, 0.0)
     low = ((mins or {}).get(day.date) or [None] * 24)[hour] if day is not None else None
+    ho = day.hout[hour] if day is not None and len(day.hout) == 24 else [0.0, 0.0]
+    outside = ho[1] / ho[0] if ho[0] > 0 else None
     return {**_hour_entry(hour, t), "date": day.date if day is not None else None,
-            "coal_kg": round(kg, 2), "kwh": round(kwh, 1), "boiler_min": _r(low)}
+            "coal_kg": round(kg, 2), "kwh": round(kwh, 1), "boiler_min": _r(low), "outside": _r(outside)}
 
 
 def hourly_last24(yesterday: Optional[DayAgg], today: Optional[DayAgg], now_hour: int,
