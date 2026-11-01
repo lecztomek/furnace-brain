@@ -2,6 +2,9 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.57.1 · 01.11.2026 12:50
+- Statystyki: węgiel co godzinę / co dzień był w dwóch miejscach - zostaje w Zużyciu, teraz z niebieską linią temperatury na dworze (oś °C po prawej); w Sprawności karta „Węgiel na stopniodzień” z kropkami i oceną „sprawniej / gorzej”
+
 ## 1.57.0 · 01.11.2026 12:30
 - Statystyki → Sprawność przebudowana jak zakładka Praca: kafelki (węgiel na stopniodzień, strata w kominie, na zewnątrz, węgiel), karta „Węgiel i pogoda” - słupki węgla i linia temperatury na dworze na jednym wykresie oraz węgiel na stopniodzień z kropkami; ocena „sprawniej / gorzej o X%” względem poprzednich tygodni
 - „Dziś” godzina po godzinie (ostatnie 24 h), dłuższe okresy dzień po dniu

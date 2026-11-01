@@ -11,7 +11,6 @@
   let period = "d7";   // the range of the card being drawn
   let dailyChart = null;
   let effChart = null;
-  let effMixChart = null;
   let weatherChart = null;
   let hourlyChart = null;
   let powerKwhChart = null;
@@ -325,21 +324,6 @@
     $("eff-empty").style.display = any ? "none" : "";
     const span = hourly ? " • ostatnie 24 h" : ` • ${PERIOD_NAMES[period]}`;
 
-    // coal (bars) and the outside temperature (line, right axis) together
-    $("eff-mix-title").textContent = (hourly ? "Węgiel w każdej godzinie [kg] i temperatura na dworze" : "Węgiel każdego dnia [kg] i temperatura na dworze") + span;
-    const mixOpts = baseOptions(true);
-    mixOpts.scales.y.title = { display: true, text: "kg", color: "#fdba74" };
-    mixOpts.scales.y2 = { position: "right", grid: { display: false }, ticks: { color: "#93c5fd", font: { size: 15 } },
-                          title: { display: true, text: "°C", color: "#93c5fd" } };
-    effMixChart = draw(effMixChart, "chart-eff-mix", {
-      labels,
-      datasets: [
-        { type: "bar", label: "Węgiel [kg]", data: rows.map((r) => r.kg), backgroundColor: "rgba(249, 115, 22, 0.75)", yAxisID: "y", order: 2 },
-        { type: "line", label: "Na dworze [°C]", data: rows.map((r) => r.outside), borderColor: "#60a5fa", backgroundColor: "#60a5fa",
-          yAxisID: "y2", pointRadius: hourly ? 3 : 4, spanGaps: true, order: 1 },
-      ],
-    }, mixOpts);
-
     // kg per degree-day: lower = the same warmth for less coal
     $("eff-chart-title").textContent = (hourly ? "Węgiel na stopniodzień w każdej godzinie" : "Węgiel na stopniodzień każdego dnia") + " - im niżej, tym sprawniej" + span;
     const opts = baseOptions();
@@ -488,20 +472,32 @@
     const { hourly, rows, labels } = periodSeries();
     const data = {
       labels,
-      datasets: [{ type: "bar", label: "Węgiel", data: rows.map((d) => d.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.8)", borderRadius: 4 }],
+      datasets: [{ type: "bar", label: "Węgiel [kg]", data: rows.map((d) => d.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.8)", borderRadius: 4, yAxisID: "y", order: 2 }],
     };
-    const options = baseOptions();
+    // the outside temperature over the coal (right axis) - how the coal follows the weather
+    const outside = rows.map((d) => (d.outside != null ? d.outside : null));
+    const withWeather = outside.some((v) => v != null);
+    if (withWeather) {
+      data.datasets.push({ type: "line", label: "Na dworze [°C]", data: outside, borderColor: "#60a5fa", backgroundColor: "#60a5fa",
+                           yAxisID: "y2", pointRadius: hourly ? 3 : 4, borderWidth: 2, spanGaps: !hourly, order: 1 });
+    }
+    const options = baseOptions(withWeather);
     coalAxisTicks(options.scales.y, options);
+    if (withWeather) {
+      options.scales.y2 = { position: "right", grid: { display: false }, ticks: { color: "#93c5fd", font: { size: 15 } },
+                            title: { display: true, text: "°C", color: "#93c5fd" } };
+    }
     options.plugins.tooltip = { callbacks: { label: (ctx) => {
       const d = rows[ctx.dataIndex] || {};
       const v = ctx.parsed.y;
+      if (ctx.dataset.yAxisID === "y2") return `na dworze ${num(v, 1)}°C`;
       return [`${num(v, v < 10 ? 2 : 1)} kg` + (price() ? ` • ${num(pln(v), v < 10 ? 2 : 0)} zł` : ""),
               ...(d.kwh != null ? [`${num(d.kwh, 0)} kWh`] : []),
-              ...(!hourly && d.outside != null ? [`na dworze ${num(d.outside, 1)}°C`] : [])];
+              ...(!withWeather && !hourly && d.outside != null ? [`na dworze ${num(d.outside, 1)}°C`] : [])];
     } } };
-    $("daily-title").textContent = hourly
+    $("daily-title").textContent = (hourly
       ? `Węgiel w każdej godzinie - ${period === "today" ? "ostatnie 24 godziny" : "wczoraj"}`
-      : `Węgiel każdego dnia - ${PERIOD_NAMES[period]}`;
+      : `Węgiel każdego dnia - ${PERIOD_NAMES[period]}`) + (withWeather ? " • niebieska linia: na dworze" : "");
     dailyChart = draw(dailyChart, "chart-daily", data, options);
   }
 
@@ -716,7 +712,7 @@
     document.querySelectorAll("#st2-tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     document.querySelectorAll(".st2-card[data-tab]").forEach((c) => c.classList.toggle("is-hidden", c.dataset.tab !== tab));
     // charts drawn while hidden have no size - redraw the visible ones
-    [dailyChart, seasonChart, hourlyChart, effChart, effMixChart, weatherChart, forecastChart, powerKwhChart, powerPctChart].forEach((c) => c && c.resize());
+    [dailyChart, seasonChart, hourlyChart, effChart, weatherChart, forecastChart, powerKwhChart, powerPctChart].forEach((c) => c && c.resize());
     try { localStorage.setItem("stats-tab", tab); } catch (err) { /* private mode */ }
   }
 
