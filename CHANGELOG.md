@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.58.0 · 01.11.2026 13:30
+- Statystyki: usunięta zakładka Woda (grzejniki a ciepła woda, kiedy idzie ciepła woda). Bez czujnika w zasobniku szacunek był niewiarygodny: liczył każde zaburzenie pracy kotła jako wodę (29.10 awaria ślimaka = „34,8 kWh wody o 5 rano”), a prawdziwych kąpieli nie łapał. Wróci, jeśli w zasobniku będzie czujnik
+- Backend nie liczy już szacunku ciepłej wody; ostatnie 30 dni statystyk przelicza się raz od nowa, żeby od razu miały temperaturę na dworze dla każdej godziny (Sprawność → Dziś i zależność od pogody wypełnią się od razu, a nie po tygodniu)
+
 ## 1.57.2 · 01.11.2026 13:05
 - Zużycie → Ile węgla znowu jak wcześniej: same słupki, temperatura na dworze w podpowiedzi przy dniu (bez linii z 1.57.1). Sprawność bez powtórzonych słupków węgla
 
