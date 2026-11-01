@@ -300,3 +300,20 @@ def test_hours_carry_the_outside_temperature():
     hours = hours_of_day(day)
     assert [hours[h]["outside"] for h in range(3)] == [5.0, 6.0, 7.0]
     assert hours[5]["outside"] is None                                   # no rows that hour
+
+
+def test_efficiency_hour_by_hour():
+    from backend.core.analytics import DayAgg, efficiency_hours
+    d = DayAgg(date="2026-11-01")
+    d.hout = [[3600.0, 3600.0 * 6.0] for _ in range(24)]          # 6 C outside all day
+    d.hours[10] = [3600.0, 0, 0, 0, 0, 0]                          # settled WORK at 10:00
+    d.hours[11] = [1200.0, 0, 0, 0, 0, 0]                          # a STOP in it: left out
+    coal = {"2026-11-01": [[0.0, 0.0]] * 10 + [[0.9, 7.0], [0.3, 2.0]] + [[0.0, 0.0]] * 12}
+    out = efficiency_hours([d], coal)
+    assert [(x["hour"], x["outside"]) for x in out] == [(10, 6.0)]
+    assert out[0]["kg_per_degree_day"] == round(0.9 * 24 / 12, 3)        # 1,8 kg per degree-day
+    d.hours = [[3600.0, 0, 0, 0, 0, 0] for _ in range(24)]
+    coal = {"2026-11-01": [[0.9, 7.0]] * 23 + [[0.05, 0.4]]}             # the last hour: a feeding moved out
+    assert [x["hour"] for x in efficiency_hours([d], coal)] == list(range(23))
+    old = DayAgg(date="2026-10-20")                                     # cached before the hourly weather
+    assert efficiency_hours([old], {"2026-10-20": [[1.0, 8.0]] * 24}) == []

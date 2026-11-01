@@ -11,6 +11,7 @@
   let period = "d7";   // the range of the card being drawn
   let dailyChart = null;
   let effChart = null;
+  let effMixChart = null;
   let weatherChart = null;
   let hourlyChart = null;
   let powerKwhChart = null;
@@ -70,7 +71,8 @@
     ["Na pełnej mocy", "flame"], ["Na minimum", "power"], ["Średnio", "bars"],
     ["Kocioł", "flame"], ["Grzejniki", "radiator"], ["Na zewnątrz", "thermometer"], ["Rozpalenia", "flame"], ["W normie", "target"],
     ["Od zadanej", "upDown"], ["Ostatni tydzień", "trendUp"], ["Ten sezon", "calendar"], ["Prognoza", "sparkles"], ["Zeszły sezon", "history"],
-    ["Przy 0", "cloudSun"], ["Przy -10", "snowflake"], ["Każdy stopień", "thermometer"]];
+    ["Przy 0", "cloudSun"], ["Przy -10", "snowflake"], ["Każdy stopień", "thermometer"],
+    ["Strata w kominie", "flame"]];
   function tile(label, value, unit, cls = "") {
     const icon = FBIcon((TILE_ICONS.find(([k]) => label.startsWith(k)) || ["", "info"])[1]);
     const st = cls.includes("good") ? "ok" : cls.includes("bad") ? "bad" : cls.includes("cost") ? "cost" : "plain";
@@ -279,52 +281,79 @@
     renderPower();
   }
 
+  // Sprawność: hour by hour for Dziś (the last 24 h) - the coal of each hour against that
+  // hour's weather - day by day for the longer periods
+  function effSeries() {
+    const base = (report.efficiency_assumptions || {}).degree_day_base_c ?? 18;
+    if (period === "today") {
+      const hours = (report.eff_hours || []).slice(-24);
+      return { hourly: true, base, rows: hours.map((h) => ({ ...h, kg: h.coal_kg, dd: Math.max(0, base - h.outside) / 24 })),
+               labels: hours.map((h) => `${h.hour}:00`) };
+    }
+    const { rows, labels } = periodSeries(period);
+    return { hourly: false, base, labels,
+             rows: rows.map((d) => ({ ...d, kg: d.coal_kg, dd: d.outside != null ? Math.max(0, base - d.outside) * d.hours / 24 : null })) };
+  }
+
   function renderEfficiency() {
     period = periods.eff;
-    const e = report.periods[period].efficiency || {};
+    const p = report.periods[period] || {};
     const t = report.efficiency_trend || {};
-    const a = report.efficiency_assumptions || {};
-    const signed = (v, d = 0) => (v == null ? "--" : `${v > 0 ? "+" : ""}${num(v, d)}`);
-    const ch = t.change_pct;
+    const { hourly, base, rows, labels } = effSeries();
+    // the period together: all coal / all degree-days of the hours (days) with weather
+    const use = rows.filter((r) => r.dd != null && r.dd > 0 && (hourly || r.kg_per_degree_day != null));
+    const kg = use.reduce((s, r) => s + r.kg, 0), dd = use.reduce((s, r) => s + r.dd, 0);
+    const k = dd > 0 ? kg / dd : null;
+    const outs = rows.map((r) => r.outside).filter((v) => v != null);
+    const outAvg = outs.length ? outs.reduce((s, v) => s + v, 0) / outs.length : null;
+    const loss = (p.efficiency || {}).flue_loss_pct;
     $("eff-tiles").innerHTML = [
-      tile("Węgiel na stopniodzień", num(e.kg_per_degree_day, 2), "kg"),
-      tile("Ostatni tydzień", ch == null ? "--" : `${ch > 0 ? "▲" : "▼"} ${num(Math.abs(ch), 0)}<small>%</small>`,
-           ch == null ? "za mało dni" : ch > 0 ? "więcej węgla" : "mniej węgla",
-           ch == null ? "" : ch > 10 ? "st2-tile--bad" : ch <= 0 ? "st2-tile--good" : ""),
+      tile("Węgiel na stopniodzień", k != null ? num(k, 2) : "--", "kg"),
+      tile("Strata w kominie", loss != null ? `${num(loss, 1)}<small>%</small>` : "--", "",
+           loss == null ? "" : loss <= 6 ? "st2-tile--good" : loss > 10 ? "st2-tile--bad" : ""),
+      tile("Na zewnątrz", num(outAvg), "°C"),
+      tile("Węgiel", num(hourly ? kg : p.coal_kg_per_day, 1), hourly ? "kg w 24 h" : "kg/doba"),
     ].join("");
-    $("eff-note").textContent = `Stopniodzień: dzień ze średnią 3°C = ${num((a.degree_day_base_c ?? 18) - 3, 0)}. Mniej kg = sprawniej.`;
 
-    const { hourly, rows, labels } = periodSeries(period);
-    // a day: each hour's coal against that hour's outside temperature, scaled to a whole day
-    // (kg in the hour x 24 / degrees below 18) - the same unit as the daily points
-    const base = a.degree_day_base_c ?? 18;
-    const perHour = (h) => (h.hours >= 0.5 && h.outside != null && base - h.outside >= 0.5 && h.coal_kg > 0
-      ? (h.coal_kg / h.hours) * 24 / (base - h.outside) : null);
-    const values = hourly ? rows.map(perHour) : rows.map((d) => d.kg_per_degree_day);
-    if (hourly) {
-      // the tile for the day: all its hours together
-      const use = rows.filter((h) => perHour(h) != null);
-      const kg = use.reduce((s, h) => s + h.coal_kg, 0);
-      const dd = use.reduce((s, h) => s + (base - h.outside) * h.hours / 24, 0);
-      $("eff-tiles").firstElementChild.outerHTML = tile("Węgiel na stopniodzień", dd > 0 ? num(kg / dd, 2) : "--", "kg");
-    }
-    $("eff-chart-title").textContent = hourly
-      ? "Węgiel na stopniodzień w każdej godzinie (ostatnie 24 h) - im niżej, tym sprawniej"
-      : "Węgiel na stopniodzień każdego dnia - im niżej, tym sprawniej";
-    const data = {
-      labels,
-      datasets: [{ type: "line", label: "kg na stopniodzień", data: values, borderColor: "#f97316", backgroundColor: "#f97316",
-                   spanGaps: true, pointRadius: hourly ? 4 : 5, pointHoverRadius: 7, borderWidth: hourly ? 2 : 3 }],
-    };
-    // nothing to draw without outside temperatures - say so instead of an empty chart
-    const any = values.some((v) => v != null);
+    // the grade: the last week against the weeks before (the same as the "Ostatni tydzień" check)
+    const ch = t.change_pct;
+    $("eff-grade").textContent = ch == null ? "" : ch <= -3 ? `sprawniej o ${num(-ch, 0)}%` : ch >= 3 ? `gorzej o ${num(ch, 0)}%` : "bez zmian";
+    $("eff-grade").className = "st2-grade" + (ch == null ? "" : ch <= -3 ? " grade-dobra" : ch >= 3 ? " grade-słaba" : " grade-przeciętna");
+
+    const any = rows.some((r) => r.kg_per_degree_day != null);
     $("eff-chart-box").style.display = any ? "" : "none";
     $("eff-empty").style.display = any ? "none" : "";
-    // the axis fits the values - from zero the day-to-day differences looked flat
+    const span = hourly ? " • ostatnie 24 h" : ` • ${PERIOD_NAMES[period]}`;
+
+    // coal (bars) and the outside temperature (line, right axis) together
+    $("eff-mix-title").textContent = (hourly ? "Węgiel w każdej godzinie [kg] i temperatura na dworze" : "Węgiel każdego dnia [kg] i temperatura na dworze") + span;
+    const mixOpts = baseOptions(true);
+    mixOpts.scales.y.title = { display: true, text: "kg", color: "#fdba74" };
+    mixOpts.scales.y2 = { position: "right", grid: { display: false }, ticks: { color: "#93c5fd", font: { size: 15 } },
+                          title: { display: true, text: "°C", color: "#93c5fd" } };
+    effMixChart = draw(effMixChart, "chart-eff-mix", {
+      labels,
+      datasets: [
+        { type: "bar", label: "Węgiel [kg]", data: rows.map((r) => r.kg), backgroundColor: "rgba(249, 115, 22, 0.75)", yAxisID: "y", order: 2 },
+        { type: "line", label: "Na dworze [°C]", data: rows.map((r) => r.outside), borderColor: "#60a5fa", backgroundColor: "#60a5fa",
+          yAxisID: "y2", pointRadius: hourly ? 3 : 4, spanGaps: true, order: 1 },
+      ],
+    }, mixOpts);
+
+    // kg per degree-day: lower = the same warmth for less coal
+    $("eff-chart-title").textContent = (hourly ? "Węgiel na stopniodzień w każdej godzinie" : "Węgiel na stopniodzień każdego dnia") + " - im niżej, tym sprawniej" + span;
     const opts = baseOptions();
     opts.scales.y.beginAtZero = false;
     opts.scales.y.grace = "10%";
-    effChart = draw(effChart, "chart-efficiency", data, opts);
+    effChart = draw(effChart, "chart-efficiency", {
+      labels,
+      datasets: [{ type: "line", label: "kg na stopniodzień", data: rows.map((r) => r.kg_per_degree_day), borderColor: "#f97316",
+                   backgroundColor: "#f97316", spanGaps: true, pointRadius: hourly ? 4 : 5, pointHoverRadius: 7, borderWidth: hourly ? 2 : 3 }],
+    }, opts);
+    $("eff-note").textContent = `Stopniodzień: doba ze średnią 3°C na dworze = ${num(base - 3, 0)}. ` +
+      (hourly ? "Godziny z postojem, rozpalaniem albo bez pogody są pominięte. " : "Dni niepełne (postój, rozpalanie) są pominięte. ") +
+      "Strata w kominie liczona z temperatury spalin.";
+    renderWeather();
   }
 
   // heat output in kWh, the controller's power in % and how steady it was
@@ -476,9 +505,23 @@
     dailyChart = draw(dailyChart, "chart-daily", data, options);
   }
 
+  // a straight line through the points (the same as linear_fit in the backend)
+  function lineFit(pts) {
+    const n = pts.length;
+    if (n < 5) return null;
+    const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+    if (Math.max(...xs) - Math.min(...xs) < 3) return null;
+    const mx = xs.reduce((s, v) => s + v, 0) / n, my = ys.reduce((s, v) => s + v, 0) / n;
+    const sxx = xs.reduce((s, v) => s + (v - mx) ** 2, 0);
+    const slope = xs.reduce((s, v, i) => s + (v - mx) * (ys[i] - my), 0) / sxx;
+    return { slope, intercept: my - slope * mx, n };
+  }
+
   function renderWeather() {
     const w = report.weather;
-    const fit = w.coal.fit;
+    const byHourFit = (periods.eff === "today" || periods.eff === "d7")
+      ? lineFit((report.eff_hours || []).map((h) => ({ x: h.outside, y: h.coal_kg * 24 }))) : null;
+    const fit = byHourFit || w.coal.fit;
     const pfit = w.power.fit;
     $("weather-chart-box").style.display = fit ? "" : "none";
     if (!fit) {
@@ -489,11 +532,17 @@
         tile("Przy 0°C", num(fit.intercept, 0), "kg"),
         tile("Przy -10°C", num(fit.intercept - 10 * fit.slope, 0), "kg"),
         tile("Każdy stopień mrozu", `+${num(-fit.slope, 1)}`, "kg"),
-      ].join("")}</div><div class="st2-note">Węgla na dobę • z ${fit.n} dni</div>`;
+      ].join("")}</div><div class="st2-note">Węgla na dobę • z ${fit.n} ${byHourFit ? "godzin pracy" : "dni"}</div>`;
     }
 
-    const pts = w.coal.points.map((p) => ({ x: p.x, y: p.y }));
-    const datasets = [{ type: "scatter", label: "Dni", data: pts, backgroundColor: "rgba(249, 115, 22, 0.85)", pointRadius: 5 }];
+    // Dziś and 7 dni: every hour of the last week (kg per hour x 24 = kg per day at that weather) -
+    // a week of hours fills the chart long before there are enough full days
+    const byHour = periods.eff === "today" || periods.eff === "d7";
+    const hourPts = (report.eff_hours || []).map((h) => ({ x: h.outside, y: h.coal_kg * 24 }));
+    const pts = byHour && hourPts.length ? hourPts : w.coal.points.map((p) => ({ x: p.x, y: p.y }));
+    $("weather-sub").textContent = byHour && hourPts.length ? `godziny z ostatnich 7 dni (${hourPts.length})` : "dni z całego roku";
+    const datasets = [{ type: "scatter", label: byHour ? "Godziny" : "Dni", data: pts,
+                        backgroundColor: byHour ? "rgba(249, 115, 22, 0.55)" : "rgba(249, 115, 22, 0.85)", pointRadius: byHour ? 3.5 : 5 }];
     if (fit && pts.length) {
       const xs = pts.map((p) => p.x);
       const lo = Math.min(...xs) - 1, hi = Math.max(...xs) + 1;
@@ -503,7 +552,7 @@
       responsive: true, maintainAspectRatio: false, animation: false,
       plugins: { legend: { labels: { color: "#e5e7eb" } } },
       scales: {
-        x: { type: "linear", title: { display: true, text: "Średnia temperatura zewnętrzna [°C]", color: "#9ca3af" }, ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } },
+        x: { type: "linear", title: { display: true, text: byHour ? "Temperatura na dworze w tej godzinie [°C]" : "Średnia temperatura zewnętrzna [°C]", color: "#9ca3af" }, ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } },
         y: { beginAtZero: true, title: { display: true, text: "Węgiel [kg/dobę]", color: "#9ca3af" }, ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
       },
     };
@@ -667,7 +716,7 @@
     document.querySelectorAll("#st2-tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     document.querySelectorAll(".st2-card[data-tab]").forEach((c) => c.classList.toggle("is-hidden", c.dataset.tab !== tab));
     // charts drawn while hidden have no size - redraw the visible ones
-    [dailyChart, seasonChart, hourlyChart, effChart, weatherChart, forecastChart, powerKwhChart, powerPctChart].forEach((c) => c && c.resize());
+    [dailyChart, seasonChart, hourlyChart, effChart, effMixChart, weatherChart, forecastChart, powerKwhChart, powerPctChart].forEach((c) => c && c.resize());
     try { localStorage.setItem("stats-tab", tab); } catch (err) { /* private mode */ }
   }
 

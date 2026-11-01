@@ -118,21 +118,28 @@
                 <div class="st2-drops" id="drops"></div>
               </section>
 
-              <!-- EFEKTYWNOŚĆ -->
+              <!-- SPRAWNOŚĆ (like Praca: the tiles, then the charts - hour by hour for Dziś) -->
               <section class="st2-card" data-tab="efficiency">
                 <div class="st2-card-head"><h2>Sprawność <span class="st2-sub" data-period-of="eff"></span></h2><div class="st2-periods st2-range" data-scope="eff"><button type="button" data-period="today">Dziś</button><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
-                <div class="st2-hero" id="eff-tiles"></div>
-                <div class="st2-empty" id="eff-empty">Pojawi się po pełnych dniach (albo godzinach w widoku „Dziś”) z temperaturą zewnętrzną (moduł Pogoda).</div>
+                <div class="st2-tiles" id="eff-tiles"></div>
+              </section>
+
+              <!-- WĘGIEL I POGODA -->
+              <section class="st2-card" data-tab="efficiency">
+                <h2>Węgiel i pogoda <span class="st2-sub" data-period-of="eff"></span> <span class="st2-grade" id="eff-grade"></span></h2>
+                <div class="st2-empty" id="eff-empty">Pojawi się po godzinach pracy z temperaturą zewnętrzną (moduł Pogoda).</div>
                 <div id="eff-chart-box">
-                  <h3 class="st2-chart-title" id="eff-chart-title">Węgiel na stopniodzień - im niżej, tym sprawniej</h3>
-                  <div class="st2-chart st2-chart--big"><canvas id="chart-efficiency"></canvas></div>
+                  <h3 class="st2-chart-title" id="eff-mix-title"></h3>
+                  <div class="st2-chart"><canvas id="chart-eff-mix"></canvas></div>
+                  <h3 class="st2-chart-title" id="eff-chart-title"></h3>
+                  <div class="st2-chart"><canvas id="chart-efficiency"></canvas></div>
                 </div>
                 <div class="st2-note" id="eff-note"></div>
               </section>
 
-              <!-- POGODA -->
+              <!-- ZALEŻNOŚĆ OD POGODY -->
               <section class="st2-card" data-tab="efficiency">
-                <h2>Zależność od pogody <span class="st2-sub">cały rok</span></h2>
+                <h2>Zależność od pogody <span class="st2-sub" id="weather-sub"></span></h2>
                 <div class="st2-weather-text" id="weather-text"></div>
                 <div class="st2-chart st2-chart--square" id="weather-chart-box"><canvas id="chart-weather"></canvas></div>
               </section>

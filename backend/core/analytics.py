@@ -620,6 +620,35 @@ def _settled_day(day: DayAgg) -> Dict[str, Any]:
     return {"setpoint": e["setpoint"], "boiler_work": e["boiler"], "below_pct": e["below_pct"]}
 
 
+EFF_HOUR_WORK_S = 3000.0     # an hour counts for the efficiency with at least 50 min of settled WORK
+EFF_HOUR_MIN_SHARE = 0.3     # ... and at least this share of a typical hour's coal
+
+
+def efficiency_hours(days: List[DayAgg], coal: HourCoal) -> List[Dict[str, Any]]:
+    """Each hour of settled work: its coal, the outside temperature and kg per degree-day
+    (the hour's coal x 24 / degrees below HDD_BASE_C) - the efficiency and the weather
+    dependence hour by hour, oldest first. Hours with STOP, ignition or no weather are left out,
+    and so are hours with almost no coal (a feeding counted in the next hour's 5 min bucket)."""
+    out = []
+    for d in days:
+        per_hour = coal.get(d.date)
+        if not per_hour or len(d.hout) != 24 or len(d.hours) != 24:
+            continue
+        for h in range(24):
+            secs, out_s = d.hout[h]
+            kg = per_hour[h][0]
+            if d.hours[h][0] < EFF_HOUR_WORK_S or secs <= 0 or kg <= 0:
+                continue
+            outside = out_s / secs
+            below = HDD_BASE_C - outside
+            out.append({"date": d.date, "hour": h, "coal_kg": round(kg, 3), "outside": round(outside, 1),
+                        "kg_per_degree_day": round(kg * 24 / below, 3) if below >= 0.5 else None})
+    if out:
+        typical = sorted(x["coal_kg"] for x in out)[len(out) // 2]
+        out = [x for x in out if x["coal_kg"] >= EFF_HOUR_MIN_SHARE * typical]
+    return out
+
+
 def hours_of_day(day: Optional[DayAgg], coal: Optional[HourCoal] = None,
                  mins: Optional[HourMin] = None) -> List[Dict[str, Any]]:
     """One day hour by hour (0-23)."""
@@ -1006,11 +1035,14 @@ class Analytics:
         hour_min: HourMin = {}
         day_rows: Dict[str, List[Dict[str, str]]] = {}
         for d in (yday, today):
+            day_rows[d.isoformat()] = history_rows(self.history_dir, d, index=indexes["history"])
+            hour_min[d.isoformat()] = hour_min_boiler(day_rows[d.isoformat()])
+        # coal per hour of the last 7 days (the efficiency hour by hour; a week of 5 min stats files)
+        for i in range(7):
+            d = today - timedelta(days=i)
             per_hour = [[0.0, 0.0] for _ in range(24)]
             coal_for_day(self.stats_dir, d, index=indexes["stats"], hourly=per_hour)
             hour_coal[d.isoformat()] = per_hour
-            day_rows[d.isoformat()] = history_rows(self.history_dir, d, index=indexes["history"])
-            hour_min[d.isoformat()] = hour_min_boiler(day_rows[d.isoformat()])
         # the regulation chart of the last day in 10 min steps
         now_dt = datetime.now() if today == date.today() else datetime.combine(today, datetime.max.time())
         end = now_dt.replace(minute=now_dt.minute - now_dt.minute % (FINE_STEP_S // 60), second=0, microsecond=0)
@@ -1043,7 +1075,9 @@ class Analytics:
             "power_work": _r(x.pw_sum / x.pw_s, 0) if x.pw_s >= 1800 else None,
             "power_std": _r(math.sqrt(max(0.0, x.pw_sq / x.pw_s - (x.pw_sum / x.pw_s) ** 2)), 1) if x.pw_s >= 1800 else None,
             "cwu_kwh": _r((hot_water_day(x) or {}).get("kwh"), 1),
+            "flue": _r(x.avg("flue_work")),
         } for x in since(min(season_start, today - timedelta(days=29)))]
+        eff_hours = efficiency_hours(since(today - timedelta(days=6)), hour_coal)
 
         # efficiency trend: last 7 full days against the 3 weeks before
         recent = [x for x in full_days if x.date >= (today - timedelta(days=7)).isoformat()]
@@ -1063,6 +1097,8 @@ class Analytics:
             "daily": daily,
             "weather": model,
             "efficiency_trend": trend,
+            # hour by hour, the last 7 days (Sprawność: Dziś, 7 dni and the weather dependence)
+            "eff_hours": eff_hours,
             "efficiency_assumptions": {"degree_day_base_c": HDD_BASE_C, "room_c": ROOM_C, "co2_pct": ASSUMED_CO2},
             "checks": checks(periods["d3"], model, full_days[-1] if full_days else None, overheat_temp, trend,
                              f"3 dni (od {today - timedelta(days=CHECK_DAYS - 1):%d.%m})"),

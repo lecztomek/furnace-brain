@@ -2,6 +2,12 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.57.0 · 01.11.2026 12:30
+- Statystyki → Sprawność przebudowana jak zakładka Praca: kafelki (węgiel na stopniodzień, strata w kominie, na zewnątrz, węgiel), karta „Węgiel i pogoda” - słupki węgla i linia temperatury na dworze na jednym wykresie oraz węgiel na stopniodzień z kropkami; ocena „sprawniej / gorzej o X%” względem poprzednich tygodni
+- „Dziś” godzina po godzinie (ostatnie 24 h), dłuższe okresy dzień po dniu
+- „Zależność od pogody” dla Dziś i 7 dni z godzin pracy z ostatniego tygodnia (każda godzina z jej temperaturą na dworze) - wypełnia się po kilku dniach zamiast tygodniach pełnych dni; kafelki „Przy 0°C / -10°C” liczone z tych samych godzin
+- Pomijane godziny z postojem, rozpalaniem, bez pogody i z prawie zerowym węglem (podanie zapisane w sąsiedniej godzinie)
+
 ## 1.56.0 · 01.11.2026 11:45
 - Statystyki → Sprawność: nowy widok „Dziś” - punkt co godzinę z ostatnich 24 h (węgiel w godzinie przeliczony na stopniodzień z temperatury na dworze w tej godzinie) i kafelek dla całego dnia; 7 dni / 30 dni / sezon z kropką na każdym dniu
 - Oś wykresu dopasowana do wartości (wcześniej od zera i różnice wyglądały na płaskie)
