@@ -472,32 +472,20 @@
     const { hourly, rows, labels } = periodSeries();
     const data = {
       labels,
-      datasets: [{ type: "bar", label: "Węgiel [kg]", data: rows.map((d) => d.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.8)", borderRadius: 4, yAxisID: "y", order: 2 }],
+      datasets: [{ type: "bar", label: "Węgiel", data: rows.map((d) => d.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.8)", borderRadius: 4 }],
     };
-    // the outside temperature over the coal (right axis) - how the coal follows the weather
-    const outside = rows.map((d) => (d.outside != null ? d.outside : null));
-    const withWeather = outside.some((v) => v != null);
-    if (withWeather) {
-      data.datasets.push({ type: "line", label: "Na dworze [°C]", data: outside, borderColor: "#60a5fa", backgroundColor: "#60a5fa",
-                           yAxisID: "y2", pointRadius: hourly ? 3 : 4, borderWidth: 2, spanGaps: !hourly, order: 1 });
-    }
-    const options = baseOptions(withWeather);
+    const options = baseOptions();
     coalAxisTicks(options.scales.y, options);
-    if (withWeather) {
-      options.scales.y2 = { position: "right", grid: { display: false }, ticks: { color: "#93c5fd", font: { size: 15 } },
-                            title: { display: true, text: "°C", color: "#93c5fd" } };
-    }
     options.plugins.tooltip = { callbacks: { label: (ctx) => {
       const d = rows[ctx.dataIndex] || {};
       const v = ctx.parsed.y;
-      if (ctx.dataset.yAxisID === "y2") return `na dworze ${num(v, 1)}°C`;
       return [`${num(v, v < 10 ? 2 : 1)} kg` + (price() ? ` • ${num(pln(v), v < 10 ? 2 : 0)} zł` : ""),
               ...(d.kwh != null ? [`${num(d.kwh, 0)} kWh`] : []),
-              ...(!withWeather && !hourly && d.outside != null ? [`na dworze ${num(d.outside, 1)}°C`] : [])];
+              ...(!hourly && d.outside != null ? [`na dworze ${num(d.outside, 1)}°C`] : [])];
     } } };
-    $("daily-title").textContent = (hourly
+    $("daily-title").textContent = hourly
       ? `Węgiel w każdej godzinie - ${period === "today" ? "ostatnie 24 godziny" : "wczoraj"}`
-      : `Węgiel każdego dnia - ${PERIOD_NAMES[period]}`) + (withWeather ? " • niebieska linia: na dworze" : "");
+      : `Węgiel każdego dnia - ${PERIOD_NAMES[period]}`;
     dailyChart = draw(dailyChart, "chart-daily", data, options);
   }
 

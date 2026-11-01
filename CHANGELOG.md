@@ -2,6 +2,9 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.57.2 · 01.11.2026 13:05
+- Zużycie → Ile węgla znowu jak wcześniej: same słupki, temperatura na dworze w podpowiedzi przy dniu (bez linii z 1.57.1). Sprawność bez powtórzonych słupków węgla
+
 ## 1.57.1 · 01.11.2026 12:50
 - Statystyki: węgiel co godzinę / co dzień był w dwóch miejscach - zostaje w Zużyciu, teraz z niebieską linią temperatury na dworze (oś °C po prawej); w Sprawności karta „Węgiel na stopniodzień” z kropkami i oceną „sprawniej / gorzej”
 
