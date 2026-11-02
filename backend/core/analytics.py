@@ -605,6 +605,7 @@ def _settled_day(day: DayAgg) -> Dict[str, Any]:
     return {"setpoint": e["setpoint"], "boiler_work": e["boiler"], "below_pct": e["below_pct"]}
 
 
+CALENDAR_DAYS = 400          # the daily rows reach this far back (Statystyki → Kalendarz: last winter too)
 EFF_HOUR_WORK_S = 3000.0     # an hour counts for the efficiency with at least 50 min of settled WORK
 EFF_HOUR_MIN_SHARE = 0.3     # ... and at least this share of a typical hour's coal
 
@@ -969,7 +970,7 @@ class Analytics:
             "power_work": _r(x.pw_sum / x.pw_s, 0) if x.pw_s >= 1800 else None,
             "power_std": _r(math.sqrt(max(0.0, x.pw_sq / x.pw_s - (x.pw_sum / x.pw_s) ** 2)), 1) if x.pw_s >= 1800 else None,
             "flue": _r(x.avg("flue_work")),
-        } for x in since(min(season_start, today - timedelta(days=29)))]
+        } for x in since(min(season_start, today - timedelta(days=CALENDAR_DAYS)))]
         eff_hours = efficiency_hours(since(today - timedelta(days=6)), hour_coal)
 
         # efficiency trend: last 7 full days against the 3 weeks before

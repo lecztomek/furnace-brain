@@ -2,6 +2,11 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.60.0 · 02.11.2026 12:30
+- Statystyki: nowa zakładka Kalendarz - miesiąc jako kalendarz, każdy dzień jako kafelek z kg węgla i złotówkami, kolor od jasnego do intensywnie pomarańczowego według zużycia (szare - piec nie pracował); przełącznik „Jakość” koloruje dni według czasu w ±2°C od zadanej; strzałkami poprzednie miesiące, także zeszła zima
+- Dotknięcie dnia - okienko z podsumowaniem: węgiel, koszt, ciepło, godziny pracy, średnio na dworze, kocioł, zadana, czas w ±2°C, moc, węgiel na stopniodzień. Pod kalendarzem suma miesiąca (kg, zł, średnio na dobę, dni pracy)
+- Raport ze statystykami ma teraz dni z ostatnich ok. 13 miesięcy (wcześniej od początku sezonu)
+
 ## 1.59.0 · 02.11.2026 11:30
 - Powiadomienia, „Brak odczytu czujnika”: dopiero gdy czujnik milczy co najmniej 2 min (ustawienie „Brak czujnika - wyślij po”); pojedynczy zgubiony odczyt (kilka sekund, zdarza się kilka razy w tygodniu) nie idzie na telefon. Treść po polsku z tym, co się wtedy dzieje, np. „Czujnik kotła nie odpowiada od 2 min - ślimak zatrzymany, pompy włączone; bez naprawy piec zgaśnie”
 - Gdy czujnik wróci po alarmie - ciche „Czujnik kotła znowu działa”. Domyślnie nadal NIE - włącz w Ustawienia → Powiadomienia na telefon (polecane GŁOŚNO)

@@ -29,8 +29,22 @@
                 <button type="button" data-tab="forecast">Prognoza</button>
                 <button type="button" data-tab="work">Praca</button>
                 <button type="button" data-tab="efficiency">Sprawność</button>
+                <button type="button" data-tab="calendar">Kalendarz</button>
               </div>
               <div class="st2-status" id="st2-status">Wczytywanie…</div>
+
+              <!-- KALENDARZ: a month, every day a tile (coal and zł); a tap shows the day -->
+              <section class="st2-card" data-tab="calendar">
+                <div class="st2-card-head">
+                  <h2><button type="button" class="st2-cal-nav" id="cal-prev" aria-label="Poprzedni miesiąc">◀</button>
+                    <span id="cal-month"></span>
+                    <button type="button" class="st2-cal-nav" id="cal-next" aria-label="Następny miesiąc">▶</button></h2>
+                  <div class="st2-periods" id="cal-mode"><button type="button" data-mode="coal" class="active">Węgiel</button><button type="button" data-mode="quality">Jakość</button></div>
+                </div>
+                <div class="st2-cal" id="cal-grid"></div>
+                <div class="st2-cal-legend" id="cal-legend"></div>
+                <div class="st2-tiles" id="cal-sum"></div>
+              </section>
 
               <!-- WĘGIEL -->
               <section class="st2-card" data-tab="usage">
