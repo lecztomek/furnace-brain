@@ -1514,3 +1514,9 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
   .st2-cal-head { grid-template-columns: 1fr; justify-items: center; }
   .st2-cal-head h2, .st2-cal-head .st2-periods { grid-column: 1; justify-self: center; }
 }
+
+/* Calendar month summary: tiles centred under the grid. */
+#cal-sum { grid-template-columns: repeat(4, minmax(150px, 210px)); justify-content: center; }
+@media (max-width: 640px) {
+  #cal-sum { grid-template-columns: 1fr 1fr; }
+}
