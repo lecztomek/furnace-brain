@@ -556,22 +556,49 @@
   }
   const qualityColour = (w) => (w == null ? "#374151" : w >= 85 ? "#22c55e" : w >= 65 ? "#eab308" : "#ef4444");
 
-  // the colour of a day: coal - pale to deep orange against the month's busiest day;
-  // quality - the time within ±2 °C of the setpoint (green / yellow / red)
-  // coal: the month's least to most coal on a ramp from pale yellow through orange to deep red
-  function coalHsl(share) {
-    const h = 48 - 46 * share, sat = 85 + 5 * share, l = 62 - 30 * share;
-    return [h, sat, l];
+  // the colour of a day = its weather, on one fixed scale for every month (so months compare):
+  // deep blue in frost, light blue around 0, green-teal mild, amber when warm.
+  // The quality view: the time within ±2 °C of the setpoint (green / yellow / red).
+  const WX_STOPS = [[-10, [30, 64, 175]], [-3, [59, 130, 246]], [2, [125, 211, 252]], [7, [94, 234, 212]],
+                    [11, [190, 242, 100]], [16, [251, 191, 36]]];
+  function weatherRgb(t) {
+    if (t <= WX_STOPS[0][0]) return WX_STOPS[0][1];
+    for (let i = 1; i < WX_STOPS.length; i++) {
+      const [t1, c1] = WX_STOPS[i], [t0, c0] = WX_STOPS[i - 1];
+      if (t <= t1) return c0.map((v, k) => Math.round(v + ((t - t0) / (t1 - t0)) * (c1[k] - v)));
+    }
+    return WX_STOPS[WX_STOPS.length - 1][1];
   }
-  function calBackground(d, minKg, maxKg) {
+  function calBackground(d) {
     if (calMode === "quality") {
       const w = d.within_2;
       const c = w == null ? "31, 41, 55" : w >= 85 ? "22, 101, 52" : w >= 65 ? "133, 77, 14" : "153, 27, 27";
       return `linear-gradient(160deg, rgba(${c}, 0.95), rgba(${c}, 0.6))`;
     }
-    const share = maxKg > minKg ? Math.max(0, Math.min(1, (d.coal_kg - minKg) / (maxKg - minKg))) : 0.5;
-    const [h, sat, l] = coalHsl(share);
-    return `linear-gradient(160deg, hsl(${h}, ${sat}%, ${l + 6}%), hsl(${h - 4}, ${sat}%, ${l - 8}%))`;
+    if (d.outside == null) return "#1f2937";
+    const [r, g, b] = weatherRgb(d.outside);
+    return `linear-gradient(160deg, rgb(${r}, ${g}, ${b}), rgb(${Math.round(r * 0.78)}, ${Math.round(g * 0.78)}, ${Math.round(b * 0.78)}))`;
+  }
+  // dark text where the colour is light (light blue, green, amber)
+  function calInk(d) {
+    if (calMode !== "coal" || d.outside == null) return "";
+    const [r, g, b] = weatherRgb(d.outside);
+    return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? ";color:#0f172a;text-shadow:none" : "";
+  }
+  // the coal as 1-5 lumps: the month's least to most coal
+  // A lump of coal: irregular black chunk with lighter facets.
+  const COAL_LUMP = '<svg viewBox="0 0 24 24" aria-hidden="true">'
+    + '<path d="M4 15.5 6.5 8 12 5l6.5 2.5L21 13.5l-3 5.5-8 1.5-5-2z" fill="#16181d" stroke="#000" stroke-width="0.8" stroke-linejoin="round"/>'
+    + '<path d="M6.5 8 12 5l-1 6.5z" fill="#4b5563"/>'
+    + '<path d="M12 5l6.5 2.5-4 4.5-3.5-.5z" fill="#374151"/>'
+    + '<path d="M11 11.5l3.5.5L18 19l-8 1.5z" fill="#23272f"/>'
+    + '<path d="M8.2 8.6l2-1.1" stroke="#9ca3af" stroke-width="1" stroke-linecap="round"/>'
+    + '</svg>';
+
+  function calLumps(kg, minKg, maxKg) {
+    const n = maxKg > minKg ? 1 + Math.round(4 * Math.max(0, Math.min(1, (kg - minKg) / (maxKg - minKg)))) : 3;
+    return `<span class="st2-cal-lumps">${Array.from({ length: 5 }, (_, i) =>
+      `<i class="${i < n ? "on" : ""}">${COAL_LUMP}</i>`).join("")}</span>`;
   }
 
   function calMonthDays(month) {
@@ -612,20 +639,19 @@
       }
       const kg = x.d.coal_kg;
       const today = x.key === report.today ? " is-today" : "";
-      // pale days get dark text, so the number reads on yellow too
-      const share = maxKg > minKg ? (kg - minKg) / (maxKg - minKg) : 0.5;
-      const ink = calMode === "coal" && share < 0.45 ? ";color:#1c1917;text-shadow:none" : "";
-      // the day: its number, the coal, and the outside temperature the coal only means something against
-      return `<button type="button" class="st2-cal-day${today}${ink ? " is-light" : ""}" data-day="${x.key}" style="background:${calBackground(x.d, minKg, maxKg)}${ink}">` +
+      const ink = calInk(x.d);
+      // the day: the colour is its weather, the kg and the lumps its coal
+      return `<button type="button" class="st2-cal-day${today}${ink ? " is-light" : ""}" data-day="${x.key}" style="background:${calBackground(x.d)}${ink}">` +
         `<span class="st2-cal-n">${x.n}</span>` +
+        (x.d.outside != null ? `<span class="st2-cal-wx">${calWeather(x.d.outside)}</span>` : "") +
         `<span class="st2-cal-kg">${num(kg, kg < 10 ? 1 : 0)}<small> kg</small></span>` +
-        (x.d.outside != null ? `<span class="st2-cal-wx">${calWeather(x.d.outside)}</span>` : "") + `</button>`;
+        calLumps(kg, minKg, maxKg) + `</button>`;
     }).join("");
     $("cal-grid").innerHTML = head + blanks + cells;
 
     $("cal-legend").innerHTML = calMode === "quality"
       ? `<i style="background:#166534"></i> 85% czasu w ±2°C i więcej <i style="background:#854d0e"></i> 65–85% <i style="background:#991b1b"></i> mniej`
-      : `<b>${num(minKg, 0)} kg</b> <i class="st2-cal-grad"></i> <b>${num(maxKg, 0)} kg</b> • pod kilogramami: średnio na dworze tego dnia`;
+      : `kolor - pogoda: <b>-10°</b> <i class="st2-cal-grad"></i> <b>+15°</b><span class="st2-cal-lg-lumps"> • węgielki: mniej → więcej węgla w miesiącu (${num(minKg, 0)}–${num(maxKg, 0)} kg)</span>`;
 
     const worked = month.filter((x) => x.d);
     const kgSum = worked.reduce((s, x) => s + x.d.coal_kg, 0);

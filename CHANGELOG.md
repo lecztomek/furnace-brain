@@ -2,6 +2,12 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.60.4 · 02.11.2026 15:00
+
+- Kalendarz w statystykach: kolor kafelka pokazuje pogodę (stała skala od -10° niebieski do +15° żółty), więc od razu widać zimne i ciepłe dni.
+- Zużycie węgla w kafelku jako liczba kg i 1–5 węgielków (mniej → więcej w danym miesiącu). Na telefonie bez ikon i węgielków.
+- Węgielek narysowany jako czarna bryłka, nazwa miesiąca ze strzałkami wyśrodkowana u góry kalendarza.
+
 ## 1.60.3 · 02.11.2026 14:00
 - Kalendarz: większa ikona pogody i temperatura na kafelku (na telefonie bez zmian - sama temperatura)
 
