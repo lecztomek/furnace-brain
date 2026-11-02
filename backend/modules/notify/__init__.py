@@ -43,6 +43,7 @@ class NotifyConfig:
     overheat: str = "nie"               # boiler / hopper overheating
     sensor: str = "nie"                 # a sensor stopped reading
     module_error: str = "nie"           # a module failed
+    sensor_after_min: float = 2.0       # a sensor silent this long before it is sent (a single lost reading is nothing)
 
 
 # the loudness chosen in the settings -> ntfy priority (2 no sound ... 5 urgent: long, also at night)
@@ -63,6 +64,12 @@ KINDS: Dict[str, Tuple[str, str, str]] = {
 # the settings in words, for the diagnostics
 LABELS = {"flameout": "wygaśnięcie", "fading": "ogień słabnie", "overheat": "przegrzanie",
           "sensor": "brak czujnika", "module_error": "błąd modułu"}
+# the sensors in words, and what the controller does without each
+SENSOR_NAMES = {"boiler_temp": "kotła", "radiators_temp": "grzejników", "hopper_temp": "podajnika",
+                "flue_gas_temp": "spalin"}
+SENSOR_EFFECT = {"boiler_temp": " - ślimak zatrzymany, pompy włączone; bez naprawy piec zgaśnie",
+                 "radiators_temp": " - zawór nie wie, ile dać na dom", "hopper_temp": "",
+                 "flue_gas_temp": " - bez wyprzedzania spalinami i wcześniejszego zatrzymania"}
 SAME_KIND_S = 300.0                    # the same kind at most once in this long (a module failing every tick)
 RETRY_S = (30.0, 60.0, 120.0, 300.0, 600.0)
 BOOL_KEYS = ("enabled", "send_test")
@@ -110,6 +117,8 @@ class NotifyModule(ModuleInterface):
         self._send = sender or (post_ntfy if on_the_real_furnace() else log_only)
         self._queue: "queue.Queue[Dict[str, Any]]" = queue.Queue(maxsize=50)
         self._last_kind: Dict[str, float] = {}
+        self._silent: Dict[str, float] = {}       # sensor -> since when it reads nothing (not sent yet)
+        self._sent_silent: Dict[str, float] = {}  # sensor -> since when, already sent
         self._results: List[Event] = []      # sent / failed - reported on the next tick
         self._lock = threading.Lock()
         self._last_sent: Optional[float] = None
@@ -131,6 +140,7 @@ class NotifyModule(ModuleInterface):
             c.send_test = False
             self._save()
         if c.enabled:
+            self._sensors(now, system_state.recent_events or [])
             for e in system_state.recent_events or []:
                 kind = self._kind(e)
                 if kind is None:
@@ -159,9 +169,36 @@ class NotifyModule(ModuleInterface):
     def _kind(e: Event) -> Optional[Tuple[str, str, str]]:
         if e.type in KINDS:
             return KINDS[e.type]
-        if e.type.startswith("SENSOR_") and e.type.endswith("_MISSING_ON"):
-            return ("sensor", "Brak odczytu czujnika", "warning")
         return None
+
+    def _sensors(self, now: float, events: List[Event]) -> None:
+        """A sensor silent for sensor_after_min goes out (once); a single lost reading - it comes
+        back within seconds - goes nowhere. Its return is sent quietly, only after an alarm."""
+        for e in events:
+            key = (e.data or {}).get("sensor")
+            if not key or not e.type.startswith("SENSOR_"):
+                continue
+            if e.type.endswith("_MISSING_ON"):
+                self._silent.setdefault(key, now)
+            elif e.type.endswith("_MISSING_OFF"):
+                self._silent.pop(key, None)
+                since = self._sent_silent.pop(key, None)
+                if since is not None and self._config.sensor in LEVELS:
+                    self._enqueue(e.type, f"Czujnik {SENSOR_NAMES.get(key, key)} znowu działa",
+                                  f"Odczyt wrócił po {max(1, round((now - since) / 60))} min.", LEVELS["cicho"],
+                                  "white_check_mark", now)
+        prio = LEVELS.get(self._config.sensor)
+        wait = max(0.0, float(self._config.sensor_after_min)) * 60.0
+        for key, since in list(self._silent.items()):
+            if now - since < wait:
+                continue
+            del self._silent[key]
+            self._sent_silent[key] = since
+            if prio is not None:
+                minutes = max(1, round((now - since) / 60))
+                self._enqueue(f"SENSOR_{key.upper()}_MISSING", "Brak odczytu czujnika",
+                              f"Czujnik {SENSOR_NAMES.get(key, key)} nie odpowiada od {minutes} min"
+                              f"{SENSOR_EFFECT.get(key, '')}. Sprawdź przewód i złącze.", prio, "warning", now)
 
     def _enqueue(self, etype: str, title: str, message: str, prio: int, tags: str, now: float) -> None:
         payload = {"topic": self._config.topic, "title": title, "message": message,
@@ -248,3 +285,8 @@ class NotifyModule(ModuleInterface):
         for name in WHAT:
             if values.get(name) == "nie" or values.get(name) in LEVELS:
                 setattr(self._config, name, values[name])
+        if "sensor_after_min" in values:
+            try:
+                self._config.sensor_after_min = float(values["sensor_after_min"])
+            except (TypeError, ValueError):
+                pass

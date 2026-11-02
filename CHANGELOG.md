@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.59.0 · 02.11.2026 11:30
+- Powiadomienia, „Brak odczytu czujnika”: dopiero gdy czujnik milczy co najmniej 2 min (ustawienie „Brak czujnika - wyślij po”); pojedynczy zgubiony odczyt (kilka sekund, zdarza się kilka razy w tygodniu) nie idzie na telefon. Treść po polsku z tym, co się wtedy dzieje, np. „Czujnik kotła nie odpowiada od 2 min - ślimak zatrzymany, pompy włączone; bez naprawy piec zgaśnie”
+- Gdy czujnik wróci po alarmie - ciche „Czujnik kotła znowu działa”. Domyślnie nadal NIE - włącz w Ustawienia → Powiadomienia na telefon (polecane GŁOŚNO)
+
 ## 1.58.1 · 02.11.2026 09:40
 - Historia: nowa kolumna temp_podajnika (temperatura podajnika co 30 s) - widać, jak rośnie lub spada (np. żar podchodzący do ślimaka przy małej mocy). Plik bieżącej godziny zaczęty przez starszą wersję zostaje w swoim formacie; nowa kolumna od następnej pełnej godziny
 

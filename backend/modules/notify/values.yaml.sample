@@ -7,3 +7,4 @@ fading: nie
 overheat: nie
 sensor: nie
 module_error: nie
+sensor_after_min: 2.0

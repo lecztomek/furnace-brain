@@ -68,10 +68,10 @@ def test_only_the_flameout_by_default(tmp_path):
 
 def test_what_is_ticked_goes(tmp_path):
     sent = []
-    m = _module(tmp_path, sent, fading="głośno", sensor="głośno")
-    _tick(m, _ev("FLAMEOUT_WARNING"), _ev("SENSOR_FLUE_GAS_TEMP_MISSING_ON"), _ev("BOILER_OVERHEAT_ON"))
+    m = _module(tmp_path, sent, fading="głośno", overheat="cicho")
+    _tick(m, _ev("FLAMEOUT_WARNING"), _ev("BOILER_OVERHEAT_ON"))
     _wait(sent, 2)
-    assert sorted(p["title"] for _, p in sent) == ["Brak odczytu czujnika", "Ogień słabnie"]
+    assert sorted(p["title"] for _, p in sent) == ["Ogień słabnie", "Przegrzanie kotła"]
 
 
 def test_switched_off_sends_nothing(tmp_path):
@@ -173,3 +173,49 @@ def test_the_old_on_off_settings_are_taken_over_once(tmp_path):
     assert v["flameout"] == "alarm" and v["overheat"] == "alarm" and v["fading"] == "nie"
     saved = yaml.safe_load((tmp_path / "values.yaml").read_text())
     assert "send_overheat" not in saved and saved["overheat"] == "alarm"   # the old keys dropped
+
+
+def _sensor_ev(key, on):
+    return Event(ts=time.time(), source="safety", level=EventLevel.WARNING,
+                 type=f"SENSOR_{key.upper()}_MISSING_{'ON' if on else 'OFF'}", message="x", data={"sensor": key})
+
+
+def test_a_sensor_lost_for_seconds_is_not_sent(tmp_path):
+    sent = []
+    m = _module(tmp_path, sent, sensor="głośno")
+    t = time.time()
+    _tick(m, _sensor_ev("hopper_temp", True), now=t)
+    _tick(m, _sensor_ev("hopper_temp", False), now=t + 4)            # back after 4 s (like 02.11 08:36)
+    _tick(m, now=t + 600)
+    time.sleep(0.1)
+    assert sent == []
+
+
+def test_a_silent_sensor_is_sent_after_2_min_and_its_return_quietly(tmp_path):
+    sent = []
+    m = _module(tmp_path, sent, sensor="głośno")
+    t = time.time()
+    _tick(m, _sensor_ev("boiler_temp", True), now=t)
+    _tick(m, now=t + 60)
+    time.sleep(0.05)
+    assert sent == []                                                 # 1 min: not yet
+    _tick(m, now=t + 125)
+    _tick(m, now=t + 200)                                             # once, not every tick
+    _wait(sent, 1)
+    time.sleep(0.05)
+    assert len(sent) == 1 and sent[0][1]["priority"] == 4
+    assert "kotła" in sent[0][1]["message"] and "2 min" in sent[0][1]["message"]
+    _tick(m, _sensor_ev("boiler_temp", False), now=t + 600)
+    _wait(sent, 2)
+    assert sent[1][1]["title"] == "Czujnik kotła znowu działa" and sent[1][1]["priority"] == 2
+
+
+def test_sensors_off_sends_nothing_even_when_silent_long(tmp_path):
+    sent = []
+    m = _module(tmp_path, sent)                                       # sensor: nie (the default)
+    t = time.time()
+    _tick(m, _sensor_ev("radiators_temp", True), now=t)
+    _tick(m, now=t + 3600)
+    _tick(m, _sensor_ev("radiators_temp", False), now=t + 3700)
+    time.sleep(0.1)
+    assert sent == []
