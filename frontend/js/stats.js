@@ -607,26 +607,25 @@
     const cells = month.map((x) => {
       const future = x.key > report.today;
       if (!x.d) {
-        return `<div class="st2-cal-day is-empty${future ? " is-future" : ""}"><span class="st2-cal-top"><span class="st2-cal-n">${x.n}</span></span>` +
+        return `<div class="st2-cal-day is-empty${future ? " is-future" : ""}"><span class="st2-cal-n">${x.n}</span>` +
           `<span class="st2-cal-kg">${future ? "" : "–"}</span></div>`;
       }
       const kg = x.d.coal_kg;
-      const zl = price() ? `<span class="st2-cal-zl">${num(pln(kg), 0)} zł</span>` : "";
       const today = x.key === report.today ? " is-today" : "";
-      const w = x.d.within_2;
       // pale days get dark text, so the number reads on yellow too
       const share = maxKg > minKg ? (kg - minKg) / (maxKg - minKg) : 0.5;
       const ink = calMode === "coal" && share < 0.45 ? ";color:#1c1917;text-shadow:none" : "";
+      // the day: its number, the coal, and the outside temperature the coal only means something against
       return `<button type="button" class="st2-cal-day${today}${ink ? " is-light" : ""}" data-day="${x.key}" style="background:${calBackground(x.d, minKg, maxKg)}${ink}">` +
-        `<span class="st2-cal-top"><span class="st2-cal-n">${x.n}</span><span class="st2-cal-wx">${calWeather(x.d.outside)}</span></span>` +
-        `<span class="st2-cal-kg">${num(kg, kg < 10 ? 1 : 0)}<small> kg</small></span>${zl}` +
-        `<span class="st2-cal-q"><i style="width:${w == null ? 0 : Math.max(4, w)}%;background:${qualityColour(w)}"></i></span></button>`;
+        `<span class="st2-cal-n">${x.n}</span>` +
+        `<span class="st2-cal-kg">${num(kg, kg < 10 ? 1 : 0)}<small> kg</small></span>` +
+        (x.d.outside != null ? `<span class="st2-cal-wx">${calWeather(x.d.outside)}</span>` : "") + `</button>`;
     }).join("");
     $("cal-grid").innerHTML = head + blanks + cells;
 
     $("cal-legend").innerHTML = calMode === "quality"
       ? `<i style="background:#166534"></i> 85% czasu w ±2°C i więcej <i style="background:#854d0e"></i> 65–85% <i style="background:#991b1b"></i> mniej`
-      : `<b>${num(minKg, 0)} kg</b> <i class="st2-cal-grad"></i> <b>${num(maxKg, 0)} kg</b> • pasek na dole: czas w ±2°C od zadanej`;
+      : `<b>${num(minKg, 0)} kg</b> <i class="st2-cal-grad"></i> <b>${num(maxKg, 0)} kg</b> • pod kilogramami: średnio na dworze tego dnia`;
 
     const worked = month.filter((x) => x.d);
     const kgSum = worked.reduce((s, x) => s + x.d.coal_kg, 0);

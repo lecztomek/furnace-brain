@@ -2,6 +2,9 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.60.2 · 02.11.2026 13:45
+- Kalendarz czytelniej: na kafelku tylko numer dnia, duże kg i pod nimi wyraźna plakietka z temperaturą na dworze tego dnia (zużycie ma sens tylko na tle pogody); bez zielonego paska jakości (jest w przełączniku „Jakość”) i bez złotówek na kafelku (są w okienku dnia)
+
 ## 1.60.1 · 02.11.2026 13:20
 - Kalendarz ładniej: kolory od najmniejszego do największego dnia w miesiącu - jasnożółty → pomarańcz → ciemnoczerwony (wcześniej prawie jednolity pomarańcz), z legendą „13 kg … 36 kg”; na kafelku ikona pogody z temperaturą na dworze i pasek jakości na dole (czas w ±2°C)
 - Okienko dnia: duże kafelki (węgiel, koszt, ciepło), paski (godziny pracy, czas w ±2°C, moc) i strzałki do poprzedniego / następnego dnia
