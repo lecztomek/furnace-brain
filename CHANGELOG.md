@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.60.1 · 02.11.2026 13:20
+- Kalendarz ładniej: kolory od najmniejszego do największego dnia w miesiącu - jasnożółty → pomarańcz → ciemnoczerwony (wcześniej prawie jednolity pomarańcz), z legendą „13 kg … 36 kg”; na kafelku ikona pogody z temperaturą na dworze i pasek jakości na dole (czas w ±2°C)
+- Okienko dnia: duże kafelki (węgiel, koszt, ciepło), paski (godziny pracy, czas w ±2°C, moc) i strzałki do poprzedniego / następnego dnia
+
 ## 1.60.0 · 02.11.2026 12:30
 - Statystyki: nowa zakładka Kalendarz - miesiąc jako kalendarz, każdy dzień jako kafelek z kg węgla i złotówkami, kolor od jasnego do intensywnie pomarańczowego według zużycia (szare - piec nie pracował); przełącznik „Jakość” koloruje dni według czasu w ±2°C od zadanej; strzałkami poprzednie miesiące, także zeszła zima
 - Dotknięcie dnia - okienko z podsumowaniem: węgiel, koszt, ciepło, godziny pracy, średnio na dworze, kocioł, zadana, czas w ±2°C, moc, węgiel na stopniodzień. Pod kalendarzem suma miesiąca (kg, zł, średnio na dobę, dni pracy)

@@ -68,7 +68,7 @@
     ["Na pełnej mocy", "flame"], ["Na minimum", "power"], ["Średnio", "bars"],
     ["Kocioł", "flame"], ["Grzejniki", "radiator"], ["Na zewnątrz", "thermometer"], ["Rozpalenia", "flame"], ["W normie", "target"],
     ["Od zadanej", "upDown"], ["Ostatni tydzień", "trendUp"], ["Ten sezon", "calendar"], ["Prognoza", "sparkles"], ["Zeszły sezon", "history"],
-    ["Przy 0", "cloudSun"], ["Przy -10", "snowflake"], ["Każdy stopień", "thermometer"], ["Dni pracy", "calendar"],
+    ["Przy 0", "cloudSun"], ["Przy -10", "snowflake"], ["Każdy stopień", "thermometer"], ["Dni pracy", "calendar"], ["Ciepło", "flame"],
     ["Strata w kominie", "flame"]];
   function tile(label, value, unit, cls = "") {
     const icon = FBIcon((TILE_ICONS.find(([k]) => label.startsWith(k)) || ["", "info"])[1]);
@@ -548,21 +548,45 @@
     return byDate;
   }
 
-  // the colour of a day: coal - from pale to deep orange against the month's busiest day;
-  // quality - time within ±2 °C of the setpoint (green / yellow / red)
-  function calColour(d, maxKg) {
+  // the weather of a day as an icon (the outside average)
+  function calWeather(t) {
+    if (t == null) return "";
+    const icon = t < 0 ? "snowflake" : t < 5 ? "cloud" : t < 12 ? "cloudSun" : "sun";
+    return `${FBIcon(icon, "ic--inline")}${num(t, 0)}°`;
+  }
+  const qualityColour = (w) => (w == null ? "#374151" : w >= 85 ? "#22c55e" : w >= 65 ? "#eab308" : "#ef4444");
+
+  // the colour of a day: coal - pale to deep orange against the month's busiest day;
+  // quality - the time within ±2 °C of the setpoint (green / yellow / red)
+  // coal: the month's least to most coal on a ramp from pale yellow through orange to deep red
+  function coalHsl(share) {
+    const h = 48 - 46 * share, sat = 85 + 5 * share, l = 62 - 30 * share;
+    return [h, sat, l];
+  }
+  function calBackground(d, minKg, maxKg) {
     if (calMode === "quality") {
       const w = d.within_2;
-      if (w == null) return "#1f2937";
-      return w >= 85 ? "#166534" : w >= 65 ? "#854d0e" : "#991b1b";
+      const c = w == null ? "31, 41, 55" : w >= 85 ? "22, 101, 52" : w >= 65 ? "133, 77, 14" : "153, 27, 27";
+      return `linear-gradient(160deg, rgba(${c}, 0.95), rgba(${c}, 0.6))`;
     }
-    const share = maxKg > 0 ? Math.max(0, Math.min(1, d.coal_kg / maxKg)) : 0;
-    return `rgba(249, 115, 22, ${(0.15 + 0.75 * share).toFixed(2)})`;
+    const share = maxKg > minKg ? Math.max(0, Math.min(1, (d.coal_kg - minKg) / (maxKg - minKg))) : 0.5;
+    const [h, sat, l] = coalHsl(share);
+    return `linear-gradient(160deg, hsl(${h}, ${sat}%, ${l + 6}%), hsl(${h - 4}, ${sat}%, ${l - 8}%))`;
+  }
+
+  function calMonthDays(month) {
+    const byDate = calDays();
+    const [y, m] = month.split("-").map(Number);
+    const out = [];
+    for (let i = 1; i <= new Date(y, m, 0).getDate(); i++) {
+      const key = `${month}-${String(i).padStart(2, "0")}`;
+      out.push({ key, n: i, d: byDate[key] && byDate[key].hours >= 0.5 ? byDate[key] : null });
+    }
+    return out;
   }
 
   function renderCalendar() {
-    const byDate = calDays();
-    const dates = Object.keys(byDate).sort();
+    const dates = Object.keys(calDays()).sort();
     if (!dates.length) { $("cal-grid").innerHTML = `<div class="st2-empty">Brak dni z danymi.</div>`; return; }
     const first = dates[0].slice(0, 7), last = report.today.slice(0, 7);
     if (!calMonth || calMonth > last) calMonth = last;
@@ -572,29 +596,37 @@
     $("cal-prev").disabled = calMonth <= first;
     $("cal-next").disabled = calMonth >= last;
 
-    const daysIn = new Date(y, m, 0).getDate();
+    const month = calMonthDays(calMonth);
     const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7;      // Monday first
-    const month = [];
-    for (let i = 1; i <= daysIn; i++) {
-      const key = `${calMonth}-${String(i).padStart(2, "0")}`;
-      month.push({ key, n: i, d: byDate[key] && byDate[key].hours >= 0.5 ? byDate[key] : null });
-    }
-    const maxKg = Math.max(0, ...month.filter((x) => x.d).map((x) => x.d.coal_kg));
+    // only whole days set the scale - a half day of lighting the boiler isn't the "least coal"
+    const scaleKg = month.filter((x) => x.d && x.d.hours >= 20).map((x) => x.d.coal_kg);
+    const kgs = scaleKg.length ? scaleKg : month.filter((x) => x.d).map((x) => x.d.coal_kg);
+    const minKg = Math.min(...kgs), maxKg = Math.max(...kgs);
     const head = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"].map((t) => `<div class="st2-cal-dow">${t}</div>`).join("");
     const blanks = `<div class="st2-cal-day is-blank"></div>`.repeat(lead);
     const cells = month.map((x) => {
-      if (!x.d) return `<div class="st2-cal-day is-empty"><span class="st2-cal-n">${x.n}</span><span class="st2-cal-kg">–</span></div>`;
+      const future = x.key > report.today;
+      if (!x.d) {
+        return `<div class="st2-cal-day is-empty${future ? " is-future" : ""}"><span class="st2-cal-top"><span class="st2-cal-n">${x.n}</span></span>` +
+          `<span class="st2-cal-kg">${future ? "" : "–"}</span></div>`;
+      }
       const kg = x.d.coal_kg;
       const zl = price() ? `<span class="st2-cal-zl">${num(pln(kg), 0)} zł</span>` : "";
       const today = x.key === report.today ? " is-today" : "";
-      return `<button type="button" class="st2-cal-day${today}" data-day="${x.key}" style="background:${calColour(x.d, maxKg)}">` +
-        `<span class="st2-cal-n">${x.n}</span><span class="st2-cal-kg">${num(kg, kg < 10 ? 1 : 0)}<small> kg</small></span>${zl}</button>`;
+      const w = x.d.within_2;
+      // pale days get dark text, so the number reads on yellow too
+      const share = maxKg > minKg ? (kg - minKg) / (maxKg - minKg) : 0.5;
+      const ink = calMode === "coal" && share < 0.45 ? ";color:#1c1917;text-shadow:none" : "";
+      return `<button type="button" class="st2-cal-day${today}${ink ? " is-light" : ""}" data-day="${x.key}" style="background:${calBackground(x.d, minKg, maxKg)}${ink}">` +
+        `<span class="st2-cal-top"><span class="st2-cal-n">${x.n}</span><span class="st2-cal-wx">${calWeather(x.d.outside)}</span></span>` +
+        `<span class="st2-cal-kg">${num(kg, kg < 10 ? 1 : 0)}<small> kg</small></span>${zl}` +
+        `<span class="st2-cal-q"><i style="width:${w == null ? 0 : Math.max(4, w)}%;background:${qualityColour(w)}"></i></span></button>`;
     }).join("");
     $("cal-grid").innerHTML = head + blanks + cells;
 
     $("cal-legend").innerHTML = calMode === "quality"
       ? `<i style="background:#166534"></i> 85% czasu w ±2°C i więcej <i style="background:#854d0e"></i> 65–85% <i style="background:#991b1b"></i> mniej`
-      : `<i style="background:rgba(249,115,22,0.18)"></i> mniej węgla <i style="background:rgba(249,115,22,0.9)"></i> najwięcej w miesiącu • szare - piec nie pracował`;
+      : `<b>${num(minKg, 0)} kg</b> <i class="st2-cal-grad"></i> <b>${num(maxKg, 0)} kg</b> • pasek na dole: czas w ±2°C od zadanej`;
 
     const worked = month.filter((x) => x.d);
     const kgSum = worked.reduce((s, x) => s + x.d.coal_kg, 0);
@@ -606,32 +638,56 @@
     ].join("") : "";
   }
 
+  function calBar(label, value, share, colour) {
+    const w = share == null ? 0 : Math.max(0, Math.min(100, share));
+    return `<div class="st2-cal-bar"><div class="st2-cal-bar__head"><span>${label}</span><b>${value}</b></div>` +
+      `<div class="st2-cal-bar__track"><i style="width:${w}%;background:${colour}"></i></div></div>`;
+  }
+
   function calShowDay(key) {
     const d = calDays()[key];
     if (!d) return;
     if (!calPop) {
       calPop = document.createElement("div");
       calPop.className = "st2-cal-pop";
-      calPop.innerHTML = `<div class="st2-cal-card" role="dialog"><h3><span></span><button type="button" class="close" aria-label="Zamknij">✕</button></h3><div class="st2-cal-rows"></div></div>`;
-      calPop.addEventListener("click", (e) => { if (e.target === calPop || e.target.closest(".close")) calPop.style.display = "none"; });
+      calPop.innerHTML = `<div class="st2-cal-card" role="dialog"><div class="st2-cal-card__head">` +
+        `<button type="button" class="st2-cal-nav" data-step="-1" aria-label="Poprzedni dzień">◀</button>` +
+        `<div class="st2-cal-card__title"><b></b><span></span></div>` +
+        `<button type="button" class="st2-cal-nav" data-step="1" aria-label="Następny dzień">▶</button>` +
+        `<button type="button" class="close" aria-label="Zamknij">✕</button></div><div class="st2-cal-card__body"></div></div>`;
+      calPop.addEventListener("click", (e) => {
+        if (e.target === calPop || e.target.closest(".close")) { calPop.style.display = "none"; return; }
+        const step = e.target.closest("button[data-step]");
+        if (step) {
+          const keys = Object.keys(calDays()).filter((k) => calDays()[k].hours >= 0.5).sort();
+          const next = keys[keys.indexOf(calPop.dataset.day) + Number(step.dataset.step)];
+          if (next) calShowDay(next);
+        }
+      });
       document.body.appendChild(calPop);
     }
+    calPop.dataset.day = key;
     const dt = new Date(key + "T12:00:00");
-    const name = dt.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-    const rows = [
-      ["Węgiel", `${num(d.coal_kg, 1)} kg`],
-      ...(price() ? [["Koszt", `${num(pln(d.coal_kg), 2)} zł`]] : []),
-      ["Ciepło", d.energy_kwh != null ? `${num(d.energy_kwh, 0)} kWh` : "--"],
-      ["Piec pracował", `${num(d.hours, 1)} h`],
-      ["Na dworze średnio", d.outside != null ? `${num(d.outside, 1)} °C` : "--"],
-      ["Kocioł średnio", d.boiler_work != null ? `${num(d.boiler_work, 1)} °C` : "--"],
-      ["Zadana kotła", d.setpoint != null ? `${num(d.setpoint, 0)} °C` : "--"],
-      ["W ±2 °C od zadanej", d.within_2 != null ? `${num(d.within_2, 0)} %` : "--"],
-      ["Moc średnio", d.power_work != null ? `${num(d.power_work, 0)} %` : "--"],
-      ["Węgiel na stopniodzień", d.kg_per_degree_day != null ? `${num(d.kg_per_degree_day, 2)} kg` : "-- (niepełny dzień)"],
-    ];
-    calPop.querySelector("h3 span").textContent = name;
-    calPop.querySelector(".st2-cal-rows").innerHTML = rows.map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join("");
+    const title = dt.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
+    calPop.querySelector(".st2-cal-card__title b").textContent = title.charAt(0).toUpperCase() + title.slice(1);
+    calPop.querySelector(".st2-cal-card__title span").innerHTML =
+      `${dt.getFullYear()}${d.outside != null ? ` • na dworze ${calWeather(d.outside)}` : ""}`;
+
+    const w = d.within_2;
+    calPop.querySelector(".st2-cal-card__body").innerHTML =
+      `<div class="st2-tiles st2-cal-hero">${[
+        tile("Węgiel", num(d.coal_kg, 1), "kg"),
+        ...(price() ? [tile("Koszt", num(pln(d.coal_kg), 2), "zł", "st2-tile--cost")] : []),
+        tile("Ciepło", d.energy_kwh != null ? num(d.energy_kwh, 0) : "--", "kWh"),
+      ].join("")}</div>` +
+      calBar("Piec pracował", `${num(d.hours, 1)} z 24 h`, (100 * d.hours) / 24, "#60a5fa") +
+      calBar("W ±2°C od zadanej", w != null ? `${num(w, 0)}%` : "--", w, qualityColour(w)) +
+      calBar("Moc średnio", d.power_work != null ? `${num(d.power_work, 0)}%` : "--", d.power_work, "#f97316") +
+      `<div class="st2-cal-rows">` + [
+        ["Kocioł średnio", d.boiler_work != null ? `${num(d.boiler_work, 1)} °C` : "--"],
+        ["Zadana kotła", d.setpoint != null ? `${num(d.setpoint, 0)} °C` : "--"],
+        ["Węgiel na stopniodzień", d.kg_per_degree_day != null ? `${num(d.kg_per_degree_day, 2)} kg` : "-- (niepełny dzień)"],
+      ].map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join("") + `</div>`;
     calPop.style.display = "flex";
   }
 

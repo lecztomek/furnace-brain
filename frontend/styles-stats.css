@@ -1447,31 +1447,56 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
 .st2-cal-nav { background: #1f2937; border: 1px solid #374151; color: #e5e7eb; border-radius: 10px; font-size: 16px; padding: 4px 12px; cursor: pointer; }
 .st2-cal-nav:disabled { opacity: 0.3; cursor: default; }
 #cal-month { min-width: 190px; text-align: center; }
-.st2-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 6px 0 10px; }
-.st2-cal-dow { text-align: center; font-size: 13px; color: #9ca3af; font-weight: 700; padding-bottom: 2px; }
-.st2-cal-day { min-height: 76px; border-radius: 12px; border: 1px solid #2c3b47; background: #111a22; color: #f9fafb;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px; cursor: pointer; font: inherit; }
-.st2-cal-day.is-empty { cursor: default; background: rgba(17, 26, 34, 0.5); color: #6b7280; }
+.st2-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; margin: 6px 0 10px; }
+.st2-cal-dow { text-align: center; font-size: 13px; color: #9ca3af; font-weight: 800; letter-spacing: 0.06em; padding-bottom: 2px; }
+.st2-cal-day { position: relative; overflow: hidden; min-height: 86px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #111a22; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  padding: 6px 6px 10px; cursor: pointer; font: inherit; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); transition: transform 0.1s; }
+.st2-cal-day:active { transform: scale(0.97); }
+.st2-cal-day.is-empty { cursor: default; background: rgba(17, 26, 34, 0.55); color: #4b5563; box-shadow: none; }
+.st2-cal-day.is-future { background: transparent; border-style: dashed; }
 .st2-cal-day.is-blank { visibility: hidden; }
-.st2-cal-day.is-today { outline: 2px solid #f97316; outline-offset: 1px; }
-.st2-cal-n { font-size: 12px; color: inherit; opacity: 0.8; align-self: flex-start; }
-.st2-cal-kg { font-size: 20px; font-weight: 800; line-height: 1; }
-.st2-cal-kg small { font-size: 12px; font-weight: 600; }
-.st2-cal-zl { font-size: 12px; opacity: 0.85; }
+.st2-cal-day.is-today { outline: 2px solid #fde68a; outline-offset: 1px; }
+.st2-cal-day.is-light .st2-cal-kg { text-shadow: none; }
+.st2-cal-day.is-light .st2-cal-q { background: rgba(0, 0, 0, 0.18); }
+.st2-cal-top { position: absolute; top: 5px; left: 7px; right: 7px; display: flex; justify-content: space-between; align-items: center; }
+.st2-cal-n { font-size: 13px; font-weight: 700; opacity: 0.85; }
+.st2-cal-wx { font-size: 12px; opacity: 0.9; display: inline-flex; align-items: center; gap: 2px; }
+.st2-cal-wx svg { width: 14px; height: 14px; }
+.st2-cal-kg { font-size: 22px; font-weight: 900; line-height: 1; margin-top: 10px; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+.st2-cal-kg small { font-size: 12px; font-weight: 700; }
+.st2-cal-zl { font-size: 12px; opacity: 0.9; }
+.st2-cal-q { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: rgba(0, 0, 0, 0.35); }
+.st2-cal-q i { display: block; height: 100%; }
 .st2-cal-legend { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #9ca3af; margin-bottom: 10px; flex-wrap: wrap; }
 .st2-cal-legend i { display: inline-block; width: 22px; height: 12px; border-radius: 4px; }
-.st2-cal-pop { position: fixed; inset: 0; z-index: 4000; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55); }
-.st2-cal-card { background: #111a22; border: 1px solid #2c3b47; border-radius: 16px; padding: 14px 18px; width: min(460px, 92vw); color: #f9fafb; }
-.st2-cal-card h3 { margin: 0 0 10px; font-size: 20px; display: flex; justify-content: space-between; align-items: center; }
-.st2-cal-card button.close { background: none; border: 0; color: #f9fafb; font-size: 24px; cursor: pointer; }
-.st2-cal-rows { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; font-size: 17px; }
+.st2-cal-legend i.st2-cal-grad { width: 90px; background: linear-gradient(90deg, hsl(48, 85%, 62%), hsl(25, 88%, 47%), hsl(2, 90%, 32%)); }
+.st2-cal-legend b { color: #e5e7eb; }
+.st2-cal-pop { position: fixed; inset: 0; z-index: 4000; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.6); }
+.st2-cal-card { background: #111a22; border: 1px solid #2c3b47; border-radius: 18px; padding: 14px 16px 16px; width: min(520px, 94vw);
+  color: #f9fafb; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6); }
+.st2-cal-card__head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.st2-cal-card__title { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.st2-cal-card__title b { font-size: 19px; }
+.st2-cal-card__title span { font-size: 13px; color: #9ca3af; display: inline-flex; align-items: center; gap: 4px; }
+.st2-cal-card__title svg { width: 15px; height: 15px; }
+.st2-cal-card button.close { background: none; border: 0; color: #f9fafb; font-size: 24px; cursor: pointer; padding: 0 4px; }
+.st2-cal-hero { grid-template-columns: repeat(3, 1fr) !important; margin-bottom: 8px; }
+.st2-cal-bar { margin-bottom: 9px; }
+.st2-cal-bar__head { display: flex; justify-content: space-between; font-size: 14px; color: #9ca3af; margin-bottom: 3px; }
+.st2-cal-bar__head b { color: #f9fafb; }
+.st2-cal-bar__track { height: 9px; border-radius: 6px; background: #1f2937; overflow: hidden; }
+.st2-cal-bar__track i { display: block; height: 100%; border-radius: 6px; }
+.st2-cal-rows { display: grid; grid-template-columns: 1fr auto; gap: 5px 14px; font-size: 15px; margin-top: 10px;
+  padding-top: 10px; border-top: 1px solid #1f2937; }
 .st2-cal-rows span:nth-child(odd) { color: #9ca3af; }
 .st2-cal-rows span:nth-child(even) { font-weight: 700; text-align: right; }
 @media (max-width: 600px) {
   .st2-cal { gap: 3px; }
-  .st2-cal-day { min-height: 54px; border-radius: 8px; }
-  .st2-cal-kg { font-size: 15px; }
-  .st2-cal-zl { display: none; }
+  .st2-cal-day { min-height: 58px; border-radius: 9px; padding: 4px 2px 8px; }
+  .st2-cal-kg { font-size: 15px; margin-top: 12px; }
+  .st2-cal-zl, .st2-cal-wx { display: none; }
   #cal-month { min-width: 0; font-size: 15px; }
   .st2-cal-nav { padding: 4px 9px; }
+  .st2-cal-hero { grid-template-columns: 1fr 1fr 1fr !important; }
 }
