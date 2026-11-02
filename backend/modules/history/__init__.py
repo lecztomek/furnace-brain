@@ -66,6 +66,7 @@ class HistoryModule(ModuleInterface):
 
         self._persist_root = (self._data_root / "modules" / self.id).resolve()
         self._log_dir = (self._persist_root / self._config.log_dir).resolve()
+        self._columns: Dict[str, List[str]] = {}   # header of the current hour's file
 
         # Stan wewnętrzny: ostatni zapis wg czasu monotonicznego
         self._last_write_mono: Optional[float] = None
@@ -159,6 +160,7 @@ class HistoryModule(ModuleInterface):
         power = system_state.outputs.power_percent
         temp_grzejnikow = sensors.radiators_temp
         temp_spalin = sensors.flue_gas_temp
+        temp_podajnika = sensors.hopper_temp
         temp_zewn = outside_temp(sensors.outside_temp, system_state.runtime, now)
         zadana = self._work_setpoint()
         n = max(self._samples, 1)
@@ -173,6 +175,8 @@ class HistoryModule(ModuleInterface):
         filename = f"{self._config.file_prefix}_{ts.strftime('%Y%m%d_%H')}.csv"
         file_path = self._log_dir / filename
         new_file = not file_path.exists()
+        # a file started by an older version has no hopper column - its rows stay in its format
+        with_hopper = new_file or self._has_column(file_path, "temp_podajnika")
 
         with file_path.open("a", encoding="utf-8", newline="") as f:
             writer = csv.writer(f, delimiter=";")
@@ -190,6 +194,7 @@ class HistoryModule(ModuleInterface):
                         "dmuchawa",
                         "slimak",
                         "zadana",
+                        "temp_podajnika",
                     ]
                 )
 
@@ -205,8 +210,20 @@ class HistoryModule(ModuleInterface):
                     dmuchawa,
                     slimak,
                     zadana if zadana is not None else "",
-                ]
+                ] + ([temp_podajnika if temp_podajnika is not None else ""] if with_hopper else [])
             )
+
+    def _has_column(self, path: Path, name: str) -> bool:
+        """The header of an existing file has this column (checked once per file)."""
+        cached = self._columns.get(path.name)
+        if cached is None:
+            try:
+                with path.open("r", encoding="utf-8", errors="replace") as f:
+                    cached = f.readline().strip().split(";")
+            except OSError:
+                cached = []
+            self._columns = {path.name: cached}          # only the current hour's file
+        return name in cached
 
     def _work_setpoint(self) -> Optional[float]:
         """Current WORK boiler setpoint (power_work settings) - for the regulation stats."""
