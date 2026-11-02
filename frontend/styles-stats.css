@@ -1449,7 +1449,7 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
 #cal-month { min-width: 190px; text-align: center; }
 .st2-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; margin: 6px 0 10px; }
 .st2-cal-dow { text-align: center; font-size: 13px; color: #9ca3af; font-weight: 800; letter-spacing: 0.06em; padding-bottom: 2px; }
-.st2-cal-day { position: relative; overflow: hidden; min-height: 92px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08);
+.st2-cal-day { position: relative; overflow: hidden; min-height: 100px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08);
   background: #111a22; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   padding: 6px 6px 10px; cursor: pointer; font: inherit; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); transition: transform 0.1s; }
 .st2-cal-day:active { transform: scale(0.97); }
@@ -1462,9 +1462,9 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
 .st2-cal-kg { font-size: 24px; font-weight: 900; line-height: 1; margin-top: 8px; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
 .st2-cal-kg small { font-size: 12px; font-weight: 700; }
 /* the outside temperature - the coal only means something against it */
-.st2-cal-wx { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; padding: 2px 9px; border-radius: 999px;
-  background: rgba(15, 23, 42, 0.8); color: #e0f2fe; font-size: 15px; font-weight: 800; text-shadow: none; }
-.st2-cal-wx svg { width: 16px; height: 16px; color: #7dd3fc; }
+.st2-cal-wx { display: inline-flex; align-items: center; gap: 6px; margin-top: 7px; padding: 3px 12px 3px 9px; border-radius: 999px;
+  background: rgba(15, 23, 42, 0.8); color: #e0f2fe; font-size: 19px; font-weight: 800; text-shadow: none; }
+.st2-cal-wx svg { width: 24px; height: 24px; color: #7dd3fc; }
 .st2-cal-legend { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #9ca3af; margin-bottom: 10px; flex-wrap: wrap; }
 .st2-cal-legend i { display: inline-block; width: 22px; height: 12px; border-radius: 4px; }
 .st2-cal-legend i.st2-cal-grad { width: 90px; background: linear-gradient(90deg, hsl(48, 85%, 62%), hsl(25, 88%, 47%), hsl(2, 90%, 32%)); }
@@ -1494,7 +1494,7 @@ body { overflow: hidden !important; } /* kiosk: brak scrolla strony */
   .st2-cal-n { top: 3px; left: 5px; font-size: 10px; }
   .st2-cal-kg { font-size: 16px; margin-top: 14px; }
   .st2-cal-kg small { display: none; }
-  .st2-cal-wx { font-size: 11px; padding: 1px 5px; margin-top: 3px; }
+  .st2-cal-wx { font-size: 11px; padding: 1px 5px; margin-top: 3px; gap: 0; }
   .st2-cal-wx svg { display: none; }
   #cal-month { min-width: 0; font-size: 15px; }
   .st2-cal-nav { padding: 4px 9px; }

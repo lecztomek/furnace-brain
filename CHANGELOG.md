@@ -2,6 +2,9 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.60.3 · 02.11.2026 14:00
+- Kalendarz: większa ikona pogody i temperatura na kafelku (na telefonie bez zmian - sama temperatura)
+
 ## 1.60.2 · 02.11.2026 13:45
 - Kalendarz czytelniej: na kafelku tylko numer dnia, duże kg i pod nimi wyraźna plakietka z temperaturą na dworze tego dnia (zużycie ma sens tylko na tle pogody); bez zielonego paska jakości (jest w przełączniku „Jakość”) i bez złotówek na kafelku (są w okienku dnia)
 
