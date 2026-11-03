@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.60.6 · 03.11.2026 17:20
+
+- Strojenie: zmiany ustawień zrobione mniej niż 2,5 h po sobie są porównywane razem jako jedna zmiana (jedno „przed” i jedno „po”). Wcześniej łączone były tylko zmiany do 15 min, więc np. minimum mocy (09:06) i nachylenie krzywej (09:42) zostawały bez oceny.
+
 ## 1.60.5 · 02.11.2026 15:40
 
 - Kalendarz: kafelki z podsumowaniem miesiąca (Węgiel, Koszt, Średnio, Dni pracy) wyśrodkowane pod kalendarzem.

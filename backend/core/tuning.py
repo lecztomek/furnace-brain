@@ -36,7 +36,8 @@ SWING_HYST = 0.3            # a swing must cross the mean by this much
 CHANGE_SIDE_H = 72          # setting change: compare up to 3 days after with as long before it
 CHANGE_SKIP_S = 30 * 60     # ... skipping the first 30 min after it
 CHANGE_MIN_H = 2.0
-CHANGE_GROUP_S = 15 * 60    # changes closer together than this are one change (one before / after)
+CHANGE_GROUP_S = CHANGE_SKIP_S + int(CHANGE_MIN_H * 3600)  # closer changes can't be judged one by one:
+                            # one change (one before / after)
 CHANGE_SURE_H = 6.0         # less settled work on a side: "few data" next to the verdict
 CHANGE_WEATHER_C = 4.0      # outside average differing more: "different weather" next to the verdict
 HDD_BASE = 18.0

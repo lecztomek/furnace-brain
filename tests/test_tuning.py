@@ -402,10 +402,11 @@ def test_changes_made_one_after_another_are_one_change():
     t = datetime(2026, 10, 28, 17, 35)
     ch = lambda m, key, old, new: {"ts": t + timedelta(minutes=m), "module": "x", "key": key,
                                   "label": key, "old": old, "new": new}
-    changes = [ch(62, "kp", 10, 8), ch(2.5, "curve_avg_h", 6, 12), ch(2, "curve_slope", 0.45, 0.3),
-               ch(0, "flue_brake_gain", 0, 5)]                     # newest first
+    changes = [ch(240, "kp", 10, 8), ch(38, "min_at_0", 50, 40), ch(2.5, "curve_avg_h", 6, 12),
+               ch(2, "curve_slope", 0.45, 0.3), ch(0, "flue_brake_gain", 0, 5)]   # newest first
     groups = T.group_changes(changes)
-    assert [[c["key"] for c in g] for g in groups] == [["kp"], ["curve_avg_h", "curve_slope", "flue_brake_gain"]]
+    # 36 min apart (no 2 h of settled work between them) is still one change; 3 h 20 min later - a new one
+    assert [[c["key"] for c in g] for g in groups] == [["kp"], ["min_at_0", "curve_avg_h", "curve_slope", "flue_brake_gain"]]
     assert T.TRACKED[("curve", "curve_avg_h")]
 
 
