@@ -150,17 +150,62 @@ def test_forecast_model_uses_days_the_furnace_ran():
     assert few["method"] == "degree_days"
 
 
-def test_degree_days_model_follows_the_recent_days():
-    # an old day burnt much more (before the settings were tuned) - the last days decide
+def test_degree_days_model_takes_the_stable_days():
+    # 28.10 burnt much more with a jumping power - only the stable days decide
     from backend.core.analytics import forecast_model
     today = date(2026, 11, 4)
-    pts = [{"date": "2026-10-28", "x": 7.8, "y": 22.0}, {"date": "2026-11-01", "x": 6.5, "y": 19.6},
-           {"date": "2026-11-02", "x": 6.3, "y": 17.0}, {"date": "2026-11-03", "x": 5.6, "y": 16.9}]
+    pts = [{"date": "2026-10-28", "x": 7.8, "y": 22.0, "stable": False},
+           {"date": "2026-11-01", "x": 6.5, "y": 19.6, "stable": True},
+           {"date": "2026-11-02", "x": 6.3, "y": 17.0, "stable": False},
+           {"date": "2026-11-03", "x": 5.6, "y": 16.9, "stable": True}]
     m = forecast_model(pts, today)
-    assert m["method"] == "degree_days" and m["days"] == 4
-    plain = sum(p["y"] for p in pts) / sum(18 - p["x"] for p in pts)       # 1.65
-    assert m["kg_per_degree_day"] < plain - 0.1 and 1.4 < m["kg_per_degree_day"] < 1.55
+    assert m["method"] == "degree_days" and m["days"] == 2
+    assert abs(m["kg_per_degree_day"] - (19.6 + 16.9) / (11.5 + 12.4)) < 1e-6
+    one = forecast_model([dict(p, stable=p["date"] == "2026-11-03") for p in pts], today)
+    assert one["days"] == 4                                  # one stable day is too few - every day counts
 
+
+def _stable_day(day, kg, outside=None, power_std=0.0):
+    from backend.core.analytics import DayAgg
+    d = DayAgg(date=day, seconds=86400, coal_kg=kg, mode_s={"WORK": 86400.0})
+    if outside is not None:
+        d.sums["outside"], d.weights["outside"] = outside * 86400, 86400
+    d.st_s, d.st_in2 = 86400.0, 86400.0
+    d.pw_s, d.pw_sum, d.pw_sq = 86400.0, 40.0 * 86400, (40.0 ** 2 + power_std ** 2) * 86400
+    return d
+
+
+def test_stable_day():
+    from backend.core.analytics import is_stable_day
+    assert is_stable_day(_stable_day("2026-11-03", 17.0, 5.6))
+    assert not is_stable_day(_stable_day("2026-10-28", 22.0, 7.8, power_std=18.0))   # power jumping
+    bad = _stable_day("2026-11-02", 17.0, 6.3)
+    bad.st_in2 = 0.6 * 86400                                                          # 60% within ±2°C
+    assert not is_stable_day(bad)
+
+
+def test_season_forecast_fixed_part_and_per_degree_day():
+    # last season (no outside temperature - month normals): 8 kg a day + 0.8 kg per degree-day
+    from backend.core.analytics import season_forecast, NORMAL_MONTH_C, HDD_BASE_C
+    prev = []
+    for day in ("2025-12-28", "2026-01-15", "2026-02-10", "2026-03-20", "2026-04-10", "2026-04-20"):
+        hdd = HDD_BASE_C - NORMAL_MONTH_C[int(day[5:7])]
+        prev.append(_stable_day(day, 8.0 + 0.8 * hdd))
+    # this season burns 10% less than the line
+    this = [_stable_day(f"2026-11-0{i}", 0.9 * (8.0 + 0.8 * (HDD_BASE_C - 6.0)), 6.0) for i in (1, 2, 3)]
+    f = season_forecast(this, date(2026, 9, 1), date(2026, 11, 3), history=prev)
+    assert f["method"] == "line" and f["scale"] == 0.9
+    assert abs(f["base_kg_per_day"] - 7.2) < 0.2 and abs(f["kg_per_degree_day"] - 0.72) < 0.02
+    # the rest of the season: Nov 4 - Apr 30 (May is too warm), at 0.9 x (8 + 0.8 x degree-days)
+    from datetime import timedelta
+    d, left = date(2026, 11, 4), 0.0
+    while d < date(2027, 5, 1):
+        left += 0.9 * (8.0 + 0.8 * (HDD_BASE_C - NORMAL_MONTH_C[d.month]))
+        d += timedelta(days=1)
+    assert abs(f["forecast_kg"] - (f["used_kg"] + left)) < 3
+    # per degree-day alone would say far more: an autumn day carries the whole fixed part
+    k = sum(x.coal_kg for x in this) / sum(HDD_BASE_C - 6.0 for _ in this)
+    assert k * f["degree_days_left"] > f["forecast_kg"] - f["used_kg"] + 300
 
 def test_coal_forecast_per_day_with_cost():
     from datetime import datetime

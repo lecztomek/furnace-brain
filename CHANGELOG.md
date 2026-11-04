@@ -2,6 +2,11 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.61.0 · 04.11.2026 13:30
+
+- Prognozy węgla liczone tylko z dni, w których piec pracował stabilnie: cała doba w pracy, kocioł ≥80% czasu w ±2°C od zadanej, moc bez szarpania (rozrzut ≤12 pkt). Dni z wygaszeniem, zmianą zadanej czy rozruchem nie zawyżają prognozy. Gdy stabilnych dni jest mniej niż 2, brane są wszystkie pełne dni. Wszystkie dni ważą tyle samo (zastępuje ważenie świeżych dni z 1.60.7 i 1.60.8).
+- Prognoza na sezon: węgiel na dobę = stała część (ciepła woda, straty - idą przy każdej pogodzie) + część na każdy stopniodzień. Prosta liczona ze stabilnych dni tego i zeszłego sezonu (zeszły sezon nie ma zapisanej temperatury zewnętrznej - brana typowa dla miesiąca) i dopasowana do stabilnych dni tego sezonu. Maj i wrzesień nie są liczone jako miesiące grzewcze. Wcześniej jesienne kg na stopniodzień mnożone przez cały sezon dawały za dużo (ok. 5,1 t zamiast ok. 3,9 t).
+
 ## 1.60.8 · 04.11.2026 11:30
 
 - Prognoza węgla na sezon: tak jak prognoza na najbliższe dni, nowsze dni ważą więcej (waga spada o połowę co 3 dni).

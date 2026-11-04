@@ -520,7 +520,7 @@
            f.forecast_kg != null ? zl(f.forecast_kg).slice(3) : "za mało dni", "st2-tile--cost"),
       tile("Zeszły sezon", `${prevV}<small>${prevU}</small>`, zl(s.previous.coal_kg).slice(3)),
     ].join("");
-    $("season-note").textContent = f.forecast_kg != null ? "Prognoza: do końca maja, przy typowej pogodzie" : "";
+    $("season-note").textContent = f.forecast_kg != null ? "Prognoza: do końca sezonu grzewczego, przy typowej pogodzie" : "";
 
     const months = s.this.months.map((m) => MONTHS[m.month - 1]);
     const data = {

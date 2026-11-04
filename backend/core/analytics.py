@@ -77,6 +77,22 @@ def is_full_day(d: "DayAgg") -> bool:
     return d.seconds >= FULL_DAY_SHARE * 86400 and burning >= FULL_DAY_SHARE * 86400
 
 
+STABLE_IN2_PCT = 80.0       # a stable day: the boiler this much of the time within ±2°C of the setpoint ...
+STABLE_POWER_STD = 12.0     # ... and the power not jumping more than this (± points)
+MIN_STABLE_DAYS = 2         # fewer stable days: the coal models take every full day
+
+
+def is_stable_day(d: "DayAgg") -> bool:
+    """A full day the furnace ran evenly - no flame-out, no setpoint change, no long hot-water chase.
+    Only such days say how much coal the weather takes."""
+    if not is_full_day(d) or d.st_s < FULL_DAY_SHARE * 86400 or 100.0 * d.st_in2 / d.st_s < STABLE_IN2_PCT:
+        return False
+    if d.pw_s < 1800:            # last season's records have no work power - the boiler temperature decides
+        return True
+    mean = d.pw_sum / d.pw_s
+    return math.sqrt(max(0.0, d.pw_sq / d.pw_s - mean * mean)) <= STABLE_POWER_STD
+
+
 @dataclass
 class DayAgg:
     date: str
@@ -684,7 +700,8 @@ def weather_model(days: List[DayAgg]) -> Dict[str, Any]:
         "days_with_data": len(full),
         "days_needed": 5,
         "coal": {"fit": linear_fit(coal_pts),
-                 "points": [{"date": d.date, "x": round(x, 1), "y": round(y, 2)} for d, (x, y) in zip(full, coal_pts)]},
+                 "points": [{"date": d.date, "x": round(x, 1), "y": round(y, 2), "stable": is_stable_day(d)}
+                            for d, (x, y) in zip(full, coal_pts)]},
         "energy": {"fit": linear_fit(energy_pts),
                    "points": [{"x": round(x, 1), "y": round(y, 1)} for x, y in energy_pts]},
         "power": {"fit": linear_fit(power_pts),
@@ -724,23 +741,64 @@ def normal_degree_days(start: date, end: date) -> float:
     return total
 
 
-def season_forecast(this_season: List["DayAgg"], season_start: date, today: date) -> Dict[str, Any]:
-    """Coal used so far + coal per degree-day x typical degree-days left until the end of May."""
+HEATING_END_C = 12.0        # a month this warm on average (May, September): the furnace stands
+
+
+def _day_hdd(d: "DayAgg") -> Optional[float]:
+    """Degree-days of a whole day: the measured outside temperature, or the month's normal
+    (last season was recorded without it)."""
+    out = d.avg("outside")
+    if out is None:
+        out = NORMAL_MONTH_C.get(date.fromisoformat(d.date).month)
+        if out is None or out > HEATING_END_C:
+            return None
+    return max(0.0, HDD_BASE_C - out)
+
+
+def season_forecast(this_season: List["DayAgg"], season_start: date, today: date,
+                    history: Optional[List["DayAgg"]] = None) -> Dict[str, Any]:
+    """Coal used so far + the coal the rest of the season should take at typical weather.
+
+    Coal per day = a fixed part (hot water, losses - burnt in any weather) + a part per degree-day,
+    a line through every stable day (this and last season). Per degree-day alone overshoots: an
+    autumn day carries a big share of the fixed part, a frosty day a small one. The line is then
+    scaled to the stable days of this season - the current settings. Too few days for a line:
+    coal per degree-day of the season's days x typical degree-days left."""
     used = sum(x.coal_kg for x in this_season)
     full = [x for x in this_season if is_full_day(x)]
-    # newer days weigh more - the same as the forecast for the next days
-    pairs = [(_recency_weight(x.date, today), x.coal_kg, degree_days(x)) for x in full[-30:]]
-    pairs = [(w, c, h) for w, c, h in pairs if h is not None]
-    whdd = sum(w * h for w, _, h in pairs)
-    k = sum(w * c for w, c, _ in pairs) / whdd if pairs and sum(h for _, _, h in pairs) >= MIN_HDD else None
+    stable_now = [x for x in full if is_stable_day(x)]
     end = date(season_start.year + 1, 6, 1)
+    pool = [x for x in (history or this_season) if is_stable_day(x)]
+    pts = [(h, x.coal_kg / x.seconds * 86400) for x in pool for h in [_day_hdd(x)] if h is not None]
+    fit = linear_fit(pts)
+    if fit and fit["slope"] > 0 and fit["intercept"] >= 0:
+        a, b = fit["intercept"], fit["slope"]
+        now_pts = [(h, x.coal_kg / x.seconds * 86400) for x in stable_now for h in [_day_hdd(x)] if h is not None]
+        predicted = sum(a + b * h for h, _ in now_pts)
+        scale = sum(y for _, y in now_pts) / predicted if len(now_pts) >= MIN_STABLE_DAYS and predicted > 0 else 1.0
+        left_kg, left_dd, d = 0.0, 0.0, today + timedelta(days=1)
+        while d < end:
+            t = NORMAL_MONTH_C.get(d.month)
+            if t is not None and t <= HEATING_END_C:
+                left_dd += max(0.0, HDD_BASE_C - t)
+                left_kg += a + b * max(0.0, HDD_BASE_C - t)
+            d += timedelta(days=1)
+        return {
+            "used_kg": round(used, 1), "method": "line",
+            "base_kg_per_day": round(a * scale, 1), "kg_per_degree_day": _r(b * scale, 3),
+            "scale": round(scale, 2), "degree_days_left": round(left_dd),
+            "forecast_kg": round(used + scale * left_kg),
+            "based_on_days": len(pts), "stable_days_now": len(now_pts),
+        }
+    use = stable_now if len(stable_now) >= MIN_STABLE_DAYS else full
+    k = kg_per_degree_day(use[-30:])
     left_dd = normal_degree_days(today + timedelta(days=1), end)
     return {
-        "used_kg": round(used, 1),
+        "used_kg": round(used, 1), "method": "degree_days",
         "kg_per_degree_day": _r(k, 3),
         "degree_days_left": round(left_dd),
         "forecast_kg": round(used + k * left_dd) if k else None,
-        "based_on_days": len(full[-30:]),
+        "based_on_days": len(use[-30:]),
     }
 
 
@@ -1019,7 +1077,7 @@ class Analytics:
                          # same part of the season a year ago - only if there was data then
                          "coal_kg_to_date": round(sum(x.coal_kg for x in prev_to_date), 1)
                          if sum(x.seconds for x in prev_to_date) >= 86400 else None},
-            "forecast": season_forecast(this, season_start, today),
+            "forecast": season_forecast(this, season_start, today, history=prev + this),
         }
 
 
@@ -1027,16 +1085,6 @@ class Analytics:
 
 RUNNING_MIN_KG = 3.0       # a day with less coal: the furnace was (mostly) off - not in the model
 FORECAST_RECENT_DAYS = 60  # recent days describe the current settings best
-FORECAST_HALF_LIFE_D = 3.0  # kg per degree-day: a day this many days older weighs half
-
-
-def _recency_weight(day: Optional[str], today: date) -> float:
-    """1 for yesterday, half every FORECAST_HALF_LIFE_D days back."""
-    try:
-        age = max(1, (today - date.fromisoformat(day)).days) - 1
-    except (TypeError, ValueError):
-        return 1.0
-    return 0.5 ** (age / FORECAST_HALF_LIFE_D)
 
 
 def forecast_model(points: List[Dict[str, Any]], today: date) -> Dict[str, Any]:
@@ -1046,6 +1094,10 @@ def forecast_model(points: List[Dict[str, Any]], today: date) -> Dict[str, Any]:
     when the days cover enough temperatures, else kg per degree-day.
     """
     running = [p for p in points if p.get("y") is not None and p["y"] >= RUNNING_MIN_KG and p.get("x") is not None]
+    # only days the furnace ran evenly - a flame-out or a setpoint change says nothing about the weather
+    stable = [p for p in running if p.get("stable")]
+    if len(stable) >= MIN_STABLE_DAYS:
+        running = stable
     recent = [p for p in running if p.get("date", "") >= (today - timedelta(days=FORECAST_RECENT_DAYS)).isoformat()]
     use = recent if len(recent) >= 10 else running
     fit = linear_fit([(p["x"], p["y"]) for p in use])
@@ -1054,11 +1106,7 @@ def forecast_model(points: List[Dict[str, Any]], today: date) -> Dict[str, Any]:
                 "r2": fit["r2"]}
     hdd = sum(max(0.0, HDD_BASE_C - p["x"]) for p in use)
     if hdd >= MIN_HDD:
-        # newer days weigh more: the settings change, older days would keep the forecast where it was
-        w = [_recency_weight(p.get("date"), today) for p in use]
-        whdd = sum(wi * max(0.0, HDD_BASE_C - p["x"]) for wi, p in zip(w, use))
-        return {"method": "degree_days", "kg_per_degree_day": sum(wi * p["y"] for wi, p in zip(w, use)) / whdd,
-                "days": len(use)}
+        return {"method": "degree_days", "kg_per_degree_day": sum(p["y"] for p in use) / hdd, "days": len(use)}
     return {"method": None, "days": len(use)}
 
 
