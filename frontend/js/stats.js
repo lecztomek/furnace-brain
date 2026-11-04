@@ -69,7 +69,7 @@
     ["Kocioł", "flame"], ["Grzejniki", "radiator"], ["Na zewnątrz", "thermometer"], ["Rozpalenia", "flame"], ["W normie", "target"],
     ["Od zadanej", "upDown"], ["Ostatni tydzień", "trendUp"], ["Ten sezon", "calendar"], ["Prognoza", "sparkles"], ["Zeszły sezon", "history"],
     ["Przy 0", "cloudSun"], ["Przy -10", "snowflake"], ["Każdy stopień", "thermometer"], ["Dni pracy", "calendar"], ["Ciepło", "flame"],
-    ["Strata w kominie", "flame"]];
+    ["Strata w kominie", "flame"], ["Spalone dziś", "coal"], ["Do końca dnia", "hourglass"], ["Razem dziś", "coins"]];
   function tile(label, value, unit, cls = "") {
     const icon = FBIcon((TILE_ICONS.find(([k]) => label.startsWith(k)) || ["", "info"])[1]);
     const st = cls.includes("good") ? "ok" : cls.includes("bad") ? "bad" : cls.includes("cost") ? "cost" : "plain";
@@ -293,6 +293,7 @@
       (hourly ? "Godziny z postojem, rozpalaniem albo bez pogody są pominięte. " : "Dni niepełne (postój, rozpalanie) są pominięte. ") +
       "Strata w kominie liczona z temperatury spalin.";
     renderWeather();
+    renderForecast();       // "Dziś" there shows the coal burnt so far
   }
 
   // heat output in kWh, the controller's power in % and how steady it was
@@ -766,34 +767,42 @@
     const f = forecast;
     const zl = (v) => (v == null ? "--" : num(v, v < 10 ? 2 : 0));
     if (!f.available) {
-      $("fc-tomorrow").innerHTML = `<div class="st2-empty">${FBIcon("globe", "ic--inline")} Brak prognozy - sprawdź internet (pobierana co 3 h)</div>`;
+      $("fc-today").innerHTML = `<div class="st2-empty">${FBIcon("globe", "ic--inline")} Brak prognozy - sprawdź internet (pobierana co 3 h)</div>`;
       $("fc-days").innerHTML = "";
       $("fc-note").textContent = "";
       return;
     }
     const days = f.days || [];
     const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    const idx = (d) => Math.round((new Date(d + "T12:00:00") - new Date(today + "T12:00:00")) / 86400000);
-    const tomorrow = days.find((d) => idx(d.date) === 1) || days[0];
-    if (tomorrow) {
-      const [icon, text] = weatherLook(tomorrow.code);
-      $("fc-title").textContent = `Jutro • ${dayName(tomorrow.date, 1).sub}`;
-      $("fc-tomorrow").innerHTML = `
-        <div class="fc-sky"><span class="fc-icon">${icon}</span>
-          <div><div class="fc-temps"><b>${temp(tomorrow.tmax)}</b> <span>${temp(tomorrow.tmin)}</span></div>
-          <div class="fc-sky-text">${text}${tomorrow.wind_max != null ? ` • wiatr do ${num(tomorrow.wind_max, 0)} km/h` : ""}</div></div></div>
-        <div class="st2-hero fc-hero">
-          ${tile("Węgiel", tomorrow.coal_kg == null ? "--" : `${num(tomorrow.coal_kg, 0)}<small>kg</small>`, "")}
-          ${tile("Koszt", tomorrow.cost_pln == null ? "--" : `${zl(tomorrow.cost_pln)}<small>zł</small>`, "", "st2-tile--cost")}
-          ${tile("Średnio", tomorrow.power_kw == null ? "--" : `${num(tomorrow.power_kw, 1)}<small>kW</small>`, tomorrow.energy_kwh == null ? "" : `${num(tomorrow.energy_kwh, 0)} kWh ciepła`)}
-        </div>`;
-    }
-    $("fc-days").innerHTML = days.map((d) => {
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const idx = (d) => Math.round((new Date(d + "T12:00:00") - new Date(todayIso + "T12:00:00")) / 86400000);
+    const price = Number(f.price_pln_per_t) || 0;
+    const cost = (kg) => (kg == null || !price ? null : (kg * price) / 1000);
+
+    // today: burnt so far (statistics) + the rest of the day (forecast)
+    const rest = days.find((d) => idx(d.date) === 0);
+    const burnt = report && report.periods && report.periods.today ? report.periods.today.coal_kg : null;
+    const total = burnt != null && rest && rest.coal_kg != null ? burnt + rest.coal_kg : null;
+    const [icon, text] = weatherLook(rest ? rest.code : null);
+    const hhmm = now.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+    $("fc-title").textContent = `Dziś • ${dayName(todayIso, 0).sub}`;
+    $("fc-today").innerHTML = `
+      <div class="fc-sky"><span class="fc-icon">${icon}</span>
+        <div><div class="fc-temps"><b>${temp(f.outside_now)}</b> <span>teraz</span></div>
+        <div class="fc-sky-text">${rest ? `do północy ${temp(rest.tmin)} … ${temp(rest.tmax)}` : ""}${text ? ` • ${text}` : ""}</div></div></div>
+      <div class="st2-hero fc-hero">
+        ${tile("Spalone dziś", burnt == null ? "--" : `${num(burnt, 0)}<small>kg</small>`, `do ${hhmm}`)}
+        ${tile("Do końca dnia", rest && rest.coal_kg != null ? `~${num(rest.coal_kg, 0)}<small>kg</small>` : "--", "prognoza")}
+        ${tile("Razem dziś", total == null ? "--" : `~${num(total, 0)}<small>kg</small>`, cost(total) == null ? "" : `${zl(cost(total))} zł`, "st2-tile--cost")}
+      </div>`;
+
+    // the next 3 days
+    const next = days.filter((d) => idx(d.date) >= 1);
+    $("fc-days").innerHTML = next.slice(0, 3).map((d) => {
       const [icon, text] = weatherLook(d.code);
       const n = dayName(d.date, idx(d.date));
       return `<div class="fc-day ${idx(d.date) === 1 ? "is-tomorrow" : ""}">
-        <div class="fc-day__name">${n.label}<span>${d.partial ? `reszta dnia (${d.hours} h)` : n.sub}</span></div>
+        <div class="fc-day__name">${n.label}<span>${n.sub}</span></div>
         <div class="fc-day__icon" title="${text}">${icon}</div>
         <div class="fc-day__temps"><b>${temp(d.tmax)}</b> / ${temp(d.tmin)}</div>
         <div class="fc-day__coal">${d.coal_kg == null ? "--" : `${num(d.coal_kg, 0)} kg`}</div>
@@ -802,20 +811,23 @@
       </div>`;
     }).join("");
 
-    const hours = f.hours || [];
-    const labels = hours.map((h) => (h.time.slice(11, 13) === "00" ? `${h.time.slice(8, 10)}.${h.time.slice(5, 7)}` : `${Number(h.time.slice(11, 13))}:00`));
+    // the next 7 days: coal a day and the temperature
+    const week = next.filter((d) => !d.partial).slice(0, 7);
+    const SHORT = ["nd", "pn", "wt", "śr", "cz", "pt", "sb"];
+    const labels = week.map((d) => `${SHORT[new Date(d.date + "T12:00:00").getDay()]} ${d.date.slice(8, 10)}.${d.date.slice(5, 7)}`);
     const options = baseOptions(true);
     options.scales.y = { position: "right", beginAtZero: true, grid: { display: false },
-      ticks: { color: "#fdba74", font: { size: 15 }, callback: (v) => `${num(v, 1)} kg` } };
+      ticks: { color: "#fdba74", font: { size: 15 }, callback: (v) => `${num(v, 0)} kg` } };
     options.scales.yt = { position: "left", grid: { color: "rgba(255,255,255,0.08)" },
       ticks: { color: "#93c5fd", font: { size: 15 }, callback: (v) => `${num(v, 0)}°C` } };
     options.plugins.tooltip = { callbacks: { label: (ctx) => ctx.dataset.yAxisID === "yt"
-      ? `Temperatura: ${num(ctx.parsed.y, 1)}°C` : `Węgiel: ${num(ctx.parsed.y, 2)} kg/h` } };
+      ? `${ctx.dataset.label}: ${num(ctx.parsed.y, 1)}°C` : `Węgiel: ${num(ctx.parsed.y, 1)} kg` } };
     forecastChart = draw(forecastChart, "chart-forecast", {
       labels,
       datasets: [
-        { type: "line", label: "Temperatura [°C]", yAxisID: "yt", data: hours.map((h) => h.temp), borderColor: "#60a5fa", backgroundColor: "#60a5fa" },
-        { type: "bar", label: "Węgiel [kg/h]", yAxisID: "y", data: hours.map((h) => h.kg), backgroundColor: "rgba(249, 115, 22, 0.55)", borderRadius: 3 },
+        { type: "line", label: "Najcieplej", yAxisID: "yt", data: week.map((d) => d.tmax), borderColor: "#fbbf24", backgroundColor: "#fbbf24" },
+        { type: "line", label: "Najzimniej", yAxisID: "yt", data: week.map((d) => d.tmin), borderColor: "#60a5fa", backgroundColor: "#60a5fa" },
+        { type: "bar", label: "Węgiel [kg]", yAxisID: "y", data: week.map((d) => d.coal_kg), backgroundColor: "rgba(249, 115, 22, 0.55)", borderRadius: 4 },
       ],
     }, options);
 
@@ -831,7 +843,7 @@
       forecast = await res.json();
       renderForecast();
     } catch (err) {
-      $("fc-tomorrow").innerHTML = `<div class="st2-empty">Nie udało się wczytać prognozy: ${err.message}</div>`;
+      $("fc-today").innerHTML = `<div class="st2-empty">Nie udało się wczytać prognozy: ${err.message}</div>`;
     }
   }
 

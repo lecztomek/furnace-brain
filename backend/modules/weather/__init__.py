@@ -51,7 +51,7 @@ def fetch_open_meteo(latitude: float, longitude: float, timeout_s: float = 10.0)
 
 
 FORECAST_REFRESH_S = 3 * 3600.0   # the forecast changes slowly - every 3 h is plenty
-FORECAST_DAYS = 3
+FORECAST_DAYS = 8             # today + 7 days
 
 
 def fetch_open_meteo_forecast(latitude: float, longitude: float, timeout_s: float = 15.0) -> Dict[str, Any]:

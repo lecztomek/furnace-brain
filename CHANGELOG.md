@@ -2,6 +2,14 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.62.0 · 04.11.2026 14:30
+
+- Statystyki → Prognoza, nowy układ:
+  - na górze „Dziś”: temperatura teraz, ile węgla spalone do tej pory, ile jeszcze do końca dnia (prognoza) i razem, z kosztem;
+  - „Najbliższe dni”: 3 kafelki od jutra (bez dzisiaj);
+  - na dole wykres na 7 następnych dni: węgiel na dzień (słupki) i temperatura najcieplej / najzimniej.
+- Pogoda: prognoza pobierana na dziś i 7 kolejnych dni (było 3 dni).
+
 ## 1.61.0 · 04.11.2026 13:30
 
 - Prognozy węgla liczone tylko z dni, w których piec pracował stabilnie: cała doba w pracy, kocioł ≥80% czasu w ±2°C od zadanej, moc bez szarpania (rozrzut ≤12 pkt). Dni z wygaszeniem, zmianą zadanej czy rozruchem nie zawyżają prognozy. Gdy stabilnych dni jest mniej niż 2, brane są wszystkie pełne dni. Wszystkie dni ważą tyle samo (zastępuje ważenie świeżych dni z 1.60.7 i 1.60.8).
