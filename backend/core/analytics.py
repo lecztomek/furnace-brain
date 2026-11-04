@@ -1023,6 +1023,16 @@ class Analytics:
 
 RUNNING_MIN_KG = 3.0       # a day with less coal: the furnace was (mostly) off - not in the model
 FORECAST_RECENT_DAYS = 60  # recent days describe the current settings best
+FORECAST_HALF_LIFE_D = 3.0  # kg per degree-day: a day this many days older weighs half
+
+
+def _recency_weight(day: Optional[str], today: date) -> float:
+    """1 for yesterday, half every FORECAST_HALF_LIFE_D days back."""
+    try:
+        age = max(1, (today - date.fromisoformat(day)).days) - 1
+    except (TypeError, ValueError):
+        return 1.0
+    return 0.5 ** (age / FORECAST_HALF_LIFE_D)
 
 
 def forecast_model(points: List[Dict[str, Any]], today: date) -> Dict[str, Any]:
@@ -1040,7 +1050,11 @@ def forecast_model(points: List[Dict[str, Any]], today: date) -> Dict[str, Any]:
                 "r2": fit["r2"]}
     hdd = sum(max(0.0, HDD_BASE_C - p["x"]) for p in use)
     if hdd >= MIN_HDD:
-        return {"method": "degree_days", "kg_per_degree_day": sum(p["y"] for p in use) / hdd, "days": len(use)}
+        # newer days weigh more: the settings change, older days would keep the forecast where it was
+        w = [_recency_weight(p.get("date"), today) for p in use]
+        whdd = sum(wi * max(0.0, HDD_BASE_C - p["x"]) for wi, p in zip(w, use))
+        return {"method": "degree_days", "kg_per_degree_day": sum(wi * p["y"] for wi, p in zip(w, use)) / whdd,
+                "days": len(use)}
     return {"method": None, "days": len(use)}
 
 

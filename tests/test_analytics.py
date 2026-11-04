@@ -150,6 +150,18 @@ def test_forecast_model_uses_days_the_furnace_ran():
     assert few["method"] == "degree_days"
 
 
+def test_degree_days_model_follows_the_recent_days():
+    # an old day burnt much more (before the settings were tuned) - the last days decide
+    from backend.core.analytics import forecast_model
+    today = date(2026, 11, 4)
+    pts = [{"date": "2026-10-28", "x": 7.8, "y": 22.0}, {"date": "2026-11-01", "x": 6.5, "y": 19.6},
+           {"date": "2026-11-02", "x": 6.3, "y": 17.0}, {"date": "2026-11-03", "x": 5.6, "y": 16.9}]
+    m = forecast_model(pts, today)
+    assert m["method"] == "degree_days" and m["days"] == 4
+    plain = sum(p["y"] for p in pts) / sum(18 - p["x"] for p in pts)       # 1.65
+    assert m["kg_per_degree_day"] < plain - 0.1 and 1.4 < m["kg_per_degree_day"] < 1.55
+
+
 def test_coal_forecast_per_day_with_cost():
     from datetime import datetime
     from backend.core.analytics import coal_forecast
