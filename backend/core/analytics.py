@@ -728,7 +728,11 @@ def season_forecast(this_season: List["DayAgg"], season_start: date, today: date
     """Coal used so far + coal per degree-day x typical degree-days left until the end of May."""
     used = sum(x.coal_kg for x in this_season)
     full = [x for x in this_season if is_full_day(x)]
-    k = kg_per_degree_day(full[-30:])
+    # newer days weigh more - the same as the forecast for the next days
+    pairs = [(_recency_weight(x.date, today), x.coal_kg, degree_days(x)) for x in full[-30:]]
+    pairs = [(w, c, h) for w, c, h in pairs if h is not None]
+    whdd = sum(w * h for w, _, h in pairs)
+    k = sum(w * c for w, c, _ in pairs) / whdd if pairs and sum(h for _, _, h in pairs) >= MIN_HDD else None
     end = date(season_start.year + 1, 6, 1)
     left_dd = normal_degree_days(today + timedelta(days=1), end)
     return {

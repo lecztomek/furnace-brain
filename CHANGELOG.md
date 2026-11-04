@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.60.8 · 04.11.2026 11:30
+
+- Prognoza węgla na sezon: tak jak prognoza na najbliższe dni, nowsze dni ważą więcej (waga spada o połowę co 3 dni).
+
 ## 1.60.7 · 04.11.2026 11:00
 
 - Prognoza węgla: przy liczeniu kg na stopniodzień nowsze dni ważą więcej (waga spada o połowę co 3 dni). Dni sprzed strojenia (np. 28.10 z dużym spalaniem) nie zawyżają już prognozy tak mocno.
