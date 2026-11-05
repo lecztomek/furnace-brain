@@ -94,9 +94,11 @@
       <!-- fire: burns while the boiler is in work or ignition -->
       <rect x="70" y="262" width="128" height="98" rx="6" fill="#140800" stroke="#5c6168" stroke-width="3"/>
       <rect class="glow" x="70" y="262" width="128" height="98" rx="6" fill="url(#fg)"/>
+      <g id="fire">
       <g class="flame"><path d="M134 356c-30 0-40-18-33-38 4 7 9 10 13 9-5-19 6-32 19-42-1 14 7 20 12 25 3-6 2-12 0-17 13 10 22 24 19 41-3 15-12 22-30 22z" fill="url(#f1)"/></g>
       <g class="flame f2"><path d="M98 356c-12 0-16-8-13-16 2 3 4 4 5 3-1-8 3-12 7-15 0 6 3 8 5 11 4 9 4 17-4 17zM172 356c-12 0-16-8-13-16 2 3 4 4 5 3-1-8 3-12 7-15 0 6 3 8 5 11 4 9 4 17-4 17z" fill="url(#f1)" opacity=".9"/></g>
       <g class="flame f2"><path d="M134 356c-11 0-15-7-12-14 2 3 4 4 5 3 0-8 3-12 7-15 0 6 3 9 5 11 4 8 3 15-5 15z" fill="url(#f2)"/></g>
+      </g>
       <!-- radiator -->
       <g transform="translate(318 192)">
         <g stroke="#eceef1" stroke-width="5" stroke-linecap="round" fill="none">
@@ -114,21 +116,20 @@
     <section class="side">
       <div class="card power">
         <div class="n">Moc pieca</div>
-        <div class="prow">
         <svg class="ring" viewBox="0 0 200 200">
           <defs><linearGradient id="pr" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f5c518"/><stop offset="1" stop-color="#ffe066"/></linearGradient></defs>
-          <circle cx="100" cy="100" r="82" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="20"/>
-          <circle id="power-arc" cx="100" cy="100" r="82" fill="none" stroke="url(#pr)" stroke-width="20" stroke-linecap="round" stroke-dasharray="0 515" transform="rotate(-90 100 100)"/>
-          <text x="100" y="118" text-anchor="middle" fill="#ffd84d" font-size="58" font-weight="800"><tspan id="power-pct">--</tspan><tspan font-size="30" dx="2">%</tspan></text>
+          <circle cx="100" cy="100" r="84" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="18"/>
+          <circle id="power-arc" cx="100" cy="100" r="84" fill="none" stroke="url(#pr)" stroke-width="18" stroke-linecap="round" stroke-dasharray="0 528" transform="rotate(-90 100 100)"/>
+          <text x="100" y="110" text-anchor="middle" fill="#fff" font-size="60" font-weight="800" id="power-kw">--</text>
+          <text x="100" y="146" text-anchor="middle" fill="#aeb5be" font-size="26" font-weight="600">kW</text>
         </svg>
-        <div class="pk"><span id="power-kw">--</span><small>kW</small></div>
-        </div>
       </div>
       <div class="card coal">
-        <div class="ch"><svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.6" stroke-linejoin="round"><path d="M3 15.5 5.5 8 11 5l6.5 2.5L21 13l-3 5.5-8 1.5-5-2z"/><path d="M5.5 8 10 11.5 11 5M10 11.5l7.5-4M10 11.5 10 20"/></svg>Węgiel dziś</div>
+        <div class="ch"><svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.6" stroke-linejoin="round"><path d="M3 15.5 5.5 8 11 5l6.5 2.5L21 13l-3 5.5-8 1.5-5-2z"/><path d="M5.5 8 10 11.5 11 5M10 11.5l7.5-4M10 11.5 10 20"/></svg>Zużycie</div>
         <div class="cl">
+          <div class="cs">dzisiaj</div>
           <div class="cv"><span id="coal-today">--</span><small>kg</small></div>
-          <div class="cs">teraz<br><b id="coal-now">--</b> kg/h</div>
+          <div class="cs">chwilowe<br><b id="coal-now">--</b> kg/h</div>
         </div>
         <svg class="bars" id="coal-bars" viewBox="-6 0 174 184" preserveAspectRatio="xMidYMid meet"></svg>
       </div>

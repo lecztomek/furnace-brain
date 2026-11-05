@@ -2,6 +2,14 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.65.3 · 05.11.2026 21:10
+
+- Nowe GUI (`/v2/`):
+  - moc pieca: w środku okręgu kW, bez procentów (okrąg pokazuje, ile mocy w użyciu)
+  - karta „Zużycie”: dzisiaj (kg) i chwilowe (kg/h) obok słupków
+  - ogień zależy od temperatury kotła jak w obecnym GUI (poniżej 30°C brak, do 50°C rośnie) - nie znika w STOP
+  - zawór pokazuje sekundy otwierania (+) / zamykania (−) z 30 min jak w obecnym GUI
+
 ## 1.65.2 · 05.11.2026 20:50
 
 - Nowe GUI (`/v2/`):

@@ -5,7 +5,7 @@
   const STATE_MS = 2000;            // the state, like the current main page
   const REPORT_MS = 5 * 60 * 1000;  // coal of the last days and the forecast change slowly
   const FAN_DEFAULT = 45;           // when the blower setting can't be read (as manual-switches.js)
-  const ARC = 515;                  // 2πr of the power ring (r = 82)
+  const ARC = 528;                  // 2πr of the power ring (r = 84)
   const DAYS = ["nd", "pn", "wt", "śr", "cz", "pt", "sb"];          // under the coal bars
   const DAY_NAMES = ["Nd", "Pon", "Wt", "Śr", "Czw", "Pt", "Sob"];  // in the header
   const MONTHS = ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"];
@@ -67,7 +67,6 @@
     const sens = s.sensors || {};
     const out = s.outputs || {};
     const stop = s.mode === "OFF" || s.mode === "MANUAL";
-    const burning = s.mode === "WORK" || s.mode === "IGNITION";
     $("stage").classList.toggle("stop", stop);
 
     // header: one sign - problems win over warnings
@@ -94,7 +93,12 @@
     $("hopper").textContent = sens.hopper_temp == null ? "--" : `${num(sens.hopper_temp, 0)}°`;
     pill($("co-pill"), !!out.pump_co_on);
     pill($("cwu-pill"), !!out.pump_cwu_on);
-    $("mixer-pill").textContent = out.mixer_open_on ? "otwiera" : out.mixer_close_on ? "zamyka" : "stoi";
+    // the valve: net seconds of opening (+) / closing (-) in the last 30 min, as the current GUI
+    const mv = Math.round(Number((s.radiators || {}).moves_30m_s));
+    const mp = $("mixer-pill");
+    mp.textContent = Number.isFinite(mv) ? `${mv > 0 ? "+" : mv < 0 ? "−" : ""}${Math.abs(mv)}s` : "--";
+    mp.classList.toggle("open", mv > 0);
+    mp.classList.toggle("close", mv < 0);
     renderToggles();
 
     // the picture
@@ -108,12 +112,19 @@
     const rad = s.radiators || {};
     $("rad-label").textContent = rad.curve_active ? "krzywa" : "zadana";
     $("rad-set").textContent = rad.target == null ? "--" : `${num(rad.target)}°`;
-    $("scene").classList.toggle("cold", !burning);
+    // the fire follows the boiler temperature, as the current GUI: none below 30°C, full at 50°C
+    const bt = Number(sens.boiler_temp);
+    const fire = $("fire");
+    if (!Number.isFinite(bt) || bt < 30) fire.style.display = "none";
+    else {
+      const k = 0.3 + 0.7 * Math.min(1, Math.max(0, (bt - 30) / 20));
+      fire.style.display = "";
+      fire.setAttribute("transform", `translate(134 356) scale(${k.toFixed(2)}) translate(-134 -356)`);
+    }
     $("scene").classList.toggle("no-co", !out.pump_co_on);
 
     // power
     const pct = Number(out.power_percent);
-    $("power-pct").textContent = Number.isFinite(pct) ? Math.round(pct) : "--";
     $("power-arc").setAttribute("stroke-dasharray", `${Number.isFinite(pct) ? (ARC * Math.max(0, Math.min(100, pct))) / 100 : 0} ${ARC}`);
     $("power-kw").textContent = num(s.power_kw);
     $("coal-now").textContent = num(s.coal_kgph, 2);
