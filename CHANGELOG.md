@@ -2,6 +2,11 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.63.1 · 05.11.2026 12:30
+
+- Poprawka: po wgraniu nowej wersji prognozy były puste (brak liczb i słupków), a w Sprawności brakowało wykresu pogody. Przez pierwsze minuty po restarcie pokazywany jest ostatni zapisany raport statystyk - ze starej wersji, bez nowego modelu węgla. Teraz prognoza liczy wtedy węgiel awaryjnie z tego raportu (kg na stopniodzień z dni stabilnych), a po przeliczeniu przechodzi na właściwy model.
+- Statystyki: prognoza pobierana ponownie od razu, gdy przyjdzie świeży raport, i co 10 min (wcześniej tylko przy otwarciu strony - ekran przy piecu zostawał z pustą prognozą do ręcznego odświeżenia).
+
 ## 1.63.0 · 05.11.2026 11:30
 
 - Jeden model węgla dla wszystkiego: węgiel na dobę = stała część (ciepła woda, straty) + część na każdy stopniodzień, prosta ze stabilnych dni tego i zeszłego sezonu, dopasowana do stabilnych dni tego sezonu. Z niego liczą się:

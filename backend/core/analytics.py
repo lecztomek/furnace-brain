@@ -789,6 +789,22 @@ def coal_model(history: List["DayAgg"], this_season: List["DayAgg"]) -> Dict[str
     return {"method": "degree_days", "kg_per_degree_day": round(k, 4), "days": len(use)}
 
 
+def coal_model_of(report: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """The coal model of a report. A report saved by an older version (shown right after an update,
+    until the new one is built) has none - then coal per degree-day from its day points
+    (the stable ones when there are 2, else all), so the forecasts are never empty."""
+    coal = ((report or {}).get("weather") or {}).get("coal") or {}
+    if coal.get("model"):
+        return coal["model"]
+    pts = [p for p in coal.get("points") or [] if p.get("x") is not None and p.get("y") is not None]
+    stable = [p for p in pts if p.get("stable")]
+    use = stable if len(stable) >= MIN_STABLE_DAYS else pts
+    hdd = sum(max(0.0, HDD_BASE_C - p["x"]) for p in use)
+    if hdd < MIN_HDD:
+        return {"method": None, "days": len(use)}
+    return {"method": "degree_days", "kg_per_degree_day": round(sum(p["y"] for p in use) / hdd, 4), "days": len(use)}
+
+
 def coal_per_day_at(model: Dict[str, Any], outside: float) -> Optional[float]:
     """Coal a day at this outside temperature (daily mean) - from coal_model."""
     hdd = max(0.0, HDD_BASE_C - outside)
