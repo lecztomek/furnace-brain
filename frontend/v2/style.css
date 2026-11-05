@@ -143,3 +143,40 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 .flow { stroke-dasharray: 14 26; }
 .scene.no-co .flow { opacity: 0; }
 .scene.no-co .heat { opacity: 0; }
+
+/* ---------- setpoint popups (the current GUI's scripts, this look) ---------- */
+.tap { cursor: pointer; }
+.modal { position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; }
+.modal.hidden { display: none; }
+.modal__overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.6); }
+.modal__card { position: relative; width: 620px; max-height: 660px; overflow: auto; border-radius: 22px; padding: 18px 26px 24px;
+  background: linear-gradient(180deg, #23272e, #16191d); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7); }
+.modal__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.modal__title { font-size: 32px; font-weight: 700; }
+.modal__close { width: 60px; height: 60px; border-radius: 16px; font-size: 30px; color: #dfe2e6; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15); }
+.setpoint-field { margin-top: 10px; }
+.setpoint-field__label { font-size: 24px; color: var(--muted); font-weight: 600; margin: 12px 0 8px; }
+.temp-stepper { display: grid; grid-template-columns: 96px 1fr 96px; gap: 14px; align-items: center; }
+.temp-stepper__btn { height: 84px; border-radius: 18px; font-size: 44px; font-weight: 700; color: #fff;
+  background: linear-gradient(180deg, #2e333a, #1c1f24); border: 1.5px solid rgba(255, 255, 255, 0.25); }
+.temp-stepper__btn:active { border-color: var(--yellow); }
+.temp-stepper__value { text-align: center; font-size: 60px; font-weight: 800; color: var(--yellow-soft); }
+.temp-stepper__unit { font-size: 28px; color: #dfe2e6; margin-left: 6px; font-weight: 600; }
+.setpoint-toggle { display: flex; align-items: center; justify-content: space-between; font-size: 26px; font-weight: 600; margin-bottom: 6px; }
+.setpoint-toggle__btn { height: 60px; min-width: 130px; padding: 0 18px; border-radius: 30px; font-size: 24px; font-weight: 700; color: #e6e8eb;
+  background: linear-gradient(180deg, #2e333a, #1c1f24); border: 1.5px solid rgba(255, 255, 255, 0.3); }
+.setpoint-toggle__btn.is-on { color: #fff; background: linear-gradient(180deg, #1f9d4c, #106a31); border-color: var(--green); }
+.feeder-presets { display: grid; gap: 10px; margin-top: 16px; }
+.feeder-presets .temp-stepper__btn { height: 64px; font-size: 24px; text-align: left; padding: 0 18px; }
+.temp-hint { margin-top: 12px; min-height: 30px; font-size: 22px; color: var(--muted); }
+.temp-save { width: 100%; height: 84px; margin-top: 14px; border-radius: 18px; font-size: 36px; font-weight: 700; color: #fff;
+  background: linear-gradient(180deg, #5a4a0c, #2d2508); border: 3px solid var(--yellow); }
+/* the feeder popup has more rows - tighter, so "Zapisz" fits on the screen */
+#feeder-modal .modal__card { padding-top: 12px; padding-bottom: 16px; }
+#feeder-modal .setpoint-field__label { margin: 6px 0 6px; }
+#feeder-modal .temp-stepper__btn { height: 66px; }
+#feeder-modal .temp-stepper__value { font-size: 50px; }
+#feeder-modal .feeder-presets { grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+#feeder-modal .feeder-presets .temp-stepper__btn { height: 74px; font-size: 19px; line-height: 1.15; padding: 0 10px; text-align: center; }
+#feeder-modal .temp-hint { margin-top: 8px; min-height: 0; }
+#feeder-modal .temp-save { height: 70px; margin-top: 10px; }

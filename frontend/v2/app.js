@@ -199,7 +199,8 @@
     });
   }
 
-  SWITCHES.forEach((sw) => sw.el.addEventListener("click", async () => {
+  SWITCHES.forEach((sw) => sw.el.addEventListener("click", async (e) => {
+    e.stopPropagation();   // the card around opens the settings popup
     if (busy || !state) return;
     const wasOn = switchOn(sw);
     const othersOn = SWITCHES.some((x) => x !== sw && switchOn(x));
@@ -271,6 +272,11 @@
            `<text x="${x + 32}" y="178" fill="#ffd84d">dziś</text></g>`;
     $("coal-bars").innerHTML = svg;
   }
+
+  // after saving in a popup: show the new setpoint right away
+  document.addEventListener("click", (e) => {
+    if (e.target.closest && e.target.closest("#temp-save, #feeder-save")) setTimeout(loadSetpoint, 1500);
+  });
 
   loadState();
   loadSetpoint();

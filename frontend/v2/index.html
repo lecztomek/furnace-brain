@@ -32,22 +32,22 @@
   <div class="row1">
     <!-- devices -->
     <section class="devs">
-      <div class="card dev manual">
+      <div class="card dev manual tap" id="blower">
         <svg viewBox="0 0 24 24" fill="#e9ebee"><circle cx="12" cy="12" r="2"/><path d="M12 10c1-5 6-7 7-4s-3 5-7 4zM14 12c5 1 7 6 4 7s-5-3-4-7zM12 14c-1 5-6 7-7 4s3-5 7-4zM10 12c-5-1-7-6-4-7s5 3 4 7z"/></svg>
         <div class="dn"><div class="n">Dmuchawa</div><div class="s" id="fan-sub"></div></div>
         <span class="ctl"><span class="pill" id="fan-pill">--</span><button class="toggle" id="fan-toggle" aria-label="Dmuchawa ręcznie"></button></span>
       </div>
-      <div class="card dev manual">
+      <div class="card dev manual tap" id="auger">
         <svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.8" stroke-linecap="round"><path d="M2 12h20M5 8l3 8M10 8l3 8M15 8l3 8"/></svg>
         <div class="dn"><div class="n">Ślimak</div><div class="s">podajnik <b id="hopper">--</b></div></div>
         <span class="ctl"><span class="pill" id="feeder-pill">--</span><button class="toggle" id="feeder-toggle" aria-label="Ślimak ręcznie"></button></span>
       </div>
-      <div class="card dev">
+      <div class="card dev tap" id="pump-co">
         <svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.5"><circle cx="12" cy="12" r="9.5"/><path d="M10 8v8l6-4z"/></svg>
         <div class="dn"><div class="n">Pompa CO</div></div>
         <span class="ctl"><span class="pill" id="co-pill">--</span></span>
       </div>
-      <div class="card dev">
+      <div class="card dev tap" id="pump-cwu">
         <svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.5"><circle cx="12" cy="12" r="9.5"/><path d="M10 8v8l6-4z"/></svg>
         <div class="dn"><div class="n">Pompa CWU</div></div>
         <span class="ctl"><span class="pill" id="cwu-pill">--</span></span>
@@ -87,10 +87,12 @@
       <rect x="45" y="72" width="178" height="306" rx="20" fill="url(#bb)" stroke="#e8ebee" stroke-width="4.5"/>
       <rect x="60" y="376" width="22" height="16" rx="3" fill="#121417" stroke="#e8ebee" stroke-width="3"/>
       <rect x="186" y="376" width="22" height="16" rx="3" fill="#121417" stroke="#e8ebee" stroke-width="3"/>
+      <g id="furnace-temp" class="tap">
       <rect x="56" y="98" width="156" height="152" rx="16" fill="#16130a" stroke="#ffd21f" stroke-width="4"/>
       <text x="134" y="166" text-anchor="middle" fill="#ffd84d" font-size="54" font-weight="800" letter-spacing="-1.5"><tspan id="boiler">--</tspan><tspan font-size="22" dx="2" dy="-22" fill="#ffe9a0">°C</tspan></text>
       <text x="134" y="202" text-anchor="middle" fill="#3ddc7a" font-size="26" font-weight="700" id="trend"></text>
       <text x="134" y="236" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500">zadana <tspan fill="#ffd21f" font-weight="700" id="boiler-set">--</tspan></text>
+      </g>
       <!-- fire: burns while the boiler is in work or ignition -->
       <rect x="70" y="262" width="128" height="98" rx="6" fill="#140800" stroke="#5c6168" stroke-width="3"/>
       <rect class="glow" x="70" y="262" width="128" height="98" rx="6" fill="url(#fg)"/>
@@ -100,7 +102,7 @@
       <g class="flame f2"><path d="M134 356c-11 0-15-7-12-14 2 3 4 4 5 3 0-8 3-12 7-15 0 6 3 9 5 11 4 8 3 15-5 15z" fill="url(#f2)"/></g>
       </g>
       <!-- radiator -->
-      <g transform="translate(318 192)">
+      <g transform="translate(318 192)" id="radiators-temp" class="tap">
         <g stroke="#eceef1" stroke-width="5" stroke-linecap="round" fill="none">
           <path d="M14 20v128M36 20v128M58 20v128M80 20v128M102 20v128M124 20v128M146 20v128M168 20v128"/>
           <path d="M4 34h176M4 134h176"/>
@@ -152,6 +154,76 @@
 
   <div class="sign-pop" id="sign-pop"></div>
 
+  <!-- the setpoint popups of the current GUI (the same scripts, restyled) -->
+  <div id="temp-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="temp-modal-title">
+          <div class="modal__overlay" data-close="1"></div>
+  
+          <div class="modal__card">
+            <div class="modal__header">
+              <div id="temp-modal-title" class="modal__title">Ustaw temperaturę</div>
+              <button class="modal__close" type="button" aria-label="Zamknij" data-close="1">✕</button>
+            </div>
+  
+            <div class="modal__body">
+              <div id="temp-fields"></div>
+  
+              <div class="temp-hint" id="temp-hint"></div>
+  
+              <button id="temp-save" class="temp-save" type="button">Zapisz</button>
+            </div>
+          </div>
+        </div>
+        
+        <div id="feeder-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="feeder-modal-title">
+          <div class="modal__overlay" data-feeder-close="1"></div>
+  
+          <div class="modal__card">
+            <div class="modal__header">
+              <div id="feeder-modal-title" class="modal__title">Ustawienia podajnika</div>
+              <button class="modal__close" type="button" aria-label="Zamknij" data-feeder-close="1">✕</button>
+            </div>
+  
+            <div class="modal__body">
+              <div class="setpoint-field__label">Czas podawania</div>
+              <div class="temp-stepper">
+                <button id="feeder-on-minus" class="temp-stepper__btn" type="button">−</button>
+                <div class="temp-stepper__value">
+                  <span id="feeder-on-value">--</span><span class="temp-stepper__unit">s</span>
+                </div>
+                <button id="feeder-on-plus" class="temp-stepper__btn" type="button">+</button>
+              </div>
+  
+              <div class="setpoint-field__label feeder-second-label">Przerwa podawania</div>
+              <div class="temp-stepper">
+                <button id="feeder-off-minus" class="temp-stepper__btn" type="button">−</button>
+                <div class="temp-stepper__value">
+                  <span id="feeder-off-value">--</span><span class="temp-stepper__unit">s</span>
+                </div>
+                <button id="feeder-off-plus" class="temp-stepper__btn" type="button">+</button>
+              </div>
+  
+              <div class="feeder-presets">
+                <button class="temp-stepper__btn feeder-preset-btn" type="button" data-feed-on="8" data-feed-off="56">
+                  Czysty groszek — 8s / 56s
+                </button>
+  
+                <button class="temp-stepper__btn feeder-preset-btn" type="button" data-feed-on="8" data-feed-off="48">
+                  Zrębki 30% + groszek — 8s / 48s
+                </button>
+  
+                <button class="temp-stepper__btn feeder-preset-btn" type="button" data-feed-on="8" data-feed-off="35">
+                  Zrębki — 8s / 35s
+                </button>
+              </div>
+  
+              <div id="feeder-hint" class="temp-hint"></div>
+  
+              <button id="feeder-save" class="temp-save" type="button">Zapisz</button>
+            </div>
+          </div>
+        </div>
+
+
   <!-- the menu: the pages of the current GUI -->
   <div class="shade" id="shade"></div>
   <nav class="drawer" id="drawer">
@@ -164,6 +236,8 @@
     <a href="../index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>Stary panel</a>
   </nav>
 </div>
+<script src="../js/temp-setpoint-modal.js"></script>
+<script src="../js/feeder-modal.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

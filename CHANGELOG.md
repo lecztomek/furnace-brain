@@ -2,6 +2,16 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.66.0 · 05.11.2026 21:40
+
+- Nowe GUI (`/v2/`): ustawianie z ekranu głównego jak w obecnym GUI - dotknięcie otwiera okienko:
+  - kocioł: zadana kotła (z automatycznym przejściem na pracę i rozpalaniem)
+  - grzejnik: zadana lub krzywa grzewcza
+  - pompa CO / CWU: temperatura włączenia
+  - dmuchawa: ustawienia dmuchawy
+  - ślimak: czas podawania i przerwy z gotowymi ustawieniami
+  Te same okienka i zapis co w obecnym GUI (wspólne skrypty), w nowym wyglądzie. Przełącznik ręczny w STOP nie otwiera okienka.
+
 ## 1.65.3 · 05.11.2026 21:10
 
 - Nowe GUI (`/v2/`):
