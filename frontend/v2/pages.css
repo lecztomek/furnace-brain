@@ -156,3 +156,21 @@ input[type=range]::-moz-range-thumb { width: 46px; height: 46px; border-radius: 
 .stage.portrait .log-level, .stage.portrait .log-src, .stage.portrait .logs-col-level, .stage.portrait .logs-col-src { display: none; }
 .stage.portrait .logs-filters { flex-wrap: wrap; }
 .set-back { white-space: nowrap; }
+
+/* ---------- Statystyki (js/stats.js; the current GUI's styles-stats.css under this look) ---------- */
+body { background: #07080a; font-family: "Red Hat Display", "Segoe UI", system-ui, sans-serif; }
+.stats-page.card { display: block; min-height: 0; padding: 0; overflow-y: auto; overscroll-behavior: contain; }
+.stats-page .st2 { padding: 10px 18px 24px; gap: 12px; }
+.stats-page .st2-title { display: none; }
+.stats-page .st2-head { position: absolute; right: 18px; top: 8px; z-index: 2; }
+.stats-page .st2-refresh { width: 56px; height: 52px; border-radius: 14px; font-size: 28px;
+  background: linear-gradient(180deg, #2e333a, #1c1f24); border: 1.5px solid rgba(255, 255, 255, 0.25); color: #fff; }
+.stats-page .st2-tabs { gap: 8px; border-bottom: none; padding-right: 70px; }
+.stats-page .st2-tabs button { height: 54px; padding: 0 20px; border-radius: 27px; border: 1.5px solid rgba(255, 255, 255, 0.2);
+  font-size: 22px; font-weight: 700; color: #dfe2e6; background: linear-gradient(180deg, #2e333a, #1c1f24); text-transform: none; }
+.stats-page .st2-tabs button.active { color: #111; background: linear-gradient(180deg, var(--yellow), #e6b800); border-color: var(--yellow); }
+.stats-page .st2-card { border-radius: 18px; border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(40, 44, 51, 0.92), rgba(22, 25, 30, 0.95)); }
+.stats-page .st2-periods button.active { color: #111; background: var(--yellow); border-color: var(--yellow); }
+.stats-page .st2-status { color: var(--muted); }
+.stats-page .sv-tile { border-radius: 16px; background: rgba(0, 0, 0, 0.25); }

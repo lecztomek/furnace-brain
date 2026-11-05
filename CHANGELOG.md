@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.72.0 · 06.11.2026 01:40
+
+- Nowe GUI (`/v2/`): strona „Statystyki” w nowym wyglądzie - ta sama treść co w obecnym GUI (wspólny skrypt i obliczenia): Zużycie, Prognoza, Praca, Sprawność, Kalendarz. Zakładki jako duże przyciski, aktywna i wybrany okres na żółto, ramka z górnym paskiem i menu ☰ jak na innych stronach.
+
 ## 1.71.2 · 06.11.2026 01:20
 
 - Nowe GUI (`/v2/`), Ustawienia: wybrany kafel zostaje u góry (ikona i nazwa modułu), oddzielony kreską od przycisku „‹ Powrót”.

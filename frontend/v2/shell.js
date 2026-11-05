@@ -22,7 +22,7 @@
   const MENU = [
     ["Przegląd", "index.html", "home"],
     ["Ustawienia", "settings.html", "settings"],
-    ["Statystyki", "../stats.html", "stats"],
+    ["Statystyki", "stats.html", "stats"],
     ["Serwis", "../service.html", "service"],
     ["Logi", "logs.html", "logs"],
     ["Ręczne", "manual.html", "manual"],

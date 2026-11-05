@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Statystyki – sterownik kotła</title>
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<!-- the current GUI's statistics styles (tiles, charts, calendar), then the new look on top -->
+<link rel="stylesheet" href="../styles-stats.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<!-- the same content and ids as the current GUI's statistics page: its script (js/stats.js) drives this one -->
+<div class="stage page" id="stage" data-title="Statystyki">
+  <main class="card stats-page">
+    <div class="st2" id="st2">
+
+              <div class="st2-head">
+                <div class="st2-title">STATYSTYKI</div>
+                <button type="button" class="st2-refresh" id="st2-refresh" title="Odśwież">⟳</button>
+              </div>
+              <div class="st2-tabs" id="st2-tabs" role="tablist">
+                <button type="button" data-tab="usage" class="active">Zużycie</button>
+                <button type="button" data-tab="forecast">Prognoza</button>
+                <button type="button" data-tab="work">Praca</button>
+                <button type="button" data-tab="efficiency">Sprawność</button>
+                <button type="button" data-tab="calendar">Kalendarz</button>
+              </div>
+              <div class="st2-status" id="st2-status">Wczytywanie…</div>
+
+              <!-- KALENDARZ: a month, every day a tile (coal and zł); a tap shows the day -->
+              <section class="st2-card" data-tab="calendar">
+                <div class="st2-card-head st2-cal-head">
+                  <h2><button type="button" class="st2-cal-nav" id="cal-prev" aria-label="Poprzedni miesiąc">◀</button>
+                    <span id="cal-month"></span>
+                    <button type="button" class="st2-cal-nav" id="cal-next" aria-label="Następny miesiąc">▶</button></h2>
+                  <div class="st2-periods" id="cal-mode"><button type="button" data-mode="coal" class="active">Węgiel</button><button type="button" data-mode="quality">Jakość</button></div>
+                </div>
+                <div class="st2-cal" id="cal-grid"></div>
+                <div class="st2-cal-legend" id="cal-legend"></div>
+                <div class="st2-tiles" id="cal-sum"></div>
+              </section>
+
+              <!-- WĘGIEL -->
+              <section class="st2-card" data-tab="usage">
+                <div class="st2-card-head"><h2>Ile węgla <span class="st2-sub" data-period-of="usage"></span></h2><div class="st2-periods st2-range" data-scope="usage"><button type="button" data-period="today">Dziś</button><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
+                <div class="st2-hero" id="usage-hero"></div>
+                <h3 class="st2-chart-title" id="daily-title"></h3>
+                <div class="st2-chart st2-chart--big"><canvas id="chart-daily"></canvas></div>
+                <div class="st2-note" id="coal-note"></div>
+              </section>
+
+              <!-- SEZON -->
+              <section class="st2-card" data-tab="usage">
+                <h2>Sezon <span class="st2-sub" id="season-period"></span></h2>
+                <div class="st2-hero" id="season-tiles"></div>
+                <h3 class="st2-chart-title">Węgiel w każdym miesiącu: ten sezon obok zeszłego</h3>
+                <div class="st2-chart st2-chart--big"><canvas id="chart-seasons"></canvas></div>
+                <div class="st2-note" id="season-note"></div>
+              </section>
+
+              <!-- PROGNOZA -->
+              <section class="st2-card" data-tab="forecast">
+                <h2 id="fc-title">Dziś</h2>
+                <div class="fc-tomorrow" id="fc-today"></div>
+              </section>
+
+              <section class="st2-card" data-tab="forecast">
+                <h2>Najbliższe dni</h2>
+                <div class="fc-days" id="fc-days"></div>
+              </section>
+
+              <section class="st2-card" data-tab="forecast">
+                <h2>Następne 7 dni</h2>
+                <div class="st2-chart st2-chart--big"><canvas id="chart-forecast"></canvas></div>
+                <div class="st2-note" id="fc-note"></div>
+              </section>
+
+              <!-- PRACA PIECA -->
+              <section class="st2-card" data-tab="work">
+                <div class="st2-card-head"><h2>Praca pieca <span class="st2-sub" data-period-of="work"></span></h2><div class="st2-periods st2-range" data-scope="work"><button type="button" data-period="today">Dziś</button><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
+                <div class="st2-tiles" id="work-tiles"></div>
+              </section>
+
+              <!-- MOC -->
+              <section class="st2-card" data-tab="work">
+                <h2>Moc pieca <span class="st2-sub" data-period-of="work"></span> <span class="st2-grade" id="power-grade"></span></h2>
+                <div class="st2-hero" id="power-tiles"></div>
+                <h3 class="st2-chart-title" id="power-kwh-title"></h3>
+                <div class="st2-chart"><canvas id="chart-power-kwh"></canvas></div>
+                <h3 class="st2-chart-title" id="power-pct-title"></h3>
+                <div class="st2-chart"><canvas id="chart-power-pct"></canvas></div>
+              </section>
+
+              <!-- REGULACJA -->
+              <section class="st2-card" data-tab="work">
+                <h2>Jak trzyma temperaturę <span class="st2-sub" data-period-of="work"></span> <span class="st2-grade" id="reg-grade"></span></h2>
+                <div class="st2-hero" id="reg-tiles"></div>
+                <h3 class="st2-chart-title" id="hourly-title"></h3>
+                <div class="st2-chart st2-chart--big"><canvas id="chart-hourly"></canvas></div>
+                <div class="st2-note" id="hourly-note"></div>
+                <div id="stops-box">
+                  <h3 class="st2-chart-title" id="stops-head">Postoje (STOP)</h3>
+                  <div class="st2-note">Szary pas na wykresie = postój (STOP i rozpalenie po nim) - dokładanie węgla, wybieranie popiołu</div>
+                  <div class="st2-drops" id="stops"></div>
+                </div>
+              </section>
+
+              <!-- SPADKI -->
+              <section class="st2-card" data-tab="work">
+                <h2 id="drops-head">Spadki temperatury</h2>
+                <div class="st2-drops" id="drops"></div>
+              </section>
+
+              <!-- SPRAWNOŚĆ (like Praca: the tiles, then the charts - hour by hour for Dziś) -->
+              <section class="st2-card" data-tab="efficiency">
+                <div class="st2-card-head"><h2>Sprawność <span class="st2-sub" data-period-of="eff"></span></h2><div class="st2-periods st2-range" data-scope="eff"><button type="button" data-period="today">Dziś</button><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
+                <div class="st2-tiles" id="eff-tiles"></div>
+              </section>
+
+              <!-- WĘGIEL NA STOPNIODZIEŃ (the coal itself with the weather is in Zużycie) -->
+              <section class="st2-card" data-tab="efficiency">
+                <h2>Węgiel na stopniodzień <span class="st2-sub" data-period-of="eff"></span> <span class="st2-grade" id="eff-grade"></span></h2>
+                <div class="st2-empty" id="eff-empty">Pojawi się po godzinach pracy z temperaturą zewnętrzną (moduł Pogoda).</div>
+                <div id="eff-chart-box">
+                  <h3 class="st2-chart-title" id="eff-chart-title"></h3>
+                  <div class="st2-chart"><canvas id="chart-efficiency"></canvas></div>
+                </div>
+                <div class="st2-note" id="eff-note"></div>
+              </section>
+
+              <!-- ZALEŻNOŚĆ OD POGODY -->
+              <section class="st2-card" data-tab="efficiency">
+                <h2>Zależność od pogody <span class="st2-sub" id="weather-sub"></span></h2>
+                <div class="st2-weather-text" id="weather-text"></div>
+                <div class="st2-chart st2-chart--square" id="weather-chart-box"><canvas id="chart-weather"></canvas></div>
+              </section>
+    </div>
+  </main>
+</div>
+<script src="shell.js"></script>
+<script src="../js/icons.js"></script>
+<script src="../js/chart.js"></script>
+<script src="../js/stats.js"></script>
+</body>
+</html>
