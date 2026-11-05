@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.64.1 · 05.11.2026 19:20
+
+- Nowe GUI (`/v2/`): gdy statystyki są jeszcze liczone (po starcie), węgiel pobierany ponownie co 15 s zamiast po 5 min - nie wisi „--”.
+
 ## 1.64.0 · 05.11.2026 19:00
 
 - Nowe GUI (osobne, obok obecnego): ekran główny pod adresem `/v2/` - według konceptu z `docs/concept`. Obecne GUI bez zmian.

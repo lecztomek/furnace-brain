@@ -216,8 +216,11 @@
   async function loadCoal() {
     let report = null;
     let forecast = null;
+    clearTimeout(loadCoal.retry);
     try { report = await call("/api/analytics/report"); } catch (err) { /* statistics still being counted */ }
     try { forecast = await call("/api/analytics/forecast"); } catch (err) { /* no forecast */ }
+    // after a start the statistics are counted for a while: ask again soon, not in 5 minutes
+    if (!report || report.stale) loadCoal.retry = setTimeout(loadCoal, 15000);
     if (!report) return;
     const today = report.today;
     const burnt = report.periods?.today?.coal_kg;
