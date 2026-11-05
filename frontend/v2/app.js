@@ -273,6 +273,17 @@
     $("coal-bars").innerHTML = svg;
   }
 
+  // feeder presets: the most power each gives (at 100% the feeder runs on/(on+off) of the time)
+  async function presetPower() {
+    const [kgph, mj] = await Promise.all([configValue("stats", "feeder_kg_per_hour"), configValue("stats", "calorific_mj_per_kg")]);
+    document.querySelectorAll(".feeder-preset-btn").forEach((b) => {
+      const on = Number(b.dataset.feedOn), off = Number(b.dataset.feedOff);
+      const kw = Number(kgph) * (on / (on + off)) * Number(mj) / 3.6;
+      b.querySelector(".preset-sub").textContent = `${Number.isFinite(kw) && kw > 0 ? `maks. ~${num(kw, 0)} kW • ` : ""}${on}s / ${off}s`;
+    });
+  }
+  presetPower();
+
   // after saving in a popup: show the new setpoint right away
   document.addEventListener("click", (e) => {
     if (e.target.closest && e.target.closest("#temp-save, #feeder-save")) setTimeout(loadSetpoint, 1500);

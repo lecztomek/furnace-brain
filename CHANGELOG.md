@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.66.2 · 05.11.2026 22:10
+
+- Nowe GUI (`/v2/`): gotowe ustawienia podajnika nazwane według mocy - Standard, Większa moc, Duża moc - z maksymalną mocą (kW, z wydajności podajnika i kaloryczności węgla) i czasami podawania/przerwy.
+
 ## 1.66.1 · 05.11.2026 21:55
 
 - Nowe GUI (`/v2/`): okienko podajnika szersze - czas podawania i przerwa po lewej, gotowe ustawienia po prawej, „Zapisz” na całą szerokość.
