@@ -2,6 +2,13 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.70.0 · 06.11.2026 00:40
+
+- Nowe GUI (`/v2/`):
+  - Ustawienia jako kafelki z ikonami - po jednym na moduł; dotknięcie otwiera jego ustawienia, duży przycisk „Wszystkie ustawienia” wraca do kafelków (prościej niż przewijane zakładki, też na telefonie). Zapis jak w obecnym GUI.
+  - podstrony (Ustawienia, Ręczne, Logi) na telefonie w pionie: pionowy układ jak ekran główny
+  - „Tryby pracy” wyśrodkowane
+
 ## 1.69.1 · 06.11.2026 00:15
 
 - Nowe GUI (`/v2/`):

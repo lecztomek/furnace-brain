@@ -12,6 +12,13 @@
 <!-- the same element ids as the current GUI's settings page: its script (js/settings-config.js) drives this one -->
 <div class="stage page" id="stage" data-title="Ustawienia">
   <main class="card settings-page">
+    <!-- the tiles: one per module -->
+    <div class="set-tiles" id="set-tiles"></div>
+    <!-- a module's settings, with the way back to the tiles -->
+    <div class="set-bar">
+      <button class="set-back" id="set-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Wszystkie ustawienia</button>
+      <span class="set-name" id="set-name"></span>
+    </div>
     <div id="config-root" class="config-root">
       <div id="config-tabs-header" class="config-tabs-header"></div>
       <div id="config-tabs-body" class="config-tabs-body"></div>
@@ -21,5 +28,6 @@
 </div>
 <script src="shell.js"></script>
 <script src="../js/settings-config.js"></script>
+<script src="settings-tiles.js"></script>
 </body>
 </html>

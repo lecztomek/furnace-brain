@@ -49,13 +49,25 @@ input[type=range]::-moz-range-thumb { width: 46px; height: 46px; border-radius: 
 
 /* ---------- Ustawienia (js/settings-config.js builds the tabs and the fields) ---------- */
 .settings-page { display: grid; grid-template-rows: 1fr auto; gap: 6px; padding: 14px 18px 10px; }
-.config-root { display: grid; grid-template-rows: auto 1fr auto; gap: 12px; min-height: 0; }
-.config-tabs-header { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent); mask-image: linear-gradient(90deg, #000 92%, transparent); }
-.config-tabs-header::-webkit-scrollbar { display: none; }
-.config-tab-button { flex: none; height: 58px; padding: 0 22px; border-radius: 29px; font-size: 22px; font-weight: 700; white-space: nowrap;
-  color: #dfe2e6; background: linear-gradient(180deg, #2e333a, #1c1f24); border: 1.5px solid rgba(255, 255, 255, 0.2); }
-.config-tab-button.active { color: #111; background: linear-gradient(180deg, var(--yellow), #e6b800); border-color: var(--yellow); }
+/* tiles view: only the tiles; detail view: the bar, the fields and "Zapisz" */
+.set-tiles { display: grid; grid-template-columns: repeat(5, 1fr); grid-auto-rows: 98px; gap: 10px; overflow-y: auto; min-height: 0; }
+.set-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 6px 8px; border-radius: 18px;
+  font-size: 20px; font-weight: 700; line-height: 1.15; text-align: center; color: #eef0f2;
+  background: linear-gradient(180deg, rgba(52, 57, 66, 0.95), rgba(28, 31, 36, 0.98)); border: 1.5px solid rgba(255, 255, 255, 0.16); }
+.set-tile svg { width: 40px; height: 40px; color: var(--yellow-soft); flex: none; }
+.set-tile:active { border-color: var(--yellow); }
+.set-bar, .config-root, .settings-page .mp-status { display: none; }
+.settings-page.detail .set-tiles { display: none; }
+.settings-page.detail { grid-template-rows: auto 1fr auto; }
+.settings-page.detail .set-bar { display: flex; align-items: center; gap: 18px; }
+.settings-page.detail .config-root { display: grid; }
+.settings-page.detail .mp-status { display: block; }
+.set-back { display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 22px 0 14px; border-radius: 18px; font-size: 26px; font-weight: 800; color: #111;
+  background: linear-gradient(180deg, var(--yellow), #e6b800); border: 2px solid #ffe680; }
+.set-back svg { width: 34px; height: 34px; }
+.set-name { font-size: 30px; font-weight: 700; }
+.config-root { grid-template-rows: 1fr auto; gap: 12px; min-height: 0; }
+.config-tabs-header { display: none !important; }
 .config-tabs-body { min-height: 0; overflow-y: auto; padding-right: 6px; }
 .config-tab-panel { display: none; }
 .config-tab-panel.active { display: block; }
@@ -123,3 +135,18 @@ input[type=range]::-moz-range-thumb { width: 46px; height: 46px; border-radius: 
 .log-popup__data { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin-top: 12px; font-size: 20px; }
 .log-popup__key { color: var(--muted); }
 .log-popup__value { word-break: break-word; }
+
+/* a phone held upright */
+.stage.portrait.page { grid-template-rows: 84px 1fr; }
+.stage.portrait .set-tiles { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 150px; }
+.stage.portrait .set-tile { font-size: 22px; }
+.stage.portrait .set-tile svg { width: 52px; height: 52px; }
+.stage.portrait .mp-grid { grid-template-columns: 1fr; }
+.stage.portrait .config-field-main { flex-wrap: wrap; }
+.stage.portrait .config-field-label { flex-basis: 100%; }
+.stage.portrait .config-field-controls { margin-left: auto; }
+.stage.portrait .logs-header-row, .stage.portrait .log-row { grid-template-columns: 150px 1fr; }
+.stage.portrait .log-level, .stage.portrait .log-src, .stage.portrait .logs-col-level, .stage.portrait .logs-col-src { display: none; }
+.stage.portrait .logs-filters { flex-wrap: wrap; }
+.set-back { white-space: nowrap; }
+.stage.portrait .settings-page.detail .set-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
