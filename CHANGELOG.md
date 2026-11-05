@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.63.4 · 05.11.2026 17:30
+
+- Dokumentacja: nowsza wersja konceptu ekranu głównego w `docs/concept` (moc jako wskaźnik kołowy, karta węgla ze słupkami z 3 dni, menu ☰ po prawej, większy górny pasek i spaliny) - tylko szkic wyglądu, sterownik bez zmian.
+
 ## 1.63.3 · 05.11.2026 15:30
 
 - Dokumentacja: koncept nowego ekranu głównego w `docs/concept` (plik HTML i zrzuty) - tylko szkic wyglądu, sterownik bez zmian.

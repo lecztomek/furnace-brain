@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Panel kotła – koncept 10</title>
+<title>Panel kotła – koncept 14</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@500;600;700&display=block">
 <style>
   /* drawn on a 1440x850 grid (the concept's look, no side menu), scaled to the screen */
@@ -14,20 +14,20 @@
   svg text { font-family: "Red Hat Display", "Segoe UI", system-ui, sans-serif; }
   .stage { position: absolute; left: 0; top: 0; width: 1440px; height: 850px; transform-origin: 0 0; overflow: hidden;
     background: radial-gradient(ellipse 60% 70% at 50% 40%, #15181c 0%, #0b0d10 60%, #08090b 100%);
-    display: grid; grid-template-rows: 84px 1fr 188px; gap: 18px; padding: 10px 22px 20px; }
+    display: grid; grid-template-rows: 96px 1fr 188px; gap: 18px; padding: 10px 22px 20px; }
   .wedge { position: absolute; pointer-events: none; z-index: 0; }
 
   /* header */
   header { position: relative; display: flex; align-items: center; gap: 22px; z-index: 1; }
-  .burger { width: 66px; height: 66px; border-radius: 16px; display: grid; place-items: center; cursor: pointer;
+  .burger { width: 86px; height: 86px; border-radius: 20px; margin-left: 6px; display: grid; place-items: center; cursor: pointer;
     background: linear-gradient(180deg, #2b3037, #1a1d22); border: 1px solid rgba(255,255,255,0.18); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08); }
-  .burger svg { width: 36px; height: 36px; }
+  .burger svg { width: 50px; height: 50px; }
   .slashbar { width: 6px; height: 54px; background: #f5c518; transform: skewX(-22deg); border-radius: 3px; }
   .title b { display: block; font-size: 40px; font-weight: 600; letter-spacing: -.3px; line-height: 1.1; }
   .title span { display: block; font-size: 24px; font-weight: 500; color: #c3c8cf; }
-  .hdr-right { margin-left: auto; display: flex; align-items: center; gap: 26px; font-size: 26px; color: #e6e8eb; }
+  .hdr-right { margin-left: auto; display: flex; align-items: center; gap: 28px; font-size: 34px; font-weight: 600; color: #e6e8eb; }
   .hdr-right .vr { width: 2px; height: 42px; background: rgba(255,255,255,0.3); }
-  .hdr-right .clock { font-size: 50px; font-weight: 700; color: #fff; }
+  .hdr-right .clock { font-size: 74px; font-weight: 700; color: #fff; }
   .hdr-right .ok { color: #3ddc7a; font-weight: 700; display: flex; align-items: center; gap: 8px; }
   .head-glass { position: absolute; left: 0; top: 0; width: 760px; height: 104px; z-index: 0;
     background: linear-gradient(180deg, rgba(48,52,60,0.5), rgba(30,33,38,0.2)); clip-path: polygon(0 0, 100% 0, 93% 100%, 0 100%); }
@@ -39,7 +39,7 @@
   .m-title svg { width: 40px; height: 40px; }
   .m-title small { font-size: 20px; color: #aeb5be; font-weight: 500; }
   .scene { width: 100%; height: 100%; }
-  .side { display: grid; grid-template-rows: repeat(3, 1fr); gap: 14px; min-height: 0; }
+  .side { display: grid; grid-template-rows: 1.25fr 1fr; gap: 14px; min-height: 0; }
   .status { display: grid; grid-template-columns: repeat(5, 1fr); z-index: 1; }
   .st { display: flex; align-items: center; gap: 18px; padding-left: 26px; min-width: 0; }
   .st + .st { border-left: 1px solid rgba(255,255,255,0.1); }
@@ -58,14 +58,6 @@
     clip-path: polygon(0 0, 100% 0, 92% 100%, 0 100%); border-bottom: 1px solid rgba(255,255,255,0.08); }
   .brand-mark { left: 58px; top: 22px; width: 64px; height: 64px; }
   .brand-name { left: 140px; top: 34px; font-size: 32px; font-weight: 700; letter-spacing: 3px; }
-  .slashbar { left: 360px; top: 26px; width: 6px; height: 54px; background: #f5c518; transform: skewX(-22deg); border-radius: 3px; }
-  .title { left: 426px; top: 12px; }
-  .title b { display: block; font-size: 40px; font-weight: 600; letter-spacing: -.3px; }
-  .title span { display: block; font-size: 26px; font-weight: 500; color: #c3c8cf; margin-top: 2px; }
-  .hdr-right { right: 42px; top: 22px; height: 56px; display: flex; align-items: center; gap: 28px; font-size: 24px; color: #e6e8eb; }
-  .hdr-right .vr { width: 2px; height: 42px; background: rgba(255,255,255,0.3); }
-  .hdr-right .clock { font-size: 46px; font-weight: 700; color: #fff; }
-  .hdr-right .ok { color: #3ddc7a; font-weight: 700; display: flex; align-items: center; gap: 8px; }
 
   /* nav */
   .nav-item { left: 0; width: 262px; height: 80px; display: flex; align-items: center; gap: 22px; padding-left: 38px; font-size: 24px; font-weight: 500; color: #e9ebee; }
@@ -155,13 +147,40 @@
   .t-blue { border-left: 6px solid #4aa8ff !important; } .t-blue .chip { background: rgba(74,168,255,0.16); color: #7cc4ff; } .t-blue .tv { color: #cfe8ff; }
   .t-yellow { border-left: 6px solid #f5c518 !important; } .t-yellow .chip { background: rgba(245,197,24,0.16); color: #ffd84d; } .t-yellow .tv { color: #ffd84d; }
   .t-orange { border-left: 6px solid #f97316 !important; } .t-orange .chip { background: rgba(249,115,22,0.16); color: #fb923c; } .t-orange .tv { color: #fdba74; }
+  .vrow { display: flex; align-items: center; gap: 16px; padding: 0 22px 0 18px; min-height: 0; }
+  .vrow > svg { width: 56px; height: 56px; flex: none; }
+  .vrow .n { font-size: 30px; font-weight: 600; line-height: 1.1; white-space: nowrap; }
+  .vrow .s { font-size: 26px; color: #aeb5be; }
+  .vrow .s b { color: #fff; }
+  .vrow .v { margin-left: auto; font-size: 70px; font-weight: 700; letter-spacing: -1px; white-space: nowrap; }
+  .vrow .v small { font-size: 30px; font-weight: 600; color: #dfe2e6; margin-left: 4px; letter-spacing: 0; }
+  .power { display: flex; align-items: center; gap: 22px; padding: 10px 22px; min-height: 0; }
+  .power .ring { height: 100%; max-height: 186px; width: auto; flex: none; }
+  .power .n { font-size: 30px; font-weight: 600; color: #dfe2e6; white-space: nowrap; }
+  .power .pv { font-size: 76px; font-weight: 700; color: #ffd84d; line-height: 1; letter-spacing: -1px; }
+  .power .pv small { font-size: 36px; margin-left: 4px; }
+  .coal2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; min-height: 0; }
+  .ct { display: flex; flex-direction: column; justify-content: center; padding: 10px 14px; min-height: 0; }
+  .ct .ch { display: flex; align-items: center; gap: 10px; white-space: nowrap; font-size: 23px; font-weight: 600; color: #dfe2e6; }
+  .ct .ch svg { width: 32px; height: 32px; flex: none; }
+  .ct .cv { font-size: 56px; font-weight: 700; line-height: 1.05; letter-spacing: -1px; margin-top: 6px; }
+  .ct .cv small { font-size: 26px; font-weight: 600; color: #dfe2e6; margin-left: 4px; letter-spacing: 0; }
+  .coal { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 20px; min-height: 0; }
+  .coal .cl { flex: 1; min-width: 0; }
+  .coal .ch { display: flex; align-items: center; gap: 10px; font-size: 26px; font-weight: 600; color: #dfe2e6; white-space: nowrap; }
+  .coal .ch svg { width: 34px; height: 34px; flex: none; }
+  .coal .cv { font-size: 72px; font-weight: 700; line-height: 1; letter-spacing: -1px; margin-top: 4px; }
+  .coal .cv small { font-size: 32px; font-weight: 600; color: #dfe2e6; margin-left: 4px; letter-spacing: 0; }
+  .coal .cs { font-size: 24px; color: #aeb5be; margin-top: 4px; white-space: nowrap; }
+  .coal .cs b { color: #fff; }
+  .coal .bars { height: 100%; max-height: 190px; width: auto; flex: none; }
   /* the menu: slides in from the left */
-  .drawer { position: absolute; left: 0; top: 0; bottom: 0; width: 340px; z-index: 5; transform: translateX(-105%); transition: transform .2s ease-out;
-    background: linear-gradient(180deg, #1c2026, #121417); border-right: 1px solid rgba(255,255,255,0.12); padding: 110px 0 20px; box-shadow: 12px 0 40px rgba(0,0,0,0.6); }
+  .drawer { position: absolute; right: 0; top: 0; bottom: 0; width: 360px; z-index: 5; transform: translateX(105%); transition: transform .2s ease-out;
+    background: linear-gradient(180deg, #1c2026, #121417); border-left: 1px solid rgba(255,255,255,0.12); padding: 120px 0 20px; box-shadow: -12px 0 40px rgba(0,0,0,0.6); }
   .drawer.open { transform: none; }
   .drawer a { display: flex; align-items: center; gap: 22px; padding: 0 0 0 36px; height: 86px; color: #e9ebee; text-decoration: none; font-size: 30px; font-weight: 600; }
   .drawer a svg { width: 44px; height: 44px; }
-  .drawer a.active { color: #111; background: linear-gradient(90deg, #ffd21f, #f4c000); clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%); }
+  .drawer a.active { color: #111; background: linear-gradient(90deg, #ffd21f, #f4c000); clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%); padding-left: 56px; }
   .shade { position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 4; display: none; }
   .shade.open { display: block; }
 
@@ -183,16 +202,17 @@
   <div class="head-glass"></div>
 
   <header>
-    <div class="burger" id="burger"><svg viewBox="0 0 24 24" fill="none" stroke="#f2f3f5" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></div>
+
     <div class="slashbar"></div>
     <div class="title"><b>Sterownik kotła</b><span>Węgiel</span></div>
     <div class="hdr-right">
-      <span class="ok"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>OK</span>
-      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#e6e8eb" stroke-width="1.7"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.4 1.5A3.3 3.3 0 0 0 7 18z"/></svg>
-      <span>5,8 °C</span>
+      <span class="ok"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>OK</span>
+      <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#e6e8eb" stroke-width="1.6"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.4 1.5A3.3 3.3 0 0 0 7 18z"/></svg>
+      <span style="color:#fff;font-weight:700;font-size:48px">5,8 °C</span>
       <span class="vr"></span>
       <span>Czw, 5 lis</span>
       <span class="clock">11:42</span>
+      <div class="burger" id="burger"><svg viewBox="0 0 24 24" fill="none" stroke="#f2f3f5" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></div>
     </div>
   </header>
 
@@ -224,10 +244,10 @@
     <!-- chimney on the boiler, the flue gas next to it -->
     <rect x="146" y="2" width="30" height="50" rx="4" fill="#1a1d21" stroke="#e8ebee" stroke-width="4"/>
     <g transform="translate(198 0)">
-      <rect x="0" y="0" width="200" height="88" rx="16" fill="#1a1c20" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
-      <g fill="none" stroke="#c7ccd2" stroke-width="3" stroke-linecap="round"><path d="M22 34c-4-6 4-9 0-15M34 34c-4-6 4-9 0-15M46 34c-4-6 4-9 0-15"/></g>
-      <text x="62" y="36" fill="#aeb5be" font-size="22" font-weight="500">Spaliny</text>
-      <text x="62" y="74" fill="#fff" font-size="38" font-weight="600">59 °C</text>
+      <rect x="0" y="0" width="236" height="110" rx="18" fill="#1a1c20" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+      <g fill="none" stroke="#c7ccd2" stroke-width="3.5" stroke-linecap="round"><path d="M22 40c-5-7 5-11 0-18M36 40c-5-7 5-11 0-18M50 40c-5-7 5-11 0-18"/></g>
+      <text x="70" y="40" fill="#aeb5be" font-size="27" font-weight="600">Spaliny</text>
+      <text x="68" y="94" fill="#fff" font-size="52" font-weight="700">59 °C</text>
     </g>
     <!-- boiler -->
     <rect x="88" y="48" width="96" height="30" rx="7" fill="#1a1d21" stroke="#e8ebee" stroke-width="4"/>
@@ -235,8 +255,8 @@
     <rect x="60" y="376" width="22" height="16" rx="3" fill="#121417" stroke="#e8ebee" stroke-width="3"/>
     <rect x="186" y="376" width="22" height="16" rx="3" fill="#121417" stroke="#e8ebee" stroke-width="3"/>
     <text x="134" y="168" text-anchor="middle" fill="#fff" font-size="54" font-weight="600" letter-spacing="-1">58,4<tspan font-size="28" dx="3" dy="-20">°C</tspan></text>
-    <text x="134" y="206" text-anchor="middle" fill="#3ddc7a" font-size="21" font-weight="600">▲ 0,3°/10 min</text>
-    <text x="134" y="238" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500">zadana <tspan fill="#ffd21f" font-weight="700">58 °C</tspan></text>
+    <text x="134" y="206" text-anchor="middle" fill="#3ddc7a" font-size="27" font-weight="700">+0,3°/10 min</text>
+    <text x="134" y="242" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500">zadana <tspan fill="#ffd21f" font-weight="700">58 °C</tspan></text>
     <!-- fire -->
     <rect x="70" y="256" width="128" height="104" rx="6" fill="#140800" stroke="#5c6168" stroke-width="3"/>
     <rect x="70" y="256" width="128" height="104" rx="6" fill="url(#fg)"/>
@@ -257,20 +277,37 @@
   </svg>
 
     <section class="side">
-      <div class="card tile2 t-blue">
-        <div class="th"><span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.4 1.5A3.3 3.3 0 0 0 7 18z"/></svg></span>Na zewnątrz</div>
-        <div class="tv">5,8<small>°C</small></div>
-        <div class="ts">średnio 12 h <b>6,2°</b></div>
+      <div class="card power">
+        <svg class="ring" viewBox="0 0 200 200">
+          <defs><linearGradient id="pr" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f5c518"/><stop offset="1" stop-color="#ffe066"/></linearGradient></defs>
+          <!-- r=82: 2πr = 515; 44% = 227 -->
+          <circle cx="100" cy="100" r="82" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="18"/>
+          <circle cx="100" cy="100" r="82" fill="none" stroke="url(#pr)" stroke-width="18" stroke-linecap="round" stroke-dasharray="227 515" transform="rotate(-90 100 100)"/>
+          <text x="100" y="108" text-anchor="middle" fill="#fff" font-size="50" font-weight="700">5,6</text>
+          <text x="100" y="140" text-anchor="middle" fill="#aeb5be" font-size="24" font-weight="600">kW</text>
+        </svg>
+        <div><div class="n">Moc pieca</div><div class="pv">44<small>%</small></div></div>
       </div>
-      <div class="card tile2 t-yellow">
-        <div class="th"><span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span>Moc pieca</div>
-        <div class="tv">44<small>%</small><span class="tv2">5,6 kW</span></div>
-        <div class="bar"><i style="width:44%"></i></div>
-      </div>
-      <div class="card tile2 t-orange">
-        <div class="th"><span class="chip"><svg viewBox="0 0 24 24"><path d="M3 15.5 5.5 8 11 5l6.5 2.5L21 13l-3 5.5-8 1.5-5-2z" fill="currentColor"/><path d="M5.5 8 11 5l-1 6.5z" fill="#fff" opacity=".4"/></svg></span>Węgiel dziś</div>
-        <div class="tv">7,2<small>kg</small></div>
-        <div class="ts"><b>0,69 kg/h</b> • doba ~17 kg</div>
+      <div class="card coal">
+        <div class="cl">
+          <div class="ch"><svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.6" stroke-linejoin="round"><path d="M3 15.5 5.5 8 11 5l6.5 2.5L21 13l-3 5.5-8 1.5-5-2z"/><path d="M5.5 8 10 11.5 11 5M10 11.5l7.5-4M10 11.5 10 20"/></svg>Węgiel dziś</div>
+          <div class="cv">7,2<small>kg</small></div>
+          <div class="cs">teraz <b>0,69</b> kg/h</div>
+        </div>
+        <svg class="bars" viewBox="0 0 170 180">
+          <g font-size="25" font-weight="700" text-anchor="middle">
+            <rect x="6" y="54" width="42" height="92" rx="8" fill="#4b525c"/>
+            <text x="27" y="44" fill="#c3c8cf">17</text>
+            <text x="27" y="176" fill="#aeb5be" font-weight="600">wt</text>
+            <rect x="64" y="51" width="42" height="95" rx="8" fill="#4b525c"/>
+            <text x="85" y="41" fill="#c3c8cf">17</text>
+            <text x="85" y="176" fill="#aeb5be" font-weight="600">śr</text>
+            <rect x="122" y="47" width="42" height="99" rx="8" fill="none" stroke="#ffd84d" stroke-width="2.5" stroke-dasharray="6 5" opacity=".7"/>
+            <rect x="122" y="107" width="42" height="39" rx="8" fill="#ffd84d"/>
+            <text x="143" y="37" fill="#ffd84d">~18</text>
+            <text x="143" y="176" fill="#ffd84d">dziś</text>
+          </g>
+        </svg>
       </div>
     </section>
   </div>
