@@ -143,5 +143,30 @@
 <script src="../js/icons.js"></script>
 <script src="../js/chart.js"></script>
 <script src="../js/stats.js"></script>
+<script>
+  // the calendar without colours: the coal view shows kg, the quality view the % of the time within ±2°C
+  (function () {
+    const page = document.querySelector(".stats-page");
+    const grid = document.getElementById("cal-grid");
+    function quality() {
+      if (!page.classList.contains("cal-quality")) return;
+      grid.querySelectorAll("button.st2-cal-day[data-day]").forEach((d) => {
+        const kg = d.querySelector(".st2-cal-kg");
+        if (!kg || kg.dataset.q) return;
+        const w = d.dataset.w2;
+        kg.dataset.q = "1";
+        kg.innerHTML = w === "" ? "–" : `${Math.round(Number(w))}<small>%</small>`;
+        const cls = w === "" ? "" : Number(w) >= 85 ? "q-good" : Number(w) >= 65 ? "q-mid" : "q-bad";
+        if (cls) kg.classList.add(cls);
+      });
+    }
+    document.getElementById("cal-mode").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-mode]");
+      if (b) page.classList.toggle("cal-quality", b.dataset.mode === "quality");
+      quality();
+    });
+    new MutationObserver(quality).observe(grid, { childList: true });
+  })();
+</script>
 </body>
 </html>

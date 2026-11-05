@@ -2,6 +2,13 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.72.1 · 06.11.2026 02:00
+
+- Nowe GUI (`/v2/`):
+  - jeden cienki pasek przewijania w całym GUI (żółty uchwyt, ciemne tło) zamiast systemowego
+  - Kalendarz bez kolorów: każdy dzień ten sam ciemny kafel; dni, które minęły, z żółtawą obwódką, dzisiaj mocna żółta, przyszłe przygaszone. „Węgiel”: kg i żółte węgielki; „Jakość”: % czasu w ±2°C (zielony / żółty / czerwony napis).
+- Statystyki (wspólny skrypt): dzień w kalendarzu niesie swoją jakość (% w ±2°C) jako atrybut - bez zmian w wyglądzie obecnego GUI.
+
 ## 1.72.0 · 06.11.2026 01:40
 
 - Nowe GUI (`/v2/`): strona „Statystyki” w nowym wyglądzie - ta sama treść co w obecnym GUI (wspólny skrypt i obliczenia): Zużycie, Prognoza, Praca, Sprawność, Kalendarz. Zakładki jako duże przyciski, aktywna i wybrany okres na żółto, ramka z górnym paskiem i menu ☰ jak na innych stronach.

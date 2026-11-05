@@ -634,7 +634,7 @@
       const today = x.key === report.today ? " is-today" : "";
       const ink = calInk(x.d);
       // the day: the colour is its weather, the kg and the lumps its coal
-      return `<button type="button" class="st2-cal-day${today}${ink ? " is-light" : ""}" data-day="${x.key}" style="background:${calBackground(x.d)}${ink}">` +
+      return `<button type="button" class="st2-cal-day${today}${ink ? " is-light" : ""}" data-day="${x.key}" data-w2="${x.d.within_2 ?? ""}" style="background:${calBackground(x.d)}${ink}">` +
         `<span class="st2-cal-n">${x.n}</span>` +
         (x.d.outside != null ? `<span class="st2-cal-wx">${calWeather(x.d.outside)}</span>` : "") +
         `<span class="st2-cal-kg">${num(kg, kg < 10 ? 1 : 0)}<small> kg</small></span>` +

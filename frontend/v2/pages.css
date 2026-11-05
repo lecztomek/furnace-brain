@@ -174,3 +174,18 @@ body { background: #07080a; font-family: "Red Hat Display", "Segoe UI", system-u
 .stats-page .st2-periods button.active { color: #111; background: var(--yellow); border-color: var(--yellow); }
 .stats-page .st2-status { color: var(--muted); }
 .stats-page .sv-tile { border-radius: 16px; background: rgba(0, 0, 0, 0.25); }
+/* calendar: no colours - every day the same dark tile; days gone by framed, today in yellow, the future faint */
+.stats-page button.st2-cal-day[data-day] { background: linear-gradient(180deg, #2b3037, #1b1e23) !important;
+  color: #f2f3f5 !important; text-shadow: none !important; border: 1.5px solid rgba(255, 210, 31, 0.35) !important; }
+.stats-page button.st2-cal-day.is-today { border: 3px solid var(--yellow) !important; }
+.stats-page .st2-cal-day.is-empty:not(.is-future) { border: 1.5px solid rgba(255, 255, 255, 0.14); }
+.stats-page .st2-cal-day.is-future { opacity: .45; }
+.stats-page .st2-cal-day .st2-cal-kg { color: var(--yellow-soft) !important; }
+.stats-page .st2-cal-legend { display: none; }
+.stats-page .st2-cal-lumps i svg path { fill: #ffd84d !important; stroke: none !important; }
+.stats-page .st2-cal-lumps i { opacity: .2; }
+.stats-page .st2-cal-lumps i.on { opacity: 1; }
+.stats-page.cal-quality .st2-cal-lumps { visibility: hidden; }
+.stats-page.cal-quality .st2-cal-kg.q-good { color: var(--green) !important; }
+.stats-page.cal-quality .st2-cal-kg.q-mid { color: var(--yellow-soft) !important; }
+.stats-page.cal-quality .st2-cal-kg.q-bad { color: var(--red) !important; }

@@ -222,3 +222,10 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 .stage.portrait .sign-pop { width: 680px; }
 .stage.portrait .sign { height: 56px; font-size: 24px; padding: 0 14px 0 10px; }
 .stage.portrait .sign svg { width: 34px; height: 34px; }
+
+/* one slim scrollbar everywhere (instead of the system one): dark track, yellow thumb */
+* { scrollbar-width: thin; scrollbar-color: rgba(255, 210, 31, 0.55) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.04); border-radius: 5px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 210, 31, 0.55); border-radius: 5px; }
+::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
