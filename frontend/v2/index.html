@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sterownik kotła</title>
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="stage" id="stage">
+  <svg class="wedge" style="left:0;bottom:0" width="110" height="200" viewBox="0 0 110 200">
+    <defs><linearGradient id="wy" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ffd21f"/><stop offset="1" stop-color="#b88a00"/></linearGradient></defs>
+    <path d="M0 60 L100 0 L30 200 L0 200Z" fill="url(#wy)" opacity=".9"/>
+  </svg>
+  <svg class="wedge" style="right:0;top:110px" width="60" height="200" viewBox="0 0 60 200"><path d="M60 0 L60 110 L10 200 L36 80Z" fill="#ffd21f" opacity=".9"/></svg>
+  <div class="head-glass"></div>
+
+  <!-- header: status, outside, date, clock, menu -->
+  <header>
+    <div class="slashbar"></div>
+    <div class="title"><b>Sterownik kotła</b><span>Węgiel</span></div>
+    <div class="hdr-right">
+      <span class="sign" id="sign"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><span id="sign-text">…</span></span>
+      <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#e6e8eb" stroke-width="1.6"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.4 1.5A3.3 3.3 0 0 0 7 18z"/></svg>
+      <span class="outside" id="outside">--</span>
+      <span class="vr"></span>
+      <span id="date"></span>
+      <span class="clock" id="clock"></span>
+      <button class="burger" id="burger" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="#f2f3f5" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </header>
+
+  <div class="row1">
+    <!-- devices -->
+    <section class="devs">
+      <div class="card dev manual">
+        <svg viewBox="0 0 24 24" fill="#e9ebee"><circle cx="12" cy="12" r="2"/><path d="M12 10c1-5 6-7 7-4s-3 5-7 4zM14 12c5 1 7 6 4 7s-5-3-4-7zM12 14c-1 5-6 7-7 4s3-5 7-4zM10 12c-5-1-7-6-4-7s5 3 4 7z"/></svg>
+        <div class="dn"><div class="n">Dmuchawa</div><div class="s" id="fan-sub"></div></div>
+        <span class="ctl"><span class="pill" id="fan-pill">--</span><button class="toggle" id="fan-toggle" aria-label="Dmuchawa ręcznie"></button></span>
+      </div>
+      <div class="card dev manual">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.8" stroke-linecap="round"><path d="M2 12h20M5 8l3 8M10 8l3 8M15 8l3 8"/></svg>
+        <div class="dn"><div class="n">Ślimak</div><div class="s">podajnik <b id="hopper">--</b></div></div>
+        <span class="ctl"><span class="pill" id="feeder-pill">--</span><button class="toggle" id="feeder-toggle" aria-label="Ślimak ręcznie"></button></span>
+      </div>
+      <div class="card dev">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.5"><circle cx="12" cy="12" r="9.5"/><path d="M10 8v8l6-4z"/></svg>
+        <div class="dn"><div class="n">Pompa CO</div></div>
+        <span class="ctl"><span class="pill" id="co-pill">--</span></span>
+      </div>
+      <div class="card dev">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.5"><circle cx="12" cy="12" r="9.5"/><path d="M10 8v8l6-4z"/></svg>
+        <div class="dn"><div class="n">Pompa CWU</div></div>
+        <span class="ctl"><span class="pill" id="cwu-pill">--</span></span>
+      </div>
+      <div class="card dev">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.5" stroke-linejoin="round"><path d="M3 7v10l9-5zM21 7v10l-9-5z"/><path d="M12 12V5M9 4h6"/></svg>
+        <div class="dn"><div class="n">Zawór</div><div class="s">mieszający</div></div>
+        <span class="ctl"><span class="pill val" id="mixer-pill">--</span></span>
+      </div>
+      <div class="hint" id="hint">w STOP: dmuchawa i ślimak ręcznie</div>
+    </section>
+
+    <!-- the picture: boiler with chimney and flue gas, radiator -->
+    <svg class="scene" id="scene" viewBox="0 0 520 400" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="bb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2d3238"/><stop offset="1" stop-color="#121417"/></linearGradient>
+        <radialGradient id="fg" cx=".5" cy=".9" r=".9"><stop offset="0" stop-color="#ff9a1a" stop-opacity=".9"/><stop offset=".55" stop-color="#ff6a00" stop-opacity=".35"/><stop offset="1" stop-color="#120700" stop-opacity="0"/></radialGradient>
+        <linearGradient id="f1" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff5a00"/><stop offset=".55" stop-color="#ffa000"/><stop offset="1" stop-color="#ffe680"/></linearGradient>
+        <linearGradient id="f2" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ffb200"/><stop offset="1" stop-color="#fff6c8"/></linearGradient>
+        <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+      </defs>
+      <!-- pipes: hot into the radiator's top, cold back from its bottom -->
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M222 170H286V226H324" stroke="#ffd21f" stroke-width="9" opacity=".25" filter="url(#soft)"/>
+        <path d="M222 170H286V226H324" stroke="#ffd21f" stroke-width="7"/>
+        <path class="flow" d="M222 170H286V226H324" stroke="#fff3b0" stroke-width="2.5"/>
+        <path d="M222 340H286V324H324" stroke="#4aa8ff" stroke-width="9" opacity=".25" filter="url(#soft)"/>
+        <path d="M222 340H286V324H324" stroke="#4aa8ff" stroke-width="7"/>
+      </g>
+      <!-- chimney + flue gas -->
+      <rect x="146" y="2" width="30" height="50" rx="4" fill="#1a1d21" stroke="#e8ebee" stroke-width="4"/>
+      <g transform="translate(198 0)">
+        <rect x="0" y="0" width="236" height="110" rx="18" fill="#1a1c20" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+        <g fill="none" stroke="#c7ccd2" stroke-width="3.5" stroke-linecap="round"><path d="M22 40c-5-7 5-11 0-18M36 40c-5-7 5-11 0-18M50 40c-5-7 5-11 0-18"/></g>
+        <text x="70" y="40" fill="#aeb5be" font-size="27" font-weight="600">Spaliny</text>
+        <text x="68" y="94" fill="#fff" font-size="52" font-weight="700" id="flue">--</text>
+      </g>
+      <!-- boiler -->
+      <rect x="88" y="48" width="96" height="30" rx="7" fill="#1a1d21" stroke="#e8ebee" stroke-width="4"/>
+      <rect x="45" y="72" width="178" height="306" rx="20" fill="url(#bb)" stroke="#e8ebee" stroke-width="4.5"/>
+      <rect x="60" y="376" width="22" height="16" rx="3" fill="#121417" stroke="#e8ebee" stroke-width="3"/>
+      <rect x="186" y="376" width="22" height="16" rx="3" fill="#121417" stroke="#e8ebee" stroke-width="3"/>
+      <text x="134" y="168" text-anchor="middle" fill="#fff" font-size="54" font-weight="600" letter-spacing="-1"><tspan id="boiler">--</tspan><tspan font-size="28" dx="3" dy="-20">°C</tspan></text>
+      <text x="134" y="206" text-anchor="middle" fill="#3ddc7a" font-size="27" font-weight="700" id="trend"></text>
+      <text x="134" y="242" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500">zadana <tspan fill="#ffd21f" font-weight="700" id="boiler-set">--</tspan></text>
+      <!-- fire: burns while the boiler is in work or ignition -->
+      <rect x="70" y="256" width="128" height="104" rx="6" fill="#140800" stroke="#5c6168" stroke-width="3"/>
+      <rect class="glow" x="70" y="256" width="128" height="104" rx="6" fill="url(#fg)"/>
+      <g class="flame"><path d="M134 356c-30 0-40-18-33-38 4 7 9 10 13 9-5-19 6-32 19-42-1 14 7 20 12 25 3-6 2-12 0-17 13 10 22 24 19 41-3 15-12 22-30 22z" fill="url(#f1)"/></g>
+      <g class="flame f2"><path d="M98 356c-12 0-16-8-13-16 2 3 4 4 5 3-1-8 3-12 7-15 0 6 3 8 5 11 4 9 4 17-4 17zM172 356c-12 0-16-8-13-16 2 3 4 4 5 3-1-8 3-12 7-15 0 6 3 8 5 11 4 9 4 17-4 17z" fill="url(#f1)" opacity=".9"/></g>
+      <g class="flame f2"><path d="M134 356c-11 0-15-7-12-14 2 3 4 4 5 3 0-8 3-12 7-15 0 6 3 9 5 11 4 8 3 15-5 15z" fill="url(#f2)"/></g>
+      <!-- radiator -->
+      <g transform="translate(318 192)">
+        <g stroke="#eceef1" stroke-width="5" stroke-linecap="round" fill="none">
+          <path d="M14 20v128M36 20v128M58 20v128M80 20v128M102 20v128M124 20v128M146 20v128M168 20v128"/>
+          <path d="M4 34h176M4 134h176"/>
+        </g>
+        <rect x="24" y="52" width="134" height="68" rx="14" fill="#1a1c20" stroke="#ffd21f" stroke-width="3"/>
+        <text x="91" y="99" text-anchor="middle" fill="#fff" font-size="40" font-weight="600" id="rad">--</text>
+        <text x="91" y="182" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500"><tspan id="rad-label">zadana</tspan> <tspan fill="#fff" font-weight="700" id="rad-set">--</tspan></text>
+      </g>
+      <g class="heat" stroke="#ffd21f" stroke-width="5" fill="none" stroke-linecap="round"><path d="M372 180c-6-8 6-13 0-22M402 180c-6-8 6-13 0-22M432 180c-6-8 6-13 0-22"/></g>
+    </svg>
+
+    <!-- power and coal -->
+    <section class="side">
+      <div class="card power">
+        <svg class="ring" viewBox="0 0 200 200">
+          <defs><linearGradient id="pr" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f5c518"/><stop offset="1" stop-color="#ffe066"/></linearGradient></defs>
+          <circle cx="100" cy="100" r="82" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="18"/>
+          <circle id="power-arc" cx="100" cy="100" r="82" fill="none" stroke="url(#pr)" stroke-width="18" stroke-linecap="round" stroke-dasharray="0 515" transform="rotate(-90 100 100)"/>
+          <text x="100" y="108" text-anchor="middle" fill="#fff" font-size="50" font-weight="700" id="power-kw">--</text>
+          <text x="100" y="140" text-anchor="middle" fill="#aeb5be" font-size="24" font-weight="600">kW</text>
+        </svg>
+        <div><div class="n">Moc pieca</div><div class="pv"><span id="power-pct">--</span><small>%</small></div></div>
+      </div>
+      <div class="card coal">
+        <div class="cl">
+          <div class="ch"><svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.6" stroke-linejoin="round"><path d="M3 15.5 5.5 8 11 5l6.5 2.5L21 13l-3 5.5-8 1.5-5-2z"/><path d="M5.5 8 10 11.5 11 5M10 11.5l7.5-4M10 11.5 10 20"/></svg>Węgiel dziś</div>
+          <div class="cv"><span id="coal-today">--</span><small>kg</small></div>
+          <div class="cs">teraz <b id="coal-now">--</b> kg/h</div>
+        </div>
+        <svg class="bars" id="coal-bars" viewBox="0 0 170 180"></svg>
+      </div>
+    </section>
+  </div>
+
+  <!-- modes -->
+  <section class="card modes">
+    <div class="modes-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5l1.6 2.6 3-.7.7 3 2.6 1.6-1.4 2.7 1.4 2.7-2.6 1.6-.7 3-3-.7L12 21.5l-1.6-2.6-3 .7-.7-3-2.6-1.6 1.4-2.7-1.4-2.7 2.6-1.6.7-3 3 .7z"/></svg>
+      Tryby pracy
+      <span class="msg" id="mode-msg"></span>
+    </div>
+    <div class="btns">
+      <button class="mbtn" data-mode="OFF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.5 6.5a8 8 0 1 0 11 0"/></svg>Stop</button>
+      <button class="mbtn" data-mode="IGNITION"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3c3 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-5 1-8z"/><path d="M12 13c1.5 2 2.5 3 2.5 4.5a2.5 2.5 0 0 1-5 0c0-1 .5-2 1-2.5 0 .8.5 1.2 1 1.2 0-1-.5-2 .5-3.2z"/></svg>Rozpalanie</button>
+      <button class="mbtn" data-mode="WORK"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4v16l14-8z"/></svg>Praca</button>
+    </div>
+  </section>
+
+  <div class="sign-pop" id="sign-pop"></div>
+
+  <!-- the menu: the pages of the current GUI -->
+  <div class="shade" id="shade"></div>
+  <nav class="drawer" id="drawer">
+    <a class="active" href="./"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Przegląd</a>
+    <a href="../settings.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Ustawienia</a>
+    <a href="../stats.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 20v-6M10 20V9M15 20v-9M20 20V4"/></svg>Statystyki</a>
+    <a href="../service.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>Serwis</a>
+    <a href="../logs.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg>Logi</a>
+    <a href="../manual.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 13V5a2 2 0 0 1 4 0v6M12 11V4a2 2 0 0 1 4 0v7M16 11V7a2 2 0 0 1 4 0v7a7 7 0 0 1-7 7h-1a7 7 0 0 1-6-3.5L4 14a2 2 0 0 1 3.4-2L8 13"/></svg>Ręczne</a>
+    <a href="../index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>Stary panel</a>
+  </nav>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

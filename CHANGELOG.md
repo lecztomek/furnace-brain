@@ -2,6 +2,15 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.64.0 · 05.11.2026 19:00
+
+- Nowe GUI (osobne, obok obecnego): ekran główny pod adresem `/v2/` - według konceptu z `docs/concept`. Obecne GUI bez zmian.
+  - kocioł z trendem i zadaną, komin ze spalinami, grzejnik z zadaną (lub krzywą)
+  - urządzenia: dmuchawa, ślimak (z temperaturą podajnika), pompy, zawór; w STOP dmuchawa i ślimak mają przełączniki ręczne (te same zasady co w obecnym GUI)
+  - moc pieca (wskaźnik kołowy, kW w środku), węgiel dziś, teraz i słupki z 2 poprzednich dni + szacunek na dziś
+  - duże przyciski trybów: Stop, Rozpalanie, Praca; znak OK / ostrzeżenie / problem - dotknięcie pokazuje szczegóły
+  - menu ☰ prowadzi do stron obecnego GUI (Ustawienia, Statystyki, Serwis, Logi, Ręczne, stary panel)
+
 ## 1.63.4 · 05.11.2026 17:30
 
 - Dokumentacja: nowsza wersja konceptu ekranu głównego w `docs/concept` (moc jako wskaźnik kołowy, karta węgla ze słupkami z 3 dni, menu ☰ po prawej, większy górny pasek i spaliny) - tylko szkic wyglądu, sterownik bez zmian.
