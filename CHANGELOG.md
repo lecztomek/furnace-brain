@@ -2,6 +2,12 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.67.0 · 05.11.2026 23:00
+
+- Nowe GUI (`/v2/`): strona „Sterowanie ręczne” w nowym wyglądzie - te same funkcje co w obecnym GUI (wspólny skrypt): przełącznik trybu ręcznego, dmuchawa suwakiem, ślimak, pompy i zawór przełącznikami.
+- Nowe GUI: wspólna ramka podstron (górny pasek ze znakiem, temperaturą, zegarem i ☰, to samo menu wszędzie). Menu ☰ prowadzi do stron już zrobionych w nowym wyglądzie, pozostałe na razie do obecnego GUI.
+- Nowe GUI: trend kotła mniejszy - mieści się w ramce.
+
 ## 1.66.4 · 05.11.2026 22:35
 
 - Nowe GUI (`/v2/`):

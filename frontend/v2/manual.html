@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ręczne – sterownik kotła</title>
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<!-- the same element ids as the current GUI's manual page: its script (js/manual.js) drives this one -->
+<div class="stage page" id="stage" data-title="Sterowanie ręczne">
+  <main class="card manual-page">
+    <div class="mp-top">
+      <div>
+        <div class="mp-title">Tryb ręczny</div>
+        <div id="manual-hint" class="mp-hint">Wyjścia są <b>nieaktywne</b>, gdy tryb ręczny jest wyłączony.</div>
+      </div>
+      <label class="big-switch">
+        <span class="big-switch__label">AKTYWNY</span>
+        <input id="manual-mode-switch" type="checkbox">
+        <span class="sw"></span>
+      </label>
+    </div>
+
+    <fieldset id="manual-controls" class="mp-grid" disabled>
+      <div class="mp-row mp-fan">
+        <div class="mp-name">Dmuchawa</div>
+        <input id="fan-power-slider" type="range" min="0" max="100" step="1" value="0" aria-label="Moc dmuchawy 0-100%">
+        <div class="mp-val"><span id="fan-power-value">0</span>%</div>
+      </div>
+      <label class="mp-row"><span class="mp-name">Ślimak</span><input id="toggle-feeder" type="checkbox"><span class="sw"></span></label>
+      <label class="mp-row"><span class="mp-name">Pompa CO</span><input id="toggle-pump-co" type="checkbox"><span class="sw"></span></label>
+      <label class="mp-row"><span class="mp-name">Pompa CWU</span><input id="toggle-pump-cwu" type="checkbox"><span class="sw"></span></label>
+      <label class="mp-row"><span class="mp-name">Zawór – otwórz</span><input id="toggle-mixer-open" type="checkbox"><span class="sw"></span></label>
+      <label class="mp-row"><span class="mp-name">Zawór – zamknij</span><input id="toggle-mixer-close" type="checkbox"><span class="sw"></span></label>
+    </fieldset>
+
+    <div class="mp-status" id="status-text"></div>
+  </main>
+</div>
+<script src="shell.js"></script>
+<script src="../js/manual.js"></script>
+</body>
+</html>
