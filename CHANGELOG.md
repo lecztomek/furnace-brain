@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.63.3 · 05.11.2026 15:30
+
+- Dokumentacja: koncept nowego ekranu głównego w `docs/concept` (plik HTML i zrzuty) - tylko szkic wyglądu, sterownik bez zmian.
+
 ## 1.63.2 · 05.11.2026 12:50
 
 - Wycofane zmiany z 1.63.1 - kod jak w 1.63.0.

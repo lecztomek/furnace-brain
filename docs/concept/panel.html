@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel kotła – koncept 10</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@500;600;700&display=block">
+<style>
+  /* drawn on a 1440x850 grid (the concept's look, no side menu), scaled to the screen */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; background: #07080a; overflow: hidden; }
+  body { font-family: "Red Hat Display", "Segoe UI", system-ui, sans-serif; color: #f2f3f5; }
+  svg { display: block; }
+  svg text { font-family: "Red Hat Display", "Segoe UI", system-ui, sans-serif; }
+  .stage { position: absolute; left: 0; top: 0; width: 1440px; height: 850px; transform-origin: 0 0; overflow: hidden;
+    background: radial-gradient(ellipse 60% 70% at 50% 40%, #15181c 0%, #0b0d10 60%, #08090b 100%);
+    display: grid; grid-template-rows: 84px 1fr 188px; gap: 18px; padding: 10px 22px 20px; }
+  .wedge { position: absolute; pointer-events: none; z-index: 0; }
+
+  /* header */
+  header { position: relative; display: flex; align-items: center; gap: 22px; z-index: 1; }
+  .burger { width: 66px; height: 66px; border-radius: 16px; display: grid; place-items: center; cursor: pointer;
+    background: linear-gradient(180deg, #2b3037, #1a1d22); border: 1px solid rgba(255,255,255,0.18); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08); }
+  .burger svg { width: 36px; height: 36px; }
+  .slashbar { width: 6px; height: 54px; background: #f5c518; transform: skewX(-22deg); border-radius: 3px; }
+  .title b { display: block; font-size: 40px; font-weight: 600; letter-spacing: -.3px; line-height: 1.1; }
+  .title span { display: block; font-size: 24px; font-weight: 500; color: #c3c8cf; }
+  .hdr-right { margin-left: auto; display: flex; align-items: center; gap: 26px; font-size: 26px; color: #e6e8eb; }
+  .hdr-right .vr { width: 2px; height: 42px; background: rgba(255,255,255,0.3); }
+  .hdr-right .clock { font-size: 50px; font-weight: 700; color: #fff; }
+  .hdr-right .ok { color: #3ddc7a; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .head-glass { position: absolute; left: 0; top: 0; width: 760px; height: 104px; z-index: 0;
+    background: linear-gradient(180deg, rgba(48,52,60,0.5), rgba(30,33,38,0.2)); clip-path: polygon(0 0, 100% 0, 93% 100%, 0 100%); }
+
+  /* rows */
+  .row1 { display: grid; grid-template-columns: 290px 1fr 430px; gap: 24px; min-height: 0; z-index: 1; }
+  .manual { display: grid; grid-template-rows: auto 1fr 1fr; gap: 14px; min-height: 0; }
+  .m-title { font-size: 26px; font-weight: 600; display: flex; align-items: center; gap: 12px; }
+  .m-title svg { width: 40px; height: 40px; }
+  .m-title small { font-size: 20px; color: #aeb5be; font-weight: 500; }
+  .scene { width: 100%; height: 100%; }
+  .side { display: grid; grid-template-rows: repeat(3, 1fr); gap: 14px; min-height: 0; }
+  .status { display: grid; grid-template-columns: repeat(5, 1fr); z-index: 1; }
+  .st { display: flex; align-items: center; gap: 18px; padding-left: 26px; min-width: 0; }
+  .st + .st { border-left: 1px solid rgba(255,255,255,0.1); }
+  .modes { z-index: 1; display: grid; grid-template-rows: auto 1fr; gap: 12px; padding: 14px 26px 22px; }
+  .modes .btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+  .modes .mbtn { position: relative; top: auto; height: auto; }
+
+  .card { position: relative; border-radius: 18px; border: 1px solid rgba(255,255,255,0.13);
+    background: linear-gradient(180deg, rgba(40,44,51,0.92) 0%, rgba(22,25,30,0.95) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 8px 24px rgba(0,0,0,0.35); }
+  .card.soft { background: linear-gradient(180deg, rgba(30,33,39,0.9), rgba(18,20,24,0.92)); }
+
+  /* header */
+  .head-glass { position: absolute; left: 270px; top: 0; width: 700px; height: 102px;
+    background: linear-gradient(180deg, rgba(48,52,60,0.55), rgba(30,33,38,0.25));
+    clip-path: polygon(0 0, 100% 0, 92% 100%, 0 100%); border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .brand-mark { left: 58px; top: 22px; width: 64px; height: 64px; }
+  .brand-name { left: 140px; top: 34px; font-size: 32px; font-weight: 700; letter-spacing: 3px; }
+  .slashbar { left: 360px; top: 26px; width: 6px; height: 54px; background: #f5c518; transform: skewX(-22deg); border-radius: 3px; }
+  .title { left: 426px; top: 12px; }
+  .title b { display: block; font-size: 40px; font-weight: 600; letter-spacing: -.3px; }
+  .title span { display: block; font-size: 26px; font-weight: 500; color: #c3c8cf; margin-top: 2px; }
+  .hdr-right { right: 42px; top: 22px; height: 56px; display: flex; align-items: center; gap: 28px; font-size: 24px; color: #e6e8eb; }
+  .hdr-right .vr { width: 2px; height: 42px; background: rgba(255,255,255,0.3); }
+  .hdr-right .clock { font-size: 46px; font-weight: 700; color: #fff; }
+  .hdr-right .ok { color: #3ddc7a; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+
+  /* nav */
+  .nav-item { left: 0; width: 262px; height: 80px; display: flex; align-items: center; gap: 22px; padding-left: 38px; font-size: 24px; font-weight: 500; color: #e9ebee; }
+  .nav-item svg { width: 40px; height: 40px; }
+  .nav-item.active { color: #111; font-weight: 600;
+    background: linear-gradient(90deg, #ffd21f, #f4c000); clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%); }
+  .nav-edge { left: 262px; top: 110px; width: 18px; height: 620px; background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0)); clip-path: polygon(0 0, 100% 0, 0 100%); }
+
+  /* manual (left top) */
+  .m-title { font-size: 26px; font-weight: 600; display: flex; align-items: center; gap: 14px; }
+  .m-title small { font-size: 20px; color: #aeb5be; font-weight: 500; }
+  .sw { display: flex; align-items: center; gap: 16px; padding: 0 20px; font-size: 28px; font-weight: 600; }
+  .sw svg.i { width: 46px; height: 46px; flex: none; }
+  .sw .toggle { flex: none; }
+  .toggle { margin-left: auto; width: 92px; height: 48px; border-radius: 24px; position: relative;
+    background: linear-gradient(180deg, #3a3f47, #2a2e35); border: 1px solid rgba(255,255,255,0.25); box-shadow: inset 0 2px 6px rgba(0,0,0,0.45); }
+  .toggle::after { content: ""; position: absolute; left: 5px; top: 4px; width: 38px; height: 38px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffffff, #cfd3d8); box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+
+  /* right info cards */
+  .info { display: flex; align-items: center; gap: 34px; padding-left: 44px; }
+  .info svg.i { width: 76px; height: 76px; flex: none; }
+  .info .lbl { font-size: 24px; color: #dfe2e6; font-weight: 500; }
+  .info .val { font-size: 52px; font-weight: 600; letter-spacing: -.5px; line-height: 1.12; }
+  .info .val small { font-size: 30px; font-weight: 500; margin-left: 6px; }
+
+  /* status strip */
+  .st { position: absolute; top: 0; height: 100%; display: flex; align-items: center; gap: 18px; padding-left: 28px; }
+  .st + .st { border-left: 1px solid rgba(255,255,255,0.1); }
+  .st svg { width: 50px; height: 50px; flex: none; }
+  .st .n { font-size: 26px; font-weight: 600; }
+  .st .s { font-size: 20px; color: #aeb5be; margin-top: 8px; display: flex; align-items: center; gap: 12px; }
+  .pill { display: inline-grid; min-width: 70px; height: 42px; padding: 0 14px; border-radius: 21px;
+    display: grid; place-items: center; font-size: 22px; font-weight: 700; color: #e6e8eb;
+    background: linear-gradient(180deg, #2e333a, #1c1f24); border: 1.5px solid rgba(255,255,255,0.35); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1); }
+  .pill.on { color: #fff; background: linear-gradient(180deg, #1f9d4c, #106a31); border-color: #3ddc7a; }
+  .pill.val { color: #ffd21f; border-color: rgba(255,210,31,0.6); }
+
+  /* modes */
+  .modes-title { display: flex; align-items: center; gap: 14px; font-size: 28px; font-weight: 600; color: #dfe2e6; }
+  .modes-title svg { width: 38px; height: 38px; }
+  .mbtn { position: absolute; top: 62px; height: 112px; border-radius: 16px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 22px;
+    font-size: 44px; font-weight: 700; color: #f2f3f5;
+    background: linear-gradient(180deg, #2b3037 0%, #1b1e23 100%); border: 1.5px solid rgba(255,255,255,0.2); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08); }
+  .mbtn svg { width: 56px; height: 56px; }
+  .mbtn.active { background: linear-gradient(180deg, #5a4a0c 0%, #2d2508 100%); border: 3px solid #ffd21f;
+    box-shadow: 0 0 22px rgba(255,210,31,0.35), inset 0 0 18px rgba(255,210,31,0.18); color: #fff; }
+  .mbtn.active svg { color: #ffd21f; }
+
+
+  .st { position: relative; top: auto; height: auto; }
+  .info .val { font-size: 56px; }
+  .info .lbl { font-size: 26px; }
+  .st .n { font-size: 28px; }
+  .st svg { width: 54px; height: 54px; }
+  .pill { font-size: 24px; height: 44px; }
+
+  .row1 { grid-template-columns: 372px 1fr 392px !important; }
+  .devs { display: grid; grid-template-rows: repeat(5, 1fr) auto; gap: 10px; min-height: 0; }
+  .dev { display: flex; align-items: center; gap: 16px; padding: 0 16px 0 18px; min-height: 0; }
+  .dev > svg { width: 46px; height: 46px; flex: none; }
+  .dev .dn { min-width: 0; }
+  .dev .n { font-size: 28px; font-weight: 600; line-height: 1.1; }
+  .dev .s { font-size: 23px; color: #aeb5be; }
+  .dev .s b { color: #fff; }
+  .dev .ctl { margin-left: auto; display: flex; align-items: center; }
+  .dev .toggle { display: none; }
+  .hint { font-size: 21px; color: #8b939d; padding-left: 6px; display: none; }
+  /* STOP: dmuchawa and ślimak get a switch instead of the state */
+  .stage.stop .dev.manual .pill { display: none; }
+  .stage.stop .dev.manual .toggle { display: block; }
+  .stage.stop .dev.manual { border-color: rgba(255,210,31,0.45); }
+  .stage.stop .hint { display: block; }
+  .info { gap: 26px; padding-left: 30px; }
+  .info .val { font-size: 60px; }
+  .tile2 { display: flex; flex-direction: column; justify-content: center; padding: 8px 22px 10px; gap: 0; min-height: 0; overflow: hidden; border-left-width: 6px !important; }
+  .tile2 .th { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 600; color: #dfe2e6; }
+  .tile2 .chip { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; }
+  .tile2 .chip svg { width: 28px; height: 28px; }
+  .tile2 .tv { font-size: 60px; font-weight: 700; line-height: 1; letter-spacing: -1px; display: flex; align-items: baseline; }
+  .tile2 .tv small { font-size: 32px; font-weight: 600; margin-left: 6px; color: #dfe2e6; letter-spacing: 0; }
+  .tile2 .tv2 { margin-left: auto; font-size: 32px; font-weight: 700; color: #fff; letter-spacing: 0; }
+  .tile2 .ts { font-size: 23px; color: #aeb5be; }
+  .tile2 .ts b { color: #fff; }
+  .tile2 .bar { height: 12px; border-radius: 6px; background: rgba(255,255,255,0.1); margin-top: 8px; overflow: hidden; }
+  .tile2 .bar i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #f5c518, #ffe066); }
+  .t-blue { border-left: 6px solid #4aa8ff !important; } .t-blue .chip { background: rgba(74,168,255,0.16); color: #7cc4ff; } .t-blue .tv { color: #cfe8ff; }
+  .t-yellow { border-left: 6px solid #f5c518 !important; } .t-yellow .chip { background: rgba(245,197,24,0.16); color: #ffd84d; } .t-yellow .tv { color: #ffd84d; }
+  .t-orange { border-left: 6px solid #f97316 !important; } .t-orange .chip { background: rgba(249,115,22,0.16); color: #fb923c; } .t-orange .tv { color: #fdba74; }
+  /* the menu: slides in from the left */
+  .drawer { position: absolute; left: 0; top: 0; bottom: 0; width: 340px; z-index: 5; transform: translateX(-105%); transition: transform .2s ease-out;
+    background: linear-gradient(180deg, #1c2026, #121417); border-right: 1px solid rgba(255,255,255,0.12); padding: 110px 0 20px; box-shadow: 12px 0 40px rgba(0,0,0,0.6); }
+  .drawer.open { transform: none; }
+  .drawer a { display: flex; align-items: center; gap: 22px; padding: 0 0 0 36px; height: 86px; color: #e9ebee; text-decoration: none; font-size: 30px; font-weight: 600; }
+  .drawer a svg { width: 44px; height: 44px; }
+  .drawer a.active { color: #111; background: linear-gradient(90deg, #ffd21f, #f4c000); clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%); }
+  .shade { position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 4; display: none; }
+  .shade.open { display: block; }
+
+  @keyframes flicker { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(.92); } }
+  .flame { transform-box: fill-box; transform-origin: 50% 100%; animation: flicker 1.3s ease-in-out infinite; }
+  .flame.f2 { animation-duration: 1.7s; animation-delay: .3s; }
+  @keyframes flow { to { stroke-dashoffset: -40; } }
+  .flow { stroke-dasharray: 14 26; animation: flow 1.8s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { .flame, .flow { animation: none; } }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <svg class="wedge" style="left:0;bottom:0" width="110" height="200" viewBox="0 0 110 200">
+    <defs><linearGradient id="wy" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ffd21f"/><stop offset="1" stop-color="#b88a00"/></linearGradient></defs>
+    <path d="M0 60 L100 0 L30 200 L0 200Z" fill="url(#wy)" opacity=".9"/>
+  </svg>
+  <svg class="wedge" style="right:0;top:110px" width="60" height="200" viewBox="0 0 60 200"><path d="M60 0 L60 110 L10 200 L36 80Z" fill="#ffd21f" opacity=".9"/></svg>
+  <div class="head-glass"></div>
+
+  <header>
+    <div class="burger" id="burger"><svg viewBox="0 0 24 24" fill="none" stroke="#f2f3f5" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></div>
+    <div class="slashbar"></div>
+    <div class="title"><b>Sterownik kotła</b><span>Węgiel</span></div>
+    <div class="hdr-right">
+      <span class="ok"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>OK</span>
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#e6e8eb" stroke-width="1.7"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.4 1.5A3.3 3.3 0 0 0 7 18z"/></svg>
+      <span>5,8 °C</span>
+      <span class="vr"></span>
+      <span>Czw, 5 lis</span>
+      <span class="clock">11:42</span>
+    </div>
+  </header>
+
+  <div class="row1">
+    <section class="devs">
+      <div class="card dev manual"><svg viewBox="0 0 24 24" fill="#e9ebee"><circle cx="12" cy="12" r="2"/><path d="M12 10c1-5 6-7 7-4s-3 5-7 4zM14 12c5 1 7 6 4 7s-5-3-4-7zM12 14c-1 5-6 7-7 4s3-5 7-4zM10 12c-5-1-7-6-4-7s5 3 4 7z"/></svg><div class="dn"><div class="n">Dmuchawa</div><div class="s">17%</div></div><span class="ctl"><span class="pill on">ON</span><span class="toggle"></span></span></div>
+      <div class="card dev manual"><svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.8" stroke-linecap="round"><path d="M2 12h20M5 8l3 8M10 8l3 8M15 8l3 8"/></svg><div class="dn"><div class="n">Ślimak</div><div class="s">podajnik <b>37°</b></div></div><span class="ctl"><span class="pill">OFF</span><span class="toggle"></span></span></div>
+      <div class="card dev"><svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.5"><circle cx="12" cy="12" r="9.5"/><path d="M10 8v8l6-4z"/></svg><div class="dn"><div class="n">Pompa CO</div><div class="s"></div></div><span class="ctl"><span class="pill on">ON</span></span></div>
+      <div class="card dev"><svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.5"><circle cx="12" cy="12" r="9.5"/><path d="M10 8v8l6-4z"/></svg><div class="dn"><div class="n">Pompa CWU</div><div class="s"></div></div><span class="ctl"><span class="pill on">ON</span></span></div>
+      <div class="card dev"><svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.5" stroke-linejoin="round"><path d="M3 7v10l9-5zM21 7v10l-9-5z"/><path d="M12 12V5M9 4h6"/></svg><div class="dn"><div class="n">Zawór</div><div class="s">mieszający</div></div><span class="ctl"><span class="pill val">stoi</span></span></div>
+      <div class="hint">w STOP: dmuchawa i ślimak ręcznie</div>
+    </section>
+    <svg class="scene" viewBox="0 0 520 400" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="bb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2d3238"/><stop offset="1" stop-color="#121417"/></linearGradient>
+      <radialGradient id="fg" cx=".5" cy=".9" r=".9"><stop offset="0" stop-color="#ff9a1a" stop-opacity=".9"/><stop offset=".55" stop-color="#ff6a00" stop-opacity=".35"/><stop offset="1" stop-color="#120700" stop-opacity="0"/></radialGradient>
+      <linearGradient id="f1" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff5a00"/><stop offset=".55" stop-color="#ffa000"/><stop offset="1" stop-color="#ffe680"/></linearGradient>
+      <linearGradient id="f2" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ffb200"/><stop offset="1" stop-color="#fff6c8"/></linearGradient>
+      <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+    </defs>
+    <!-- pipes (behind): hot into the radiator's top, cold back from its bottom -->
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M222 170H286V226H324" stroke="#ffd21f" stroke-width="9" opacity=".25" filter="url(#soft)"/>
+      <path d="M222 170H286V226H324" stroke="#ffd21f" stroke-width="7"/>
+      <path class="flow" d="M222 170H286V226H324" stroke="#fff3b0" stroke-width="2.5"/>
+      <path d="M222 340H286V324H324" stroke="#4aa8ff" stroke-width="9" opacity=".25" filter="url(#soft)"/>
+      <path d="M222 340H286V324H324" stroke="#4aa8ff" stroke-width="7"/>
+    </g>
+    <!-- chimney on the boiler, the flue gas next to it -->
+    <rect x="146" y="2" width="30" height="50" rx="4" fill="#1a1d21" stroke="#e8ebee" stroke-width="4"/>
+    <g transform="translate(198 0)">
+      <rect x="0" y="0" width="200" height="88" rx="16" fill="#1a1c20" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+      <g fill="none" stroke="#c7ccd2" stroke-width="3" stroke-linecap="round"><path d="M22 34c-4-6 4-9 0-15M34 34c-4-6 4-9 0-15M46 34c-4-6 4-9 0-15"/></g>
+      <text x="62" y="36" fill="#aeb5be" font-size="22" font-weight="500">Spaliny</text>
+      <text x="62" y="74" fill="#fff" font-size="38" font-weight="600">59 °C</text>
+    </g>
+    <!-- boiler -->
+    <rect x="88" y="48" width="96" height="30" rx="7" fill="#1a1d21" stroke="#e8ebee" stroke-width="4"/>
+    <rect x="45" y="72" width="178" height="306" rx="20" fill="url(#bb)" stroke="#e8ebee" stroke-width="4.5"/>
+    <rect x="60" y="376" width="22" height="16" rx="3" fill="#121417" stroke="#e8ebee" stroke-width="3"/>
+    <rect x="186" y="376" width="22" height="16" rx="3" fill="#121417" stroke="#e8ebee" stroke-width="3"/>
+    <text x="134" y="168" text-anchor="middle" fill="#fff" font-size="54" font-weight="600" letter-spacing="-1">58,4<tspan font-size="28" dx="3" dy="-20">°C</tspan></text>
+    <text x="134" y="206" text-anchor="middle" fill="#3ddc7a" font-size="21" font-weight="600">▲ 0,3°/10 min</text>
+    <text x="134" y="238" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500">zadana <tspan fill="#ffd21f" font-weight="700">58 °C</tspan></text>
+    <!-- fire -->
+    <rect x="70" y="256" width="128" height="104" rx="6" fill="#140800" stroke="#5c6168" stroke-width="3"/>
+    <rect x="70" y="256" width="128" height="104" rx="6" fill="url(#fg)"/>
+    <g class="flame"><path d="M134 356c-30 0-40-18-33-38 4 7 9 10 13 9-5-19 6-32 19-42-1 14 7 20 12 25 3-6 2-12 0-17 13 10 22 24 19 41-3 15-12 22-30 22z" fill="url(#f1)"/></g>
+    <g class="flame f2"><path d="M98 356c-12 0-16-8-13-16 2 3 4 4 5 3-1-8 3-12 7-15 0 6 3 8 5 11 4 9 4 17-4 17zM172 356c-12 0-16-8-13-16 2 3 4 4 5 3-1-8 3-12 7-15 0 6 3 8 5 11 4 9 4 17-4 17z" fill="url(#f1)" opacity=".9"/></g>
+    <g class="flame f2"><path d="M134 356c-11 0-15-7-12-14 2 3 4 4 5 3 0-8 3-12 7-15 0 6 3 9 5 11 4 8 3 15-5 15z" fill="url(#f2)"/></g>
+    <!-- radiator, bigger -->
+    <g transform="translate(318 192)">
+      <g stroke="#eceef1" stroke-width="5" stroke-linecap="round" fill="none">
+        <path d="M14 20v128M36 20v128M58 20v128M80 20v128M102 20v128M124 20v128M146 20v128M168 20v128"/>
+        <path d="M4 34h176M4 134h176"/>
+      </g>
+      <rect x="24" y="52" width="134" height="68" rx="14" fill="#1a1c20" stroke="#ffd21f" stroke-width="3"/>
+      <text x="91" y="99" text-anchor="middle" fill="#fff" font-size="40" font-weight="600">27,8°</text>
+      <text x="91" y="182" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500">zadana <tspan fill="#fff" font-weight="700">27,8°</tspan></text>
+    </g>
+    <g stroke="#ffd21f" stroke-width="5" fill="none" stroke-linecap="round"><path d="M372 180c-6-8 6-13 0-22M402 180c-6-8 6-13 0-22M432 180c-6-8 6-13 0-22"/></g>
+  </svg>
+
+    <section class="side">
+      <div class="card tile2 t-blue">
+        <div class="th"><span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.4 1.5A3.3 3.3 0 0 0 7 18z"/></svg></span>Na zewnątrz</div>
+        <div class="tv">5,8<small>°C</small></div>
+        <div class="ts">średnio 12 h <b>6,2°</b></div>
+      </div>
+      <div class="card tile2 t-yellow">
+        <div class="th"><span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span>Moc pieca</div>
+        <div class="tv">44<small>%</small><span class="tv2">5,6 kW</span></div>
+        <div class="bar"><i style="width:44%"></i></div>
+      </div>
+      <div class="card tile2 t-orange">
+        <div class="th"><span class="chip"><svg viewBox="0 0 24 24"><path d="M3 15.5 5.5 8 11 5l6.5 2.5L21 13l-3 5.5-8 1.5-5-2z" fill="currentColor"/><path d="M5.5 8 11 5l-1 6.5z" fill="#fff" opacity=".4"/></svg></span>Węgiel dziś</div>
+        <div class="tv">7,2<small>kg</small></div>
+        <div class="ts"><b>0,69 kg/h</b> • doba ~17 kg</div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card modes">
+    <div class="modes-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5l1.6 2.6 3-.7.7 3 2.6 1.6-1.4 2.7 1.4 2.7-2.6 1.6-.7 3-3-.7L12 21.5l-1.6-2.6-3 .7-.7-3-2.6-1.6 1.4-2.7-1.4-2.7 2.6-1.6.7-3 3 .7z"/></svg>
+      Tryby pracy
+    </div>
+    <div class="btns">
+    <div class="mbtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.5 6.5a8 8 0 1 0 11 0"/></svg>Stop
+    </div>
+    <div class="mbtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3c3 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-5 1-8z"/><path d="M12 13c1.5 2 2.5 3 2.5 4.5a2.5 2.5 0 0 1-5 0c0-1 .5-2 1-2.5 0 .8.5 1.2 1 1.2 0-1-.5-2 .5-3.2z"/></svg>Rozpalanie
+    </div>
+    <div class="mbtn active">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4v16l14-8z"/></svg>Praca
+    </div>
+      </div>
+  </section>
+
+  <div class="shade" id="shade"></div>
+  <nav class="drawer" id="drawer">
+    <a class="active" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Przegląd</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Ustawienia</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 20v-6M10 20V9M15 20v-9M20 20V4"/></svg>Statystyki</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>Serwis</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h3"/></svg>Logi</a>
+    <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>Instrukcja</a>
+  </nav>
+</div>
+<script>
+  function fit() {
+    const s = Math.min(innerWidth / 1440, innerHeight / 850);
+    document.getElementById("stage").style.transform =
+      `translate(${(innerWidth - 1440 * s) / 2}px, ${(innerHeight - 850 * s) / 2}px) scale(${s})`;
+  }
+  addEventListener("resize", fit); fit();
+  const toggle = () => ["drawer", "shade"].forEach((id) => document.getElementById(id).classList.toggle("open"));
+  document.getElementById("burger").addEventListener("click", toggle);
+  document.getElementById("shade").addEventListener("click", toggle);
+  // demo: Stop shows the manual switches
+  document.querySelectorAll(".mbtn").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll(".mbtn").forEach((x) => x.classList.toggle("active", x === b));
+    document.getElementById("stage").classList.toggle("stop", b.textContent.trim() === "Stop");
+  }));
+</script>
+</body>
+</html>
