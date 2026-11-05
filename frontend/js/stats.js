@@ -457,46 +457,38 @@
     return { slope, intercept: my - slope * mx, n };
   }
 
+  // coal against the weather: THE coal model (the same line the forecasts use) and the stable days
   function renderWeather() {
     const w = report.weather;
-    const byHourFit = (periods.eff === "today" || periods.eff === "d7")
-      ? lineFit((report.eff_hours || []).map((h) => ({ x: h.outside, y: h.coal_kg * 24 }))) : null;
-    const fit = byHourFit || w.coal.fit;
-    const pfit = w.power.fit;
+    const fit = w.coal.fit;
+    const m = w.coal.model || {};
     $("weather-chart-box").style.display = fit ? "" : "none";
     if (!fit) {
       $("weather-text").innerHTML =
-        `${FBIcon("hourglass", "ic--inline")} Zbieram dane: <b>${w.days_with_data} z ${w.days_needed}</b> pełnych dni z pogodą`;
+        `${FBIcon("hourglass", "ic--inline")} Zbieram dane: <b>${w.days_with_data} z ${w.days_needed}</b> dni stabilnej pracy z różną pogodą`;
     } else {
       $("weather-text").innerHTML = `<div class="st2-hero">${[
         tile("Przy 0°C", num(fit.intercept, 0), "kg"),
         tile("Przy -10°C", num(fit.intercept - 10 * fit.slope, 0), "kg"),
         tile("Każdy stopień mrozu", `+${num(-fit.slope, 1)}`, "kg"),
-      ].join("")}</div><div class="st2-note">Węgla na dobę • z ${fit.n} ${byHourFit ? "godzin pracy" : "dni"}</div>`;
+      ].join("")}</div><div class="st2-note">Węgla na dobę • stała część ${num(m.base_kg_per_day, 1)} kg (woda, straty) + ${num(m.kg_per_degree_day, 2)} kg na stopniodzień • z ${m.days} dni stabilnej pracy (ten i zeszły sezon) • to samo liczą prognozy</div>`;
     }
-
-    // Dziś and 7 dni: every hour of the last week (kg per hour x 24 = kg per day at that weather) -
-    // a week of hours fills the chart long before there are enough full days
-    const byHour = periods.eff === "today" || periods.eff === "d7";
-    const hourPts = (report.eff_hours || []).map((h) => ({ x: h.outside, y: h.coal_kg * 24 }));
-    const pts = byHour && hourPts.length ? hourPts : w.coal.points.map((p) => ({ x: p.x, y: p.y }));
-    $("weather-sub").textContent = byHour && hourPts.length ? `godziny z ostatnich 7 dni (${hourPts.length})` : "dni z całego roku";
-    const datasets = [{ type: "scatter", label: byHour ? "Godziny" : "Dni", data: pts,
-                        backgroundColor: byHour ? "rgba(249, 115, 22, 0.55)" : "rgba(249, 115, 22, 0.85)", pointRadius: byHour ? 3.5 : 5 }];
-    if (fit && pts.length) {
+    const pts = w.coal.points.map((p) => ({ x: p.x, y: p.y }));
+    $("weather-sub").textContent = `dni stabilnej pracy z temperaturą (${pts.length})`;
+    const datasets = [{ type: "scatter", label: "Dni", data: pts, backgroundColor: "rgba(249, 115, 22, 0.85)", pointRadius: 5 }];
+    if (fit) {
       const xs = pts.map((p) => p.x);
-      const lo = Math.min(...xs) - 1, hi = Math.max(...xs) + 1;
-      datasets.push({ type: "line", label: "Trend", data: [{ x: lo, y: fit.intercept + fit.slope * lo }, { x: hi, y: fit.intercept + fit.slope * hi }], borderColor: "#e5e7eb", borderDash: [6, 4], pointRadius: 0 });
+      const lo = Math.min(-10, ...xs) - 1, hi = Math.max(10, ...xs) + 1;
+      datasets.push({ type: "line", label: "Model", data: [{ x: lo, y: fit.intercept + fit.slope * lo }, { x: hi, y: fit.intercept + fit.slope * hi }], borderColor: "#e5e7eb", borderDash: [6, 4], pointRadius: 0 });
     }
     const options = {
       responsive: true, maintainAspectRatio: false, animation: false,
-      plugins: { legend: { labels: { color: "#e5e7eb" } } },
+      plugins: { legend: { display: false } },
       scales: {
-        x: { type: "linear", title: { display: true, text: byHour ? "Temperatura na dworze w tej godzinie [°C]" : "Średnia temperatura zewnętrzna [°C]", color: "#9ca3af" }, ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } },
+        x: { type: "linear", title: { display: true, text: "Średnia temperatura zewnętrzna [°C]", color: "#9ca3af" }, ticks: { color: "#9ca3af" }, grid: { color: "rgba(255,255,255,0.05)" } },
         y: { beginAtZero: true, title: { display: true, text: "Węgiel [kg/dobę]", color: "#9ca3af" }, ticks: { color: "#fdba74" }, grid: { color: "rgba(255,255,255,0.08)" } },
       },
     };
-    options.plugins.legend.display = false;
     weatherChart = draw(weatherChart, "chart-weather", { datasets }, options);
   }
 

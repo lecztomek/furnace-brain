@@ -691,17 +691,25 @@ def linear_fit(points: List[Tuple[float, float]]) -> Optional[Dict[str, float]]:
     return {"slope": round(slope, 4), "intercept": round(intercept, 3), "r2": round(r2, 3), "n": n}
 
 
-def weather_model(days: List[DayAgg]) -> Dict[str, Any]:
+def weather_model(days: List[DayAgg], coal: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Coal, heat and power against the outside temperature. The coal line is THE coal model
+    (coal_model) - the same one the forecasts use; the points are the stable days it is drawn from."""
     full = [d for d in days if is_full_day(d) and d.avg("outside") is not None]
-    coal_pts = [(d.avg("outside"), d.coal_kg / d.seconds * 86400) for d in full]
+    stable = [d for d in full if is_stable_day(d)]
     energy_pts = [(d.avg("outside"), d.energy_kwh / d.seconds * 86400) for d in full]
     power_pts = [(d.avg("outside"), d.avg("power")) for d in full if d.avg("power") is not None]
+    coal = coal or {"method": None, "days": 0}
+    fit = None
+    if coal.get("method") == "line":
+        # kg/day = base + per_degree_day x (HDD_BASE_C - outside), as a line of the outside temperature
+        fit = {"intercept": round(coal["base_kg_per_day"] + coal["kg_per_degree_day"] * HDD_BASE_C, 3),
+               "slope": -coal["kg_per_degree_day"], "n": coal["days"]}
     return {
-        "days_with_data": len(full),
+        "days_with_data": coal.get("days", 0),
         "days_needed": 5,
-        "coal": {"fit": linear_fit(coal_pts),
-                 "points": [{"date": d.date, "x": round(x, 1), "y": round(y, 2), "stable": is_stable_day(d)}
-                            for d, (x, y) in zip(full, coal_pts)]},
+        "coal": {"fit": fit, "model": coal,
+                 "points": [{"date": d.date, "x": round(d.avg("outside"), 1),
+                             "y": round(d.coal_kg / d.seconds * 86400, 2)} for d in stable]},
         "energy": {"fit": linear_fit(energy_pts),
                    "points": [{"x": round(x, 1), "y": round(y, 1)} for x, y in energy_pts]},
         "power": {"fit": linear_fit(power_pts),
@@ -755,50 +763,59 @@ def _day_hdd(d: "DayAgg") -> Optional[float]:
     return max(0.0, HDD_BASE_C - out)
 
 
-def season_forecast(this_season: List["DayAgg"], season_start: date, today: date,
-                    history: Optional[List["DayAgg"]] = None) -> Dict[str, Any]:
-    """Coal used so far + the coal the rest of the season should take at typical weather.
+def coal_model(history: List["DayAgg"], this_season: List["DayAgg"]) -> Dict[str, Any]:
+    """THE coal model - the forecasts for the next days and the season and the weather chart all use it.
 
     Coal per day = a fixed part (hot water, losses - burnt in any weather) + a part per degree-day,
-    a line through every stable day (this and last season). Per degree-day alone overshoots: an
-    autumn day carries a big share of the fixed part, a frosty day a small one. The line is then
-    scaled to the stable days of this season - the current settings. Too few days for a line:
-    coal per degree-day of the season's days x typical degree-days left."""
-    used = sum(x.coal_kg for x in this_season)
+    a line through every stable day (this and last season). Per degree-day alone overshoots: a warm
+    day carries a big share of the fixed part, a frosty day a small one. The line is then scaled to
+    the stable days of this season - the current settings. Too few days for a line: coal per
+    degree-day of this season's stable days (every full day while there are fewer than 2)."""
     full = [x for x in this_season if is_full_day(x)]
     stable_now = [x for x in full if is_stable_day(x)]
-    end = date(season_start.year + 1, 6, 1)
-    pool = [x for x in (history or this_season) if is_stable_day(x)]
-    pts = [(h, x.coal_kg / x.seconds * 86400) for x in pool for h in [_day_hdd(x)] if h is not None]
+    pts = [(h, x.coal_kg / x.seconds * 86400) for x in history if is_stable_day(x) for h in [_day_hdd(x)] if h is not None]
     fit = linear_fit(pts)
     if fit and fit["slope"] > 0 and fit["intercept"] >= 0:
         a, b = fit["intercept"], fit["slope"]
         now_pts = [(h, x.coal_kg / x.seconds * 86400) for x in stable_now for h in [_day_hdd(x)] if h is not None]
         predicted = sum(a + b * h for h, _ in now_pts)
         scale = sum(y for _, y in now_pts) / predicted if len(now_pts) >= MIN_STABLE_DAYS and predicted > 0 else 1.0
-        left_kg, left_dd, d = 0.0, 0.0, today + timedelta(days=1)
-        while d < end:
-            t = NORMAL_MONTH_C.get(d.month)
-            if t is not None and t <= HEATING_END_C:
-                left_dd += max(0.0, HDD_BASE_C - t)
-                left_kg += a + b * max(0.0, HDD_BASE_C - t)
-            d += timedelta(days=1)
-        return {
-            "used_kg": round(used, 1), "method": "line",
-            "base_kg_per_day": round(a * scale, 1), "kg_per_degree_day": _r(b * scale, 3),
-            "scale": round(scale, 2), "degree_days_left": round(left_dd),
-            "forecast_kg": round(used + scale * left_kg),
-            "based_on_days": len(pts), "stable_days_now": len(now_pts),
-        }
-    use = stable_now if len(stable_now) >= MIN_STABLE_DAYS else full
-    k = kg_per_degree_day(use[-30:])
-    left_dd = normal_degree_days(today + timedelta(days=1), end)
+        return {"method": "line", "base_kg_per_day": round(a * scale, 2), "kg_per_degree_day": round(b * scale, 4),
+                "scale": round(scale, 2), "days": len(pts), "stable_days_now": len(now_pts)}
+    use = (stable_now if len(stable_now) >= MIN_STABLE_DAYS else full)[-30:]
+    k = kg_per_degree_day(use)
+    if k is None:
+        return {"method": None, "days": len(use)}
+    return {"method": "degree_days", "kg_per_degree_day": round(k, 4), "days": len(use)}
+
+
+def coal_per_day_at(model: Dict[str, Any], outside: float) -> Optional[float]:
+    """Coal a day at this outside temperature (daily mean) - from coal_model."""
+    hdd = max(0.0, HDD_BASE_C - outside)
+    if model.get("method") == "line":
+        return model["base_kg_per_day"] + model["kg_per_degree_day"] * hdd
+    if model.get("method") == "degree_days":
+        return model["kg_per_degree_day"] * hdd
+    return None
+
+
+def season_forecast(this_season: List["DayAgg"], season_start: date, today: date,
+                    model: Dict[str, Any]) -> Dict[str, Any]:
+    """Coal used so far + what the coal model says the rest of the heating season takes at typical weather."""
+    used = sum(x.coal_kg for x in this_season)
+    left_kg, left_dd, d = 0.0, 0.0, today + timedelta(days=1)
+    while model.get("method") and d < date(season_start.year + 1, 6, 1):
+        t = NORMAL_MONTH_C.get(d.month)
+        if t is not None and t <= HEATING_END_C:
+            left_dd += max(0.0, HDD_BASE_C - t)
+            left_kg += coal_per_day_at(model, t)
+        d += timedelta(days=1)
     return {
-        "used_kg": round(used, 1), "method": "degree_days",
-        "kg_per_degree_day": _r(k, 3),
+        "used_kg": round(used, 1), "method": model.get("method"),
+        "base_kg_per_day": model.get("base_kg_per_day"), "kg_per_degree_day": model.get("kg_per_degree_day"),
         "degree_days_left": round(left_dd),
-        "forecast_kg": round(used + k * left_dd) if k else None,
-        "based_on_days": len(use[-30:]),
+        "forecast_kg": round(used + left_kg) if model.get("method") else None,
+        "based_on_days": model.get("days", 0),
     }
 
 
@@ -1014,7 +1031,9 @@ class Analytics:
         periods["today"]["last24"] = hourly_last24(
             by_date.get(yday.isoformat()), by_date.get(today.isoformat()), now_hour, hour_coal, hour_min)
         periods["yesterday"]["hours24"] = hours_of_day(by_date.get(yday.isoformat()), hour_coal, hour_min)
-        model = weather_model(since(today - timedelta(days=365)))
+        # THE coal model: last and this season's stable days (days start at prev_start)
+        coal = coal_model(days, since(season_start))
+        model = weather_model(since(today - timedelta(days=365)), coal)
         full_days = [x for x in days if x.date < today.isoformat() and is_full_day(x)]
         daily = [{
             "date": x.date,
@@ -1059,11 +1078,12 @@ class Analytics:
             "checks": checks(periods["d3"], model, full_days[-1] if full_days else None, overheat_temp, trend,
                              f"3 dni (od {today - timedelta(days=CHECK_DAYS - 1):%d.%m})"),
             "checks_period": f"ostatnie {CHECK_DAYS} dni (od {today - timedelta(days=CHECK_DAYS - 1):%d.%m})",
-            "seasons": self._seasons(days, season_start, prev_start, today),
+            "seasons": self._seasons(days, season_start, prev_start, today, coal),
         }
 
     @staticmethod
-    def _seasons(days: List[DayAgg], season_start: date, prev_start: date, today: date) -> Dict[str, Any]:
+    def _seasons(days: List[DayAgg], season_start: date, prev_start: date, today: date,
+                 coal: Dict[str, Any]) -> Dict[str, Any]:
         this = [x for x in days if x.date >= season_start.isoformat()]
         prev = [x for x in days if prev_start.isoformat() <= x.date < season_start.isoformat()]
         same_day = today.replace(year=today.year - 1) if not (today.month == 2 and today.day == 29) \
@@ -1077,46 +1097,11 @@ class Analytics:
                          # same part of the season a year ago - only if there was data then
                          "coal_kg_to_date": round(sum(x.coal_kg for x in prev_to_date), 1)
                          if sum(x.seconds for x in prev_to_date) >= 86400 else None},
-            "forecast": season_forecast(this, season_start, today, history=prev + this),
+            "forecast": season_forecast(this, season_start, today, coal),
         }
 
 
 # ---------------------------------------------------------------- forecast
-
-RUNNING_MIN_KG = 3.0       # a day with less coal: the furnace was (mostly) off - not in the model
-FORECAST_RECENT_DAYS = 60  # recent days describe the current settings best
-
-
-def forecast_model(points: List[Dict[str, Any]], today: date) -> Dict[str, Any]:
-    """
-    Coal per day against the outside temperature, from days the furnace ran
-    (weather model points: date, x = outside, y = kg/day). A straight line
-    when the days cover enough temperatures, else kg per degree-day.
-    """
-    running = [p for p in points if p.get("y") is not None and p["y"] >= RUNNING_MIN_KG and p.get("x") is not None]
-    # only days the furnace ran evenly - a flame-out or a setpoint change says nothing about the weather
-    stable = [p for p in running if p.get("stable")]
-    if len(stable) >= MIN_STABLE_DAYS:
-        running = stable
-    recent = [p for p in running if p.get("date", "") >= (today - timedelta(days=FORECAST_RECENT_DAYS)).isoformat()]
-    use = recent if len(recent) >= 10 else running
-    fit = linear_fit([(p["x"], p["y"]) for p in use])
-    if fit and fit["slope"] < 0:
-        return {"method": "fit", "intercept": fit["intercept"], "slope": fit["slope"], "days": len(use),
-                "r2": fit["r2"]}
-    hdd = sum(max(0.0, HDD_BASE_C - p["x"]) for p in use)
-    if hdd >= MIN_HDD:
-        return {"method": "degree_days", "kg_per_degree_day": sum(p["y"] for p in use) / hdd, "days": len(use)}
-    return {"method": None, "days": len(use)}
-
-
-def coal_per_day_at(model: Dict[str, Any], outside: float) -> Optional[float]:
-    if model.get("method") == "fit":
-        return max(0.0, model["intercept"] + model["slope"] * outside)
-    if model.get("method") == "degree_days":
-        return model["kg_per_degree_day"] * max(0.0, HDD_BASE_C - outside)
-    return None
-
 
 def coal_forecast(forecast: Optional[Dict[str, Any]], model: Dict[str, Any], now: datetime,
                   price_pln_per_t: float = 0.0, calorific_mj_per_kg: Optional[float] = None) -> Dict[str, Any]:

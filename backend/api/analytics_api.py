@@ -11,7 +11,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 
 from backend.core import timings
-from backend.core.analytics import Analytics, coal_forecast, forecast_model
+from backend.core.analytics import Analytics, coal_forecast
 from backend.core.config_store import ConfigStore
 from backend.core.state_store import StateStore
 
@@ -69,8 +69,8 @@ def create_analytics_router(data_root: Path, config_store: ConfigStore,
         """Weather for today and the next days with the coal, cost and heat it should take."""
         with state_lock:
             report = cached["report"]
-        points = (((report or {}).get("weather") or {}).get("coal") or {}).get("points") or []
-        model = forecast_model(points, date.today())
+        # THE coal model - the same one as the season forecast and the weather chart
+        model = (((report or {}).get("weather") or {}).get("coal") or {}).get("model") or {"method": None, "days": 0}
         weather = (store.snapshot().runtime.get("weather") or {}) if store is not None else {}
         price = setting("stats", "coal_price_pln_per_t", 0) or 0
         calorific = setting("stats", "calorific_mj_per_kg", None)

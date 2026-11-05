@@ -2,6 +2,14 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.63.0 · 05.11.2026 11:30
+
+- Jeden model węgla dla wszystkiego: węgiel na dobę = stała część (ciepła woda, straty) + część na każdy stopniodzień, prosta ze stabilnych dni tego i zeszłego sezonu, dopasowana do stabilnych dni tego sezonu. Z niego liczą się:
+  - prognoza na najbliższe dni (wcześniej kg na stopniodzień z ciepłych dni - w zimniejsze dni zawyżała o ok. 15-20%),
+  - prognoza na sezon,
+  - wykres „Zależność od pogody” w Sprawności i kontrola „Zużycie względem pogody”.
+- Sprawność → Zależność od pogody: bez widoku godzinowego (pojedyncza godzina nie mówi nic o pogodzie - wychodziło, że w zimno pali mniej). Punkty to dni stabilnej pracy, linia to model, pod kafelkami stała część i kg na stopniodzień.
+
 ## 1.62.0 · 04.11.2026 14:30
 
 - Statystyki → Prognoza, nowy układ:
