@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ustawienia – sterownik kotła</title>
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<!-- the same element ids as the current GUI's settings page: its script (js/settings-config.js) drives this one -->
+<div class="stage page" id="stage" data-title="Ustawienia">
+  <main class="card settings-page">
+    <div id="config-root" class="config-root">
+      <div id="config-tabs-header" class="config-tabs-header"></div>
+      <div id="config-tabs-body" class="config-tabs-body"></div>
+    </div>
+    <div class="mp-status" id="status-text"></div>
+  </main>
+</div>
+<script src="shell.js"></script>
+<script src="../js/settings-config.js"></script>
+</body>
+</html>

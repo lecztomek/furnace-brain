@@ -21,7 +21,7 @@
   // pages already made in the new look link here, the rest to the current GUI
   const MENU = [
     ["Przegląd", "index.html", "home"],
-    ["Ustawienia", "../settings.html", "settings"],
+    ["Ustawienia", "settings.html", "settings"],
     ["Statystyki", "../stats.html", "stats"],
     ["Serwis", "../service.html", "service"],
     ["Logi", "../logs.html", "logs"],

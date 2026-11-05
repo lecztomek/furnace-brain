@@ -46,3 +46,37 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 46px;
   background: radial-gradient(circle at 35% 30%, #fff3b0, #f5c518); border: 2px solid #b88a00; }
 input[type=range]::-moz-range-track { height: 14px; border-radius: 7px; background: rgba(255, 255, 255, 0.14); }
 input[type=range]::-moz-range-thumb { width: 46px; height: 46px; border-radius: 50%; background: #f5c518; border: 2px solid #b88a00; }
+
+/* ---------- Ustawienia (js/settings-config.js builds the tabs and the fields) ---------- */
+.settings-page { display: grid; grid-template-rows: 1fr auto; gap: 6px; padding: 14px 18px 10px; }
+.config-root { display: grid; grid-template-rows: auto 1fr auto; gap: 12px; min-height: 0; }
+.config-tabs-header { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.config-tab-button { flex: none; height: 58px; padding: 0 22px; border-radius: 29px; font-size: 22px; font-weight: 700; white-space: nowrap;
+  color: #dfe2e6; background: linear-gradient(180deg, #2e333a, #1c1f24); border: 1.5px solid rgba(255, 255, 255, 0.2); }
+.config-tab-button.active { color: #111; background: linear-gradient(180deg, var(--yellow), #e6b800); border-color: var(--yellow); }
+.config-tabs-body { min-height: 0; overflow-y: auto; padding-right: 6px; }
+.config-tab-panel { display: none; }
+.config-tab-panel.active { display: block; }
+.config-fields { display: grid; gap: 10px; }
+.config-field { border-radius: 16px; padding: 10px 14px 10px 20px;
+  background: linear-gradient(180deg, rgba(48, 53, 61, 0.9), rgba(28, 31, 36, 0.95)); border: 1px solid var(--line); }
+.config-field-main { display: flex; align-items: center; gap: 14px; min-height: 64px; }
+.config-field-label { flex: 1; min-width: 0; font-size: 24px; font-weight: 600; line-height: 1.2; text-transform: none; }
+.config-field-label::first-letter { text-transform: uppercase; }
+.config-field-controls { display: flex; align-items: center; gap: 10px; flex: none; }
+.config-field-value { min-width: 130px; text-align: center; font-size: 32px; font-weight: 800; color: var(--yellow-soft); white-space: nowrap; }
+.config-btn { border-radius: 14px; font-weight: 700; color: #fff;
+  background: linear-gradient(180deg, #2e333a, #1c1f24); border: 1.5px solid rgba(255, 255, 255, 0.25); }
+.config-btn-icon { width: 72px; height: 62px; font-size: 34px; }
+.config-btn-icon:active { border-color: var(--yellow); }
+.config-btn-help { width: 52px; height: 52px; border-radius: 50%; font-size: 24px; color: var(--muted); }
+.config-field-help { display: none; font-size: 21px; line-height: 1.35; color: var(--muted); padding: 8px 4px 4px; }
+.config-field-help.visible { display: block; }
+.config-toggle { min-width: 160px; height: 58px; padding: 0 18px; border-radius: 29px; font-size: 22px; font-weight: 800;
+  color: #e6e8eb; background: linear-gradient(180deg, #2e333a, #1c1f24); border: 1.5px solid rgba(255, 255, 255, 0.3); }
+.config-toggle.on { color: #fff; background: linear-gradient(180deg, #1f9d4c, #106a31); border-color: var(--green); }
+.config-actions-global { display: flex; justify-content: flex-end; }
+.config-btn-primary { height: 70px; padding: 0 44px; border-radius: 18px; font-size: 30px; font-weight: 800;
+  background: linear-gradient(180deg, #5a4a0c, #2d2508); border: 3px solid var(--yellow); }
+.config-btn-primary:disabled { opacity: .5; }
+.stage.page > main.card { background: linear-gradient(180deg, #24282f 0%, #16191d 100%); }
