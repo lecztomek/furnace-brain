@@ -145,24 +145,11 @@ async function initConfigUI() {
   actions.appendChild(saveBtn);
   configRoot.appendChild(actions);
 
-  // Załaduj schema + values dla każdego modułu
-  for (const module of modules) {
-    try {
-      await loadModuleSchemaAndValues(module.id);
-    } catch (err) {
-      console.error(`Błąd ładowania modułu ${module.id}:`, err);
-      const panel = document.getElementById(
-        `config-tab-panel-${module.id}`
-      );
-      if (panel) {
-        panel.innerHTML = `<p style="color:#ff4b4b;">Błąd ładowania konfiguracji modułu: ${escapeHtml(
-          err.message
-        )}</p>`;
-      }
-    }
-  }
+  // only the shown module is read now; the others when their tab (or tile) is opened -
+  // opening the page doesn't ask the controller for every module at once
+  if (modules.length) await ensureModuleLoaded(modules[0].id);
 
-  setStatus("Konfiguracja załadowana.");
+  setStatus("");
 }
 
 // the tabs row scrolls sideways on small screens - let the mouse wheel do it too
@@ -177,7 +164,25 @@ document.addEventListener("DOMContentLoaded", () => {
   }, { passive: false });
 });
 
+// a module's settings are read once, the first time its tab is opened
+const moduleLoads = {};
+function ensureModuleLoaded(moduleId) {
+  if (!moduleLoads[moduleId]) {
+    const panel = document.getElementById(`config-tab-panel-${moduleId}`);
+    if (panel && !panel.hasChildNodes()) panel.innerHTML = '<p class="config-loading">Wczytuję…</p>';
+    moduleLoads[moduleId] = loadModuleSchemaAndValues(moduleId).catch((err) => {
+      console.error(`Błąd ładowania modułu ${moduleId}:`, err);
+      delete moduleLoads[moduleId];          // a later tap tries again
+      if (panel) {
+        panel.innerHTML = `<p style="color:#ff4b4b;">Błąd ładowania konfiguracji modułu: ${escapeHtml(err.message)}</p>`;
+      }
+    });
+  }
+  return moduleLoads[moduleId];
+}
+
 function activateTab(moduleId) {
+  ensureModuleLoaded(moduleId);
   document
     .querySelectorAll(".config-tab-button")
     .forEach((btn) => {
