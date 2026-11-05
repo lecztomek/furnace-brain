@@ -88,8 +88,10 @@
     if ($("sign-icon").dataset.k !== icon) { $("sign-icon").innerHTML = icon; $("sign-icon").dataset.k = icon; }
     const first = problems[0] || warnings[0];
     $("sign-text").textContent = first ? (first.short || (problems.length ? "PROBLEM" : "UWAGA")) : "OK";
-    $("sign-pop").innerHTML = [...problems.map((p) => ["bad", p]), ...warnings.map((p) => ["warn", p])]
+    // rebuilt only when it changes - the state comes every 2 s
+    const pop = [...problems.map((p) => ["bad", p]), ...warnings.map((p) => ["warn", p])]
       .map(([cls, p]) => `<p class="${cls}"><b>${p.short || ""}</b> ${p.text || ""}</p>`).join("") || "<p>Wszystko w porządku.</p>";
+    if ($("sign-pop").dataset.k !== pop) { $("sign-pop").innerHTML = pop; $("sign-pop").dataset.k = pop; }
     // version and uptime, as the current GUI
     const app = s.app || {};
     let up = "";

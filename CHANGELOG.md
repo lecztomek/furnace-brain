@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.68.1 · 05.11.2026 23:50
+
+- Nowe GUI (`/v2/`): mniej pracy dla Pi - bez przejść (wysuwanie menu, przełączniki zmieniają się od razu), lista szczegółów znaku przebudowywana tylko przy zmianie.
+
 ## 1.68.0 · 05.11.2026 23:40
 
 - Nowe GUI (`/v2/`): strona „Ustawienia” w nowym wyglądzie - ten sam układ i te same funkcje co w obecnym GUI (wspólny skrypt): zakładki modułów, parametry z −/+, przełączniki, opisy pod „?”, „Zapisz zmiany”. Menu ☰ (wszędzie) prowadzi już do nowej strony.
