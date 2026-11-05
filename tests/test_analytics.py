@@ -202,19 +202,6 @@ def test_one_coal_model_for_the_season_the_next_days_and_the_weather_chart():
         assert abs(fit["intercept"] + fit["slope"] * t - coal_per_day_at(m, t)) < 0.01
 
 
-def test_a_report_saved_by_an_older_version_still_gives_a_coal_model():
-    # right after an update the last saved report (no "model" yet) is shown until the new one is built
-    from backend.core.analytics import coal_model_of
-    old = {"weather": {"coal": {"fit": None, "points": [
-        {"x": 7.8, "y": 22.0, "stable": False}, {"x": 6.5, "y": 19.6, "stable": True}, {"x": 5.6, "y": 16.9, "stable": True}]}}}
-    m = coal_model_of(old)
-    assert m["method"] == "degree_days" and m["days"] == 2
-    assert abs(m["kg_per_degree_day"] - (19.6 + 16.9) / (11.5 + 12.4)) < 1e-3
-    new = {"weather": {"coal": {"model": {"method": "line", "base_kg_per_day": 9.0, "kg_per_degree_day": 0.7, "days": 80}}}}
-    assert coal_model_of(new)["method"] == "line"
-    assert coal_model_of(None)["method"] is None
-
-
 def test_coal_forecast_per_day_with_cost():
     from datetime import datetime
     from backend.core.analytics import coal_forecast

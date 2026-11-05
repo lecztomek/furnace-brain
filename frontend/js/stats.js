@@ -471,9 +471,7 @@
         tile("Przy 0°C", num(fit.intercept, 0), "kg"),
         tile("Przy -10°C", num(fit.intercept - 10 * fit.slope, 0), "kg"),
         tile("Każdy stopień mrozu", `+${num(-fit.slope, 1)}`, "kg"),
-      ].join("")}</div><div class="st2-note">${m.method === "line"
-        ? `Węgla na dobę • stała część ${num(m.base_kg_per_day, 1)} kg (woda, straty) + ${num(m.kg_per_degree_day, 2)} kg na stopniodzień • z ${m.days} dni stabilnej pracy (ten i zeszły sezon) • to samo liczą prognozy`
-        : "Węgla na dobę • liczę model…"}</div>`;
+      ].join("")}</div><div class="st2-note">Węgla na dobę • stała część ${num(m.base_kg_per_day, 1)} kg (woda, straty) + ${num(m.kg_per_degree_day, 2)} kg na stopniodzień • z ${m.days} dni stabilnej pracy (ten i zeszły sezon) • to samo liczą prognozy</div>`;
     }
     const pts = w.coal.points.map((p) => ({ x: p.x, y: p.y }));
     $("weather-sub").textContent = `dni stabilnej pracy z temperaturą (${pts.length})`;
@@ -873,12 +871,8 @@
         return;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const wasStale = !report || report.stale;
       report = await res.json();
       render();
-      // the forecast is counted from the report's coal model: a fresh report (after an update
-      // or a restart the first one is the last saved) - fetch the forecast again
-      if (wasStale && !report.stale) loadForecast();
       const at = report.generated_at ? new Date(report.generated_at * 1000) : new Date();
       const hhmm = at.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
       // after a restart: the last saved report first, the fresh one comes a moment later
@@ -927,6 +921,5 @@
     // the model behind the forecast comes from the report - asked again once it is fresh
     loadForecast();
     setTimeout(loadForecast, 20000);
-    setInterval(loadForecast, 10 * 60 * 1000);   // the kiosk stays open for days
   });
 })();

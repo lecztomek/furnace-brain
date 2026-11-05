@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.63.2 · 05.11.2026 12:50
+
+- Wycofane zmiany z 1.63.1 - kod jak w 1.63.0.
+
 ## 1.63.1 · 05.11.2026 12:30
 
 - Poprawka: po wgraniu nowej wersji prognozy były puste (brak liczb i słupków), a w Sprawności brakowało wykresu pogody. Przez pierwsze minuty po restarcie pokazywany jest ostatni zapisany raport statystyk - ze starej wersji, bez nowego modelu węgla. Teraz prognoza liczy wtedy węgiel awaryjnie z tego raportu (kg na stopniodzień z dni stabilnych), a po przeliczeniu przechodzi na właściwy model.
