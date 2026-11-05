@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.71.1 · 06.11.2026 01:10
+
+- Nowe GUI (`/v2/`), Ustawienia: zamiast dużego złotego „Wszystkie ustawienia” skromny przycisk „‹ Powrót” w stylu pozostałych przycisków.
+
 ## 1.71.0 · 06.11.2026 01:00
 
 - Ustawienia (obecne i nowe GUI): ustawienia modułu wczytywane dopiero przy pierwszym otwarciu jego zakładki / kafelka. Otwarcie strony to 2 zapytania do sterownika zamiast 46 (wszystkie 23 moduły naraz) - mniej pracy dla Pi, strona otwiera się od razu. Zapis bez zmian.
