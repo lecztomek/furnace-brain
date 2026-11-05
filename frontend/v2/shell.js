@@ -31,7 +31,7 @@
   const icon = (k, cls = "") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">${ICONS[k]}</svg>`;
 
   stage.insertAdjacentHTML("afterbegin", `
-    <svg class="wedge" style="left:0;bottom:0" width="110" height="200" viewBox="0 0 110 200"><path d="M0 60 L100 0 L30 200 L0 200Z" fill="#e0b000" opacity=".9"/></svg>
+    <svg class="wedge" style="left:0;bottom:0" width="110" height="200" viewBox="0 0 110 200"><path d="M0 60 L100 0 L30 200 L0 200Z" fill="#f0c033" opacity=".9"/></svg>
     <div class="head-glass"></div>
     <header>
       <div class="slashbar"></div>

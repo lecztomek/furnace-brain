@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.74.0 · 06.11.2026 02:50
+
+- Nowe GUI (`/v2/`): jedna paleta kolorów „Węgiel i bursztyn” wszędzie (opis i reguła w `docs/concept/palette.md`). Baza to bursztyn; kolory stanów (zielony - pracuje / dobrze, czerwony - problem / Stop, niebieski - zimno, brąz - spaliny) mają tę samą nasyconość i jasność i różnią się tylko odcieniem - spokojniejsze, pasują do grafitu i bursztynu. Kafelki i wykresy Statystyk i Serwisu przemalowane na tę paletę tylko w nowym GUI.
+
 ## 1.73.0 · 06.11.2026 02:20
 
 - Nowe GUI (`/v2/`): strona „Serwis” w nowym wyglądzie - ta sama treść co w obecnym GUI (wspólny skrypt): Strojenie, Kontrola, Diagnostyka Pi, Moduły, Zmiany. Teraz wszystkie strony mają nowy wygląd - menu ☰ prowadzi do starego GUI już tylko przez „Stary panel”.

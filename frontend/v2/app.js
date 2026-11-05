@@ -124,7 +124,7 @@
     const tr = (s.trend || {}).boiler_per_10m;
     const trend = $("trend");
     trend.textContent = tr == null ? "" : `${tr > 0 ? "+" : tr < 0 ? "-" : "±"}${num(Math.abs(tr))}°/10 min`;
-    trend.setAttribute("fill", tr == null || Math.abs(tr) < 0.05 ? "#aeb5be" : tr > 0 ? "#3ddc7a" : "#7cc4ff");
+    trend.setAttribute("fill", tr == null || Math.abs(tr) < 0.05 ? "#aeb5be" : tr > 0 ? "#66cc99" : "#a0caee");
     $("flue").textContent = sens.flue_gas_temp == null ? "--" : `${num(sens.flue_gas_temp, 0)} °C`;
     $("rad").textContent = sens.radiators_temp == null ? "--" : `${num(sens.radiators_temp, 0)}°`;
     const rad = s.radiators || {};
@@ -284,11 +284,11 @@
     });
     const x = 92;
     if (expected != null) {
-      svg += `<rect x="${x}" y="${base - h(expected)}" width="64" height="${h(expected)}" rx="9" fill="none" stroke="#ffd84d" stroke-width="2.5" stroke-dasharray="6 5" opacity=".7"/>`;
+      svg += `<rect x="${x}" y="${base - h(expected)}" width="64" height="${h(expected)}" rx="9" fill="none" stroke="#f6cf5a" stroke-width="2.5" stroke-dasharray="6 5" opacity=".7"/>`;
     }
-    svg += `<rect x="${x}" y="${base - h(burnt)}" width="64" height="${h(burnt)}" rx="9" fill="#ffd84d"/>` +
-           `<text x="${x + 32}" y="${base - h(expected ?? burnt) - 10}" fill="#ffd84d">${expected != null ? `~${Math.round(expected)}` : num(burnt)}</text>` +
-           `<text x="${x + 32}" y="178" fill="#ffd84d">dziś</text></g>`;
+    svg += `<rect x="${x}" y="${base - h(burnt)}" width="64" height="${h(burnt)}" rx="9" fill="#f6cf5a"/>` +
+           `<text x="${x + 32}" y="${base - h(expected ?? burnt) - 10}" fill="#f6cf5a">${expected != null ? `~${Math.round(expected)}` : num(burnt)}</text>` +
+           `<text x="${x + 32}" y="178" fill="#f6cf5a">dziś</text></g>`;
     $("coal-bars").innerHTML = svg;
   }
 

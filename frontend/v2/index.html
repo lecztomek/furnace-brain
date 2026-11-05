@@ -10,10 +10,10 @@
 <body>
 <div class="stage" id="stage">
   <svg class="wedge" style="left:0;bottom:0" width="110" height="200" viewBox="0 0 110 200">
-    <defs><linearGradient id="wy" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ffd21f"/><stop offset="1" stop-color="#b88a00"/></linearGradient></defs>
+    <defs><linearGradient id="wy" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f0c033"/><stop offset="1" stop-color="#605329"/></linearGradient></defs>
     <path d="M0 60 L100 0 L30 200 L0 200Z" fill="url(#wy)" opacity=".9"/>
   </svg>
-  <svg class="wedge" style="right:0;top:110px" width="60" height="200" viewBox="0 0 60 200"><path d="M60 0 L60 110 L10 200 L36 80Z" fill="#ffd21f" opacity=".9"/></svg>
+  <svg class="wedge" style="right:0;top:110px" width="60" height="200" viewBox="0 0 60 200"><path d="M60 0 L60 110 L10 200 L36 80Z" fill="#f0c033" opacity=".9"/></svg>
   <div class="head-glass"></div>
 
   <!-- header: status, outside, date, clock, menu -->
@@ -64,23 +64,23 @@
     <svg class="scene" id="scene" viewBox="38 -4 476 404" preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id="bb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2d3238"/><stop offset="1" stop-color="#121417"/></linearGradient>
-        <radialGradient id="fg" cx=".5" cy=".9" r=".9"><stop offset="0" stop-color="#ff9a1a" stop-opacity=".9"/><stop offset=".55" stop-color="#ff6a00" stop-opacity=".35"/><stop offset="1" stop-color="#120700" stop-opacity="0"/></radialGradient>
-        <linearGradient id="f1" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff5a00"/><stop offset=".55" stop-color="#ffa000"/><stop offset="1" stop-color="#ffe680"/></linearGradient>
+        <radialGradient id="fg" cx=".5" cy=".9" r=".9"><stop offset="0" stop-color="#cc9666" stop-opacity=".9"/><stop offset=".55" stop-color="#ff6a00" stop-opacity=".35"/><stop offset="1" stop-color="#120700" stop-opacity="0"/></radialGradient>
+        <linearGradient id="f1" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff5a00"/><stop offset=".55" stop-color="#ffa000"/><stop offset="1" stop-color="#f6cf5a"/></linearGradient>
         <linearGradient id="f2" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ffb200"/><stop offset="1" stop-color="#fff6c8"/></linearGradient>
       </defs>
       <!-- pipes: hot into the radiator's top, cold back from its bottom -->
       <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M222 170H286V226H324" stroke="#ffd21f" stroke-width="7"/>
-        <path class="flow" d="M222 170H286V226H324" stroke="#fff3b0" stroke-width="2.5"/>
-        <path d="M222 340H286V324H324" stroke="#4aa8ff" stroke-width="7"/>
+        <path d="M222 170H286V226H324" stroke="#f0c033" stroke-width="7"/>
+        <path class="flow" d="M222 170H286V226H324" stroke="#f6cf5a" stroke-width="2.5"/>
+        <path d="M222 340H286V324H324" stroke="#669ccc" stroke-width="7"/>
       </g>
       <!-- chimney + flue gas -->
       <rect x="146" y="2" width="30" height="50" rx="4" fill="#1a1d21" stroke="#e8ebee" stroke-width="4"/>
       <g transform="translate(198 0)">
-        <rect x="0" y="0" width="236" height="110" rx="18" fill="#1d1712" stroke="#f97316" stroke-width="3"/>
+        <rect x="0" y="0" width="236" height="110" rx="18" fill="#1d1712" stroke="#cc9666" stroke-width="3"/>
         <g fill="none" stroke="#c7ccd2" stroke-width="3.5" stroke-linecap="round"><path d="M22 40c-5-7 5-11 0-18M36 40c-5-7 5-11 0-18M50 40c-5-7 5-11 0-18"/></g>
         <text x="70" y="40" fill="#aeb5be" font-size="27" font-weight="600">Spaliny</text>
-        <text x="68" y="94" fill="#fdba74" font-size="54" font-weight="800" id="flue">--</text>
+        <text x="68" y="94" fill="#eec4a0" font-size="54" font-weight="800" id="flue">--</text>
       </g>
       <!-- boiler -->
       <rect x="88" y="48" width="96" height="30" rx="7" fill="#1a1d21" stroke="#e8ebee" stroke-width="4"/>
@@ -88,11 +88,11 @@
       <rect x="60" y="376" width="22" height="16" rx="3" fill="#121417" stroke="#e8ebee" stroke-width="3"/>
       <rect x="186" y="376" width="22" height="16" rx="3" fill="#121417" stroke="#e8ebee" stroke-width="3"/>
       <g id="furnace-temp" class="tap">
-      <rect x="56" y="98" width="156" height="152" rx="16" fill="#16130a" stroke="#ffd21f" stroke-width="4"/>
-      <text x="134" y="166" text-anchor="middle" fill="#ffd84d" font-size="54" font-weight="800" letter-spacing="-1.5"><tspan id="boiler">--</tspan><tspan font-size="22" dx="2" dy="-22" fill="#ffe9a0">°C</tspan></text>
-      <text x="134" y="202" text-anchor="middle" fill="#3ddc7a" font-size="23" font-weight="700" id="trend"></text>
-      <text x="134" y="236" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500">zadana <tspan fill="#ffd21f" font-weight="700" id="boiler-set">--</tspan></text>
-      <g transform="translate(206 104)"><circle r="15" fill="#2b3037" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/><g transform="translate(-9 -9) scale(.75)" fill="none" stroke="#ffd84d" stroke-width="2.6" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></g></g>
+      <rect x="56" y="98" width="156" height="152" rx="16" fill="#16130a" stroke="#f0c033" stroke-width="4"/>
+      <text x="134" y="166" text-anchor="middle" fill="#f6cf5a" font-size="54" font-weight="800" letter-spacing="-1.5"><tspan id="boiler">--</tspan><tspan font-size="22" dx="2" dy="-22" fill="#f6cf5a">°C</tspan></text>
+      <text x="134" y="202" text-anchor="middle" fill="#66cc99" font-size="23" font-weight="700" id="trend"></text>
+      <text x="134" y="236" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500">zadana <tspan fill="#f0c033" font-weight="700" id="boiler-set">--</tspan></text>
+      <g transform="translate(206 104)"><circle r="15" fill="#2b3037" stroke="rgba(255, 255, 255,0.35)" stroke-width="1.5"/><g transform="translate(-9 -9) scale(.75)" fill="none" stroke="#f6cf5a" stroke-width="2.6" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></g></g>
       </g>
       <!-- fire: burns while the boiler is in work or ignition -->
       <rect x="70" y="262" width="128" height="98" rx="6" fill="#140800" stroke="#5c6168" stroke-width="3"/>
@@ -108,12 +108,12 @@
           <path d="M14 20v128M36 20v128M58 20v128M80 20v128M102 20v128M124 20v128M146 20v128M168 20v128"/>
           <path d="M4 34h176M4 134h176"/>
         </g>
-        <rect x="16" y="46" width="150" height="80" rx="14" fill="#0f1620" stroke="#4aa8ff" stroke-width="3.5"/>
-        <text x="91" y="102" text-anchor="middle" fill="#9fd2ff" font-size="46" font-weight="800" id="rad">--</text>
-        <g transform="translate(160 52)"><circle r="15" fill="#2b3037" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/><g transform="translate(-9 -9) scale(.75)" fill="none" stroke="#ffd84d" stroke-width="2.6" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></g></g>
+        <rect x="16" y="46" width="150" height="80" rx="14" fill="#16191d" stroke="#669ccc" stroke-width="3.5"/>
+        <text x="91" y="102" text-anchor="middle" fill="#a0caee" font-size="46" font-weight="800" id="rad">--</text>
+        <g transform="translate(160 52)"><circle r="15" fill="#2b3037" stroke="rgba(255, 255, 255,0.35)" stroke-width="1.5"/><g transform="translate(-9 -9) scale(.75)" fill="none" stroke="#f6cf5a" stroke-width="2.6" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></g></g>
         <text x="91" y="182" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500"><tspan id="rad-label">zadana</tspan> <tspan fill="#fff" font-weight="700" id="rad-set">--</tspan></text>
       </g>
-      <g class="heat" stroke="#ffd21f" stroke-width="5" fill="none" stroke-linecap="round"><path d="M372 180c-6-8 6-13 0-22M402 180c-6-8 6-13 0-22M432 180c-6-8 6-13 0-22"/></g>
+      <g class="heat" stroke="#f0c033" stroke-width="5" fill="none" stroke-linecap="round"><path d="M372 180c-6-8 6-13 0-22M402 180c-6-8 6-13 0-22M432 180c-6-8 6-13 0-22"/></g>
     </svg>
 
     <!-- power and coal -->
@@ -121,8 +121,8 @@
       <div class="card power">
         <div class="n">Moc pieca</div>
         <svg class="ring" viewBox="0 0 200 200">
-          <defs><linearGradient id="pr" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f5c518"/><stop offset="1" stop-color="#ffe066"/></linearGradient></defs>
-          <circle cx="100" cy="100" r="84" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="18"/>
+          <defs><linearGradient id="pr" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f0c033"/><stop offset="1" stop-color="#f6cf5a"/></linearGradient></defs>
+          <circle cx="100" cy="100" r="84" fill="none" stroke="rgba(255, 255, 255,0.1)" stroke-width="18"/>
           <circle id="power-arc" cx="100" cy="100" r="84" fill="none" stroke="url(#pr)" stroke-width="18" stroke-linecap="round" stroke-dasharray="0 528" transform="rotate(-90 100 100)"/>
           <text x="100" y="110" text-anchor="middle" fill="#fff" font-size="60" font-weight="800" id="power-kw">--</text>
           <text x="100" y="146" text-anchor="middle" fill="#aeb5be" font-size="26" font-weight="600">kW</text>
