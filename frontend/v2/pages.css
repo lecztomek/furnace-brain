@@ -50,7 +50,9 @@ input[type=range]::-moz-range-thumb { width: 46px; height: 46px; border-radius: 
 /* ---------- Ustawienia (js/settings-config.js builds the tabs and the fields) ---------- */
 .settings-page { display: grid; grid-template-rows: 1fr auto; gap: 6px; padding: 14px 18px 10px; }
 .config-root { display: grid; grid-template-rows: auto 1fr auto; gap: 12px; min-height: 0; }
-.config-tabs-header { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.config-tabs-header { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent); mask-image: linear-gradient(90deg, #000 92%, transparent); }
+.config-tabs-header::-webkit-scrollbar { display: none; }
 .config-tab-button { flex: none; height: 58px; padding: 0 22px; border-radius: 29px; font-size: 22px; font-weight: 700; white-space: nowrap;
   color: #dfe2e6; background: linear-gradient(180deg, #2e333a, #1c1f24); border: 1.5px solid rgba(255, 255, 255, 0.2); }
 .config-tab-button.active { color: #111; background: linear-gradient(180deg, var(--yellow), #e6b800); border-color: var(--yellow); }

@@ -2,6 +2,13 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.69.1 · 06.11.2026 00:15
+
+- Nowe GUI (`/v2/`):
+  - temperatura kotła i grzejników w pełnych stopniach
+  - chmurka przy temperaturze na dworze na wszystkich stronach
+  - Ustawienia: zakładki bez paska przewijania (przesuwa się palcem, wygaszona krawędź pokazuje, że jest więcej)
+
 ## 1.69.0 · 06.11.2026 00:05
 
 - Nowe GUI (`/v2/`): strona „Logi” w nowym wyglądzie - ten sam układ i funkcje co w obecnym GUI (wspólny skrypt): status, filtry (poziom, źródło, limit), lista wpisów z kolorowym poziomem, szczegóły wpisu po dotknięciu. Menu ☰ prowadzi już do nowej strony.

@@ -38,6 +38,7 @@
       <div class="title"><b>${title}</b><span><span id="date"></span><span class="ver" id="app-ver"></span></span></div>
       <button class="sign" id="sign"><svg id="sign-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"></svg><span id="sign-text">…</span></button>
       <div class="hdr-right">
+        <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#e6e8eb" stroke-width="1.6"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.4 1.5A3.3 3.3 0 0 0 7 18z"/></svg>
         <span class="outside" id="outside">--</span>
         <span class="clock" id="clock"></span>
         <button class="burger" id="burger" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="#f2f3f5" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>

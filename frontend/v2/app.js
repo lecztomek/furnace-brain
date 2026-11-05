@@ -120,13 +120,13 @@
     renderToggles();
 
     // the picture
-    $("boiler").textContent = num(sens.boiler_temp);
+    $("boiler").textContent = num(sens.boiler_temp, 0);   // whole degrees are enough
     const tr = (s.trend || {}).boiler_per_10m;
     const trend = $("trend");
     trend.textContent = tr == null ? "" : `${tr > 0 ? "+" : tr < 0 ? "-" : "±"}${num(Math.abs(tr))}°/10 min`;
     trend.setAttribute("fill", tr == null || Math.abs(tr) < 0.05 ? "#aeb5be" : tr > 0 ? "#3ddc7a" : "#7cc4ff");
     $("flue").textContent = sens.flue_gas_temp == null ? "--" : `${num(sens.flue_gas_temp, 0)} °C`;
-    $("rad").textContent = sens.radiators_temp == null ? "--" : `${num(sens.radiators_temp)}°`;
+    $("rad").textContent = sens.radiators_temp == null ? "--" : `${num(sens.radiators_temp, 0)}°`;
     const rad = s.radiators || {};
     // the curve switched on shows "krzywa" at once (without the outside temperature it holds the fixed target)
     $("rad-label").textContent = rad.curve_enabled || rad.curve_active ? "krzywa" : "zadana";
