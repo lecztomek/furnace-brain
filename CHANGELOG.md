@@ -2,6 +2,14 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.66.4 · 05.11.2026 22:35
+
+- Nowe GUI (`/v2/`):
+  - menu ☰ jako panel pod przyciskiem, wysokie na tyle, ile pozycji (było na całą wysokość ekranu)
+  - ołówki przy urządzeniach wystają w lewym górnym rogu, jak przy kotle i grzejniku
+  - grzejnik: po włączeniu krzywej od razu „krzywa” (bez temperatury zewnętrznej krzywa trzyma stałą zadaną)
+  - wersja i czas działania pod nazwą sterownika
+
 ## 1.66.3 · 05.11.2026 22:20
 
 - Nowe GUI (`/v2/`): ołówek przy wszystkim, co da się ustawić z ekranu głównego (kocioł, grzejnik, dmuchawa, ślimak, pompy) - jak w obecnym GUI.

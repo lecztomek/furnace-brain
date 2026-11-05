@@ -82,6 +82,14 @@
     $("sign-text").textContent = first ? (first.short || (problems.length ? "PROBLEM" : "UWAGA")) : "OK";
     $("sign-pop").innerHTML = [...problems.map((p) => ["bad", p]), ...warnings.map((p) => ["warn", p])]
       .map(([cls, p]) => `<p class="${cls}"><b>${p.short || ""}</b> ${p.text || ""}</p>`).join("") || "<p>Wszystko w porządku.</p>";
+    // version and uptime, as the current GUI
+    const app = s.app || {};
+    let up = "";
+    if (app.started_at) {
+      const m = Math.max(0, Math.floor((Date.now() / 1000 - app.started_at) / 60));
+      up = m >= 1440 ? `${Math.floor(m / 1440)} d ${Math.floor((m % 1440) / 60)} h` : m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
+    }
+    $("app-ver").textContent = app.version ? ` • v${app.version}${up ? ` • ${up}` : ""}` : "";
     $("outside").textContent = sens.outside_temp == null ? "--" : `${num(sens.outside_temp)} °C`;
 
     // devices
@@ -110,7 +118,8 @@
     $("flue").textContent = sens.flue_gas_temp == null ? "--" : `${num(sens.flue_gas_temp, 0)} °C`;
     $("rad").textContent = sens.radiators_temp == null ? "--" : `${num(sens.radiators_temp)}°`;
     const rad = s.radiators || {};
-    $("rad-label").textContent = rad.curve_active ? "krzywa" : "zadana";
+    // the curve switched on shows "krzywa" at once (without the outside temperature it holds the fixed target)
+    $("rad-label").textContent = rad.curve_enabled || rad.curve_active ? "krzywa" : "zadana";
     $("rad-set").textContent = rad.target == null ? "--" : `${num(rad.target)}°`;
     // the fire follows the boiler temperature, as the current GUI: none below 30°C, full at 50°C
     const bt = Number(sens.boiler_temp);

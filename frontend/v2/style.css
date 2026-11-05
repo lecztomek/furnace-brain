@@ -130,12 +130,13 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 .mbtn.busy { opacity: .6; }
 
 /* ---------- menu (slides in from the right) ---------- */
-.drawer { position: absolute; right: 0; top: 0; bottom: 0; width: 400px; z-index: 5; transform: translateX(105%); transition: transform .2s ease-out;
-  background: linear-gradient(180deg, #1c2026, #121417); border-left: 1px solid rgba(255, 255, 255, 0.12); padding: 120px 0 20px; box-shadow: -12px 0 40px rgba(0, 0, 0, 0.6); }
+.drawer { position: absolute; right: 18px; top: 100px; width: 400px; z-index: 5; padding: 10px 0; border-radius: 20px; overflow: hidden;
+  transform: translateX(120%); transition: transform .2s ease-out;
+  background: linear-gradient(180deg, #1c2026, #121417); border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: -12px 12px 40px rgba(0, 0, 0, 0.6); }
 .drawer.open { transform: none; }
-.drawer a { display: flex; align-items: center; gap: 22px; padding: 0 0 0 36px; height: 86px; color: #e9ebee; text-decoration: none; font-size: 30px; font-weight: 600; }
+.drawer a { display: flex; align-items: center; gap: 22px; padding: 0 0 0 32px; height: 76px; color: #e9ebee; text-decoration: none; font-size: 30px; font-weight: 600; }
 .drawer a svg { width: 44px; height: 44px; }
-.drawer a.active { color: #111; background: linear-gradient(90deg, var(--yellow), #f4c000); clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%); padding-left: 56px; }
+.drawer a.active { color: #111; background: linear-gradient(90deg, var(--yellow), #f4c000); }
 .shade { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 4; display: none; }
 .shade.open { display: block; }
 
@@ -188,6 +189,8 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 
 /* "can be set" mark: a small pencil, as in the current GUI */
 .dev { position: relative; }
-.dev .edit { position: absolute; left: 4px; top: 4px; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center;
-  background: #2b3037; border: 1px solid rgba(255, 255, 255, 0.3); color: var(--yellow-soft); }
-.dev .edit svg { width: 15px; height: 15px; }
+.dev .edit { position: absolute; left: -9px; top: -9px; z-index: 2; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  background: #2b3037; border: 1.5px solid rgba(255, 255, 255, 0.35); color: var(--yellow-soft); }
+.dev .edit svg { width: 16px; height: 16px; }
+.title span .ver { color: #8b939d; }
+.title span span { display: inline; font-size: inherit; }
