@@ -19,13 +19,11 @@
   <!-- header: status, outside, date, clock, menu -->
   <header>
     <div class="slashbar"></div>
-    <div class="title"><b>Sterownik kotła</b><span>Węgiel</span></div>
+    <div class="title"><b>Sterownik kotła</b><span id="date"></span></div>
     <div class="hdr-right">
       <span class="sign" id="sign"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><span id="sign-text">…</span></span>
       <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#e6e8eb" stroke-width="1.6"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.4 1.5A3.3 3.3 0 0 0 7 18z"/></svg>
       <span class="outside" id="outside">--</span>
-      <span class="vr"></span>
-      <span id="date"></span>
       <span class="clock" id="clock"></span>
       <button class="burger" id="burger" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="#f2f3f5" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </div>
@@ -59,11 +57,11 @@
         <div class="dn"><div class="n">Zawór</div><div class="s">mieszający</div></div>
         <span class="ctl"><span class="pill val" id="mixer-pill">--</span></span>
       </div>
-      <div class="hint" id="hint">w STOP: dmuchawa i ślimak ręcznie</div>
+      <div class="hint" id="hint">w STOP: ręcznie</div>
     </section>
 
     <!-- the picture: boiler with chimney and flue gas, radiator -->
-    <svg class="scene" id="scene" viewBox="0 0 520 400" preserveAspectRatio="xMidYMid meet">
+    <svg class="scene" id="scene" viewBox="38 -4 476 404" preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id="bb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2d3238"/><stop offset="1" stop-color="#121417"/></linearGradient>
         <radialGradient id="fg" cx=".5" cy=".9" r=".9"><stop offset="0" stop-color="#ff9a1a" stop-opacity=".9"/><stop offset=".55" stop-color="#ff6a00" stop-opacity=".35"/><stop offset="1" stop-color="#120700" stop-opacity="0"/></radialGradient>
@@ -82,22 +80,24 @@
       <!-- chimney + flue gas -->
       <rect x="146" y="2" width="30" height="50" rx="4" fill="#1a1d21" stroke="#e8ebee" stroke-width="4"/>
       <g transform="translate(198 0)">
-        <rect x="0" y="0" width="236" height="110" rx="18" fill="#1a1c20" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+        <rect x="0" y="0" width="236" height="110" rx="18" fill="#1d1712" stroke="#f97316" stroke-width="3"/>
         <g fill="none" stroke="#c7ccd2" stroke-width="3.5" stroke-linecap="round"><path d="M22 40c-5-7 5-11 0-18M36 40c-5-7 5-11 0-18M50 40c-5-7 5-11 0-18"/></g>
         <text x="70" y="40" fill="#aeb5be" font-size="27" font-weight="600">Spaliny</text>
-        <text x="68" y="94" fill="#fff" font-size="52" font-weight="700" id="flue">--</text>
+        <text x="68" y="94" fill="#fdba74" font-size="54" font-weight="800" id="flue">--</text>
       </g>
       <!-- boiler -->
       <rect x="88" y="48" width="96" height="30" rx="7" fill="#1a1d21" stroke="#e8ebee" stroke-width="4"/>
       <rect x="45" y="72" width="178" height="306" rx="20" fill="url(#bb)" stroke="#e8ebee" stroke-width="4.5"/>
       <rect x="60" y="376" width="22" height="16" rx="3" fill="#121417" stroke="#e8ebee" stroke-width="3"/>
       <rect x="186" y="376" width="22" height="16" rx="3" fill="#121417" stroke="#e8ebee" stroke-width="3"/>
-      <text x="134" y="168" text-anchor="middle" fill="#fff" font-size="54" font-weight="600" letter-spacing="-1"><tspan id="boiler">--</tspan><tspan font-size="28" dx="3" dy="-20">°C</tspan></text>
-      <text x="134" y="206" text-anchor="middle" fill="#3ddc7a" font-size="27" font-weight="700" id="trend"></text>
-      <text x="134" y="242" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500">zadana <tspan fill="#ffd21f" font-weight="700" id="boiler-set">--</tspan></text>
+      <rect x="56" y="98" width="156" height="152" rx="16" fill="#16130a" stroke="#ffd21f" stroke-width="4"/>
+      <rect x="56" y="98" width="156" height="152" rx="16" fill="none" stroke="#ffd21f" stroke-width="10" opacity=".22" filter="url(#soft)"/>
+      <text x="134" y="166" text-anchor="middle" fill="#ffd84d" font-size="54" font-weight="800" letter-spacing="-1.5"><tspan id="boiler">--</tspan><tspan font-size="22" dx="2" dy="-22" fill="#ffe9a0">°C</tspan></text>
+      <text x="134" y="202" text-anchor="middle" fill="#3ddc7a" font-size="26" font-weight="700" id="trend"></text>
+      <text x="134" y="236" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500">zadana <tspan fill="#ffd21f" font-weight="700" id="boiler-set">--</tspan></text>
       <!-- fire: burns while the boiler is in work or ignition -->
-      <rect x="70" y="256" width="128" height="104" rx="6" fill="#140800" stroke="#5c6168" stroke-width="3"/>
-      <rect class="glow" x="70" y="256" width="128" height="104" rx="6" fill="url(#fg)"/>
+      <rect x="70" y="262" width="128" height="98" rx="6" fill="#140800" stroke="#5c6168" stroke-width="3"/>
+      <rect class="glow" x="70" y="262" width="128" height="98" rx="6" fill="url(#fg)"/>
       <g class="flame"><path d="M134 356c-30 0-40-18-33-38 4 7 9 10 13 9-5-19 6-32 19-42-1 14 7 20 12 25 3-6 2-12 0-17 13 10 22 24 19 41-3 15-12 22-30 22z" fill="url(#f1)"/></g>
       <g class="flame f2"><path d="M98 356c-12 0-16-8-13-16 2 3 4 4 5 3-1-8 3-12 7-15 0 6 3 8 5 11 4 9 4 17-4 17zM172 356c-12 0-16-8-13-16 2 3 4 4 5 3-1-8 3-12 7-15 0 6 3 8 5 11 4 9 4 17-4 17z" fill="url(#f1)" opacity=".9"/></g>
       <g class="flame f2"><path d="M134 356c-11 0-15-7-12-14 2 3 4 4 5 3 0-8 3-12 7-15 0 6 3 9 5 11 4 8 3 15-5 15z" fill="url(#f2)"/></g>
@@ -107,8 +107,8 @@
           <path d="M14 20v128M36 20v128M58 20v128M80 20v128M102 20v128M124 20v128M146 20v128M168 20v128"/>
           <path d="M4 34h176M4 134h176"/>
         </g>
-        <rect x="24" y="52" width="134" height="68" rx="14" fill="#1a1c20" stroke="#ffd21f" stroke-width="3"/>
-        <text x="91" y="99" text-anchor="middle" fill="#fff" font-size="40" font-weight="600" id="rad">--</text>
+        <rect x="16" y="46" width="150" height="80" rx="14" fill="#0f1620" stroke="#4aa8ff" stroke-width="3.5"/>
+        <text x="91" y="102" text-anchor="middle" fill="#9fd2ff" font-size="46" font-weight="800" id="rad">--</text>
         <text x="91" y="182" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500"><tspan id="rad-label">zadana</tspan> <tspan fill="#fff" font-weight="700" id="rad-set">--</tspan></text>
       </g>
       <g class="heat" stroke="#ffd21f" stroke-width="5" fill="none" stroke-linecap="round"><path d="M372 180c-6-8 6-13 0-22M402 180c-6-8 6-13 0-22M432 180c-6-8 6-13 0-22"/></g>
@@ -117,6 +117,7 @@
     <!-- power and coal -->
     <section class="side">
       <div class="card power">
+        <div class="top"><div class="n">Moc pieca</div><div class="pv"><span id="power-pct">--</span><small>%</small></div></div>
         <svg class="ring" viewBox="0 0 200 200">
           <defs><linearGradient id="pr" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f5c518"/><stop offset="1" stop-color="#ffe066"/></linearGradient></defs>
           <circle cx="100" cy="100" r="82" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="18"/>
@@ -124,15 +125,14 @@
           <text x="100" y="108" text-anchor="middle" fill="#fff" font-size="50" font-weight="700" id="power-kw">--</text>
           <text x="100" y="140" text-anchor="middle" fill="#aeb5be" font-size="24" font-weight="600">kW</text>
         </svg>
-        <div><div class="n">Moc pieca</div><div class="pv"><span id="power-pct">--</span><small>%</small></div></div>
       </div>
       <div class="card coal">
         <div class="cl">
           <div class="ch"><svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.6" stroke-linejoin="round"><path d="M3 15.5 5.5 8 11 5l6.5 2.5L21 13l-3 5.5-8 1.5-5-2z"/><path d="M5.5 8 10 11.5 11 5M10 11.5l7.5-4M10 11.5 10 20"/></svg>Węgiel dziś</div>
           <div class="cv"><span id="coal-today">--</span><small>kg</small></div>
-          <div class="cs">teraz <b id="coal-now">--</b> kg/h</div>
+          <div class="cs">teraz<br><b id="coal-now">--</b> kg/h</div>
         </div>
-        <svg class="bars" id="coal-bars" viewBox="0 0 170 180"></svg>
+        <svg class="bars" id="coal-bars" viewBox="0 0 250 180" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
     </section>
   </div>

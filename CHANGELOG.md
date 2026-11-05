@@ -2,6 +2,15 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.65.0 · 05.11.2026 20:00
+
+- Nowe GUI (`/v2/`):
+  - układ pod ekran 4:3 (800x600) - bez pustych pasów, wszystko większe
+  - piec w centrum uwagi: większy rysunek, węższe kolumny boczne; temperatura kotła żółta w świecącej żółtej ramce, spaliny pomarańczowe w pomarańczowej ramce, grzejnik niebieski w niebieskiej ramce
+  - moc i węgiel w pionowych kartach (wskaźnik kołowy pod mocą, słupki pod węglem)
+  - dmuchawa wyłączona pokazuje ustawiony procent
+  - data pod nazwą sterownika (miejsce na większy zegar i pogodę)
+
 ## 1.64.1 · 05.11.2026 19:20
 
 - Nowe GUI (`/v2/`): gdy statystyki są jeszcze liczone (po starcie), węgiel pobierany ponownie co 15 s zamiast po 5 min - nie wisi „--”.

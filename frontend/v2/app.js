@@ -16,10 +16,10 @@
   let state = null;
   let busy = null;      // a mode button or a manual switch being sent
 
-  // ---------- fit the 1440x850 drawing to the screen ----------
+  // ---------- fit the 1200x900 drawing (4:3) to the screen ----------
   function fit() {
-    const s = Math.min(innerWidth / 1440, innerHeight / 850);
-    $("stage").style.transform = `translate(${(innerWidth - 1440 * s) / 2}px, ${(innerHeight - 850 * s) / 2}px) scale(${s})`;
+    const s = Math.min(innerWidth / 1200, innerHeight / 900);
+    $("stage").style.transform = `translate(${(innerWidth - 1200 * s) / 2}px, ${(innerHeight - 900 * s) / 2}px) scale(${s})`;
   }
   addEventListener("resize", fit);
   fit();
@@ -85,7 +85,8 @@
     // devices
     const fan = Number(out.fan_power) || 0;
     pill($("fan-pill"), fan > 0);
-    $("fan-sub").textContent = fan > 0 ? `${Math.round(fan)}%` : "";
+    // off: the speed it is set to (the blower's setting)
+    $("fan-sub").textContent = fan > 0 ? `${Math.round(fan)}%` : fanSet != null ? `${fanSet}%` : "";
     pill($("feeder-pill"), !!out.feeder_on);
     $("hopper").textContent = sens.hopper_temp == null ? "--" : `${num(sens.hopper_temp, 0)}°`;
     pill($("co-pill"), !!out.pump_co_on);
@@ -132,9 +133,12 @@
     }
   }
 
+  let fanSet = null;
   async function loadSetpoint() {
     const v = await configValue("power_work", "boiler_set_temp");
     $("boiler-set").textContent = v == null ? "--" : `${num(v, 0)} °C`;
+    const f = Math.round(Number(await configValue("blower", "base_fan_percent")));
+    fanSet = f > 0 && f <= 100 ? f : null;
   }
 
   // ---------- modes ----------
@@ -239,18 +243,18 @@
     const label = (iso) => DAYS[new Date(`${iso}T12:00:00`).getDay()];
     let svg = '<g font-size="25" font-weight="700" text-anchor="middle">';
     days.forEach((d, i) => {
-      const x = 6 + i * 58;
-      svg += `<rect x="${x}" y="${base - h(d.coal_kg)}" width="42" height="${h(d.coal_kg)}" rx="8" fill="#4b525c"/>` +
-             `<text x="${x + 21}" y="${base - h(d.coal_kg) - 10}" fill="#c3c8cf">${Math.round(d.coal_kg || 0)}</text>` +
-             `<text x="${x + 21}" y="176" fill="#aeb5be" font-weight="600">${label(d.date)}</text>`;
+      const x = 10 + i * 82;
+      svg += `<rect x="${x}" y="${base - h(d.coal_kg)}" width="64" height="${h(d.coal_kg)}" rx="9" fill="#4b525c"/>` +
+             `<text x="${x + 32}" y="${base - h(d.coal_kg) - 10}" fill="#c3c8cf">${Math.round(d.coal_kg || 0)}</text>` +
+             `<text x="${x + 32}" y="176" fill="#aeb5be" font-weight="600">${label(d.date)}</text>`;
     });
-    const x = 122;
+    const x = 174;
     if (expected != null) {
-      svg += `<rect x="${x}" y="${base - h(expected)}" width="42" height="${h(expected)}" rx="8" fill="none" stroke="#ffd84d" stroke-width="2.5" stroke-dasharray="6 5" opacity=".7"/>`;
+      svg += `<rect x="${x}" y="${base - h(expected)}" width="64" height="${h(expected)}" rx="9" fill="none" stroke="#ffd84d" stroke-width="2.5" stroke-dasharray="6 5" opacity=".7"/>`;
     }
-    svg += `<rect x="${x}" y="${base - h(burnt)}" width="42" height="${h(burnt)}" rx="8" fill="#ffd84d"/>` +
-           `<text x="${x + 21}" y="${base - h(expected ?? burnt) - 10}" fill="#ffd84d">${expected != null ? `~${Math.round(expected)}` : num(burnt)}</text>` +
-           `<text x="${x + 21}" y="176" fill="#ffd84d">dziś</text></g>`;
+    svg += `<rect x="${x}" y="${base - h(burnt)}" width="64" height="${h(burnt)}" rx="9" fill="#ffd84d"/>` +
+           `<text x="${x + 32}" y="${base - h(expected ?? burnt) - 10}" fill="#ffd84d">${expected != null ? `~${Math.round(expected)}` : num(burnt)}</text>` +
+           `<text x="${x + 32}" y="176" fill="#ffd84d">dziś</text></g>`;
     $("coal-bars").innerHTML = svg;
   }
 
