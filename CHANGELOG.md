@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.73.0 · 06.11.2026 02:20
+
+- Nowe GUI (`/v2/`): strona „Serwis” w nowym wyglądzie - ta sama treść co w obecnym GUI (wspólny skrypt): Strojenie, Kontrola, Diagnostyka Pi, Moduły, Zmiany. Teraz wszystkie strony mają nowy wygląd - menu ☰ prowadzi do starego GUI już tylko przez „Stary panel”.
+
 ## 1.72.1 · 06.11.2026 02:00
 
 - Nowe GUI (`/v2/`):

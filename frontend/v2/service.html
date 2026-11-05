@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Serwis – sterownik kotła</title>
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<!-- the current GUI's service styles, then the new look on top -->
+<link rel="stylesheet" href="../styles-stats.css">
+<link rel="stylesheet" href="../styles-service.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<!-- the same content and ids as the current GUI's service page: its script (js/service.js) drives this one -->
+<div class="stage page" id="stage" data-title="Serwis">
+  <main class="card stats-page service-page">
+    <div class="st2" id="sv">
+
+              <div class="st2-head">
+                <div class="st2-title">SERWIS</div>
+                <button type="button" class="st2-refresh" id="sv-refresh" title="Odśwież">⟳</button>
+              </div>
+              <div class="st2-tabs" id="sv-tabs" role="tablist">
+                <button type="button" data-tab="tuning" class="active">Strojenie</button>
+                <button type="button" data-tab="checks">Kontrola</button>
+                <button type="button" data-tab="diag">Diagnostyka Pi</button>
+                <button type="button" data-tab="modules">Moduły</button>
+                <button type="button" data-tab="changes">Zmiany</button>
+              </div>
+              <div class="st2-status" id="sv-status">Wczytywanie…</div>
+
+              <!-- STROJENIE -->
+              <section class="st2-card" data-tab="tuning">
+                <h2>Jak chodzi piec <span class="sv-verdict" id="tn-verdict"></span></h2>
+                <div class="sv-period" id="tn-period"></div>
+                <div id="tn-hero"></div>
+              </section>
+
+              <section class="st2-card" data-tab="tuning">
+                <h2>Teraz <span class="sv-sub">na żywo</span></h2>
+                <div class="sv-flow" id="tn-live"></div>
+              </section>
+
+              <section class="st2-card" data-tab="tuning">
+                <h2>Co zmienić <span class="sv-sub">PID i grzejniki z 12 h, zdarzenia z 7 dni</span></h2>
+                <div id="tn-items"></div>
+                <h3 class="sv-h3">W domu za ciepło albo za zimno <span class="sv-sub">Ustawienia → Krzywa grzewcza</span></h3>
+                <div id="tn-rooms"></div>
+                <div class="sv-period">Jedna zmiana naraz i odczekaj dobę - dom zmienia temperaturę powoli. Zadana kotła nie zmienia ciepła w domu (zawór trzyma grzejniki).</div>
+              </section>
+
+              <section class="st2-card" data-tab="tuning" id="tn-changes-card">
+                <h2>Po zmianach ustawień <span class="sv-sub">przed i po, do 3 dni, ostatnie 7 dni</span></h2>
+                <div class="sv-changes" id="tn-changes"></div>
+              </section>
+
+              <!-- KONTROLA (from the statistics report: last 7 days) -->
+              <section class="st2-card" data-tab="checks">
+                <h2>Czy wszystko działa? <span class="sv-verdict" id="ck-verdict"></span></h2>
+                <div class="sv-period" id="ck-period"></div>
+                <div id="checks"></div>
+                <h3 class="sv-h3" id="ck-problems-head">Do sprawdzenia</h3>
+                <div id="ck-problems"></div>
+              </section>
+
+              <!-- MODUŁY: what each module does, its health, the last error and log entries -->
+              <section class="st2-card" data-tab="modules">
+                <h2>Moduły <span class="sv-verdict" id="md-verdict"></span> <span class="sv-sub" id="md-sub"></span></h2>
+                <div class="sv-mods" id="md-list"></div>
+                <div class="sv-period">Kluczowe pracują w pętli sterowania co 0,5 s - bez nich piec nie działa. Pomocnicze co 2 s (pogoda, historia, statystyki…). Wpisy z logu od ostatniego startu sterownika.</div>
+              </section>
+
+              <!-- ZMIANY: what each version brought (CHANGELOG.md) -->
+              <section class="st2-card" data-tab="changes">
+                <h2>Co nowego <span class="sv-sub" id="cl-current"></span></h2>
+                <div class="sv-strip" id="cl-strip"></div>
+                <div class="sv-timeline" id="cl-list"></div>
+              </section>
+
+              <!-- DIAGNOSTYKA -->
+              <section class="st2-card" data-tab="diag">
+                <h2>Raspberry Pi <span class="sv-verdict" id="dg-verdict"></span> <span class="sv-sub">teraz</span></h2>
+                <div id="dg-tiles"></div>
+                <h3 class="sv-h3" id="dg-problems-head">Do sprawdzenia</h3>
+                <div id="dg-problems"></div>
+                <h3 class="sv-h3">Szczegóły</h3>
+                <div id="dg-groups"></div>
+              </section>
+    </div>
+  </main>
+</div>
+<script src="shell.js"></script>
+<script src="../js/icons.js"></script>
+<script src="../js/service.js"></script>
+</body>
+</html>

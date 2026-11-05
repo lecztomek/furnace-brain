@@ -189,3 +189,8 @@ body { background: #07080a; font-family: "Red Hat Display", "Segoe UI", system-u
 .stats-page.cal-quality .st2-cal-kg.q-good { color: var(--green) !important; }
 .stats-page.cal-quality .st2-cal-kg.q-mid { color: var(--yellow-soft) !important; }
 .stats-page.cal-quality .st2-cal-kg.q-bad { color: var(--red) !important; }
+
+/* ---------- Serwis (js/service.js; styles-service.css under this look) ---------- */
+.service-page .st2-tabs button { padding: 0 16px; font-size: 21px; }
+.service-page .sv-card, .service-page .sv-tile { border-radius: 16px; }
+.service-page .sv-mod { background: linear-gradient(180deg, #2b3037, #1b1e23); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 14px; }

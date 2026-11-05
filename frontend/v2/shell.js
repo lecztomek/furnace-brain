@@ -23,7 +23,7 @@
     ["Przegląd", "index.html", "home"],
     ["Ustawienia", "settings.html", "settings"],
     ["Statystyki", "stats.html", "stats"],
-    ["Serwis", "../service.html", "service"],
+    ["Serwis", "service.html", "service"],
     ["Logi", "logs.html", "logs"],
     ["Ręczne", "manual.html", "manual"],
     ["Stary panel", "../index.html", "back"],
