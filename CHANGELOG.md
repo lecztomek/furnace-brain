@@ -2,6 +2,13 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.65.2 · 05.11.2026 20:50
+
+- Nowe GUI (`/v2/`):
+  - moc pieca: tytuł osobno, procent w środku okręgu, obok kW
+  - węgiel dziś: tytuł w osobnym wierszu, pod nim wartość i słupki - nic nie zachodzi
+  - znak w górnym pasku: trójkąt przy ostrzeżeniu, ośmiokąt przy problemie (było zawsze „ptaszek”)
+
 ## 1.65.1 · 05.11.2026 20:30
 
 - Nowe GUI (`/v2/`):

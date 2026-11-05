@@ -95,22 +95,21 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 
 /* right: power and coal */
 .side { display: grid; grid-template-rows: 1fr 1fr; gap: 10px; min-height: 0; }
-.power { display: grid; grid-template-rows: auto 1fr; justify-items: center; padding: 8px 16px 10px; min-height: 0; }
-.power .top { display: flex; align-items: baseline; justify-content: space-between; width: 100%; }
-.power .ring { height: 100%; width: auto; min-height: 0; margin-top: 4px; }
-.power .n { font-size: 30px; font-weight: 600; color: #dfe2e6; white-space: nowrap; }
-.power .pv { font-size: 54px; font-weight: 700; color: var(--yellow-soft); line-height: 1; letter-spacing: -1px; }
-.power .pv small { font-size: 30px; margin-left: 4px; }
-.coal { display: flex; align-items: center; gap: 4px; padding: 8px 10px 6px 16px; min-height: 0; }
-.coal .cl { flex: none; }
-.coal .cl { flex: 1; min-width: 0; }
-.coal .ch { display: flex; align-items: center; gap: 10px; font-size: 24px; font-weight: 600; color: #dfe2e6; white-space: nowrap; }
-.coal .ch svg { width: 34px; height: 34px; flex: none; }
-.coal .cv { font-size: 52px; font-weight: 700; line-height: 1; letter-spacing: -1px; margin-top: 4px; }
-.coal .cv small { font-size: 32px; font-weight: 600; color: #dfe2e6; margin-left: 4px; letter-spacing: 0; }
+.power { display: grid; grid-template-rows: auto 1fr; padding: 8px 14px 8px 16px; min-height: 0; }
+.power .n { font-size: 24px; font-weight: 600; color: #dfe2e6; white-space: nowrap; }
+.power .prow { display: flex; align-items: center; gap: 12px; min-height: 0; }
+.power .ring { height: 100%; max-height: 132px; width: auto; flex: none; }
+.power .pk { font-size: 42px; font-weight: 700; line-height: 1; letter-spacing: -1px; white-space: nowrap; }
+.power .pk small { display: block; font-size: 22px; font-weight: 600; color: var(--muted); letter-spacing: 0; margin-top: 2px; }
+.coal { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto 1fr; column-gap: 6px; padding: 8px 10px 6px 16px; min-height: 0; }
+.coal .ch { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; font-size: 24px; font-weight: 600; color: #dfe2e6; white-space: nowrap; }
+.coal .ch svg { width: 32px; height: 32px; flex: none; }
+.coal .cl { align-self: center; }
+.coal .cv { font-size: 52px; font-weight: 700; line-height: 1; letter-spacing: -1px; }
+.coal .cv small { font-size: 26px; font-weight: 600; color: #dfe2e6; margin-left: 4px; letter-spacing: 0; }
 .coal .cs { font-size: 22px; color: var(--muted); white-space: nowrap; line-height: 1.2; margin-top: 4px; }
 .coal .cs b { color: #fff; }
-.coal .bars { height: calc(100% - 36px); margin-top: 36px; width: 0; flex: 1 1 0; min-width: 0; min-height: 0; }
+.coal .bars { height: 100%; width: 100%; min-width: 0; min-height: 0; }
 .side > .card { min-width: 0; overflow: hidden; }
 
 /* ---------- modes ---------- */

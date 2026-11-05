@@ -21,7 +21,7 @@
     <div class="slashbar"></div>
     <div class="title"><b>Sterownik kotła</b><span id="date"></span></div>
     <div class="hdr-right">
-      <span class="sign" id="sign"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><span id="sign-text">…</span></span>
+      <span class="sign" id="sign"><svg id="sign-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><span id="sign-text">…</span></span>
       <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#e6e8eb" stroke-width="1.6"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.4 1.5A3.3 3.3 0 0 0 7 18z"/></svg>
       <span class="outside" id="outside">--</span>
       <span class="clock" id="clock"></span>
@@ -113,18 +113,20 @@
     <!-- power and coal -->
     <section class="side">
       <div class="card power">
-        <div class="top"><div class="n">Moc pieca</div><div class="pv"><span id="power-pct">--</span><small>%</small></div></div>
+        <div class="n">Moc pieca</div>
+        <div class="prow">
         <svg class="ring" viewBox="0 0 200 200">
           <defs><linearGradient id="pr" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f5c518"/><stop offset="1" stop-color="#ffe066"/></linearGradient></defs>
-          <circle cx="100" cy="100" r="82" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="18"/>
-          <circle id="power-arc" cx="100" cy="100" r="82" fill="none" stroke="url(#pr)" stroke-width="18" stroke-linecap="round" stroke-dasharray="0 515" transform="rotate(-90 100 100)"/>
-          <text x="100" y="108" text-anchor="middle" fill="#fff" font-size="50" font-weight="700" id="power-kw">--</text>
-          <text x="100" y="140" text-anchor="middle" fill="#aeb5be" font-size="24" font-weight="600">kW</text>
+          <circle cx="100" cy="100" r="82" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="20"/>
+          <circle id="power-arc" cx="100" cy="100" r="82" fill="none" stroke="url(#pr)" stroke-width="20" stroke-linecap="round" stroke-dasharray="0 515" transform="rotate(-90 100 100)"/>
+          <text x="100" y="118" text-anchor="middle" fill="#ffd84d" font-size="58" font-weight="800"><tspan id="power-pct">--</tspan><tspan font-size="30" dx="2">%</tspan></text>
         </svg>
+        <div class="pk"><span id="power-kw">--</span><small>kW</small></div>
+        </div>
       </div>
       <div class="card coal">
+        <div class="ch"><svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.6" stroke-linejoin="round"><path d="M3 15.5 5.5 8 11 5l6.5 2.5L21 13l-3 5.5-8 1.5-5-2z"/><path d="M5.5 8 10 11.5 11 5M10 11.5l7.5-4M10 11.5 10 20"/></svg>Węgiel dziś</div>
         <div class="cl">
-          <div class="ch"><svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.6" stroke-linejoin="round"><path d="M3 15.5 5.5 8 11 5l6.5 2.5L21 13l-3 5.5-8 1.5-5-2z"/><path d="M5.5 8 10 11.5 11 5M10 11.5l7.5-4M10 11.5 10 20"/></svg>Węgiel dziś</div>
           <div class="cv"><span id="coal-today">--</span><small>kg</small></div>
           <div class="cs">teraz<br><b id="coal-now">--</b> kg/h</div>
         </div>

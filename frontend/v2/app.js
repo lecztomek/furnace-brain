@@ -76,6 +76,9 @@
     const sign = $("sign");
     sign.classList.toggle("bad", problems.length > 0);
     sign.classList.toggle("warn", !problems.length && warnings.length > 0);
+    const icon = problems.length ? '<path d="M8 2.5h8L21.5 8v8L16 21.5H8L2.5 16V8z"/><path d="M12 7v6M12 16.5v.5"/>'
+      : warnings.length ? '<path d="M12 3 2 20h20z"/><path d="M12 9.5v5M12 17.5v.5"/>' : '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>';
+    if ($("sign-icon").dataset.k !== icon) { $("sign-icon").innerHTML = icon; $("sign-icon").dataset.k = icon; }
     const first = problems[0] || warnings[0];
     $("sign-text").textContent = first ? (first.short || (problems.length ? "PROBLEM" : "UWAGA")) : "OK";
     $("sign-pop").innerHTML = [...problems.map((p) => ["bad", p]), ...warnings.map((p) => ["warn", p])]
