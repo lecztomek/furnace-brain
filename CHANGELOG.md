@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.66.3 · 05.11.2026 22:20
+
+- Nowe GUI (`/v2/`): ołówek przy wszystkim, co da się ustawić z ekranu głównego (kocioł, grzejnik, dmuchawa, ślimak, pompy) - jak w obecnym GUI.
+
 ## 1.66.2 · 05.11.2026 22:10
 
 - Nowe GUI (`/v2/`): gotowe ustawienia podajnika nazwane według mocy - Standard, Większa moc, Duża moc - z maksymalną mocą (kW, z wydajności podajnika i kaloryczności węgla) i czasami podawania/przerwy.

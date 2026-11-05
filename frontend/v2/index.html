@@ -34,22 +34,22 @@
     <section class="devs">
       <div class="card dev manual tap" id="blower">
         <svg viewBox="0 0 24 24" fill="#e9ebee"><circle cx="12" cy="12" r="2"/><path d="M12 10c1-5 6-7 7-4s-3 5-7 4zM14 12c5 1 7 6 4 7s-5-3-4-7zM12 14c-1 5-6 7-7 4s3-5 7-4zM10 12c-5-1-7-6-4-7s5 3 4 7z"/></svg>
-        <div class="dn"><div class="n">Dmuchawa</div><div class="s" id="fan-sub"></div></div>
+        <span class="edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span><div class="dn"><div class="n">Dmuchawa</div><div class="s" id="fan-sub"></div></div>
         <span class="ctl"><span class="pill" id="fan-pill">--</span><button class="toggle" id="fan-toggle" aria-label="Dmuchawa ręcznie"></button></span>
       </div>
       <div class="card dev manual tap" id="auger">
         <svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.8" stroke-linecap="round"><path d="M2 12h20M5 8l3 8M10 8l3 8M15 8l3 8"/></svg>
-        <div class="dn"><div class="n">Ślimak</div><div class="s">podajnik <b id="hopper">--</b></div></div>
+        <span class="edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span><div class="dn"><div class="n">Ślimak</div><div class="s">podajnik <b id="hopper">--</b></div></div>
         <span class="ctl"><span class="pill" id="feeder-pill">--</span><button class="toggle" id="feeder-toggle" aria-label="Ślimak ręcznie"></button></span>
       </div>
       <div class="card dev tap" id="pump-co">
         <svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.5"><circle cx="12" cy="12" r="9.5"/><path d="M10 8v8l6-4z"/></svg>
-        <div class="dn"><div class="n">Pompa CO</div></div>
+        <span class="edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span><div class="dn"><div class="n">Pompa CO</div></div>
         <span class="ctl"><span class="pill" id="co-pill">--</span></span>
       </div>
       <div class="card dev tap" id="pump-cwu">
         <svg viewBox="0 0 24 24" fill="none" stroke="#e9ebee" stroke-width="1.5"><circle cx="12" cy="12" r="9.5"/><path d="M10 8v8l6-4z"/></svg>
-        <div class="dn"><div class="n">Pompa CWU</div></div>
+        <span class="edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span><div class="dn"><div class="n">Pompa CWU</div></div>
         <span class="ctl"><span class="pill" id="cwu-pill">--</span></span>
       </div>
       <div class="card dev">
@@ -92,6 +92,7 @@
       <text x="134" y="166" text-anchor="middle" fill="#ffd84d" font-size="54" font-weight="800" letter-spacing="-1.5"><tspan id="boiler">--</tspan><tspan font-size="22" dx="2" dy="-22" fill="#ffe9a0">°C</tspan></text>
       <text x="134" y="202" text-anchor="middle" fill="#3ddc7a" font-size="26" font-weight="700" id="trend"></text>
       <text x="134" y="236" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500">zadana <tspan fill="#ffd21f" font-weight="700" id="boiler-set">--</tspan></text>
+      <g transform="translate(206 104)"><circle r="15" fill="#2b3037" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/><g transform="translate(-9 -9) scale(.75)" fill="none" stroke="#ffd84d" stroke-width="2.6" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></g></g>
       </g>
       <!-- fire: burns while the boiler is in work or ignition -->
       <rect x="70" y="262" width="128" height="98" rx="6" fill="#140800" stroke="#5c6168" stroke-width="3"/>
@@ -109,6 +110,7 @@
         </g>
         <rect x="16" y="46" width="150" height="80" rx="14" fill="#0f1620" stroke="#4aa8ff" stroke-width="3.5"/>
         <text x="91" y="102" text-anchor="middle" fill="#9fd2ff" font-size="46" font-weight="800" id="rad">--</text>
+        <g transform="translate(160 52)"><circle r="15" fill="#2b3037" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/><g transform="translate(-9 -9) scale(.75)" fill="none" stroke="#ffd84d" stroke-width="2.6" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></g></g>
         <text x="91" y="182" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500"><tspan id="rad-label">zadana</tspan> <tspan fill="#fff" font-weight="700" id="rad-set">--</tspan></text>
       </g>
       <g class="heat" stroke="#ffd21f" stroke-width="5" fill="none" stroke-linecap="round"><path d="M372 180c-6-8 6-13 0-22M402 180c-6-8 6-13 0-22M432 180c-6-8 6-13 0-22"/></g>
