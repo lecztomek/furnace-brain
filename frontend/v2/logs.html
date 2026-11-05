@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logi – sterownik kotła</title>
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<!-- the same element ids as the current GUI's logs page: its script (js/logs.js) drives this one -->
+<div class="stage page" id="stage" data-title="Logi">
+  <main class="card logs-page">
+    <div class="logs-topbar">
+                <div class="lg-pill">
+                  <span class="pill-label">Status:</span>
+                  <span id="logs-status" class="pill-value">--</span>
+                </div>
+
+                <div class="lg-pill">
+                  <span class="pill-label">Ostatni timestamp:</span>
+                  <span id="logs-ts" class="pill-value">--</span>
+                </div>
+
+                <div class="history-toolbar-group history-refresh-group">
+                  <button
+                    type="button"
+                    id="logs-refresh-btn"
+                    class="history-refresh-btn"
+                    title="Odśwież logi"
+                  >
+                    <svg
+                      class="history-refresh-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4.5 4.5v5.25h5.25M19.5 19.5v-5.25h-5.25"
+                        fill="none"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M5.636 18.364A8.25 8.25 0 0 0 19.5 12
+                           M18.364 5.636A8.25 8.25 0 0 0 4.5 12"
+                        fill="none"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              
+              <div class="logs-toolbar">
+                <div class="logs-filters">
+                  <label class="logs-filter">
+                    <span class="logs-filter-label">Poziom</span>
+                    <select id="logs-level" class="logs-select">
+                      <option value="">Wszystkie</option>
+                      <option value="INFO">INFO</option>
+                      <option value="WARN">WARN</option>
+                      <option value="ERROR">ERROR</option>
+                      <option value="ALARM">ALARM</option>
+                    </select>
+                  </label>
+
+					<label class="logs-filter">
+					  <span class="logs-filter-label">Źródło</span>
+					  <select id="logs-source" class="logs-select">
+						<option value="">Wszystkie</option>
+						<!-- opcje uzupełni JS automatycznie z /api/logs/meta albo wyliczy z danych -->
+					  </select>
+					</label>
+
+                  <label class="logs-filter">
+                    <span class="logs-filter-label">Limit</span>
+                    <select id="logs-limit" class="logs-select">
+                      <option value="25" selected>25</option>					
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                    </select>
+                  </label>
+
+                  <button
+                    type="button"
+                    id="logs-clear-btn"
+                    class="logs-btn"
+                    title="Wyczyść filtr wyszukiwania"
+                  >
+                    Wyczyść
+                  </button>
+                </div>
+              </div>
+
+              <!-- LISTA LOGÓW -->
+              <div class="logs-list-wrap" role="region" aria-label="Logi systemowe">
+                <div class="logs-header-row" aria-hidden="true">
+                  <span class="logs-col logs-col-ts">Czas</span>
+                  <span class="logs-col logs-col-level">Poziom</span>
+                  <span class="logs-col logs-col-src">Źródło</span>
+                  <span class="logs-col logs-col-msg">Wiadomość</span>
+                </div>
+
+                <!-- tu JS będzie wstrzykiwał wpisy -->
+                <div id="logs-list" class="logs-list">
+                  <div class="logs-empty" id="logs-empty">
+                    Brak logów do wyświetlenia.
+                  </div>
+                </div>
+              </div>
+    <div class="mp-status" id="status-text"></div>
+  </main>
+  <div id="log-popup" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="log-popup-msg">
+      <div class="modal__overlay" data-close="1"></div>
+      <div class="modal__card log-popup">
+        <div class="modal__header">
+          <div class="log-popup__head">
+            <span id="log-popup-level" class="log-level">--</span>
+            <span id="log-popup-ts" class="log-popup__ts">--</span>
+          </div>
+          <button class="modal__close" type="button" aria-label="Zamknij" data-close="1">✕</button>
+        </div>
+        <div class="modal__body">
+          <div id="log-popup-msg" class="log-popup__msg"></div>
+          <div class="log-popup__meta">
+            <span>Źródło: <strong id="log-popup-src">--</strong></span>
+            <span>Typ: <strong id="log-popup-type">--</strong></span>
+          </div>
+          <div id="log-popup-data" class="log-popup__data"></div>
+        </div>
+      </div>
+    </div>
+</div>
+<script src="shell.js"></script>
+<script src="../js/logs.js"></script>
+</body>
+</html>

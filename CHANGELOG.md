@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.69.0 · 06.11.2026 00:05
+
+- Nowe GUI (`/v2/`): strona „Logi” w nowym wyglądzie - ten sam układ i funkcje co w obecnym GUI (wspólny skrypt): status, filtry (poziom, źródło, limit), lista wpisów z kolorowym poziomem, szczegóły wpisu po dotknięciu. Menu ☰ prowadzi już do nowej strony.
+
 ## 1.68.1 · 05.11.2026 23:50
 
 - Nowe GUI (`/v2/`): mniej pracy dla Pi - bez przejść (wysuwanie menu, przełączniki zmieniają się od razu), lista szczegółów znaku przebudowywana tylko przy zmianie.
