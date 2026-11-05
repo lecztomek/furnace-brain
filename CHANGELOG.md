@@ -2,6 +2,14 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.65.1 · 05.11.2026 20:30
+
+- Nowe GUI (`/v2/`):
+  - układ pod ekran 1024x600 (zamiast 4:3)
+  - węższa kolumna urządzeń - więcej miejsca dla pieca
+  - bez animacji (płomień, przepływ w rurach) i bez rozmyć - mniej pracy dla Pi
+  - węgiel: dwa słupki (wczoraj i dziś) obok wartości, większe napisy
+
 ## 1.65.0 · 05.11.2026 20:00
 
 - Nowe GUI (`/v2/`):

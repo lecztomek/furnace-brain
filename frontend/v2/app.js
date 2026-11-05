@@ -16,10 +16,10 @@
   let state = null;
   let busy = null;      // a mode button or a manual switch being sent
 
-  // ---------- fit the 1200x900 drawing (4:3) to the screen ----------
+  // ---------- fit the 1200x704 drawing (the 1024x600 panel) to the screen ----------
   function fit() {
-    const s = Math.min(innerWidth / 1200, innerHeight / 900);
-    $("stage").style.transform = `translate(${(innerWidth - 1200 * s) / 2}px, ${(innerHeight - 900 * s) / 2}px) scale(${s})`;
+    const s = Math.min(innerWidth / 1200, innerHeight / 704);
+    $("stage").style.transform = `translate(${(innerWidth - 1200 * s) / 2}px, ${(innerHeight - 704 * s) / 2}px) scale(${s})`;
   }
   addEventListener("resize", fit);
   fit();
@@ -229,32 +229,32 @@
     const today = report.today;
     const burnt = report.periods?.today?.coal_kg;
     $("coal-today").textContent = num(burnt);
-    const days = (report.daily || []).filter((d) => d.date < today).slice(-2);
+    const days = (report.daily || []).filter((d) => d.date < today).slice(-1);   // yesterday
     const rest = (forecast?.days || []).find((d) => d.date === today)?.coal_kg;
     const expected = burnt != null && rest != null ? burnt + rest : null;
     drawBars(days, burnt, expected);
   }
 
   function drawBars(days, burnt, expected) {
-    const H = 92;                                    // bar height of the biggest value
+    const H = 104;                                   // bar height of the biggest value
     const max = Math.max(1, ...days.map((d) => d.coal_kg || 0), expected || 0, burnt || 0);
     const h = (v) => Math.max(4, (H * (v || 0)) / max);
     const base = 146;
     const label = (iso) => DAYS[new Date(`${iso}T12:00:00`).getDay()];
-    let svg = '<g font-size="25" font-weight="700" text-anchor="middle">';
+    let svg = '<g font-size="30" font-weight="700" text-anchor="middle">';
     days.forEach((d, i) => {
-      const x = 10 + i * 82;
+      const x = 6 + i * 86;
       svg += `<rect x="${x}" y="${base - h(d.coal_kg)}" width="64" height="${h(d.coal_kg)}" rx="9" fill="#4b525c"/>` +
              `<text x="${x + 32}" y="${base - h(d.coal_kg) - 10}" fill="#c3c8cf">${Math.round(d.coal_kg || 0)}</text>` +
-             `<text x="${x + 32}" y="176" fill="#aeb5be" font-weight="600">${label(d.date)}</text>`;
+             `<text x="${x + 32}" y="178" fill="#aeb5be" font-weight="600">${label(d.date)}</text>`;
     });
-    const x = 174;
+    const x = 92;
     if (expected != null) {
       svg += `<rect x="${x}" y="${base - h(expected)}" width="64" height="${h(expected)}" rx="9" fill="none" stroke="#ffd84d" stroke-width="2.5" stroke-dasharray="6 5" opacity=".7"/>`;
     }
     svg += `<rect x="${x}" y="${base - h(burnt)}" width="64" height="${h(burnt)}" rx="9" fill="#ffd84d"/>` +
            `<text x="${x + 32}" y="${base - h(expected ?? burnt) - 10}" fill="#ffd84d">${expected != null ? `~${Math.round(expected)}` : num(burnt)}</text>` +
-           `<text x="${x + 32}" y="176" fill="#ffd84d">dziś</text></g>`;
+           `<text x="${x + 32}" y="178" fill="#ffd84d">dziś</text></g>`;
     $("coal-bars").innerHTML = svg;
   }
 
