@@ -56,8 +56,10 @@
   // the panel and landscape screens: 1200x704; a phone held upright: 720 wide, as tall as the screen
   function fit() {
     const portrait = innerHeight > innerWidth * 1.15;
-    const W = portrait ? 720 : 1200;
-    const H = portrait ? Math.max(1100, Math.round((720 * innerHeight) / innerWidth)) : 704;
+    // sub-pages are lists and tables: on a phone drawn less shrunk than the main screen
+    const PW = 540;
+    const W = portrait ? PW : 1200;
+    const H = portrait ? Math.round((PW * innerHeight) / innerWidth) : 704;
     stage.classList.toggle("portrait", portrait);
     stage.style.width = `${W}px`;
     stage.style.height = `${H}px`;

@@ -21,8 +21,8 @@
   function fit() {
     const st = $("stage");
     const portrait = innerHeight > innerWidth * 1.15;
-    const W = portrait ? 720 : 1200;
-    const H = portrait ? Math.max(1100, Math.round((720 * innerHeight) / innerWidth)) : 704;
+    const W = portrait ? 640 : 1200;
+    const H = portrait ? Math.max(980, Math.round((640 * innerHeight) / innerWidth)) : 704;
     st.classList.toggle("portrait", portrait);
     st.style.width = `${W}px`;
     st.style.height = `${H}px`;

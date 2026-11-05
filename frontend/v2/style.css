@@ -229,3 +229,29 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.04); border-radius: 5px; }
 ::-webkit-scrollbar-thumb { background: rgba(240, 192, 51, 0.55); border-radius: 5px; }
 ::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+
+/* phone upright: a narrower header */
+.stage.portrait header { gap: 12px; }
+.stage.portrait .title b { font-size: 28px; }
+.stage.portrait .title span { font-size: 17px; white-space: nowrap; }
+.stage.portrait #app-ver { display: none; }
+.stage.portrait .slashbar { height: 44px; }
+.stage.portrait .hdr-right .clock { font-size: 46px; }
+.stage.portrait .burger { width: 62px; height: 62px; border-radius: 16px; }
+.stage.portrait .burger svg { width: 38px; height: 38px; }
+.stage.portrait .sign { height: 48px; font-size: 20px; padding: 0 12px 0 8px; gap: 6px; }
+.stage.portrait .sign svg { width: 30px; height: 30px; }
+.stage.portrait .head-glass { width: 100%; }
+/* the popups fit the narrow screen; the feeder one is one column */
+.stage.portrait .modal__card { width: calc(100% - 24px); }
+.stage.portrait #feeder-modal .modal__card { width: calc(100% - 24px); }
+.stage.portrait #feeder-modal .modal__body { grid-template-columns: 1fr; }
+.stage.portrait #feeder-modal .feeder-presets { grid-column: 1; grid-row: 5; grid-template-rows: none; grid-template-columns: repeat(3, 1fr); margin-top: 12px; }
+.stage.portrait #feeder-modal .feeder-presets .temp-stepper__btn { min-height: 92px; font-size: 20px; padding: 0 10px; }
+.stage.portrait #feeder-modal .feeder-presets b { font-size: 22px; }
+.stage.portrait #feeder-modal .preset-sub { font-size: 17px; }
+.stage.portrait #feeder-modal #feeder-hint { grid-row: 6; }
+.stage.portrait #feeder-modal #feeder-save { grid-row: 7; }
+
+/* phone upright, main screen: the header like the sub-pages */
+.stage.portrait .hdr-right > svg, .stage.portrait .outside { display: none; }

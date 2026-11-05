@@ -2,6 +2,16 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.74.1 · 06.11.2026 03:10
+
+- Nowe GUI (`/v2/`) na telefonie w pionie:
+  - podstrony mniej pomniejszone (większe napisy), Ustawienia jako 2 kafelki w rzędzie
+  - węższy górny pasek (bez wersji; na ekranie głównym bez pogody - mieści się zegar)
+  - logi: czas nad wiadomością, wiadomość w całości
+  - kalendarz: same liczby (bez ikon pogody i węgielków)
+  - okienko podajnika w jednej kolumnie, gotowe ustawienia pod spodem
+  - zakładki Statystyk / Serwisu zawijają się, odświeżanie nie zasłania ostatniej
+
 ## 1.74.0 · 06.11.2026 02:50
 
 - Nowe GUI (`/v2/`): jedna paleta kolorów „Węgiel i bursztyn” wszędzie (opis i reguła w `docs/concept/palette.md`). Baza to bursztyn; kolory stanów (zielony - pracuje / dobrze, czerwony - problem / Stop, niebieski - zimno, brąz - spaliny) mają tę samą nasyconość i jasność i różnią się tylko odcieniem - spokojniejsze, pasują do grafitu i bursztynu. Kafelki i wykresy Statystyk i Serwisu przemalowane na tę paletę tylko w nowym GUI.
