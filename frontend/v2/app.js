@@ -17,9 +17,17 @@
   let busy = null;      // a mode button or a manual switch being sent
 
   // ---------- fit the 1200x704 drawing (the 1024x600 panel) to the screen ----------
+  // the panel and landscape screens: 1200x704; a phone held upright: 720 wide, as tall as the screen
   function fit() {
-    const s = Math.min(innerWidth / 1200, innerHeight / 704);
-    $("stage").style.transform = `translate(${(innerWidth - 1200 * s) / 2}px, ${(innerHeight - 704 * s) / 2}px) scale(${s})`;
+    const st = $("stage");
+    const portrait = innerHeight > innerWidth * 1.15;
+    const W = portrait ? 720 : 1200;
+    const H = portrait ? Math.max(1100, Math.round((720 * innerHeight) / innerWidth)) : 704;
+    st.classList.toggle("portrait", portrait);
+    st.style.width = `${W}px`;
+    st.style.height = `${H}px`;
+    const k = Math.min(innerWidth / W, innerHeight / H);
+    st.style.transform = `translate(${(innerWidth - W * k) / 2}px, ${(innerHeight - H * k) / 2}px) scale(${k})`;
   }
   addEventListener("resize", fit);
   fit();

@@ -36,8 +36,8 @@
     <header>
       <div class="slashbar"></div>
       <div class="title"><b>${title}</b><span><span id="date"></span><span class="ver" id="app-ver"></span></span></div>
+      <button class="sign" id="sign"><svg id="sign-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"></svg><span id="sign-text">…</span></button>
       <div class="hdr-right">
-        <span class="sign" id="sign"><svg id="sign-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"></svg><span id="sign-text">…</span></span>
         <span class="outside" id="outside">--</span>
         <span class="clock" id="clock"></span>
         <button class="burger" id="burger" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="#f2f3f5" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>

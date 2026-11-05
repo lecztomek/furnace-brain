@@ -2,6 +2,13 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.67.1 · 05.11.2026 23:20
+
+- Nowe GUI (`/v2/`):
+  - aktywny tryb w swoim kolorze: Stop czerwony, Rozpalanie złoty, Praca zielony
+  - telefon w pionie: osobny układ - na górze piec z grzejnikiem, niżej urządzenia oraz moc i zużycie w dwóch kolumnach, na dole tryby (ekran przy piecu bez zmian)
+  - znak OK / ostrzeżenie / problem obok nazwy sterownika, jako przycisk: zielone OK, żółty trójkąt, czerwony ośmiokąt z wykrzyknikiem; dotknięcie pokazuje szczegóły - na wszystkich stronach nowego GUI
+
 ## 1.67.0 · 05.11.2026 23:00
 
 - Nowe GUI (`/v2/`): strona „Sterowanie ręczne” w nowym wyglądzie - te same funkcje co w obecnym GUI (wspólny skrypt): przełącznik trybu ręcznego, dmuchawa suwakiem, ślimak, pompy i zawór przełącznikami.
