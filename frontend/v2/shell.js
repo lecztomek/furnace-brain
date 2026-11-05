@@ -58,8 +58,10 @@
     const portrait = innerHeight > innerWidth * 1.15;
     // sub-pages are lists and tables: on a phone drawn less shrunk than the main screen
     const PW = 540;
-    const W = portrait ? PW : 1200;
-    const H = portrait ? Math.round((PW * innerHeight) / innerWidth) : 704;
+    const ratio = innerHeight / innerWidth;
+    let W = portrait ? PW : 1200;
+    let H = portrait ? Math.round(PW * ratio) : Math.round(1200 * ratio);
+    if (!portrait && H < 704) { H = 704; W = Math.round(704 / ratio); }
     stage.classList.toggle("portrait", portrait);
     stage.style.width = `${W}px`;
     stage.style.height = `${H}px`;

@@ -21,8 +21,12 @@
   function fit() {
     const st = $("stage");
     const portrait = innerHeight > innerWidth * 1.15;
-    const W = portrait ? 640 : 1200;
-    const H = portrait ? Math.max(980, Math.round((640 * innerHeight) / innerWidth)) : 704;
+    // landscape: the 1200x704 drawing grows to the screen's shape - a taller screen gets a taller
+    // drawing, a wider one a wider drawing - so it always fills the screen, no bars
+    const ratio = innerHeight / innerWidth;
+    let W = portrait ? 640 : 1200;
+    let H = portrait ? Math.max(980, Math.round(640 * ratio)) : Math.round(1200 * ratio);
+    if (!portrait && H < 704) { H = 704; W = Math.round(704 / ratio); }
     st.classList.toggle("portrait", portrait);
     st.style.width = `${W}px`;
     st.style.height = `${H}px`;
