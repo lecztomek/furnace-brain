@@ -65,7 +65,14 @@ input[type=range]::-moz-range-thumb { width: 46px; height: 46px; border-radius: 
 .set-back { display: flex; align-items: center; gap: 6px; height: 60px; padding: 0 20px 0 10px; border-radius: 16px; font-size: 24px; font-weight: 700; color: #e9ebee;
   background: linear-gradient(180deg, #2e333a, #1c1f24); border: 1.5px solid rgba(255, 255, 255, 0.25); }
 .set-back svg { width: 32px; height: 32px; color: var(--yellow-soft); }
-.set-name { font-size: 30px; font-weight: 700; }
+.settings-page.detail .set-bar { padding-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
+.set-bar::after { content: none; }
+.set-name { display: flex; align-items: center; gap: 14px; height: 60px; padding: 0 22px 0 16px; border-radius: 16px; font-size: 28px; font-weight: 700;
+  background: linear-gradient(180deg, rgba(52, 57, 66, 0.95), rgba(28, 31, 36, 0.98)); border: 1.5px solid rgba(255, 210, 31, 0.5); }
+.set-name svg { width: 36px; height: 36px; color: var(--yellow-soft); flex: none; }
+.set-back { margin-right: 6px; }
+.set-back + .set-name { position: relative; margin-left: 14px; }
+.set-back + .set-name::before { content: ""; position: absolute; left: -22px; top: 8px; bottom: 8px; width: 2px; background: rgba(255, 255, 255, 0.2); }
 .config-root { grid-template-rows: 1fr auto; gap: 12px; min-height: 0; }
 .config-tabs-header { display: none !important; }
 .config-tabs-body { min-height: 0; overflow-y: auto; padding-right: 6px; }

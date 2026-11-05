@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.71.2 · 06.11.2026 01:20
+
+- Nowe GUI (`/v2/`), Ustawienia: wybrany kafel zostaje u góry (ikona i nazwa modułu), oddzielony kreską od przycisku „‹ Powrót”.
+
 ## 1.71.1 · 06.11.2026 01:10
 
 - Nowe GUI (`/v2/`), Ustawienia: zamiast dużego złotego „Wszystkie ustawienia” skromny przycisk „‹ Powrót” w stylu pozostałych przycisków.

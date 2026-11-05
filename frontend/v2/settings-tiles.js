@@ -53,7 +53,8 @@
       const tab = headerTabs.querySelector(`.config-tab-button[data-module-id="${t.dataset.moduleId}"]`);
       if (!tab) return;            // the settings are still being read
       tab.click();
-      document.getElementById("set-name").textContent = t.querySelector("span").textContent;
+      // the chosen tile stays on top: its icon and name
+      document.getElementById("set-name").innerHTML = t.innerHTML;
       show(true);
     }));
   }
