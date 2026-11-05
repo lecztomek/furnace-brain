@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.66.1 · 05.11.2026 21:55
+
+- Nowe GUI (`/v2/`): okienko podajnika szersze - czas podawania i przerwa po lewej, gotowe ustawienia po prawej, „Zapisz” na całą szerokość.
+
 ## 1.66.0 · 05.11.2026 21:40
 
 - Nowe GUI (`/v2/`): ustawianie z ekranu głównego jak w obecnym GUI - dotknięcie otwiera okienko:
