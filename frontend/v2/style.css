@@ -64,7 +64,7 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 .burger svg { width: 50px; height: 50px; }
 
 /* ---------- middle row ---------- */
-.row1 { display: grid; grid-template-columns: 252px 1fr 276px; gap: 14px; min-height: 0; z-index: 1; }
+.row1 { display: grid; grid-template-columns: 252px 1fr 276px; column-gap: 30px; row-gap: 14px; min-height: 0; z-index: 1; }
 
 /* devices: state; in STOP the blower and the feeder get a manual switch */
 .devs { display: grid; grid-template-rows: repeat(5, 1fr) auto; gap: 8px; min-height: 0; }

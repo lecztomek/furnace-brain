@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.74.3 · 06.11.2026 07:00
+
+- Nowe GUI (`/v2/`): większy odstęp między kolumnami urządzeń i mocy a rysunkiem pieca.
+
 ## 1.74.2 · 06.11.2026 03:30
 
 - Nowe GUI (`/v2/`): strona zawsze wypełnia cały ekran, bez czarnych pasów - na ekranie wyższym niż 1024x600 (np. 800x600, 1280x800, 1920x1080) układ rośnie w pionie, na szerszym w poziomie. Na 1024x600 bez zmian.
