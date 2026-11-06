@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.74.5 · 06.11.2026 07:20
+
+- Nowe GUI (`/v2/`): rysunek pieca wyśrodkowany - odstęp od czujników do pieca i od grzejnika do kart po prawej taki sam na każdej rozdzielczości.
+
 ## 1.74.4 · 06.11.2026 07:10
 
 - Nowe GUI (`/v2/`): odstęp przy rysunku pieca na każdej rozdzielczości (na wyższych ekranach piec dochodził do kolumn); napis „Tryby pracy” przy lewej krawędzi.
