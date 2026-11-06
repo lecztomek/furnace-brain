@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.74.8 · 06.11.2026 08:00
+
+- Nowe GUI (`/v2/`): okrąg mocy i słupki zużycia zawsze mieszczą się w swoich kartach (na wysokich ekranach okrąg wychodził poza ramkę).
+
 ## 1.74.7 · 06.11.2026 07:50
 
 - Nowe GUI (`/v2/`) na telefonie: strona „Ręczne” mieści się na ekranie - długi tytuł rozpychał stronę w prawo (tytuł skrócony do „Ręczne”, podstrony nie mogą już być szersze niż ekran); przełącznik „AKTYWNY” pod opisem, suwak dmuchawy w osobnym wierszu.
