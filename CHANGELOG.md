@@ -2,6 +2,11 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.74.11 · 06.11.2026 08:40
+
+- Nowe GUI (`/v2/`), iPad / Safari: rysunek pieca wychodził poza swoje miejsce i chował się pod kartami (Safari liczyło wysokość rysunku po swojemu). Rysunki - piec, okrąg mocy, słupki - siedzą teraz w ramkach o rozmiarze z układu strony, działa tak samo w każdej przeglądarce.
+- Nazwy urządzeń mieszczą się obok ON/OFF (na 1024x600 „Pompa CWU” wchodziła pod pigułkę).
+
 ## 1.74.10 · 06.11.2026 08:30
 
 - Nowe GUI (`/v2/`): okienko ze szczegółami znaku (OK / ostrzeżenie / problem) wyśrodkowane pod górnym paskiem i nigdy szersze niż ekran - na wszystkich stronach i na telefonie.
