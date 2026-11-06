@@ -26,6 +26,10 @@
     const ratio = innerHeight / innerWidth;
     let W = portrait ? 640 : 1200;
     let H = portrait ? Math.max(980, Math.round(640 * ratio)) : Math.round(1200 * ratio);
+    // a not-so-tall portrait window: a wider drawing instead of bars at the sides
+    if (portrait && H > 640 * ratio) W = Math.round(H / ratio);
+    // that wider drawing: the power and the usage side by side, each the full height
+    st.classList.toggle("wide", portrait && ratio < 1.6);   // not a phone: a tablet or a window
     if (!portrait && H < 704) { H = 704; W = Math.round(704 / ratio); }
     st.classList.toggle("portrait", portrait);
     st.style.width = `${W}px`;

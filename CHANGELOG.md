@@ -2,6 +2,13 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.74.9 · 06.11.2026 08:20
+
+- Nowe GUI (`/v2/`), ekran główny w pionie:
+  - okno „ciut szersze niż telefon” (tablet, wąskie okno przeglądarki): moc i zużycie obok siebie, każda karta na pełną wysokość - okrąg mocy duży, zużycie się mieści; bez pasów po bokach
+  - telefon: karta zużycia dostaje tyle miejsca, ile potrzebuje (nie wychodzi poza ramkę)
+- Nazwy urządzeń zawsze w całości (węższa pigułka ON/OFF) - też na ekranie przy piecu.
+
 ## 1.74.8 · 06.11.2026 08:00
 
 - Nowe GUI (`/v2/`): okrąg mocy i słupki zużycia zawsze mieszczą się w swoich kartach (na wysokich ekranach okrąg wychodził poza ramkę).

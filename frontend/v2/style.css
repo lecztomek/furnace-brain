@@ -262,3 +262,24 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 .power, .coal { overflow: hidden; }
 .coal .cl { min-width: 0; }
 .coal .bars { min-width: 0; max-width: 100%; }
+/* phone upright / narrow: the usage card takes the height it needs, the power ring shrinks instead */
+.stage.portrait .side { grid-template-rows: minmax(0, 1fr) auto; }
+.stage.portrait .coal { grid-template-rows: auto auto; }
+.stage.portrait .coal .bars { height: 150px; }
+.stage.portrait { grid-template-rows: 84px 1fr 170px; }
+.stage.portrait .row1 { grid-template-rows: minmax(0, 1fr) minmax(0, 1.1fr); }
+.stage.portrait.wide .row1 { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+.stage.portrait.wide .side { grid-template-rows: none; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+.stage.portrait.wide .coal { grid-template-rows: auto 1fr; }
+.stage.portrait.wide .coal .bars { height: 100%; }
+.dev { min-width: 0; }
+.dev .dn { flex: 1 1 auto; overflow: hidden; }
+.dev .n, .dev .s { overflow: hidden; text-overflow: ellipsis; }
+/* the device names always whole: a slimmer state pill, the name may shrink a little */
+.dev { gap: 8px; padding: 0 8px 0 10px; }
+.dev .pill { min-width: 52px; padding: 0 8px; font-size: 20px; height: 38px; }
+.dev .n { font-size: 23px; text-overflow: clip; }
+.stage.portrait.wide .row1 { grid-template-columns: minmax(0, 1.25fr) minmax(0, 2fr); }
+.stage.portrait.wide .dev .n { font-size: 21px; }
+.stage.portrait.wide .dev .s { font-size: 17px; }
+.stage.portrait.wide .dev > svg { width: 26px; height: 26px; }
