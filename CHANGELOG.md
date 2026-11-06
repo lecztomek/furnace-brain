@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.74.7 · 06.11.2026 07:50
+
+- Nowe GUI (`/v2/`) na telefonie: strona „Ręczne” mieści się na ekranie - długi tytuł rozpychał stronę w prawo (tytuł skrócony do „Ręczne”, podstrony nie mogą już być szersze niż ekran); przełącznik „AKTYWNY” pod opisem, suwak dmuchawy w osobnym wierszu.
+
 ## 1.74.6 · 06.11.2026 07:30
 
 - Nowe GUI (`/v2/`): pogoda w górnym pasku w osobnej ramce i mniejszą, jaśniejszą czcionką - nie zlewa się z zegarem. Na wszystkich stronach.
