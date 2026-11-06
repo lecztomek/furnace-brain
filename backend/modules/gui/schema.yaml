@@ -1,0 +1,16 @@
+id: gui
+name: "Wygląd"
+description: "Który wygląd otwiera adres sterownika: obecny albo nowy. Oba działają zawsze - z każdego można przejść do drugiego."
+
+groups:
+  - id: basic
+    label: "Podstawowe"
+
+fields:
+  - key: default_gui
+    label: "Wygląd domyślny"
+    type: text
+    options: [stary, nowy]
+    default: stary
+    group: basic
+    description: "stary - ekran przy piecu i adres sterownika otwierają obecny wygląd; nowy - od razu nowy wygląd. W nowym wyglądzie stary jest pod ☰ → Stary panel."

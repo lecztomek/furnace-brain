@@ -2,6 +2,13 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.75.0 · 06.11.2026 09:45
+
+- Nowy moduł ustawień „Wygląd” (Ustawienia → Wygląd): który wygląd otwiera adres sterownika - stary (domyślnie, nic się samo nie zmienia) albo nowy. Przy „nowy” strona startowa od razu przechodzi do nowego wyglądu. Tylko ustawienie, nic nie steruje.
+- Obecne GUI, ekran główny: mała ikona „✨ NOWY WYGLĄD” w lewym dolnym rogu - dotknięcie pyta „Przejść do nowego wyglądu?” (Nie / Tak), więc nie przełączy się przypadkiem. Menu obecnego GUI bez zmian.
+- Nowe GUI: „Stary panel” (☰) otwiera obecny wygląd i zostaje w nim w tym oknie, także przy ustawieniu „nowy”.
+- Podgląd zdalny: nowy wygląd działa też zdalnie (te same dane z Firebase), ustawienie „Wygląd” i ikona również.
+
 ## 1.74.13 · 06.11.2026 09:15
 
 - Nowe GUI (`/v2/`), iPad i wąskie ekrany:

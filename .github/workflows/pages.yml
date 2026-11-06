@@ -71,6 +71,14 @@ jobs:
             sed -i '0,/<head>/s//<head>\n    <script src="js\/viewer-config.js"><\/script>\n    <script src="js\/viewer-shim.js"><\/script>/' "$f"
             grep -q viewer-shim.js "$f" || { echo "::error::no <head> in $f"; exit 1; }
           done
+          # the new look (v2/): its own and the shared scripts, the same Firebase answers
+          if [[ -d site/v2 ]]; then
+            sed -i -E "s#(src=\"[^\"?:]+\.js)\"#\1?v=$VER\"#g; s#(href=\"[^\"?:]+\.css)\"#\1?v=$VER\"#g" site/v2/*.html
+            for f in site/v2/*.html; do
+              sed -i '0,/<head>/s//<head>\n<script src="..\/js\/viewer-config.js"><\/script>\n<script src="..\/js\/viewer-shim.js"><\/script>/' "$f"
+              grep -q viewer-shim.js "$f" || { echo "::error::no <head> in $f"; exit 1; }
+            done
+          fi
           echo "Version: $(cat src/VERSION 2>/dev/null)" >> "$GITHUB_STEP_SUMMARY"
           echo "ready=1" >> "$GITHUB_OUTPUT"
 

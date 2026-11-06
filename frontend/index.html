@@ -17,6 +17,8 @@
          <main class="layout">
             <!-- LEWA / CENTRALNA CZĘŚĆ: TWÓJ SCHEMAT SVG -->
             <section class="diagram-wrapper">
+               <!-- to the new look: a small icon, a tap asks first (no switching by accident) -->
+               <button type="button" id="gui-new-btn" class="gui-new-btn" title="Nowy wygląd">✨ NOWY WYGLĄD</button>
                <div id="app-info" class="app-info is-empty">
                   <div id="app-version"></div>
                   <div id="app-uptime"></div>
@@ -684,6 +686,24 @@
         </div>
       </div>
 
+      <div id="gui-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="gui-modal-title">
+        <div class="modal__overlay" data-gui-close="1"></div>
+        <div class="modal__card">
+          <div class="modal__header">
+            <div id="gui-modal-title" class="modal__title">Nowy wygląd</div>
+            <button class="modal__close" type="button" aria-label="Zamknij" data-gui-close="1">✕</button>
+          </div>
+          <div class="modal__body">
+            <div class="gui-q">Przejść do nowego wyglądu sterownika?</div>
+            <div class="temp-hint">Wrócić można zawsze: w nowym wyglądzie ☰ → Stary panel. Domyślny wygląd ustawisz w Ustawieniach → Wygląd.</div>
+            <div class="gui-btns">
+              <button type="button" class="temp-save gui-no" data-gui-close="1">Nie</button>
+              <button type="button" class="temp-save" id="gui-go">Tak, przejdź</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <label for="nav-toggle" class="menu-overlay" aria-label="Zamknij menu"></label>
       <script src="js/temp-setpoint-modal.js"></script>
       <script src="js/feeder-modal.js"></script>
@@ -691,6 +711,7 @@
       <script src="js/furnace-ui-utils.js"></script>
 	    <script src="js/mode-control.js"></script>
       <script src="js/panel-main.js"></script>
+      <script src="js/gui-switch.js"></script>
       <script src="js/tap-hints.js"></script>
       <script src="js/manual-switches.js"></script>
    </body>

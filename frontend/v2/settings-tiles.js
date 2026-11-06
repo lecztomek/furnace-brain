@@ -33,6 +33,7 @@
     settings_log: P("M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12") + '<circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
     trend: P("M3 17l6-6 4 4 8-8") + P("M15 7h6v6"),
     notify: P("M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9") + P("M13.7 21a2 2 0 0 1-3.4 0"),
+    gui: '<rect x="3" y="4" width="18" height="13" rx="2"/>' + P("M8 21h8M12 17v4"),
   };
   const DEFAULT_ICON = '<circle cx="12" cy="12" r="3"/>' + P("M12 2v3M12 19v3M2 12h3M19 12h3");
 

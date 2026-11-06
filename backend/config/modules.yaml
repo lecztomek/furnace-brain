@@ -141,3 +141,10 @@ modules:
     enabled: true
     critical: false
     about: "Powiadomienia na telefon (ntfy): wybrane zdarzenia - na razie wygaśnięcie pieca; wysyłane w tle, nic nie steruje."
+
+  # which GUI the controller's address opens - only a setting, drives nothing
+  - id: gui
+    path: backend.modules.gui:GuiModule
+    enabled: true
+    critical: false
+    about: "Wygląd: czy adres sterownika otwiera obecny, czy nowy wygląd (/v2/). Tylko ustawienie."

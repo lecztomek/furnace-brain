@@ -26,7 +26,7 @@
     ["Serwis", "service.html", "service"],
     ["Logi", "logs.html", "logs"],
     ["Ręczne", "manual.html", "manual"],
-    ["Stary panel", "../index.html", "back"],
+    ["Stary panel", "../index.html?stary", "back"],
   ];
   const icon = (k, cls = "") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">${ICONS[k]}</svg>`;
 

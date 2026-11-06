@@ -882,3 +882,14 @@ body { font-family: "Liberation Sans", "DejaVu Sans", sans-serif; }
 #outside-temp text.badge-sub { font-size: 20px; font-weight: 600; fill: #9ca3af; }
 #furnace-temp text.badge-sub.is-up { fill: #f59e0b; }
 #furnace-temp text.badge-sub.is-down { fill: #60a5fa; }
+
+/* to the new look: small, in the free bottom-left corner of the diagram */
+.gui-new-btn {
+  position: absolute; left: 26px; bottom: 22px; z-index: 5;
+  padding: 0.45em 1em; border-radius: 22px; border: 2px solid #111;
+  background: rgba(10, 18, 26, 0.9); color: #fde68a;
+  font: inherit; font-size: clamp(11px, 1.3vw, 16px); font-weight: 700; letter-spacing: 0.06em; cursor: pointer;
+}
+.gui-q { font-size: clamp(18px, 2.4vw, 26px); font-weight: 700; margin: 4px 0 6px; }
+.gui-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.gui-btns .gui-no { background: #374151; }
