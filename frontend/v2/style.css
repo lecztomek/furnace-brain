@@ -301,3 +301,6 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 /* names whole next to the ON/OFF pill */
 .dev .n { font-size: 22px; letter-spacing: -0.2px; }
 .dev .pill { min-width: 48px; padding: 0 7px; font-size: 19px; }
+/* the sign's details in the middle of the screen, the rest dimmed */
+.sign-pop { top: 50% !important; transform: translate(-50%, -50%) !important; padding: 26px 30px; z-index: 9;
+  box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.55), 0 20px 60px rgba(0, 0, 0, 0.7); }

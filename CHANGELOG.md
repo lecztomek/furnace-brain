@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.74.12 · 06.11.2026 08:55
+
+- Nowe GUI (`/v2/`): szczegóły znaku (OK / ostrzeżenie / problem) na środku ekranu, w pionie i w poziomie, z przyciemnionym tłem. Dotknięcie gdziekolwiek tylko je zamyka - nie trafia w przycisk pod spodem (np. nie przełączy trybu).
+
 ## 1.74.11 · 06.11.2026 08:40
 
 - Nowe GUI (`/v2/`), iPad / Safari: rysunek pieca wychodził poza swoje miejsce i chował się pod kartami (Safari liczyło wysokość rysunku po swojemu). Rysunki - piec, okrąg mocy, słupki - siedzą teraz w ramkach o rozmiarze z układu strony, działa tak samo w każdej przeglądarce.

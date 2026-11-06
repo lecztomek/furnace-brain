@@ -75,6 +75,14 @@
   $("shade").addEventListener("click", toggleMenu);
   $("sign").addEventListener("click", () => $("sign-pop").classList.toggle("open"));
   $("sign-pop").addEventListener("click", () => $("sign-pop").classList.remove("open"));
+  // open: a tap anywhere only closes it - it never reaches a button under it
+  document.addEventListener("click", (e) => {
+    const pop = $("sign-pop");
+    if (!pop.classList.contains("open") || pop.contains(e.target) || $("sign").contains(e.target)) return;
+    e.stopPropagation();
+    e.preventDefault();
+    pop.classList.remove("open");
+  }, true);
 
   function clock() {
     const d = new Date();
