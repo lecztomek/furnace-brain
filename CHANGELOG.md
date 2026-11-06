@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.74.6 · 06.11.2026 07:30
+
+- Nowe GUI (`/v2/`): pogoda w górnym pasku w osobnej ramce i mniejszą, jaśniejszą czcionką - nie zlewa się z zegarem. Na wszystkich stronach.
+
 ## 1.74.5 · 06.11.2026 07:20
 
 - Nowe GUI (`/v2/`): rysunek pieca wyśrodkowany - odstęp od czujników do pieca i od grzejnika do kart po prawej taki sam na każdej rozdzielczości.

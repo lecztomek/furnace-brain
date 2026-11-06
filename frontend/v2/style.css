@@ -44,7 +44,10 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 .hdr-right { margin-left: auto; display: flex; align-items: center; gap: 24px; font-size: 34px; font-weight: 600; color: #e6e8eb; }
 .hdr-right .vr { width: 2px; height: 42px; background: rgba(255, 255, 255, 0.3); }
 .hdr-right .clock { font-size: 68px; font-weight: 700; color: #fff; }
-.hdr-right .outside { color: #fff; font-weight: 700; font-size: 48px; }
+/* the weather in its own frame, so it doesn't run into the clock */
+.wx-pill { display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 20px 0 14px; border-radius: 32px;
+  background: rgba(255, 255, 255, 0.05); border: 1.5px solid rgba(255, 255, 255, 0.18); }
+.hdr-right .outside { color: #dfe2e6; font-weight: 700; font-size: 36px; }
 /* the status sign next to the title: a button, tap = what is wrong */
 .sign { display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 20px 0 14px; border-radius: 32px; cursor: pointer;
   font-size: 28px; font-weight: 800; letter-spacing: .3px; color: var(--green);
@@ -207,7 +210,7 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 
 /* ---------- a phone held upright: the picture on top, the cards below in two columns ---------- */
 .stage.portrait { grid-template-rows: 84px 1fr 200px; }
-.stage.portrait .hdr-right > svg, .stage.portrait .outside { display: none; }
+.stage.portrait .wx-pill { display: none; }
 .stage.portrait .hdr-right { gap: 16px; }
 .stage.portrait .hdr-right .clock { font-size: 56px; }
 .stage.portrait .title b { font-size: 32px; }
@@ -254,4 +257,4 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 .stage.portrait #feeder-modal #feeder-save { grid-row: 7; }
 
 /* phone upright, main screen: the header like the sub-pages */
-.stage.portrait .hdr-right > svg, .stage.portrait .outside { display: none; }
+.stage.portrait .wx-pill { display: none; }
