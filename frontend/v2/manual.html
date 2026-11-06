@@ -24,7 +24,8 @@
       </label>
     </div>
 
-    <fieldset id="manual-controls" class="mp-grid" disabled>
+    <fieldset id="manual-controls" class="mp-fs" disabled>
+      <div class="mp-grid">
       <div class="mp-row mp-fan">
         <div class="mp-name">Dmuchawa</div>
         <input id="fan-power-slider" type="range" min="0" max="100" step="1" value="0" aria-label="Moc dmuchawy 0-100%">
@@ -35,6 +36,7 @@
       <label class="mp-row"><span class="mp-name">Pompa CWU</span><input id="toggle-pump-cwu" type="checkbox"><span class="sw"></span></label>
       <label class="mp-row"><span class="mp-name">Zawór – otwórz</span><input id="toggle-mixer-open" type="checkbox"><span class="sw"></span></label>
       <label class="mp-row"><span class="mp-name">Zawór – zamknij</span><input id="toggle-mixer-close" type="checkbox"><span class="sw"></span></label>
+      </div>
     </fieldset>
 
     <div class="mp-status" id="status-text"></div>

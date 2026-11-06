@@ -28,10 +28,11 @@ input[type=checkbox]:checked + .sw::after { left: 49px; }
 .big-switch:has(input:checked) { border-color: var(--yellow); }
 
 .mp-grid { border: none; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 12px; min-height: 0; }
-.mp-grid:disabled { opacity: .45; }
+.mp-fs { border: none; margin: 0; padding: 0; min-width: 0; min-height: 0; }
+.mp-fs:disabled { opacity: .45; }
 .mp-row { display: flex; align-items: center; gap: 18px; padding: 0 20px 0 24px; border-radius: 16px; cursor: pointer;
   background: linear-gradient(180deg, rgba(48, 53, 61, 0.9), rgba(28, 31, 36, 0.95)); border: 1px solid var(--line); }
-.mp-grid:disabled .mp-row { cursor: default; }
+.mp-fs:disabled .mp-row { cursor: default; }
 .mp-name { font-size: 30px; font-weight: 600; margin-right: auto; }
 .mp-fan { grid-column: 1 / -1; cursor: default; }
 .mp-fan .mp-name { margin-right: 0; }
@@ -470,3 +471,10 @@ body { background: #07080a; font-family: "Red Hat Display", "Segoe UI", system-u
 .stage.portrait .mp-fan { flex-wrap: wrap; row-gap: 0; padding-top: 8px; padding-bottom: 8px; }
 .stage.portrait .mp-fan input[type=range] { order: 3; flex-basis: 100%; }
 .stage.portrait .mp-val { margin-left: auto; min-width: 0; }
+
+/* Safari: the grid in a plain div inside the fieldset; the fieldset fills the space */
+.mp-fs > .mp-grid { height: 100%; }
+/* upright (phone, iPad): rows of a fixed height, the card scrolls */
+.stage.portrait .manual-page { overflow-y: auto; grid-template-rows: auto auto auto; align-content: start; }
+.stage.portrait .mp-fs { min-height: auto; }
+.stage.portrait .mp-fs > .mp-grid { height: auto; grid-auto-rows: minmax(84px, auto); }

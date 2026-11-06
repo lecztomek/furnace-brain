@@ -2,6 +2,12 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.74.13 · 06.11.2026 09:15
+
+- Nowe GUI (`/v2/`), iPad i wąskie ekrany:
+  - Ręczne: wiersze nachodziły na siebie i pod „Gotowe.” (Safari i siatka w elemencie formularza) - teraz każdy wiersz ma swoją wysokość, a gdy brakuje miejsca, karta przewija się palcem
+  - podstrony na tablecie w pionie mniej powiększone niż na telefonie - mieści się więcej
+
 ## 1.74.12 · 06.11.2026 08:55
 
 - Nowe GUI (`/v2/`): szczegóły znaku (OK / ostrzeżenie / problem) na środku ekranu, w pionie i w poziomie, z przyciemnionym tłem. Dotknięcie gdziekolwiek tylko je zamyka - nie trafia w przycisk pod spodem (np. nie przełączy trybu).

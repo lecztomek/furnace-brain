@@ -56,7 +56,7 @@
   function fit() {
     const portrait = innerHeight > innerWidth * 1.15;
     // sub-pages are lists and tables: on a phone drawn less shrunk than the main screen
-    const PW = 540;
+    const PW = innerHeight / innerWidth < 1.6 ? 760 : 540;   // a tablet: more fits, less zoomed
     const ratio = innerHeight / innerWidth;
     let W = portrait ? PW : 1200;
     let H = portrait ? Math.round(PW * ratio) : Math.round(1200 * ratio);
