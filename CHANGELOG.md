@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.74.10 · 06.11.2026 08:30
+
+- Nowe GUI (`/v2/`): okienko ze szczegółami znaku (OK / ostrzeżenie / problem) wyśrodkowane pod górnym paskiem i nigdy szersze niż ekran - na wszystkich stronach i na telefonie.
+
 ## 1.74.9 · 06.11.2026 08:20
 
 - Nowe GUI (`/v2/`), ekran główny w pionie:

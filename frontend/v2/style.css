@@ -222,7 +222,6 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 .stage.portrait .dev .n { font-size: 27px; }
 .stage.portrait .modes .btns { gap: 12px; }
 .stage.portrait .mbtn { flex-direction: column; gap: 6px; font-size: 32px; }
-.stage.portrait .sign-pop { width: 680px; }
 .stage.portrait .sign { height: 56px; font-size: 24px; padding: 0 14px 0 10px; }
 .stage.portrait .sign svg { width: 34px; height: 34px; }
 
@@ -283,3 +282,5 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 .stage.portrait.wide .dev .n { font-size: 21px; }
 .stage.portrait.wide .dev .s { font-size: 17px; }
 .stage.portrait.wide .dev > svg { width: 26px; height: 26px; }
+/* the details of the sign: centred under the header, never wider than the screen */
+.sign-pop { left: 50% !important; right: auto !important; transform: translateX(-50%); width: min(760px, calc(100% - 40px)) !important; }
