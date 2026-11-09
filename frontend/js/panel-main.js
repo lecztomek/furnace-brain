@@ -261,7 +261,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!c.ok) return;
         v = Number((await c.json()).value);
       }
-      if (!isNaN(v)) el.textContent = `${rad.curve_active ? "krzywa" : "zadana"} ${fmt(v)}°C`;
+      // a sunny day (curve lowered the whole day): a sun and an arrow down after the target
+      const sun = Number(rad.sun_drop) > 0 ? " ☀↓" : "";
+      if (!isNaN(v)) el.textContent = `${rad.curve_active ? "krzywa" : "zadana"} ${fmt(v)}°C${sun}`;
     } catch (e) { /* keep the last value */ }
   }
   // under the outside temperature: the average the heating curve uses and its window ("śr. 4,2° / 12 h")

@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.76.1 · 09.11.2026 11:00
+
+- Słoneczny dzień: przy zadanej grzejników znaczek ☀↓, gdy obniżenie działa (np. „krzywa 27,5° ☀↓”) - w nowym i starym wyglądzie.
+
 ## 1.76.0 · 09.11.2026 10:30
 
 - Krzywa grzewcza: „Słoneczny dzień” (domyślnie włączone) - gdy prognoza pogody daje na dziś co najmniej 4 h słońca, grzejniki są cały dzień o 1°C chłodniej (słońce dogrzewa pokoje). Decyzja raz na dzień, z pierwszej prognozy dnia - nie przełącza się w ciągu dnia. Tylko przy włączonej krzywej; ustawienia: Ustawienia → Krzywa grzewcza (włącz/wyłącz, o ile chłodniej, od ilu godzin słońca). W logach: „słoneczny dzień”.
