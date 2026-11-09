@@ -138,3 +138,38 @@ def test_settings_taken_over_from_the_valve_once(tmp_path):
     # later changes in the curve module are not overwritten at the next start
     (tmp_path / "curve" / "values.yaml").write_text(yaml.safe_dump({**v, "curve_slope": 0.35}))
     assert CurveModule(base_path=tmp_path / "curve").get_config_values()["curve_slope"] == 0.35
+
+
+def _weather(date, sun_h):
+    return {"forecast": {"daily": [{"date": date, "sun_h": sun_h}]}}
+
+
+def test_sunny_day_lowers_the_target_the_whole_day(tmp_path):
+    from datetime import datetime
+    m = _module(tmp_path, curve_enabled=True)
+    t0 = datetime(2026, 11, 9, 7, 0).timestamp()
+    st = SystemState(mode=BoilerMode.WORK)
+    st.runtime["weather"] = _weather("2026-11-09", 6.5)          # sunny
+    rt, types = _tick(m, t0, 0.0, st)
+    assert rt["target"] == 29.0 and rt["sun_drop"] == 1.0 and "CURVE_SUN" in types
+    # a later forecast with clouds: the day stays lowered
+    st.runtime["weather"] = _weather("2026-11-09", 1.0)
+    rt, _ = _tick(m, t0 + 6 * 3600, 0.0, st)
+    assert rt["target"] == 29.0
+    # next day, cloudy: back to the curve
+    st.runtime["weather"] = _weather("2026-11-10", 1.0)
+    rt, types = _tick(m, t0 + 24 * 3600, 0.0, st)
+    assert rt["target"] == 30.0 and rt["sun_drop"] == 0.0 and "CURVE_SUN" in types
+
+
+def test_sunny_day_off_or_curve_off_or_no_forecast(tmp_path):
+    from datetime import datetime
+    t0 = datetime(2026, 11, 9, 12, 0).timestamp()
+    st = SystemState(mode=BoilerMode.WORK)
+    st.runtime["weather"] = _weather("2026-11-09", 7.0)
+    m = _module(tmp_path, curve_enabled=True, sun_enabled=False)
+    assert _tick(m, t0, 0.0, st)[0]["target"] == 30.0
+    m = _module(tmp_path, curve_enabled=False)                    # fixed target: never changed
+    assert _tick(m, t0, 0.0, st)[0]["target"] == 30.0
+    m = _module(tmp_path, curve_enabled=True)
+    assert _tick(m, t0, 0.0)[0]["target"] == 30.0                 # no forecast

@@ -6,6 +6,8 @@ groups:
   label: Zadana stała
 - id: curve
   label: Krzywa grzewcza
+- id: sun
+  label: Słońce
 fields:
 - key: target_temp
   label: Docelowa temperatura za zaworem
@@ -75,3 +77,31 @@ fields:
   default: 12
   group: curve
   description: Z ilu ostatnich godzin liczona jest średnia temperatura na dworze. Dom i woda w instalacji reagują wolno, więc krótkie wahania (noc/dzień) są wygładzane.
+- key: sun_enabled
+  label: Słoneczny dzień
+  type: bool
+  label_on: WŁĄCZONE
+  label_off: WYŁĄCZONE
+  default: true
+  group: sun
+  description: Gdy prognoza pogody daje na dziś dość słońca, cały dzień grzejniki chłodniej - słońce dogrzewa pokoje przez okna. Tylko przy włączonej krzywej.
+- key: sun_drop
+  label: Słoneczny dzień - chłodniej o
+  type: number
+  unit: °C
+  min: 0
+  max: 5
+  step: 0.5
+  default: 1
+  group: sun
+  description: O ile chłodniej grzejniki przez cały słoneczny dzień.
+- key: sun_hours
+  label: Słoneczny dzień - od godzin słońca
+  type: number
+  unit: h
+  min: 1
+  max: 10
+  step: 0.5
+  default: 4
+  group: sun
+  description: Ile godzin słońca w prognozie na dziś robi dzień słonecznym (zimą przy czystym niebie to ok. 6-8 h, w pochmurny dzień 0-2 h).

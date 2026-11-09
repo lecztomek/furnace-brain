@@ -2,6 +2,12 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.76.0 · 09.11.2026 10:30
+
+- Krzywa grzewcza: „Słoneczny dzień” (domyślnie włączone) - gdy prognoza pogody daje na dziś co najmniej 4 h słońca, grzejniki są cały dzień o 1°C chłodniej (słońce dogrzewa pokoje). Decyzja raz na dzień, z pierwszej prognozy dnia - nie przełącza się w ciągu dnia. Tylko przy włączonej krzywej; ustawienia: Ustawienia → Krzywa grzewcza (włącz/wyłącz, o ile chłodniej, od ilu godzin słońca). W logach: „słoneczny dzień”.
+- Pogoda: prognoza dzienna z godzinami słońca.
+- Nowe GUI: przy grzejniku „krzywa ☀−1°”, gdy obniżenie działa.
+
 ## 1.75.0 · 06.11.2026 09:45
 
 - Nowy moduł ustawień „Wygląd” (Ustawienia → Wygląd): który wygląd otwiera adres sterownika - stary (domyślnie, nic się samo nie zmienia) albo nowy. Przy „nowy” strona startowa od razu przechodzi do nowego wyglądu. Tylko ustawienie, nic nie steruje.

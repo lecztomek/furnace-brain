@@ -145,7 +145,9 @@
     $("rad").textContent = sens.radiators_temp == null ? "--" : `${num(sens.radiators_temp, 0)}°`;
     const rad = s.radiators || {};
     // the curve switched on shows "krzywa" at once (without the outside temperature it holds the fixed target)
-    $("rad-label").textContent = rad.curve_enabled || rad.curve_active ? "krzywa" : "zadana";
+    // a sunny day: the curve is lower the whole day
+    const sun = Number(rad.sun_drop) > 0 ? ` ☀−${num(rad.sun_drop, 0)}°` : "";
+    $("rad-label").textContent = (rad.curve_enabled || rad.curve_active ? "krzywa" : "zadana") + sun;
     $("rad-set").textContent = rad.target == null ? "--" : `${num(rad.target)}°`;
     // the fire follows the boiler temperature, as the current GUI: none below 30°C, full at 50°C
     const bt = Number(sens.boiler_temp);

@@ -59,7 +59,7 @@ def fetch_open_meteo_forecast(latitude: float, longitude: float, timeout_s: floa
     query = urllib.parse.urlencode({
         "latitude": latitude, "longitude": longitude,
         "hourly": "temperature_2m,weather_code,wind_speed_10m,precipitation_probability",
-        "daily": "temperature_2m_max,temperature_2m_min,weather_code",
+        "daily": "temperature_2m_max,temperature_2m_min,weather_code,sunshine_duration",
         "forecast_days": FORECAST_DAYS, "timezone": "Europe/Warsaw",
     })
     with urllib.request.urlopen(f"{OPEN_METEO_URL}?{query}", timeout=timeout_s) as resp:
@@ -75,7 +75,8 @@ def fetch_open_meteo_forecast(latitude: float, longitude: float, timeout_s: floa
                     "wind": col(h, "wind_speed_10m", i), "rain_pct": col(h, "precipitation_probability", i)}
                    for i, t in enumerate(h["time"])],
         "daily": [{"date": t, "tmax": col(d, "temperature_2m_max", i), "tmin": col(d, "temperature_2m_min", i),
-                   "code": col(d, "weather_code", i)} for i, t in enumerate(d["time"])],
+                   "code": col(d, "weather_code", i),
+                   "sun_h": None if col(d, "sunshine_duration", i) is None else round(col(d, "sunshine_duration", i) / 3600.0, 1)} for i, t in enumerate(d["time"])],
     }
 
 

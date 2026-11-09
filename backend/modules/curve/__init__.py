@@ -3,12 +3,15 @@ Krzywa grzewcza: the radiator target. With the curve on, it follows the outside
 temperature averaged over curve_avg_h hours (the house and the water react slowly);
 with it off - or with no outside temperature for a whole window - it is the fixed
 target_temp. Publishes runtime["curve"]; the mixing valve only goes to that target.
+Sunny day: when the weather forecast (Open-Meteo, hours of sunshine) gives today at least
+sun_hours of sun, the target is sun_drop lower the whole day - the sun warms the rooms.
 After a restart the average is refilled from the history in the background.
 """
 from __future__ import annotations
 
 from collections import deque
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -31,12 +34,17 @@ class CurveConfig:
     curve_min: float = 22.0
     curve_max: float = 45.0
     curve_avg_h: float = 12.0         # outside temperature averaged over
+    # sunny day (curve on only): the whole day this much lower
+    sun_enabled: bool = True
+    sun_drop: float = 1.0
+    sun_hours: float = 4.0            # a day with at least this many hours of sun is sunny
 
 
 CURVE_SAMPLE_S = 60.0          # outside temperature sampled once a minute
-FLOAT_KEYS = ("target_temp", "curve_at_0", "curve_slope", "curve_min", "curve_max", "curve_avg_h")
+FLOAT_KEYS = ("target_temp", "curve_at_0", "curve_slope", "curve_min", "curve_max", "curve_avg_h",
+              "sun_drop", "sun_hours")
 # up to 1.45 these settings were the mixing valve's - taken over once (see _take_over_from_mixer)
-MIXER_KEYS = ("target_temp", "curve_enabled") + FLOAT_KEYS[1:]
+MIXER_KEYS = ("target_temp", "curve_enabled", "curve_at_0", "curve_slope", "curve_min", "curve_max", "curve_avg_h")
 TAKEN_OVER_MARK = ".taken_over_from_mixer"
 
 
@@ -57,6 +65,8 @@ class CurveModule(ModuleInterface):
         self._outside_refill = Refill()
         self._target: float = self._config.target_temp
         self._curve_active: bool = False
+        self._sun_on: bool = False
+        self._sun_day: Optional[tuple] = None    # (date, hours of sun): decided once a day
 
     @property
     def id(self) -> str:
@@ -76,7 +86,21 @@ class CurveModule(ModuleInterface):
             self._outside.append((now_ctrl, float(outside)))
         avg = self._outside_avg(now_ctrl)
         active = bool(self._config.curve_enabled) and avg is not None
-        self._target = self.curve_target(avg) if active else self._config.target_temp
+        sun_h = self._sun_hours_today(now, system_state.runtime) if active and self._config.sun_enabled else None
+        sunny = sun_h is not None and sun_h >= self._config.sun_hours
+        drop = self._config.sun_drop if sunny else 0.0
+        if active:
+            self._target = round(max(self._config.curve_min, self.curve_target(avg) - drop), 1)
+        else:
+            self._target = self._config.target_temp
+        if sunny != self._sun_on:
+            events.append(Event(
+                ts=now, source=self.id, level=EventLevel.INFO, type="CURVE_SUN",
+                message=(f"Krzywa grzewcza: słoneczny dzień (słońce {sun_h:.1f} h) - cały dzień grzejniki o {drop:g}°C chłodniej, zadana {self._target:.1f}°C"
+                         if sunny else f"Krzywa grzewcza: bez korekty słońca - zadana {self._target:.1f}°C"),
+                data={"target": self._target, "sun_hours": sun_h, "sun_drop": drop},
+            ))
+            self._sun_on = sunny
 
         if active and self._curve_active and self._curve_changed:
             c = self._config
@@ -104,6 +128,8 @@ class CurveModule(ModuleInterface):
             "curve_active": active,
             "outside_avg": None if avg is None else round(avg, 1),
             "outside_avg_h": self._config.curve_avg_h,
+            "sun_hours": sun_h,
+            "sun_drop": drop,
         }
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
@@ -112,6 +138,23 @@ class CurveModule(ModuleInterface):
         c = self._config
         t = c.curve_at_0 - c.curve_slope * outside
         return round(max(c.curve_min, min(c.curve_max, t)), 1)
+
+    def _sun_hours_today(self, now: float, runtime: Dict[str, Any]) -> Optional[float]:
+        """Hours of sun today from the forecast (local date), fixed for the day; None without it."""
+        daily = (((runtime.get("weather") or {}).get("forecast") or {}).get("daily")) or []
+        try:
+            today = datetime.fromtimestamp(now).strftime("%Y-%m-%d")
+        except (OverflowError, OSError, ValueError):
+            return None
+        # the first forecast of the day decides for the whole day - a later forecast
+        # doesn't switch it on and off around noon
+        if self._sun_day and self._sun_day[0] == today:
+            return self._sun_day[1]
+        for d in daily:
+            if d.get("date") == today and d.get("sun_h") is not None:
+                self._sun_day = (today, float(d["sun_h"]))
+                return self._sun_day[1]
+        return None
 
     def _merge_outside(self, rows) -> None:
         """Outside temperatures of the last curve_avg_h hours from the history (read in the background), one a minute."""
@@ -183,6 +226,8 @@ class CurveModule(ModuleInterface):
         before = self._curve_settings()
         if "curve_enabled" in values:
             self._config.curve_enabled = bool(values["curve_enabled"])
+        if "sun_enabled" in values:
+            self._config.sun_enabled = bool(values["sun_enabled"])
         for name in FLOAT_KEYS:
             if name in values:
                 setattr(self._config, name, float(values[name]))
@@ -191,4 +236,5 @@ class CurveModule(ModuleInterface):
 
     def _curve_settings(self) -> tuple:
         c = self._config
-        return (c.curve_at_0, c.curve_slope, c.curve_min, c.curve_max, c.curve_avg_h)
+        return (c.curve_at_0, c.curve_slope, c.curve_min, c.curve_max, c.curve_avg_h,
+                c.sun_enabled, c.sun_drop, c.sun_hours)
