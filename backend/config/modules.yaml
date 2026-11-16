@@ -96,12 +96,12 @@ modules:
     critical: false
     about: "Temperatura zewnętrzna i prognoza z internetu (Open-Meteo), udostępniane innym modułom."
 
-  # the room thermometer over WiFi - only recorded, the control doesn't use it
-  - id: room
-    path: backend.modules.room:RoomModule
+  # WiFi thermometers (Tasmota), each with a role - only recorded, the control doesn't use them
+  - id: thermometers
+    path: backend.modules.thermometers:ThermometersModule
     enabled: true
     critical: false
-    about: "Temperatura w domu z termometru WiFi (Tasmota): zapis w historii i podgląd. Sterowanie pieca i krzywa jej nie używają."
+    about: "Termometry WiFi (Tasmota), każdy z adresem i rolą - na razie „w domu”: zapis w historii i podgląd. Sterowanie pieca i krzywa ich nie używają."
 
   - id: remote_view
     path: backend.modules.remote_view:RemoteViewModule

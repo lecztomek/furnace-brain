@@ -193,6 +193,20 @@
     return json({ ok: true, ignored: true });
   }
 
+  // ---------- old data ----------
+  // the Pi sends the state every few seconds; when it stops (no internet at the furnace, the
+  // controller off) the view would show the last state as if it were now - a problem says so
+  const STALE_S = 5 * 60;
+  function markStale(state) {
+    const age = Date.now() / 1000 - Number(state && state.ts);
+    if (!(age > STALE_S)) return state;
+    const at = new Date(state.ts * 1000);
+    const when = `${pad(at.getDate())}.${pad(at.getMonth() + 1)} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
+    const ago = age < 3600 ? `${Math.round(age / 60)} min` : age < 2 * 86400 ? `${Math.round(age / 3600)} h` : `${Math.round(age / 86400)} dni`;
+    const problem = { short: "STARE DANE", text: `Ostatnie dane z pieca: ${when} (${ago} temu). Sterownik nie wysyła danych do podglądu - brak internetu przy piecu albo sterownik wyłączony. Wszystko na ekranie jest z tamtej chwili.` };
+    return { ...state, problems: [problem, ...(state.problems || [])] };
+  }
+
   // ---------- router ----------
   async function handle(url, method) {
     const parts = url.pathname.replace(/^.*?\/api\//, "api/").split("/").filter(Boolean).map(decodeURIComponent);
@@ -202,7 +216,7 @@
     if (method !== "GET" && method !== "HEAD") return ignoredWrite(parts);
 
     const p = parts.slice(1).join("/");
-    if (p === "state/current") return json(await fbValue("state", 2000));
+    if (p === "state/current") return json(markStale(await fbValue("state", 2000)));
     if (p === "manual/current") return json(await fbValue("manual", 2000));
     if (p === "history/fields") return json({ fields: await fbValue("history_fields", 60 * 1000) });
     if (p === "history/data") return json(await historyData(url.searchParams));

@@ -2,6 +2,12 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.78.0 · 16.11.2026 13:30
+
+- „Temperatura w domu” zamienione na moduł „Termometry WiFi”: do trzech termometrów (Tasmota z DS18B20), każdy z końcówką adresu i rolą. Na razie rola „W DOMU” (zapis w historii jako `temp_wewn`) albo „BRAK”. Domyślnie termometr 1: adres …245, rola W DOMU. Ustawienia → Termometry WiFi. W logach przy pierwszym odczycie: numer termometru, rola, pełny adres i temperatura.
+- Podgląd zdalny: gdy z pieca od 5 minut nie przychodzą nowe dane (brak internetu przy piecu, sterownik wyłączony), pokazuje problem „STARE DANE” z godziną ostatnich danych - zamiast udawać, że to stan obecny. W obu wyglądach.
+- Statystyki → Prognoza: „Do końca dnia” i „Razem dziś” nie liczą się ze starej prognozy (wtedy była to cała doba dodana do spalonego) - pokazuje „--” i „prognoza nieaktualna”.
+
 ## 1.77.1 · 16.11.2026 12:00
 
 - Temperatura w domu: adres termometru ustawia się przyciskami - tylko ostatnia liczba („Termometr: koniec adresu”, np. 50 dla 192.168.1.50); pierwsze trzy liczby sterownik bierze ze swojego adresu. Domyślnie 245; 0 = brak termometru. Pełny adres termometru widać w logach przy pierwszym odczycie.

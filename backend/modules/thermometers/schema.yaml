@@ -1,0 +1,98 @@
+id: thermometers
+name: "Termometry WiFi"
+description: "Do trzech termometrów w sieci domowej (Tasmota z DS18B20). Każdy ma adres i rolę; na razie rola „w domu” - zapis w historii (temp_wewn) i podgląd. Sterowanie pieca i krzywa ich nie używają."
+
+groups:
+  - id: t1
+    label: "Termometr 1"
+  - id: t2
+    label: "Termometr 2"
+  - id: t3
+    label: "Termometr 3"
+  - id: basic
+    label: "Odczyt"
+
+fields:
+  - key: t1_address
+    label: "Koniec adresu"
+    type: number
+    min: 0
+    max: 254
+    step: 1
+    default: 245
+    group: t1
+    description: "Ostatnia liczba adresu termometru w sieci domowej, np. 245 dla 192.168.1.245. Pierwsze trzy liczby są takie jak sterownika. Termometr musi mieć w routerze stały adres. 0 = brak termometru."
+
+  - key: t1_role
+    label: "Rola"
+    type: text
+    options: [w_domu, brak]
+    option_labels: {w_domu: "W DOMU", brak: "BRAK"}
+    default: w_domu
+    group: t1
+    description: "W DOMU - temperatura w domu (historia: temp_wewn). BRAK - termometr nie jest używany."
+
+  - key: t2_address
+    label: "Koniec adresu"
+    type: number
+    min: 0
+    max: 254
+    step: 1
+    default: 0
+    group: t2
+    description: "0 = brak termometru."
+
+  - key: t2_role
+    label: "Rola"
+    type: text
+    options: [brak, w_domu]
+    option_labels: {w_domu: "W DOMU", brak: "BRAK"}
+    default: brak
+    group: t2
+
+  - key: t3_address
+    label: "Koniec adresu"
+    type: number
+    min: 0
+    max: 254
+    step: 1
+    default: 0
+    group: t3
+    description: "0 = brak termometru."
+
+  - key: t3_role
+    label: "Rola"
+    type: text
+    options: [brak, w_domu]
+    option_labels: {w_domu: "W DOMU", brak: "BRAK"}
+    default: brak
+    group: t3
+
+  - key: enabled
+    label: "Odczyt termometrów"
+    type: bool
+    default: true
+    label_on: "WŁĄCZONY"
+    label_off: "WYŁĄCZONY"
+    group: basic
+
+  - key: refresh_s
+    label: "Odczyt co"
+    type: number
+    unit: "s"
+    min: 30
+    max: 600
+    step: 30
+    default: 60
+    group: basic
+
+  - key: max_age_min
+    label: "Maksymalny wiek odczytu"
+    type: number
+    unit: "min"
+    min: 2
+    max: 60
+    step: 1
+    default: 10
+    group: basic
+    description: "Starszy odczyt nie jest zapisywany (np. termometr bez prądu albo poza WiFi)."

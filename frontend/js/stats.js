@@ -774,7 +774,10 @@
     // today: burnt so far (statistics) + the rest of the day (forecast)
     const rest = days.find((d) => idx(d.date) === 0);
     const burnt = report && report.periods && report.periods.today ? report.periods.today.coal_kg : null;
-    const total = burnt != null && rest && rest.coal_kg != null ? burnt + rest.coal_kg : null;
+    // a forecast computed earlier (e.g. the remote view without new data) has more hours of today
+    // than are left - its "rest of the day" would be the whole day
+    const restOk = rest && rest.coal_kg != null && rest.hours <= 24 - now.getHours();
+    const total = burnt != null && restOk ? burnt + rest.coal_kg : null;
     const [icon, text] = weatherLook(rest ? rest.code : null);
     const hhmm = now.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
     $("fc-title").textContent = `Dziś • ${dayName(todayIso, 0).sub}`;
@@ -784,7 +787,7 @@
         <div class="fc-sky-text">${rest ? `do północy ${temp(rest.tmin)} … ${temp(rest.tmax)}` : ""}${text ? ` • ${text}` : ""}</div></div></div>
       <div class="st2-hero fc-hero">
         ${tile("Spalone dziś", burnt == null ? "--" : `${num(burnt, 0)}<small>kg</small>`, `do ${hhmm}`)}
-        ${tile("Do końca dnia", rest && rest.coal_kg != null ? `~${num(rest.coal_kg, 0)}<small>kg</small>` : "--", "prognoza")}
+        ${tile("Do końca dnia", restOk ? `~${num(rest.coal_kg, 0)}<small>kg</small>` : "--", rest && !restOk ? "prognoza nieaktualna" : "prognoza")}
         ${tile("Razem dziś", total == null ? "--" : `~${num(total, 0)}<small>kg</small>`, cost(total) == null ? "" : `${zl(cost(total))} zł`, "st2-tile--cost")}
       </div>`;
 

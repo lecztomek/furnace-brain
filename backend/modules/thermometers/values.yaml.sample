@@ -1,0 +1,9 @@
+enabled: true
+t1_address: 245
+t1_role: w_domu
+t2_address: 0
+t2_role: brak
+t3_address: 0
+t3_role: brak
+refresh_s: 60.0
+max_age_min: 10.0
