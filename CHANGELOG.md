@@ -2,6 +2,11 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.80.0 · 16.11.2026 15:30
+
+- Moc w PRACY: gdy minimum mocy (krzywa minimum) trzyma moc wyżej, niż chce PID, PID startuje od tego minimum. Po długim staniu na minimum (kocioł lekko za ciepły) moc rusza w górę od razu, gdy kocioł spadnie poniżej zadanej - wcześniej dopiero ok. 3°C niżej (prod 16.11: kocioł spadł z 59 do 55°C, zanim moc drgnęła). Gdy minimum maleje (cieplejszy dzień), PID schodzi razem z nim - nie trzyma starej, wyższej mocy.
+- Sprawdzone na symulatorze: wyjazdy temperatury kotła w górę takie same jak dotąd (różnice do 0,2°C), test na przebiegu z proda: moc rusza przy 57,9°C zamiast 55,4°C.
+
 ## 1.79.1 · 16.11.2026 14:10
 
 - Strażnik sieci obsługuje też kabel (sterownik jest na kablu, eth0): po 3 min bez routera wyłącza i włącza połączenie, którym Pi jest podłączone (kabel albo WiFi), a w logach zapisuje, czy kabel ma łącze z routerem i czy Pi ma adres - przy następnym zaniku będzie widać przyczynę (journalctl -t furnace-netwatch).

@@ -274,7 +274,7 @@ class WorkPowerModule(ModuleInterface):
         if boiler_temp is not None:
             if in_work:
                 # Normalna praca PID – regulujemy do zadanej temperatury.
-                base_power = self._pid_step(now_ctrl, boiler_temp)
+                base_power = self._pid_step(now_ctrl, boiler_temp, track_min=True)
             else:
                 # Poza WORK: NIE trackuj do outputs.power_percent w OFF/MANUAL,
                 # bo OFF zwykle ustawia power_percent=0 i to "zeruje" całkę.
@@ -408,7 +408,7 @@ class WorkPowerModule(ModuleInterface):
         self._last_tick_ts = None
         self._last_power_ts = None
 
-    def _pid_step(self, now_ctrl: float, boiler_temp: float) -> float:
+    def _pid_step(self, now_ctrl: float, boiler_temp: float, track_min: bool = False) -> float:
         """
         Jeden krok PID-a – z oknem całki integral_window_s.
         UWAGA: now_ctrl = czas monotoniczny (SystemState.ts_mono).
@@ -437,6 +437,8 @@ class WorkPowerModule(ModuleInterface):
             self._integral *= decay
             self._integral += error * dt
 
+        if track_min:
+            self._track_min(error)
         p_term = self._config.kp * error
         i_term = self._config.ki * self._integral
 
@@ -496,6 +498,27 @@ class WorkPowerModule(ModuleInterface):
         if old > 0 and ki > 0 and ki != old and hasattr(self, "_integral"):
             self._integral *= old / ki
         self._config.ki = ki
+
+    def _track_min(self, error: float) -> None:
+        """
+        While the lower limit (the fixed minimum or the power floor) holds the power above what
+        the PID asks for, the PID starts from that limit: the integral is raised so that at the
+        setpoint the PID gives the limit. Without it the integral sits at zero while the boiler
+        is too warm, and when the boiler cools the PID has to climb all the way up to the limit
+        before the power moves at all - about 3 C below the setpoint with the floor at 30%.
+        Only while the limit holds the power: the integral follows the limit up and down (the
+        floor drops on a warming day - the PID must not keep the old, higher one and overheat
+        the boiler), so the PID never gives more than the limit until the boiler is colder
+        than the setpoint; nothing changes while the boiler is too warm (the power stays at
+        the limit) - the PID just reacts at once when the boiler drops below the setpoint.
+        """
+        ki, kp = self._config.ki, self._config.kp
+        if ki <= 0:
+            return
+        if kp * error + ki * self._integral > self._min_now + 1e-6:
+            return                                       # the PID is above the limit: its own
+        hi = max(self._config.max_power, 1.0) / ki
+        self._integral = max(0.0, min(hi, (self._min_now - max(kp * error, 0.0)) / ki))
 
     def _integrate_classic(self, error: float, dt: float) -> None:
         """
