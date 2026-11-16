@@ -120,8 +120,9 @@
     // the house tile in the picture: the thermometer "w domu", the wanted temperature, the correction
     const house = s.house || {};
     $("room-val").textContent = house.temp == null ? "--" : `${num(house.temp)}°`;
+    // the second line: the wanted temperature while the correction works, else that it is off
     $("room-label").textContent = house.correction_on ? "zadana" : "korekta wył.";
-    $("room-set").textContent = house.target == null ? "--" : `${num(house.target)}°`;
+    $("room-set").textContent = !house.correction_on ? "" : house.target == null ? "--" : `${num(house.target)}°`;
 
     // devices
     const fan = Number(out.fan_power) || 0;

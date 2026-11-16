@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.84.1 · 16.11.2026 16:45
+
+- Ekran główny: kafelek „W domu” wyższy, w dwóch linijkach i bliżej grzejnika - na górze temperatura w domu, pod nią „zadana 21,0°” albo „korekta wył.” (wcześniej napis wchodził na temperaturę).
+
 ## 1.84.0 · 16.11.2026 20:00
 
 - Stary wygląd usunięty - zostaje tylko nowy. Adres sterownika (ekran przy piecu, telefon, podgląd zdalny) od razu otwiera nowy wygląd; link podglądu zdalnego z kluczem #k= działa jak dotąd. Z menu zniknęło „Stary panel”, z ustawień moduł „Wygląd”.
