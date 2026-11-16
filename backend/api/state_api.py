@@ -89,7 +89,7 @@ def create_state_router(
         if net.get("down"):
             at = time.strftime("%H:%M", time.localtime(net.get("down_since") or time.time()))
             if net["down"] == "lan":
-                out.append({"short": "SIEĆ", "text": f"Od {at} sterownik nie jest połączony z routerem (WiFi). Piec grzeje "
+                out.append({"short": "SIEĆ", "text": f"Od {at} sterownik nie jest połączony z routerem (kabel / WiFi). Piec grzeje "
                                                          "normalnie, ale nie ma pogody, podglądu zdalnego i aktualizacji. Pomaga restart Pi."})
             else:
                 out.append({"short": "INTERNET", "text": f"Od {at} sterownik jest połączony z routerem, ale nie ma internetu. Piec grzeje "
@@ -117,7 +117,7 @@ def create_state_router(
                 "hopper_temp": sens.hopper_temp,
                 "outside_temp": outside_temp(sens.outside_temp, s.runtime),
                 "mixer_temp": sens.mixer_temp,
-                # the room thermometer over WiFi (room module), None = none or no fresh reading
+                # the house temperature (thermometers module, role "w_domu"), None = none or no fresh reading
                 "room_temp": room_temp(s.runtime),
             },
             "outputs": {

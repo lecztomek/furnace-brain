@@ -1,5 +1,5 @@
 [Unit]
-Description=Furnace Brain - network watchdog (WiFi power saving off, WiFi/network restart, reboot as a last resort)
+Description=Furnace Brain - network watchdog (connection / network restart, reboot as a last resort)
 
 [Service]
 Type=oneshot

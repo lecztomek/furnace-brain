@@ -121,7 +121,7 @@ class NetworkModule(ModuleInterface):
                     if self._down_since is None or what != self._down_what:
                         self._down_since = self._down_since or wall
                         self._down_what = what
-                    msg = ("brak połączenia z routerem (WiFi)" if what == "lan"
+                    msg = ("brak połączenia z routerem" if what == "lan"
                            else "router działa, ale nie ma internetu" if not r["internet"]
                            else "nie działa DNS (nazwy serwerów)")
                     self._problems.failed("połączenie", msg, "NETWORK_DOWN")

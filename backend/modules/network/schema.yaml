@@ -1,6 +1,6 @@
 id: network
 name: "Sieć"
-description: "Sprawdza, czy sterownik ma połączenie z routerem (WiFi) i z internetem. Gdy go nie ma dłużej niż kilka minut, na ekranie głównym jest ostrzeżenie. Piec działa bez sieci - nie ma wtedy pogody, podglądu zdalnego i aktualizacji."
+description: "Sprawdza, czy sterownik ma połączenie z routerem (kabel / WiFi) i z internetem. Gdy go nie ma dłużej niż kilka minut, na ekranie głównym jest ostrzeżenie. Piec działa bez sieci - nie ma wtedy pogody, podglądu zdalnego i aktualizacji."
 
 groups:
   - id: basic

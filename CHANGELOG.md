@@ -2,6 +2,11 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.79.1 · 16.11.2026 14:10
+
+- Strażnik sieci obsługuje też kabel (sterownik jest na kablu, eth0): po 3 min bez routera wyłącza i włącza połączenie, którym Pi jest podłączone (kabel albo WiFi), a w logach zapisuje, czy kabel ma łącze z routerem i czy Pi ma adres - przy następnym zaniku będzie widać przyczynę (journalctl -t furnace-netwatch).
+- Ostrzeżenie „SIEĆ” na ekranie: „brak połączenia z routerem (kabel / WiFi)”.
+
 ## 1.79.0 · 16.11.2026 14:30
 
 - Nowy moduł „Sieć”: co 30 s sprawdza, czy sterownik ma połączenie z routerem i z internetem. Gdy go nie ma dłużej niż 3 minuty - żółte ostrzeżenie na ekranie głównym: „SIEĆ” (brak połączenia z routerem / WiFi) albo „INTERNET” (router jest, internetu nie), z godziną i opisem po dotknięciu. Krótkie przerwy tylko w logach. Piec działa bez sieci jak dotąd.

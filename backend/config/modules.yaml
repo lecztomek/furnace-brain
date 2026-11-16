@@ -108,7 +108,7 @@ modules:
     path: backend.modules.network:NetworkModule
     enabled: true
     critical: false
-    about: "Sieć: czy sterownik ma połączenie z routerem (WiFi) i z internetem; dłuższy brak - ostrzeżenie na ekranie głównym. Nic nie steruje."
+    about: "Sieć: czy sterownik ma połączenie z routerem (kabel / WiFi) i z internetem; dłuższy brak - ostrzeżenie na ekranie głównym. Nic nie steruje."
 
   - id: remote_view
     path: backend.modules.remote_view:RemoteViewModule
