@@ -2,6 +2,12 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.86.0 · 16.11.2026 19:30
+
+- Korekta pokojowa sprawdza dom co godzinę (średnia krocząca i trend z ostatnich 3 h), ale po każdej zmianie krzywej czeka co najmniej 3 h na efekt - dom reaguje wolno. Ustawienia → Korekta pokojowa: „Sprawdzanie co”, „Średnia z”, „Po zmianie czekaj”.
+- W logach tylko zmiany i nowe powody (sprawdzanie co godzinę nie zapycha logów).
+- Sprawdzone na modelu domu: co godzinę + czekanie 3 h tak samo dobrze albo lepiej niż co 3 h (czas w ±0,5°C 63–76%); co godzinę bez czekania wyraźnie gorzej (dom przegrzewa się po kilku krokach naraz).
+
 ## 1.85.0 · 16.11.2026 19:00
 
 - Krzywa grzewcza patrzy do przodu: średnia temperatura na dworze z ostatnich 3 h (zmierzone) i następnych 9 h prognozy. Wieczorem po ciepłym dniu krzywa widzi już zimną noc i grzeje wcześniej (np. 16.11 o 18:00: średnia 6,7°C zamiast 8,4°C → grzejniki o ~0,7°C cieplej, bez słońca o 1,7°C). Bez prognozy (brak internetu, prognoza starsza niż 12 h) - jak dawniej średnia z 12 h wstecz. Ustawienia → Krzywa grzewcza: „Z prognozą - godzin wstecz / do przodu” (0 h do przodu = bez prognozy).

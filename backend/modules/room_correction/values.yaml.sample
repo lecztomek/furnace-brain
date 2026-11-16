@@ -1,6 +1,8 @@
 enabled: false
 room_target: 21.0
-interval_h: 3.0
+interval_h: 1.0
+avg_h: 3.0
+hold_h: 3.0
 deadband: 0.5
 step: 0.5
 limit: 2.0

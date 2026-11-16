@@ -42,9 +42,10 @@ def _run(m, t0, hours, temp_at, mode=BoilerMode.WORK):
     return t, r.runtime, events
 
 
-def _module(tmp_path):
+def _module(tmp_path, **values):
     m = RoomCorrectionModule(base_path=tmp_path, data_root=tmp_path)
-    m.set_config_values({"enabled": True}, persist=False)
+    # the rule tests: a decision every 3 h of the last 3 h, no extra wait (as first designed)
+    m.set_config_values({"enabled": True, "interval_h": 3.0, "hold_h": 0.0, **values}, persist=False)
     for _ in range(200):                                       # no history in a test: [] quickly
         m.tick(now=0.0, sensors=Sensors(), system_state=SystemState())
         if m._refilled:
@@ -66,7 +67,7 @@ def test_too_cold_raises_once_then_waits_while_warming(tmp_path):
 def test_fine_stays_and_the_limit_holds(tmp_path):
     m = _module(tmp_path)
     t, rt, ev = _run(m, 1_000_000.0, 15.1, lambda t: 19.0)            # cold for long: up to the limit
-    assert rt["offset"] == 2.0 and [e.data["change"] for e in ev] == [0.5, 0.5, 0.5, 0.5, 0.0]
+    assert rt["offset"] == 2.0 and [e.data["change"] for e in ev] == [0.5, 0.5, 0.5, 0.5]   # then quiet at the limit
     t, rt, ev = _run(m, t, 6.0, lambda t: 21.1)                       # fine: stays at +2
     assert rt["offset"] == 2.0 and all(e.data["change"] == 0.0 for e in ev)
 
@@ -192,3 +193,17 @@ def test_the_house_in_the_state_for_the_main_page(tmp_path):
     app.include_router(create_state_router(store, ConfigStore(tmp_path, ["room_correction"])), prefix="/api")
     house = TestClient(app).get("/api/state/current").json()["house"]
     assert house == {"temp": 20.4, "target": 21.5, "correction_on": True, "offset": 0.5}
+
+
+def test_checks_every_hour_but_waits_after_a_change(tmp_path):
+    """Defaults: a check every hour of the moving 3 h average, but after a change at least 3 h
+    before the next one - the house reacts slowly."""
+    m = _module(tmp_path, interval_h=1.0, hold_h=3.0)
+    t0 = 1_000_000.0
+    t, rt, ev = _run(m, t0, 10.0, lambda t: 19.0)                   # cold and staying cold
+    ups = [e for e in ev if e.data["change"] > 0]
+    times = [(e.ts, e.data["offset"]) for e in ups]
+    assert [o for _, o in times] == [0.5, 1.0, 1.5]                  # ~every 3 h, not every hour
+    assert rt["offset"] == 1.5
+    waits = [e for e in ev if "czekam na efekt" in e.message]
+    assert waits and len(waits) <= 3                                 # logged once per wait, not every hour

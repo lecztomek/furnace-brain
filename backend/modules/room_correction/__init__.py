@@ -40,7 +40,9 @@ class RoomCorrectionConfig:
     enabled: bool = False             # off by default: the curve heats as before
     room_target: float = 21.0         # the temperature wanted in the house [°C]
     deadband: float = 0.5             # within ± this the house is fine - nothing changes
-    interval_h: float = 3.0           # how often it decides; the average and trend are of these hours [h]
+    interval_h: float = 1.0           # how often it checks [h]
+    avg_h: float = 3.0                # the moving average and the trend of the last ... hours [h]
+    hold_h: float = 3.0               # after a change at least ... hours before the next one (the house reacts slowly)
     step: float = 0.5                 # one change of the curve [°C]
     limit: float = 2.0                # the correction never beyond ± this [°C]
     trend_min: float = 0.1            # already warming / cooling from this much [°C/h]
@@ -95,6 +97,8 @@ class RoomCorrectionModule(ModuleInterface):
         self._last_decision: Optional[float] = None
         self._last: Dict[str, Any] = {}
         self._last_reading: Optional[float] = None
+        self._last_change: Optional[float] = None
+        self._last_logged: Optional[str] = None
         self._started = time.time()
         self._load_state()
 
@@ -152,9 +156,12 @@ class RoomCorrectionModule(ModuleInterface):
             since = self._last_reading if self._last_reading is not None else self._started
             if self._offset == 0.0 or now - since < STALE_H * 3600.0:
                 return None
+            if self._last_change is not None and now - self._last_change < max(cfg.hold_h, cfg.interval_h) * 3600.0:
+                return None                          # back to 0 at the same pace as the steps up
             before = self._offset
             self._offset = round(self._offset - max(-cfg.step, min(cfg.step, self._offset)), 2)
             self._last_decision = now
+            self._last_change = now
             self._last = {"room_avg": None, "trend": None, "decision": "brak odczytów termometru",
                           "change": round(self._offset - before, 2)}
             self._save_state()
@@ -176,14 +183,21 @@ class RoomCorrectionModule(ModuleInterface):
             change, why = 0, skip
         else:
             change, why = decide(avg, trend, cfg)
+            if change and self._last_change is not None and now - self._last_change < cfg.hold_h * 3600.0:
+                change, why = 0, f"{why}, ale krzywa zmieniona niedawno - czekam na efekt"
         before = self._offset
         if change:
             self._offset = max(-cfg.limit, min(cfg.limit, round(self._offset + change * cfg.step, 2)))
+        if self._offset != before:
+            self._last_change = now
         self._last_decision = now
         self._last = {"room_avg": round(avg, 2), "trend": round(trend, 3), "decision": why,
                       "change": round(self._offset - before, 2)}
         self._save_state()
 
+        if self._offset == before and why == self._last_logged:
+            return None                              # same as the last check: not logged again
+        self._last_logged = why
         sign = lambda v: f"{v:+.1f}".replace(".", ",")
         num = lambda v, d=1: f"{v:.{d}f}".replace(".", ",")
         if self._offset != before:
@@ -201,7 +215,7 @@ class RoomCorrectionModule(ModuleInterface):
         )
 
     def _window_h(self) -> float:
-        return max(2.0, float(self._config.interval_h))
+        return max(2.0, float(self._config.avg_h))
 
     def _merge_history(self, rows: List[Dict[str, str]]) -> None:
         old = []
@@ -225,6 +239,8 @@ class RoomCorrectionModule(ModuleInterface):
             self._offset = float(data.get("offset", 0.0))
             ld = data.get("last_decision")
             self._last_decision = float(ld) if ld is not None else None
+            lc = data.get("last_change")
+            self._last_change = float(lc) if lc is not None else None
         except (OSError, ValueError, TypeError, yaml.YAMLError):
             pass
 
@@ -233,7 +249,8 @@ class RoomCorrectionModule(ModuleInterface):
             self._state_path.parent.mkdir(parents=True, exist_ok=True)
             tmp = self._state_path.with_suffix(".tmp")
             with tmp.open("w", encoding="utf-8") as f:
-                yaml.safe_dump({"offset": self._offset, "last_decision": self._last_decision}, f)
+                yaml.safe_dump({"offset": self._offset, "last_decision": self._last_decision,
+                                "last_change": self._last_change}, f)
             tmp.replace(self._state_path)
         except OSError:
             pass
