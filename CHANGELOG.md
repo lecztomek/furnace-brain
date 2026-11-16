@@ -2,6 +2,11 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.81.0 · 16.11.2026 16:30
+
+- Nowy moduł „Korekta pokojowa” - domyślnie WYŁĄCZONY; można włączyć OBSERWACJĘ (grzanie i krzywa bez zmian). Co 3 h średnia temperatura w domu i trend: za zimno i się nie ogrzewa → krzywa w górę o 0,5°C; za ciepło i nie stygnie → w dół o 0,5°C; w domu dobrze (±0,3°C) albo już idzie w dobrą stronę → stoi. Najwyżej ±2°C. Decyzje w logach: „Korekta pokojowa (obserwacja): w domu …, trend …, podniósłbym / obniżyłbym / bez zmian”. Korekta i czas ostatniej decyzji przetrwają restart, a średnia po restarcie liczy się z historii.
+- Ustawienia → Korekta pokojowa: tryb (WYŁĄCZONA / OBSERWACJA), temperatura w domu (domyślnie 21°C), decyzja co ile godzin; w szczegółach: granica „dobrze”, krok, limit, próg trendu.
+
 ## 1.80.0 · 16.11.2026 15:30
 
 - Moc w PRACY: gdy minimum mocy (krzywa minimum) trzyma moc wyżej, niż chce PID, PID startuje od tego minimum. Po długim staniu na minimum (kocioł lekko za ciepły) moc rusza w górę od razu, gdy kocioł spadnie poniżej zadanej - wcześniej dopiero ok. 3°C niżej (prod 16.11: kocioł spadł z 59 do 55°C, zanim moc drgnęła). Gdy minimum maleje (cieplejszy dzień), PID schodzi razem z nim - nie trzyma starej, wyższej mocy.

@@ -1,0 +1,81 @@
+id: room_correction
+name: "Korekta pokojowa"
+description: "Termometr w domu przesuwa krzywą grzewczą małymi krokami: co kilka godzin średnia w domu i trend - za zimno i się nie ogrzewa: krzywa w górę, za ciepło i nie stygnie: w dół, inaczej stoi. Na razie tylko OBSERWACJA: decyzje są w logach, grzanie się nie zmienia."
+
+groups:
+  - id: basic
+    label: "Korekta"
+  - id: advanced
+    label: "Szczegóły"
+
+fields:
+  - key: mode
+    label: "Tryb"
+    type: text
+    options: [wyłączona, obserwacja]
+    option_labels: {obserwacja: "OBSERWACJA", "wyłączona": "WYŁĄCZONA"}
+    default: wyłączona
+    group: basic
+    description: "OBSERWACJA - co kilka godzin decyduje i zapisuje w logach, co by zrobił; krzywa i grzanie bez zmian. WYŁĄCZONA - nic nie robi."
+
+  - key: room_target
+    label: "Temperatura w domu"
+    type: number
+    unit: "°C"
+    min: 16
+    max: 25
+    step: 0.5
+    default: 21
+    group: basic
+
+  - key: interval_h
+    label: "Decyzja co"
+    type: number
+    unit: "h"
+    min: 2
+    max: 12
+    step: 1
+    default: 3
+    group: basic
+    description: "Dom reaguje wolno - po zmianie grzejników trzeba kilku godzin, żeby było widać efekt."
+
+  - key: deadband
+    label: "W domu dobrze w granicy ±"
+    type: number
+    unit: "°C"
+    min: 0.1
+    max: 1
+    step: 0.1
+    default: 0.3
+    group: advanced
+
+  - key: step
+    label: "Krok krzywej"
+    type: number
+    unit: "°C"
+    min: 0.1
+    max: 1
+    step: 0.1
+    default: 0.5
+    group: advanced
+
+  - key: limit
+    label: "Korekta najwyżej ±"
+    type: number
+    unit: "°C"
+    min: 0.5
+    max: 4
+    step: 0.5
+    default: 2
+    group: advanced
+
+  - key: trend_min
+    label: "Już się ogrzewa / stygnie od"
+    type: number
+    unit: "°C/h"
+    min: 0.05
+    max: 0.5
+    step: 0.05
+    default: 0.1
+    group: advanced
+    description: "Za zimno, ale temperatura w domu rośnie co najmniej tyle - czeka, nie podnosi drugi raz (i odwrotnie)."
