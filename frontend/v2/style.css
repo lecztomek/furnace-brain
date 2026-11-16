@@ -165,7 +165,6 @@ header { position: relative; display: flex; align-items: center; gap: 16px; z-in
 /* ---------- no animations: they load the Pi ---------- */
 .flow { stroke-dasharray: 14 26; }
 .scene.no-co .flow { opacity: 0; }
-.scene.no-co .heat { opacity: 0; }
 
 /* ---------- setpoint popups (the current GUI's scripts, this look) ---------- */
 .tap { cursor: pointer; }

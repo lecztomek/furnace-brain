@@ -35,7 +35,6 @@
     notify: P("M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9") + P("M13.7 21a2 2 0 0 1-3.4 0"),
     room_correction: P("M3 11 12 4l9 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z") + P("M9 15l3-3 3 3"),
     thermometers: P("M3 11 12 4l9 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z") + P("M12 16v-4") + '<circle cx="12" cy="17" r="1.6"/>',
-    gui: '<rect x="3" y="4" width="18" height="13" rx="2"/>' + P("M8 21h8M12 17v4"),
   };
   const DEFAULT_ICON = '<circle cx="12" cy="12" r="3"/>' + P("M12 2v3M12 19v3M2 12h3M19 12h3");
 

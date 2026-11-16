@@ -2,6 +2,11 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.84.0 · 16.11.2026 20:00
+
+- Stary wygląd usunięty - zostaje tylko nowy. Adres sterownika (ekran przy piecu, telefon, podgląd zdalny) od razu otwiera nowy wygląd; link podglądu zdalnego z kluczem #k= działa jak dotąd. Z menu zniknęło „Stary panel”, z ustawień moduł „Wygląd”.
+- Ekran główny: bez falek ciepła nad grzejnikiem.
+
 ## 1.83.0 · 16.11.2026 19:30
 
 - Ekran główny (nowy wygląd): na obrazku między spalinami a grzejnikiem kafelek „W domu” - temperatura z termometru i zadana w domu (albo „korekta wył.”). Dotknięcie: włączanie korekty pokojowej i zadana temperatura w domu. Spaliny trochę mniejsze.
