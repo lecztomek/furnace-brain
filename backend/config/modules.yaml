@@ -103,12 +103,12 @@ modules:
     critical: false
     about: "Termometry WiFi (Tasmota), każdy z adresem i rolą - na razie „w domu”: zapis w historii i podgląd. Sterowanie pieca i krzywa ich nie używają."
 
-  # the house thermometer moves the heating curve in small steps - for now only observation (logs)
+  # the house thermometer moves the heating curve in small steps (off by default)
   - id: room_correction
     path: backend.modules.room_correction:RoomCorrectionModule
     enabled: true
     critical: false
-    about: "Korekta pokojowa: co kilka godzin średnia i trend temperatury w domu - za zimno i się nie ogrzewa: krzywa w górę, za ciepło i nie stygnie: w dół. Domyślnie wyłączona; na razie tylko obserwacja (logi), grzanie bez zmian."
+    about: "Korekta pokojowa: co kilka godzin średnia i trend temperatury w domu - za zimno i się nie ogrzewa: krzywa w górę, za ciepło i nie stygnie: w dół. Krzywa dodaje tę korektę do zadanej; domyślnie wyłączona."
 
   # is the Pi on the home network / the internet - shown on the main screen, drives nothing
   - id: network

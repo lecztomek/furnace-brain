@@ -2,6 +2,13 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.82.0 · 16.11.2026 18:00
+
+- Korekta pokojowa działa naprawdę (bez trybu obserwacji): włączona, przesuwa krzywą grzewczą - krzywa dodaje korektę do zadanej grzejników, a zawór jedzie do wyniku. Domyślnie WYŁĄCZONA. Wyłączona, bez modułu albo gdy moduł stanie - korekta 0, krzywa grzeje dokładnie jak dotąd. Bez odczytów termometru przez 12 h korekta wraca do 0 krok po kroku (co 3 h).
+- Reguła: co 3 h średnia i trend w domu z tych 3 h; za zimno i się nie ogrzewa → krzywa +0,5°C, za ciepło i nie stygnie → −0,5°C, w domu dobrze (±0,5°C) albo już idzie w dobrą stronę → stoi; najwyżej ±2°C; po restarcie ta sama korekta, średnia z historii.
+- Przy zadanej grzejników znaczek ⌂ z korektą, np. „krzywa 27,6° ⌂+0,5” (nowy i stary wygląd). W logach każda decyzja z powodem; zmiana zadanej krzywej: „korekta pokojowa +0,5°C”.
+- Sprawdzone na modelu wolnego domu (krzywa ustawiona o ~1°C za nisko, słońce, fala mrozu): średni błąd temperatury w domu 0,9 → 0,4–0,5°C, czas w ±0,5°C z 22–28% do 61–76%.
+
 ## 1.81.0 · 16.11.2026 16:30
 
 - Nowy moduł „Korekta pokojowa” - domyślnie WYŁĄCZONY; można włączyć OBSERWACJĘ (grzanie i krzywa bez zmian). Co 3 h średnia temperatura w domu i trend: za zimno i się nie ogrzewa → krzywa w górę o 0,5°C; za ciepło i nie stygnie → w dół o 0,5°C; w domu dobrze (±0,3°C) albo już idzie w dobrą stronę → stoi. Najwyżej ±2°C. Decyzje w logach: „Korekta pokojowa (obserwacja): w domu …, trend …, podniósłbym / obniżyłbym / bez zmian”. Korekta i czas ostatniej decyzji przetrwają restart, a średnia po restarcie liczy się z historii.

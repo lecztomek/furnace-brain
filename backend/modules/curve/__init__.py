@@ -23,6 +23,9 @@ from backend.core.outside import outside_temp
 from backend.core.state import Event, EventLevel, ModuleStatus, PartialOutputs, Sensors, SystemState
 
 
+ROOM_FRESH_S = 60.0        # the room correction older than this (module stopped): not used
+ROOM_MAX_C = 5.0           # a correction beyond this is nonsense: not used
+
 @dataclass
 class CurveConfig:
     target_temp: float = 40.0         # fixed target (curve off, or no outside temperature)
@@ -67,6 +70,7 @@ class CurveModule(ModuleInterface):
         self._curve_active: bool = False
         self._sun_on: bool = False
         self._sun_day: Optional[tuple] = None    # (date, hours of sun): decided once a day
+        self._room_on: float = 0.0
 
     @property
     def id(self) -> str:
@@ -89,10 +93,22 @@ class CurveModule(ModuleInterface):
         sun_h = self._sun_hours_today(now, system_state.runtime) if active and self._config.sun_enabled else None
         sunny = sun_h is not None and sun_h >= self._config.sun_hours
         drop = self._config.sun_drop if sunny else 0.0
+        # the house thermometer's correction (room_correction module): only while it is on and its
+        # runtime fresh - off, missing or stopped it is 0 and the curve heats exactly as before
+        room = self._room_offset(now, system_state.runtime) if active else 0.0
         if active:
-            self._target = round(max(self._config.curve_min, self.curve_target(avg) - drop), 1)
+            c = self._config
+            self._target = round(max(c.curve_min, min(c.curve_max, self.curve_target(avg) - drop + room)), 1)
         else:
             self._target = self._config.target_temp
+        if room != self._room_on:
+            events.append(Event(
+                ts=now, source=self.id, level=EventLevel.INFO, type="CURVE_ROOM",
+                message=(f"Krzywa grzewcza: korekta pokojowa {room:+.1f}°C - zadana {self._target:.1f}°C" if room
+                         else f"Krzywa grzewcza: bez korekty pokojowej - zadana {self._target:.1f}°C"),
+                data={"target": self._target, "room_offset": room},
+            ))
+            self._room_on = room
         if sunny != self._sun_on:
             events.append(Event(
                 ts=now, source=self.id, level=EventLevel.INFO, type="CURVE_SUN",
@@ -130,9 +146,22 @@ class CurveModule(ModuleInterface):
             "outside_avg_h": self._config.curve_avg_h,
             "sun_hours": sun_h,
             "sun_drop": drop,
+            "room_offset": room,
         }
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status)
+
+    @staticmethod
+    def _room_offset(now: float, runtime: Dict[str, Any]) -> float:
+        """The room correction [°C] while the module publishes it (on) and it is fresh, else 0."""
+        rc = runtime.get("room_correction") or {}
+        try:
+            offset, ts = float(rc["offset"]), float(rc["ts"])
+        except (KeyError, TypeError, ValueError):
+            return 0.0
+        if abs(now - ts) > ROOM_FRESH_S or abs(offset) > ROOM_MAX_C:
+            return 0.0
+        return round(offset, 2)
 
     def curve_target(self, outside: float) -> float:
         c = self._config

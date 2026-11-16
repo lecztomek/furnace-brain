@@ -1,11 +1,11 @@
-"""Korekta pokojowa: every few hours the house average and trend move the curve in steps -
-for now only observation (logs + the would-be correction), the curve doesn't use it."""
+"""Korekta pokojowa: every few hours the house average and trend move the curve in steps;
+the curve adds the correction only while the module is on and fresh."""
 import time
 
 from backend.core.state import BoilerMode, Sensors, SystemState
 from backend.modules.room_correction import RoomCorrectionConfig, RoomCorrectionModule, decide, window_stats
 
-CFG = RoomCorrectionConfig()        # 21.0 ± 0.3, step 0.5, trend 0.1 °C/h
+CFG = RoomCorrectionConfig(deadband=0.3)        # the example from the talk: 21.0 ± 0.3, step 0.5, trend 0.1 °C/h
 
 
 def test_the_rule_on_the_example_from_the_talk():
@@ -44,7 +44,7 @@ def _run(m, t0, hours, temp_at, mode=BoilerMode.WORK):
 
 def _module(tmp_path):
     m = RoomCorrectionModule(base_path=tmp_path, data_root=tmp_path)
-    m.set_config_values({"mode": "obserwacja"}, persist=False)
+    m.set_config_values({"enabled": True}, persist=False)
     for _ in range(200):                                       # no history in a test: [] quickly
         m.tick(now=0.0, sensors=Sensors(), system_state=SystemState())
         if m._refilled:
@@ -57,8 +57,8 @@ def test_too_cold_raises_once_then_waits_while_warming(tmp_path):
     m = _module(tmp_path)
     t0 = 1_000_000.0
     t, rt, ev = _run(m, t0, 3.1, lambda t: 20.3)                     # 3 h at 20.3: up
-    assert [e.data["change"] for e in ev] == [0.5] and rt["offset"] == 0.5 and rt["applied"] is False
-    assert "obserwacja" in ev[0].message and "podniósłbym" in ev[0].message
+    assert [e.data["change"] for e in ev] == [0.5] and rt["offset"] == 0.5 and rt["ts"] > t0
+    assert "krzywa w górę o 0,5" in ev[0].message
     t, rt, ev = _run(m, t, 3.0, lambda tt: 20.3 + 0.15 * (tt - t) / 3600)   # warming 0.15 °C/h: waits
     assert [e.data["change"] for e in ev] == [0.0] and rt["offset"] == 0.5
 
@@ -102,7 +102,7 @@ def test_after_a_restart_the_average_comes_from_the_history(tmp_path):
     for h, ls in by_hour.items():
         (hist / f"boiler_{h}.csv").write_text("\n".join([lines[0]] + ls) + "\n", encoding="utf-8")
     m = RoomCorrectionModule(base_path=tmp_path, data_root=tmp_path)
-    m.set_config_values({"mode": "obserwacja"}, persist=False)
+    m.set_config_values({"enabled": True}, persist=False)
     ev = []
     for i in range(300):                                             # the history is read in the background
         r = m.tick(now=now, sensors=Sensors(), system_state=_state(now, 20.2))
@@ -115,6 +115,56 @@ def test_after_a_restart_the_average_comes_from_the_history(tmp_path):
 
 def test_off_by_default_does_nothing(tmp_path):
     m = RoomCorrectionModule(base_path=tmp_path, data_root=tmp_path)
-    assert m._config.mode == "wyłączona"
+    assert m._config.enabled is False
     r = m.tick(now=1_000_000.0, sensors=Sensors(), system_state=_state(1_000_000.0, 19.0))
     assert r.runtime == {} and r.events == []
+
+
+def test_without_readings_for_12_h_it_goes_back_to_0(tmp_path):
+    m = _module(tmp_path)
+    t, rt, _ = _run(m, 1_000_000.0, 6.1, lambda t: 19.5)            # two steps up: +1.0
+    assert rt["offset"] == 1.0
+    last, changes = t, []
+    st = SystemState(mode=BoilerMode.WORK)
+    st.runtime = {"curve": {"curve_active": True}}                  # the thermometer is gone
+    while t < last + 24 * 3600:
+        r = m.tick(now=t, sensors=Sensors(), system_state=st)
+        changes += [((t - last) / 3600, e.data["offset"]) for e in r.events if e.data.get("change")]
+        t += 60.0
+    assert [o for _, o in changes] == [0.5, 0.0]                      # a step at a time
+    assert changes[0][0] >= 12.0 and changes[1][0] - changes[0][0] >= 2.9
+
+
+def _curve(tmp_path):
+    from backend.modules.curve import CurveModule
+    import yaml
+    (tmp_path / "values.yaml").write_text(yaml.safe_dump(dict(
+        curve_enabled=True, curve_at_0=29.5, curve_slope=0.4, curve_min=22.0, curve_max=45.0,
+        curve_avg_h=1.0, sun_enabled=False)))
+    return CurveModule(base_path=tmp_path)
+
+
+def _curve_target(m, room, now=2_000_000.0):
+    st = SystemState(mode=BoilerMode.WORK)
+    st.ts_mono = now
+    st.runtime = {"weather": {"temp": 5.0, "valid_until": now + 3600}}
+    if room is not None:
+        st.runtime["room_correction"] = room
+    r = m.tick(now=now, sensors=Sensors(), system_state=st)
+    return st.runtime["curve"], r.events
+
+
+def test_the_curve_adds_the_correction_only_when_on_and_fresh(tmp_path):
+    m = _curve(tmp_path)
+    now = 2_000_000.0
+    rc, _ = _curve_target(m, None, now)
+    assert rc["target"] == 27.5 and rc["room_offset"] == 0.0           # no module: as before
+    rc, ev = _curve_target(m, {"offset": 1.0, "ts": now}, now)
+    assert rc["target"] == 28.5 and rc["room_offset"] == 1.0
+    assert any(e.type == "CURVE_ROOM" and "+1,0" in e.message.replace(".", ",") for e in ev)
+    rc, _ = _curve_target(m, {"offset": 1.0, "ts": now - 120}, now)     # the module stopped: ignored
+    assert rc["target"] == 27.5
+    rc, _ = _curve_target(m, {}, now)                                   # switched off: nothing
+    assert rc["target"] == 27.5
+    rc, _ = _curve_target(m, {"offset": -9.0, "ts": now}, now)          # nonsense: ignored
+    assert rc["target"] == 27.5

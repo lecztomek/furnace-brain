@@ -154,7 +154,10 @@
     $("rad-label").textContent = rad.curve_enabled || rad.curve_active ? "krzywa" : "zadana";
     // a sunny day: lowered the whole day - a sun and an arrow down after the target
     const sun = Number(rad.sun_drop) > 0 ? " ☀↓" : "";
-    $("rad-set").textContent = rad.target == null ? "--" : `${num(rad.target)}°${sun}`;
+    // the house thermometer moved the curve (room correction): a house and how much
+    const ro = Number(rad.room_offset) || 0;
+    const roomMark = ro ? ` ⌂${ro > 0 ? "+" : "−"}${num(Math.abs(ro))}` : "";
+    $("rad-set").textContent = rad.target == null ? "--" : `${num(rad.target)}°${sun}${roomMark}`;
     // the fire follows the boiler temperature, as the current GUI: none below 30°C, full at 50°C
     const bt = Number(sens.boiler_temp);
     const fire = $("fire");

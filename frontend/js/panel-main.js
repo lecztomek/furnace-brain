@@ -263,7 +263,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       // a sunny day (curve lowered the whole day): a sun and an arrow down after the target
       const sun = Number(rad.sun_drop) > 0 ? " ☀↓" : "";
-      if (!isNaN(v)) el.textContent = `${rad.curve_active ? "krzywa" : "zadana"} ${fmt(v)}°C${sun}`;
+      const ro = Number(rad.room_offset) || 0;
+      const room = ro ? ` ⌂${ro > 0 ? "+" : "−"}${fmt(Math.abs(ro))}` : "";
+      if (!isNaN(v)) el.textContent = `${rad.curve_active ? "krzywa" : "zadana"} ${fmt(v)}°C${sun}${room}`;
     } catch (e) { /* keep the last value */ }
   }
   // under the outside temperature: the average the heating curve uses and its window ("śr. 4,2° / 12 h")

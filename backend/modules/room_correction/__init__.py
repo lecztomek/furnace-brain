@@ -8,8 +8,10 @@ trend:
 The correction is limited (±limit), remembered across restarts, and the average after a
 restart is taken from the history - a restart changes nothing.
 
-For now only OBSERVATION: it decides and writes to the log what it would do (and keeps the
-would-be correction), but the heating curve does not use it.
+The heating curve adds the correction to its target (runtime["room_correction"]["offset"]);
+switched off, without the module or with a stale runtime it adds nothing - exactly as before.
+Without house readings for stale_h hours the correction goes back to 0 step by step.
+Off by default.
 """
 from __future__ import annotations
 
@@ -28,15 +30,17 @@ from backend.core.room import room_temp
 from backend.core.state import BoilerMode, Event, EventLevel, ModuleStatus, PartialOutputs, Sensors, SystemState
 
 SAMPLE_S = 30.0            # one house temperature sample in memory per this many seconds
-MIN_COVERAGE = 0.7         # a decision needs readings for at least this share of the window
+STALE_H = 12.0             # no house readings this long: the correction goes back to 0
+MIN_COVERAGE = 0.7         # a decision needs readings spread over at least this share of the window
+MIN_SAMPLES = 20           # ... and at least this many of them
 
 
 @dataclass
 class RoomCorrectionConfig:
-    mode: str = "wyłączona"           # "wyłączona" (default) or "obserwacja" = only decides and logs
+    enabled: bool = False             # off by default: the curve heats as before
     room_target: float = 21.0         # the temperature wanted in the house [°C]
-    deadband: float = 0.3             # within ± this the house is fine - nothing changes
-    interval_h: float = 3.0           # how often it decides [h]
+    deadband: float = 0.5             # within ± this the house is fine - nothing changes
+    interval_h: float = 3.0           # how often it decides; the average and trend are of these hours [h]
     step: float = 0.5                 # one change of the curve [°C]
     limit: float = 2.0                # the correction never beyond ± this [°C]
     trend_min: float = 0.1            # already warming / cooling from this much [°C/h]
@@ -61,7 +65,8 @@ def window_stats(samples: List[Tuple[float, float]], now: float, hours: float) -
     None when there are too few readings."""
     span = hours * 3600.0
     w = [(t, v) for t, v in samples if now - span <= t <= now]
-    if len(w) < MIN_COVERAGE * span / SAMPLE_S or hours < 2.0:
+    # readings at both ends of the window (the trend needs them) and spread over most of it
+    if len(w) < MIN_SAMPLES or hours < 2.0 or w[-1][0] - w[0][0] < MIN_COVERAGE * span:
         return None
     avg = sum(v for _, v in w) / len(w)
     first = [v for t, v in w if t <= now - span + 3600.0]
@@ -89,6 +94,8 @@ class RoomCorrectionModule(ModuleInterface):
         self._offset = 0.0
         self._last_decision: Optional[float] = None
         self._last: Dict[str, Any] = {}
+        self._last_reading: Optional[float] = None
+        self._started = time.time()
         self._load_state()
 
     @property
@@ -101,12 +108,12 @@ class RoomCorrectionModule(ModuleInterface):
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
         events: List[Event] = []
         cfg = self._config
-        if cfg.mode == "wyłączona":
+        if not cfg.enabled:
             return ModuleTickResult(partial_outputs=PartialOutputs(), events=[], status=status, runtime={})
 
         # after a start: the last hours of the house temperature from the history (in the background)
         if not self._refill.started:
-            hours = cfg.interval_h + 0.5
+            hours = self._window_h() + 0.5
             self._refill.start(lambda: recent_rows(self._history, hours))
         rows = self._refill.take()
         if rows is not None and not self._refilled:
@@ -114,9 +121,11 @@ class RoomCorrectionModule(ModuleInterface):
             self._refilled = True
 
         temp = room_temp(system_state.runtime, now)
+        if temp is not None:
+            self._last_reading = now
         if temp is not None and (not self._samples or now - self._samples[-1][0] >= SAMPLE_S):
             self._samples.append((now, temp))
-        keep = now - (cfg.interval_h + 1.0) * 3600.0
+        keep = now - (self._window_h() + 1.0) * 3600.0
         if self._samples and self._samples[0][0] < keep:
             self._samples = [s for s in self._samples if s[0] >= keep]
 
@@ -127,9 +136,8 @@ class RoomCorrectionModule(ModuleInterface):
                 events.append(ev)
 
         runtime = {
-            "mode": cfg.mode,
-            "offset": self._offset,                 # the would-be correction of the curve [°C]
-            "applied": False,                       # observation: the curve does not use it
+            "offset": self._offset,                 # the curve adds this to its target [°C]
+            "ts": now,                              # the curve uses it only while fresh
             "last_decision": self._last_decision,
             "next_decision": None if self._last_decision is None else self._last_decision + cfg.interval_h * 3600.0,
             **self._last,
@@ -138,9 +146,22 @@ class RoomCorrectionModule(ModuleInterface):
 
     def _decide(self, now: float, system_state: SystemState) -> Optional[Event]:
         cfg = self._config
-        stats = window_stats(self._samples, now, cfg.interval_h)
+        stats = window_stats(self._samples, now, self._window_h())
         if stats is None:
-            return None                              # too few readings yet - try again later
+            # too few readings: wait; without any for STALE_H hours back to 0, a step at a time
+            since = self._last_reading if self._last_reading is not None else self._started
+            if self._offset == 0.0 or now - since < STALE_H * 3600.0:
+                return None
+            before = self._offset
+            self._offset = round(self._offset - max(-cfg.step, min(cfg.step, self._offset)), 2)
+            self._last_decision = now
+            self._last = {"room_avg": None, "trend": None, "decision": "brak odczytów termometru",
+                          "change": round(self._offset - before, 2)}
+            self._save_state()
+            num = lambda v: f"{v:+.1f}".replace(".", ",")
+            return Event(ts=time.time(), source=self.id, level=EventLevel.WARNING, type="ROOM_CORRECTION",
+                         message=f"Korekta pokojowa: brak odczytów termometru od {STALE_H:g} h - korekta wraca do 0 ({num(before)} → {num(self._offset)})",
+                         data={"offset": self._offset, "change": round(self._offset - before, 2), "why": "brak odczytów"})
         avg, trend = stats
         # it only learns while the furnace really heats by the curve
         curve = system_state.runtime.get("curve") or {}
@@ -166,18 +187,21 @@ class RoomCorrectionModule(ModuleInterface):
         sign = lambda v: f"{v:+.1f}".replace(".", ",")
         num = lambda v, d=1: f"{v:.{d}f}".replace(".", ",")
         if self._offset != before:
-            what = f"{'podniósłbym' if self._offset > before else 'obniżyłbym'} krzywą o {num(abs(self._offset - before))}°C (korekta byłaby {sign(self._offset)})"
+            what = f"krzywa {'w górę' if self._offset > before else 'w dół'} o {num(abs(self._offset - before))}°C (korekta {sign(self._offset)})"
         elif change:
             what = f"korekta już na granicy {sign(self._offset)} - bez zmian"
         else:
             what = f"bez zmian (korekta {sign(self._offset)})"
         return Event(
             ts=time.time(), source=self.id, level=EventLevel.INFO, type="ROOM_CORRECTION",
-            message=(f"Korekta pokojowa (obserwacja): w domu {num(avg, 2)}°C (zadana {num(cfg.room_target)}), "
+            message=(f"Korekta pokojowa: w domu {num(avg, 2)}°C (zadana {num(cfg.room_target)}), "
                      f"trend {num(trend, 2)}°C/h - {why}: {what}"),
-            data={"mode": cfg.mode, "room_avg": round(avg, 2), "trend": round(trend, 3), "target": cfg.room_target,
+            data={"room_avg": round(avg, 2), "trend": round(trend, 3), "target": cfg.room_target,
                   "offset": self._offset, "change": round(self._offset - before, 2), "why": why},
         )
+
+    def _window_h(self) -> float:
+        return max(2.0, float(self._config.interval_h))
 
     def _merge_history(self, rows: List[Dict[str, str]]) -> None:
         old = []
@@ -243,5 +267,5 @@ class RoomCorrectionModule(ModuleInterface):
     def _apply(self, values: Dict[str, Any]) -> None:
         for f in fields(RoomCorrectionConfig):
             if f.name in values and values[f.name] is not None:
-                cast = {float: float, str: str}[type(getattr(self._config, f.name))]
+                cast = {bool: bool, float: float, str: str}[type(getattr(self._config, f.name))]
                 setattr(self._config, f.name, cast(values[f.name]))
