@@ -2,6 +2,10 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.84.2 · 16.11.2026 17:00
+
+- Ustawienia → Korekta pokojowa: „Korekta najwyżej ±” nazywa się teraz „Maksymalna korekta ±” (z opisem pod „?”).
+
 ## 1.84.1 · 16.11.2026 16:45
 
 - Ekran główny: kafelek „W domu” wyższy, w dwóch linijkach i bliżej grzejnika - na górze temperatura w domu, pod nią „zadana 21,0°” albo „korekta wył.” (wcześniej napis wchodził na temperaturę).

@@ -60,7 +60,7 @@ fields:
     group: advanced
 
   - key: limit
-    label: "Korekta najwyżej ±"
+    label: "Maksymalna korekta ±"
     type: number
     unit: "°C"
     min: 0.5
@@ -68,6 +68,7 @@ fields:
     step: 0.5
     default: 2
     group: advanced
+    description: "O ile najwyżej termometr w domu może przesunąć krzywą grzewczą w górę albo w dół."
 
   - key: trend_min
     label: "Już się ogrzewa / stygnie od"
