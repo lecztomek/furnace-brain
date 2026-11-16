@@ -37,19 +37,26 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 /* ---------- header ---------- */
 .head-glass { position: absolute; left: 0; top: 0; width: 560px; height: 104px; z-index: 0;
   background: linear-gradient(180deg, rgba(48, 52, 60, 0.5), rgba(30, 33, 38, 0.2)); clip-path: polygon(0 0, 100% 0, 93% 100%, 0 100%); }
-header { position: relative; display: flex; align-items: center; gap: 22px; z-index: 1; }
+header { position: relative; display: flex; align-items: center; gap: 16px; z-index: 1; min-width: 0; }
 .slashbar { width: 6px; height: 54px; background: #f0c033; transform: skewX(-22deg); border-radius: 3px; }
 .title b { display: block; font-size: 36px; font-weight: 600; letter-spacing: -.3px; line-height: 1.1; }
 .title span { display: block; font-size: 24px; font-weight: 500; color: #c3c8cf; }
-.hdr-right { margin-left: auto; display: flex; align-items: center; gap: 24px; font-size: 34px; font-weight: 600; color: #e6e8eb; }
+.hdr-right { margin-left: auto; display: flex; align-items: center; gap: 14px; font-size: 34px; font-weight: 600; color: #e6e8eb; }
 .hdr-right .vr { width: 2px; height: 42px; background: rgba(255, 255, 255, 0.3); }
-.hdr-right .clock { font-size: 68px; font-weight: 700; color: #fff; }
+.hdr-right .clock { font-size: 64px; font-weight: 700; color: #fff; }
 /* the weather in its own frame, so it doesn't run into the clock */
-.wx-pill { display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 20px 0 14px; border-radius: 32px;
+.wx-pill { display: flex; align-items: center; gap: 8px; height: 64px; padding: 0 18px 0 12px; border-radius: 32px;
   background: rgba(255, 255, 255, 0.05); border: 1.5px solid rgba(255, 255, 255, 0.18); }
 .hdr-right .outside { color: #dfe2e6; font-weight: 700; font-size: 36px; }
-/* the room thermometer: only while it has a reading */
-.wx-pill[hidden] { display: none; }
+/* the room thermometer in the weather's frame: only while it has a reading */
+.wx-pill .room-part { display: flex; align-items: center; gap: 8px; }
+.wx-pill .room-part[hidden] { display: none; }
+.wx-pill .wx-sep { width: 2px; height: 36px; margin: 0 4px 0 6px; background: rgba(255, 255, 255, 0.25); }
+.hdr-right .outside, .title span, .sign { white-space: nowrap; }
+/* little room in the header (a warning, both temperatures): the line under the title gives way, never the menu */
+.title { min-width: 0; flex: 0 1 auto; overflow: hidden; }
+.title b, .title span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sign, .hdr-right, .hdr-right > * { flex-shrink: 0; }
 /* the status sign next to the title: a button, tap = what is wrong */
 .sign { display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 20px 0 14px; border-radius: 32px; cursor: pointer;
   font-size: 28px; font-weight: 800; letter-spacing: .3px; color: var(--green);
@@ -246,6 +253,8 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 .stage.portrait .sign { height: 48px; font-size: 20px; padding: 0 12px 0 8px; gap: 6px; }
 .stage.portrait .sign svg { width: 30px; height: 30px; }
 .stage.portrait .head-glass { width: 100%; }
+/* a problem / warning on a phone: the sign gets the clock's room (the phone shows the time itself) */
+.stage.portrait header:has(.sign.bad, .sign.warn) .clock { display: none; }
 /* the popups fit the narrow screen; the feeder one is one column */
 .stage.portrait .modal__card { width: calc(100% - 24px); }
 .stage.portrait #feeder-modal .modal__card { width: calc(100% - 24px); }

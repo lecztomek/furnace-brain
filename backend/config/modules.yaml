@@ -103,6 +103,13 @@ modules:
     critical: false
     about: "Termometry WiFi (Tasmota), każdy z adresem i rolą - na razie „w domu”: zapis w historii i podgląd. Sterowanie pieca i krzywa ich nie używają."
 
+  # is the Pi on the home network / the internet - shown on the main screen, drives nothing
+  - id: network
+    path: backend.modules.network:NetworkModule
+    enabled: true
+    critical: false
+    about: "Sieć: czy sterownik ma połączenie z routerem (WiFi) i z internetem; dłuższy brak - ostrzeżenie na ekranie głównym. Nic nie steruje."
+
   - id: remote_view
     path: backend.modules.remote_view:RemoteViewModule
     enabled: true

@@ -2,6 +2,13 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.79.0 · 16.11.2026 14:30
+
+- Nowy moduł „Sieć”: co 30 s sprawdza, czy sterownik ma połączenie z routerem i z internetem. Gdy go nie ma dłużej niż 3 minuty - żółte ostrzeżenie na ekranie głównym: „SIEĆ” (brak połączenia z routerem / WiFi) albo „INTERNET” (router jest, internetu nie), z godziną i opisem po dotknięciu. Krótkie przerwy tylko w logach. Piec działa bez sieci jak dotąd.
+- Na Pi strażnik sieci (furnace-netwatch, co minutę, instaluje się sam po aktualizacji): wyłącza oszczędzanie energii WiFi (przez nie Pi 3 gubi WiFi), a gdy router nie odpowiada: po 3 min wyłącza i włącza WiFi, po 6 min restartuje usługę sieci, po 10 min restartuje Pi - najwyżej 3 razy na dobę i nie wcześniej niż 30 min po starcie. Gdy router działa, a nie ma internetu, nic nie robi. Logi: journalctl -t furnace-netwatch.
+- Skrypt aktualizacji instaluje i włącza nowe usługi systemowe także wtedy, gdy nie ma nowej wersji.
+- Nowy wygląd: temperatura w domu i na dworze w jednej ramce (⌂ 21,4° | ☁ 4,3°); nagłówek nie rozjeżdża się na węższych ekranach - przy braku miejsca skraca się podpis pod tytułem, a na telefonie przy ostrzeżeniu znika zegar.
+
 ## 1.78.0 · 16.11.2026 13:30
 
 - „Temperatura w domu” zamienione na moduł „Termometry WiFi”: do trzech termometrów (Tasmota z DS18B20), każdy z końcówką adresu i rolą. Na razie rola „W DOMU” (zapis w historii jako `temp_wewn`) albo „BRAK”. Domyślnie termometr 1: adres …245, rola W DOMU. Ustawienia → Termometry WiFi. W logach przy pierwszym odczycie: numer termometru, rola, pełny adres i temperatura.

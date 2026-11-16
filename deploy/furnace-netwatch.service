@@ -1,0 +1,9 @@
+[Unit]
+Description=Furnace Brain - network watchdog (WiFi power saving off, WiFi/network restart, reboot as a last resort)
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/bin/bash /home/pi/furnace-brain/deploy/netwatch.sh
+StandardOutput=journal
+StandardError=journal

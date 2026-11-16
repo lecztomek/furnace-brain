@@ -85,6 +85,15 @@ def create_state_router(
             at = time.strftime("%H:%M", time.localtime(warn["at"]))
             out.append({"short": "WĘGIEL", "text": f"Od {at} ogień słabnie mimo pełnej mocy (spaliny {float(warn.get('flue') or 0):.0f}°C "
                                                     "i spadają) - sprawdź węgiel w zasypie; jeśli nie wróci, piec stanie"})
+        net = s.runtime.get("network") or {}
+        if net.get("down"):
+            at = time.strftime("%H:%M", time.localtime(net.get("down_since") or time.time()))
+            if net["down"] == "lan":
+                out.append({"short": "SIEĆ", "text": f"Od {at} sterownik nie jest połączony z routerem (WiFi). Piec grzeje "
+                                                         "normalnie, ale nie ma pogody, podglądu zdalnego i aktualizacji. Pomaga restart Pi."})
+            else:
+                out.append({"short": "INTERNET", "text": f"Od {at} sterownik jest połączony z routerem, ale nie ma internetu. Piec grzeje "
+                                                             "normalnie, ale nie ma pogody, podglądu zdalnego i aktualizacji."})
         return out
 
     def _serialize_state(s: SystemState) -> dict:

@@ -116,10 +116,12 @@
       up = m >= 1440 ? `${Math.floor(m / 1440)} d ${Math.floor((m % 1440) / 60)} h` : m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
     }
     $("app-ver").textContent = app.version ? ` • v${app.version}${up ? ` • ${up}` : ""}` : "";
-    $("outside").textContent = sens.outside_temp == null ? "--" : `${num(sens.outside_temp)} °C`;
-    // the room thermometer (WiFi) - shown only while it has a fresh reading
-    $("room-pill").hidden = sens.room_temp == null;
-    $("room-temp").textContent = sens.room_temp == null ? "--" : `${num(sens.room_temp)} °C`;
+    // the room thermometer (WiFi) shares the weather's frame - shown only while it has a fresh reading;
+    // both then without "C", so the header fits a narrower screen
+    const room = sens.room_temp;
+    $("room-pill").hidden = room == null;
+    $("room-temp").textContent = room == null ? "--" : `${num(room)}°`;
+    $("outside").textContent = sens.outside_temp == null ? "--" : `${num(sens.outside_temp)}${room == null ? " °C" : "°"}`;
 
     // devices
     const fan = Number(out.fan_power) || 0;

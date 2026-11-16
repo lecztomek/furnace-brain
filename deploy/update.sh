@@ -36,7 +36,9 @@ trap 'rm -f "$0"' EXIT
 ENV_FILE="${ENV_FILE:-/etc/furnace-brain.env}"
 SYSTEMD_DIR="${SYSTEMD_DIR:-/etc/systemd/system}"
 SERVICES=(furnace-backend.service furnace-gateway.service)
-UNIT_FILES=("${SERVICES[@]}" furnace-update.service furnace-update.timer)
+UNIT_FILES=("${SERVICES[@]}" furnace-update.service furnace-update.timer furnace-netwatch.service furnace-netwatch.timer)
+# timers that must be on (installed and enabled even when no new version comes)
+ENABLE_TIMERS=(furnace-netwatch.timer)
 PREV_FILE="$APP_ROOT/.deploy_prev"
 FAILED_FILE="$APP_ROOT/.deploy_failed"
 HEALTH_TIMEOUT_S="${HEALTH_TIMEOUT_S:-60}"
@@ -94,6 +96,34 @@ else
     || die "Unknown version '$TARGET_REF'."
 fi
 
+# systemd units of the version on disk: installed / enabled even without a new version
+# (a unit added in a release is picked up by the next run of this - the new - script)
+sync_units() {
+  local reload=0 svc
+  for svc in "${UNIT_FILES[@]}"; do
+    if [[ -f "deploy/$svc" ]] && ! cmp -s "deploy/$svc" "$SYSTEMD_DIR/$svc"; then
+      log "Updating $SYSTEMD_DIR/$svc"
+      sudo install -m 644 "deploy/$svc" "$SYSTEMD_DIR/$svc"
+      reload=1
+    fi
+  done
+  if (( reload )); then
+    sudo systemctl daemon-reload
+    if systemctl is-enabled --quiet furnace-update.timer 2>/dev/null; then
+      sudo systemctl restart furnace-update.timer
+    fi
+  fi
+  for svc in "${ENABLE_TIMERS[@]}"; do
+    if [[ -f "$SYSTEMD_DIR/$svc" ]] && ! systemctl is-enabled --quiet "$svc" 2>/dev/null; then
+      log "Enabling $svc"
+      sudo systemctl enable --now "$svc"
+    fi
+  done
+}
+if (( ! DRY_RUN )); then
+  sync_units || warn "Could not update the systemd units"
+fi
+
 if [[ "$OLD" == "$NEW" ]]; then
   log "Already at $(git log -1 --format='%h %s' "$NEW") - nothing to do."
   exit 0
@@ -139,20 +169,7 @@ switch_to() {
     "$APP_ROOT/.venv/bin/pip" install -q -r requirements.txt
   fi
 
-  local reload=0 svc
-  for svc in "${UNIT_FILES[@]}"; do
-    if [[ -f "deploy/$svc" ]] && ! cmp -s "deploy/$svc" "$SYSTEMD_DIR/$svc"; then
-      log "Updating $SYSTEMD_DIR/$svc"
-      sudo install -m 644 "deploy/$svc" "$SYSTEMD_DIR/$svc"
-      reload=1
-    fi
-  done
-  if (( reload )); then
-    sudo systemctl daemon-reload
-    if systemctl is-enabled --quiet furnace-update.timer 2>/dev/null; then
-      sudo systemctl restart furnace-update.timer
-    fi
-  fi
+  sync_units
 
   log "Restarting services..."
   sudo systemctl restart "${SERVICES[@]}"
