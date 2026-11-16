@@ -2,6 +2,13 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.77.0 · 16.11.2026 11:30
+
+- Nowy moduł „Temperatura w domu”: odczyt termometru WiFi (Tasmota z DS18B20) co minutę. Adres ustawiasz w Ustawienia → Temperatura w domu (np. 192.168.1.50); bez adresu moduł nic nie robi.
+- Temperatura w domu zapisuje się w historii (kolumna `temp_wewn`) i w średnich statystyk. Sterowanie pieca i krzywa grzewcza jej nie używają - na razie tylko zapis.
+- Nowy wygląd: w nagłówku obok pogody domek z temperaturą w domu (widoczny tylko, gdy jest odczyt). Działa też w podglądzie zdalnym.
+- Odczyt poza zakresem (np. 85°C po zaniku zasilania czujnika) jest odrzucany; błędy odczytu w logach jako „ROOM_FETCH_ERROR”.
+
 ## 1.76.1 · 09.11.2026 11:00
 
 - Słoneczny dzień: przy zadanej grzejników znaczek ☀↓, gdy obniżenie działa (np. „krzywa 27,5° ☀↓”) - w nowym i starym wyglądzie.

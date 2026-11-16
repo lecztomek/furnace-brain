@@ -14,6 +14,7 @@ except ImportError:
 
 from backend.core.module_interface import ModuleInterface, ModuleTickResult
 from backend.core.outside import outside_temp
+from backend.core.room import room_temp
 from backend.core.state import (
     Event,
     EventLevel,
@@ -162,6 +163,7 @@ class HistoryModule(ModuleInterface):
         temp_spalin = sensors.flue_gas_temp
         temp_podajnika = sensors.hopper_temp
         temp_zewn = outside_temp(sensors.outside_temp, system_state.runtime, now)
+        temp_wewn = room_temp(system_state.runtime, now)
         zadana = self._work_setpoint()
         n = max(self._samples, 1)
         dmuchawa = round(self._fan_sum / n, 1)          # average fan power [%]
@@ -175,8 +177,9 @@ class HistoryModule(ModuleInterface):
         filename = f"{self._config.file_prefix}_{ts.strftime('%Y%m%d_%H')}.csv"
         file_path = self._log_dir / filename
         new_file = not file_path.exists()
-        # a file started by an older version has no hopper column - its rows stay in its format
+        # a file started by an older version has no hopper / room column - its rows stay in its format
         with_hopper = new_file or self._has_column(file_path, "temp_podajnika")
+        with_room = new_file or self._has_column(file_path, "temp_wewn")
 
         with file_path.open("a", encoding="utf-8", newline="") as f:
             writer = csv.writer(f, delimiter=";")
@@ -195,6 +198,7 @@ class HistoryModule(ModuleInterface):
                         "slimak",
                         "zadana",
                         "temp_podajnika",
+                        "temp_wewn",
                     ]
                 )
 
@@ -211,6 +215,7 @@ class HistoryModule(ModuleInterface):
                     slimak,
                     zadana if zadana is not None else "",
                 ] + ([temp_podajnika if temp_podajnika is not None else ""] if with_hopper else [])
+                + ([temp_wewn if temp_wewn is not None else ""] if with_room else [])
             )
 
     def _has_column(self, path: Path, name: str) -> bool:

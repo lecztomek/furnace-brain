@@ -34,7 +34,7 @@ DROP_MIN_S = 300.0         # shorter dips are not listed
 DROP_GAP_S = 120.0         # a short return above the line doesn't split a drop
 FULL_DAY_SHARE = 0.8       # days with less data - or less time burning - don't go into the models
 
-AVG_KEYS = ("boiler", "radiators", "flue", "outside", "power", "fan", "feeder", "flue_work")
+AVG_KEYS = ("boiler", "radiators", "flue", "outside", "power", "fan", "feeder", "flue_work", "room")
 
 # efficiency estimates
 HDD_BASE_C = 18.0          # degree-days: max(0, 18 - daily mean outside temperature)
@@ -309,6 +309,7 @@ def aggregate_day(day: date, rows: List[Dict[str, str]], coal_kg: float = 0.0,
             "fan": _float(r.get("dmuchawa")),
             "feeder": _float(r.get("slimak")),
             "flue_work": _float(r.get("temp_spalin")) if mode == "WORK" else None,
+            "room": _float(r.get("temp_wewn")),       # the room thermometer, when there is one
         }
         for k, v in values.items():
             if v is not None:

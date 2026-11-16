@@ -117,6 +117,9 @@
     }
     $("app-ver").textContent = app.version ? ` • v${app.version}${up ? ` • ${up}` : ""}` : "";
     $("outside").textContent = sens.outside_temp == null ? "--" : `${num(sens.outside_temp)} °C`;
+    // the room thermometer (WiFi) - shown only while it has a fresh reading
+    $("room-pill").hidden = sens.room_temp == null;
+    $("room-temp").textContent = sens.room_temp == null ? "--" : `${num(sens.room_temp)} °C`;
 
     // devices
     const fan = Number(out.fan_power) || 0;

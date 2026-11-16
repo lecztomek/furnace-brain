@@ -48,6 +48,8 @@ header { position: relative; display: flex; align-items: center; gap: 22px; z-in
 .wx-pill { display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 20px 0 14px; border-radius: 32px;
   background: rgba(255, 255, 255, 0.05); border: 1.5px solid rgba(255, 255, 255, 0.18); }
 .hdr-right .outside { color: #dfe2e6; font-weight: 700; font-size: 36px; }
+/* the room thermometer: only while it has a reading */
+.wx-pill[hidden] { display: none; }
 /* the status sign next to the title: a button, tap = what is wrong */
 .sign { display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 20px 0 14px; border-radius: 32px; cursor: pointer;
   font-size: 28px; font-weight: 800; letter-spacing: .3px; color: var(--green);

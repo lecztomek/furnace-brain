@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 
 from backend.core.config_store import ConfigStore
 from backend.core.outside import outside_temp
+from backend.core.room import room_temp
 from backend.core.state_store import StateStore
 from ..core.state import SystemState, BoilerMode
 
@@ -107,6 +108,8 @@ def create_state_router(
                 "hopper_temp": sens.hopper_temp,
                 "outside_temp": outside_temp(sens.outside_temp, s.runtime),
                 "mixer_temp": sens.mixer_temp,
+                # the room thermometer over WiFi (room module), None = none or no fresh reading
+                "room_temp": room_temp(s.runtime),
             },
             "outputs": {
                 "fan_power": out.fan_power,
