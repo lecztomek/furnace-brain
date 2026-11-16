@@ -52,6 +52,21 @@
         return `Na dworze średnio ${fmt(rad.outside_avg)}°C → zadana ${fmt(Math.round(t * 10) / 10)}°C`;
       },
     },
+    room: {
+      opener: "room-temp",
+      title: "Temperatura w domu",
+      toggle: { moduleId: "room_correction", key: "enabled", label: "Korekta pokojowa" },
+      fields: [{ moduleId: "room_correction", key: "room_target" }],
+      // what the thermometer says now and how much the curve is moved
+      hint: async (on) => {
+        const st = await apiJson("/api/state/current");
+        const h = st.house || {};
+        const now = h.temp == null ? "brak odczytu termometru" : `w domu teraz ${fmt(h.temp)}°C`;
+        if (!on) return `${now} • korekta wyłączona - krzywa grzeje jak dotąd`;
+        const off = Number(h.offset) || 0;
+        return `${now} • krzywa ${off ? `${off > 0 ? "+" : ""}${fmt(off)}°C` : "bez korekty"} (co 3 h najwyżej ±0,5°C)`;
+      },
+    },
     pump_co: {
       opener: "pump-co",
       title: "Pompa CO",

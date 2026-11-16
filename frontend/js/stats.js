@@ -7,7 +7,7 @@
   const $ = (id) => document.getElementById(id);
   let report = null;
   // each card/tab has its own range (what doesn't depend on a range has none)
-  const periods = { usage: "d7", work: "today", eff: "d30" };
+  const periods = { usage: "d7", work: "today", eff: "d30", house: "today" };
   let period = "d7";   // the range of the card being drawn
   let dailyChart = null;
   let effChart = null;
@@ -17,6 +17,7 @@
   let powerPctChart = null;
   let seasonChart = null;
   let forecastChart = null;
+  let houseChart = null;
   let forecast = null;
   const MONTHS = ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"];
 
@@ -67,7 +68,7 @@
   const TILE_ICONS = [["Węgiel na", "target"], ["Węgiel", "coal"], ["Koszt", "coins"], ["Średnia moc", "zap"], ["Szczyt", "trendUp"], ["Moc sterownika", "gauge"],
     ["Na pełnej mocy", "flame"], ["Na minimum", "power"], ["Średnio", "bars"],
     ["Kocioł", "flame"], ["Grzejniki", "radiator"], ["Na zewnątrz", "thermometer"], ["Rozpalenia", "flame"], ["W normie", "target"],
-    ["Od zadanej", "upDown"], ["Ostatni tydzień", "trendUp"], ["Ten sezon", "calendar"], ["Prognoza", "sparkles"], ["Zeszły sezon", "history"],
+    ["Od zadanej", "upDown"], ["W domu", "home"], ["Zadana", "target"], ["Najzimniej", "thermometer"], ["Najcieplej", "thermometer"], ["Ostatni tydzień", "trendUp"], ["Ten sezon", "calendar"], ["Prognoza", "sparkles"], ["Zeszły sezon", "history"],
     ["Przy 0", "cloudSun"], ["Przy -10", "snowflake"], ["Każdy stopień", "thermometer"], ["Dni pracy", "calendar"], ["Ciepło", "flame"],
     ["Strata w kominie", "flame"], ["Spalone dziś", "coal"], ["Do końca dnia", "hourglass"], ["Razem dziś", "coins"]];
   function tile(label, value, unit, cls = "") {
@@ -724,6 +725,79 @@
     renderWork();
     renderEfficiency();
     renderWeather();
+    renderHouse();
+  }
+
+  // ---------- the house: how it holds its temperature (thermometer "w domu" against the target) ----------
+  function renderHouse() {
+    if (!$("house-tiles")) return;                  // a page without the "Dom" tab
+    period = periods.house;
+    const p = report.periods[period] || {};
+    const h = p.house;
+    $("house-grade").textContent = h ? h.grade : "";
+    $("house-grade").className = "st2-grade" + (h ? ` grade-${h.grade.replace(/\s/g, "-")}` : "");
+    const band = h ? h.band : 0.5;
+    $("house-tiles").innerHTML = h
+      ? [
+          tile("W domu średnio", num(h.avg, 1), "°C"),
+          tile("Zadana", num(h.target, 1), "°C"),
+          tile(`W normie ±${num(band, 1)}°C`, `${num(h.within, 0)}<small>%</small>`, "",
+               h.within >= 70 ? "st2-tile--good" : h.within < 40 ? "st2-tile--bad" : ""),
+          tile("Od zadanej", `${num(h.mean_abs_error, 1)}<small>°</small>`, `najzimniej −${num(h.max_under, 1)}°, najcieplej +${num(h.max_over, 1)}°`),
+        ].join("")
+      : `<div class="st2-empty">${FBIcon("thermometer", "ic--inline")} Brak danych z termometru w domu w tym okresie - Ustawienia → Termometry WiFi (rola W DOMU)</div>`;
+
+    // the chart: today - the last 24 h every 5 min; longer - day by day
+    const fine = period === "today" ? (p.fine24 || []) : period === "yesterday" ? (p.fine || []) : null;
+    let labels, room, target, offset;
+    if (fine) {
+      labels = fine.map((f) => f.time);
+      room = fine.map((f) => f.room);
+      target = fine.map((f) => f.room_target);
+      offset = fine.map((f) => f.room_offset);
+    } else {
+      const { rows } = periodSeries(period);
+      labels = rows.map((d) => d.date.slice(8, 10) + "." + d.date.slice(5, 7));
+      room = rows.map((d) => d.room);
+      target = rows.map((d) => d.room_target);
+      offset = null;
+    }
+    const any = room.some((v) => v != null);
+    $("house-chart-box").style.display = any ? "" : "none";
+    if (!any) return;
+    const bandAt = (d) => target.map((t, i) => (t == null || room[i] == null ? null : t + d));
+    const datasets = [
+      { type: "line", label: `zadana −${band}`, data: bandAt(-band), borderWidth: 0, pointHoverRadius: 0, spanGaps: !fine },
+      { type: "line", label: `zadana +${band}`, data: bandAt(band), borderWidth: 0, pointHoverRadius: 0, spanGaps: !fine,
+        fill: "-1", backgroundColor: "rgba(74, 222, 128, 0.22)" },
+      { type: "line", label: "W domu [°C]", data: room, borderColor: "#f0c033", backgroundColor: "#f0c033", spanGaps: !fine,
+        pointRadius: fine ? 0 : 4 },
+    ];
+    const options = baseOptions();
+    options.scales.y.beginAtZero = false;
+    options.scales.y.ticks.callback = (v) => `${num(v, 1)}°C`;
+    const vals = room.concat(bandAt(-band), bandAt(band)).filter((v) => v != null);
+    options.scales.y.suggestedMin = Math.floor((Math.min(...vals) - 0.5) * 2) / 2;
+    options.scales.y.suggestedMax = Math.ceil((Math.max(...vals) + 0.5) * 2) / 2;
+    if (offset && offset.some((v) => v)) {
+      // the curve's correction from the house thermometer: a dashed step line on the right axis
+      datasets.push({ type: "line", label: "korekta krzywej", data: offset, yAxisID: "yk", borderColor: "#93c5fd",
+        backgroundColor: "#93c5fd", borderWidth: 2, borderDash: [6, 4], stepped: true, tension: 0, spanGaps: true });
+      options.scales.yk = { position: "right", suggestedMin: -2, suggestedMax: 2, grid: { display: false },
+        ticks: { color: "#93c5fd", font: { size: 14 }, callback: (v) => `${v > 0 ? "+" : ""}${num(v, 1)}` } };
+    }
+    options.plugins.tooltip = { filter: (item) => item.datasetIndex >= 2, callbacks: { label: (ctx) => ctx.datasetIndex === 3
+      ? `korekta krzywej ${ctx.parsed.y > 0 ? "+" : ""}${num(ctx.parsed.y, 1)}°C`
+      : `w domu ${num(ctx.parsed.y, 1)}°C (zadana ${num(target[ctx.dataIndex], 1)}°C)` } };
+    if (fine) {
+      const every = window.innerWidth < 700 ? 6 : 3;
+      options.scales.x.ticks = { ...options.scales.x.ticks, autoSkip: false,
+        callback: (v, i) => (labels[i].endsWith(":00") && Number(labels[i].slice(0, 2)) % every === 0 ? labels[i].replace(/^0/, "") : "") };
+    }
+    $("house-chart-title").textContent = `W domu na tle zadanej ±${num(band, 1)}°C (zielony pas)` +
+      (offset && offset.some((v) => v) ? ", przerywana = korekta krzywej (prawa oś)" : "") +
+      (fine ? ", co 5 min" : ", średnio każdego dnia") + ` • ${period === "today" ? "ostatnie 24 h" : PERIOD_NAMES[period]}`;
+    houseChart = draw(houseChart, "chart-house", { labels, datasets }, options);
   }
 
   // ---------- forecast: weather for the next days and the coal it should take ----------
@@ -896,7 +970,7 @@
       if (!btn || !report) return;
       periods[g.dataset.scope] = btn.dataset.period;
       markRanges();
-      ({ usage: renderUsage, work: renderWork, eff: renderEfficiency })[g.dataset.scope]();
+      ({ usage: renderUsage, work: renderWork, eff: renderEfficiency, house: renderHouse })[g.dataset.scope]();
     }));
     $("st2-refresh").addEventListener("click", () => { load(true); loadForecast(); });
     // calendar: months, coal / quality, a tap on a day

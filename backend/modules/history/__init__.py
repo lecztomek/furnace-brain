@@ -24,6 +24,10 @@ from backend.core.state import (
     PartialOutputs,
 )
 
+# the columns of a new history file (older files keep theirs - rows follow each file's header)
+COLUMNS = ["data_czas", "temp_pieca", "power", "temp_grzejnikow", "temp_spalin", "tryb_pracy", "temp_zewn",
+           "dmuchawa", "slimak", "zadana", "temp_podajnika", "temp_wewn", "zadana_wewn", "korekta_wewn"]
+
 # ---------- KONFIGURACJA RUNTIME ----------
 
 @dataclass
@@ -174,61 +178,49 @@ class HistoryModule(ModuleInterface):
 
         self._log_dir.mkdir(parents=True, exist_ok=True)
 
+        # the house (thermometers + room correction): its target and the curve's correction, only with a reading
+        zadana_wewn = self._room_target() if temp_wewn is not None else None
+        korekta_wewn = (system_state.runtime.get("curve") or {}).get("room_offset") if temp_wewn is not None else None
+        values = {
+            "data_czas": ts_str, "temp_pieca": temp_pieca, "power": power, "temp_grzejnikow": temp_grzejnikow,
+            "temp_spalin": temp_spalin, "tryb_pracy": tryb_pracy, "temp_zewn": temp_zewn,
+            "dmuchawa": dmuchawa, "slimak": slimak, "zadana": zadana, "temp_podajnika": temp_podajnika,
+            "temp_wewn": temp_wewn, "zadana_wewn": zadana_wewn, "korekta_wewn": korekta_wewn,
+        }
+
         filename = f"{self._config.file_prefix}_{ts.strftime('%Y%m%d_%H')}.csv"
         file_path = self._log_dir / filename
         new_file = not file_path.exists()
-        # a file started by an older version has no hopper / room column - its rows stay in its format
-        with_hopper = new_file or self._has_column(file_path, "temp_podajnika")
-        with_room = new_file or self._has_column(file_path, "temp_wewn")
+        # a file started by an older version keeps its columns: every row follows its header
+        header = COLUMNS if new_file else (self._header(file_path) or COLUMNS)
 
         with file_path.open("a", encoding="utf-8", newline="") as f:
             writer = csv.writer(f, delimiter=";")
-
             if new_file:
-                writer.writerow(
-                    [
-                        "data_czas",
-                        "temp_pieca",
-                        "power",
-                        "temp_grzejnikow",
-                        "temp_spalin",
-                        "tryb_pracy",
-                        "temp_zewn",
-                        "dmuchawa",
-                        "slimak",
-                        "zadana",
-                        "temp_podajnika",
-                        "temp_wewn",
-                    ]
-                )
+                writer.writerow(COLUMNS)
+            writer.writerow(["" if values.get(c) is None else values[c] for c in header])
 
-            writer.writerow(
-                [
-                    ts_str,
-                    temp_pieca if temp_pieca is not None else "",
-                    power if power is not None else "",
-                    temp_grzejnikow if temp_grzejnikow is not None else "",
-                    temp_spalin if temp_spalin is not None else "",
-                    tryb_pracy if tryb_pracy is not None else "",
-                    temp_zewn if temp_zewn is not None else "",
-                    dmuchawa,
-                    slimak,
-                    zadana if zadana is not None else "",
-                ] + ([temp_podajnika if temp_podajnika is not None else ""] if with_hopper else [])
-                + ([temp_wewn if temp_wewn is not None else ""] if with_room else [])
-            )
-
-    def _has_column(self, path: Path, name: str) -> bool:
-        """The header of an existing file has this column (checked once per file)."""
+    def _header(self, path: Path) -> List[str]:
+        """The header of an existing file (read once per file)."""
         cached = self._columns.get(path.name)
         if cached is None:
             try:
                 with path.open("r", encoding="utf-8", errors="replace") as f:
-                    cached = f.readline().strip().split(";")
+                    cached = [c for c in f.readline().strip().split(";") if c]
             except OSError:
                 cached = []
             self._columns = {path.name: cached}          # only the current hour's file
-        return name in cached
+        return cached
+
+    def _room_target(self) -> Optional[float]:
+        """The temperature wanted in the house (room correction settings) - for the house statistics."""
+        try:
+            from backend.core.config_store import ConfigStore
+
+            store = ConfigStore(self._base_path.parent, ["room_correction"])
+            return float(store.get_value("room_correction", "room_target"))
+        except Exception:  # pylint: disable=broad-except
+            return None
 
     def _work_setpoint(self) -> Optional[float]:
         """Current WORK boiler setpoint (power_work settings) - for the regulation stats."""

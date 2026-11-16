@@ -328,3 +328,26 @@ def test_efficiency_hour_by_hour():
     assert [x["hour"] for x in efficiency_hours([d], coal)] == list(range(23))
     old = DayAgg(date="2026-10-20")                                     # cached before the hourly weather
     assert efficiency_hours([old], {"2026-10-20": [[1.0, 8.0]] * 24}) == []
+
+
+def test_the_house_holds_its_temperature():
+    """The thermometer "w domu" against its target: average, share within ±0.5, the worst - per
+    period, per day and every 5 min (room correction statistics)."""
+    from backend.core.analytics import fine_series
+    day = date(2026, 11, 16)
+    t0 = datetime(2026, 11, 16, 0, 0, 0)
+    rws = []
+    for i in range(0, 4 * 3600, 30):                 # 4 h: 2 h at 20.0, then 2 h at 21.2 (target 21)
+        room = 20.0 if i < 2 * 3600 else 21.2
+        rws.append({"data_czas": (t0 + timedelta(seconds=i)).isoformat(), "tryb_pracy": "WORK", "temp_pieca": "58",
+                    "temp_wewn": str(room), "zadana_wewn": "21.0", "korekta_wewn": "0.5"})
+    agg = aggregate_day(day, rws)
+    h = summarize([agg])["house"]
+    assert h["avg"] == 20.6 and h["target"] == 21.0
+    assert h["within"] == 50.0 and h["max_under"] == 1.0 and h["max_over"] == 0.2
+    assert abs(h["mean_abs_error"] - 0.6) < 0.01
+    fine = fine_series(rws, t0, t0 + timedelta(hours=4) - timedelta(minutes=5))
+    assert fine[0]["room"] == 20.0 and fine[-1]["room"] == 21.2 and fine[0]["room_target"] == 21.0
+    assert fine[0]["room_offset"] == 0.5
+    # without a thermometer: no house statistics
+    assert summarize([aggregate_day(day, rows(day, [(s, "WORK", 58.0, 58.0, 5.0) for s in range(0, 7200, 30)]))])["house"] is None

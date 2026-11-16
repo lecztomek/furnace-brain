@@ -25,11 +25,21 @@
                 <button type="button" data-tab="forecast">Prognoza</button>
                 <button type="button" data-tab="work">Praca</button>
                 <button type="button" data-tab="efficiency">Sprawność</button>
+                <button type="button" data-tab="house">Dom</button>
                 <button type="button" data-tab="calendar">Kalendarz</button>
               </div>
               <div class="st2-status" id="st2-status">Wczytywanie…</div>
 
               <!-- KALENDARZ: a month, every day a tile (coal and zł); a tap shows the day -->
+              <section class="st2-card" data-tab="house">
+                <div class="st2-card-head"><h2>Temperatura w domu <span class="st2-sub" data-period-of="house"></span> <span class="st2-grade" id="house-grade"></span></h2><div class="st2-periods st2-range" data-scope="house"><button type="button" data-period="today">Dziś</button><button type="button" data-period="d7">7 dni</button><button type="button" data-period="d30">30 dni</button><button type="button" data-period="season">Sezon</button></div></div>
+                <div class="st2-hero" id="house-tiles"></div>
+                <div id="house-chart-box">
+                  <h3 class="st2-chart-title" id="house-chart-title"></h3>
+                  <div class="st2-chart st2-chart--big"><canvas id="chart-house"></canvas></div>
+                </div>
+              </section>
+
               <section class="st2-card" data-tab="calendar">
                 <div class="st2-card-head st2-cal-head">
                   <h2><button type="button" class="st2-cal-nav" id="cal-prev" aria-label="Poprzedni miesiąc">◀</button>

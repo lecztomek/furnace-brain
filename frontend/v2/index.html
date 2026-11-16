@@ -22,7 +22,7 @@
     <div class="title"><b>Sterownik kotła</b><span><span id="date"></span><span class="ver" id="app-ver"></span></span></div>
     <button class="sign" id="sign"><svg id="sign-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><span id="sign-text">…</span></button>
     <div class="hdr-right">
-      <span class="wx-pill"><span class="room-part" id="room-pill" hidden><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#e6e8eb" stroke-width="1.6" stroke-linejoin="round"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg><span class="outside" id="room-temp">--</span><span class="wx-sep"></span></span><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#e6e8eb" stroke-width="1.6"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.4 1.5A3.3 3.3 0 0 0 7 18z"/></svg><span class="outside" id="outside">--</span></span>
+      <span class="wx-pill"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#e6e8eb" stroke-width="1.6"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.4 1.5A3.3 3.3 0 0 0 7 18z"/></svg><span class="outside" id="outside">--</span></span>
       <span class="clock" id="clock"></span>
       <button class="burger" id="burger" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="#f2f3f5" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </div>
@@ -77,10 +77,19 @@
       <!-- chimney + flue gas -->
       <rect x="146" y="2" width="30" height="50" rx="4" fill="#1a1d21" stroke="#e8ebee" stroke-width="4"/>
       <g transform="translate(198 0)">
-        <rect x="0" y="0" width="236" height="110" rx="18" fill="#1d1712" stroke="#cc9666" stroke-width="3"/>
-        <g fill="none" stroke="#c7ccd2" stroke-width="3.5" stroke-linecap="round"><path d="M22 40c-5-7 5-11 0-18M36 40c-5-7 5-11 0-18M50 40c-5-7 5-11 0-18"/></g>
-        <text x="70" y="40" fill="#aeb5be" font-size="27" font-weight="600">Spaliny</text>
-        <text x="68" y="94" fill="#eec4a0" font-size="54" font-weight="800" id="flue">--</text>
+        <rect x="0" y="0" width="196" height="84" rx="16" fill="#1d1712" stroke="#cc9666" stroke-width="3"/>
+        <g fill="none" stroke="#c7ccd2" stroke-width="3" stroke-linecap="round"><path d="M18 33c-4-6 4-9 0-15M30 33c-4-6 4-9 0-15M42 33c-4-6 4-9 0-15"/></g>
+        <text x="58" y="32" fill="#aeb5be" font-size="22" font-weight="600">Spaliny</text>
+        <text x="56" y="72" fill="#eec4a0" font-size="40" font-weight="800" id="flue">--</text>
+      </g>
+      <!-- the house: thermometer "w domu" and the wanted temperature (tap: the room correction) -->
+      <g transform="translate(288 94)" id="room-temp" class="tap">
+        <rect x="0" y="0" width="206" height="58" rx="15" fill="#111a15" stroke="#66cc99" stroke-width="3"/>
+        <path d="M12 29 26 18l14 11v13a1.5 1.5 0 0 1-1.5 1.5h-23A1.5 1.5 0 0 1 12 42z" fill="none" stroke="#66cc99" stroke-width="3" stroke-linejoin="round"/>
+        <text x="48" y="42" fill="#c2ecd6" font-size="34" font-weight="800" id="room-val">--</text>
+        <text x="192" y="24" text-anchor="end" fill="#aeb5be" font-size="15" font-weight="600" id="room-label">zadana</text>
+        <text x="192" y="47" text-anchor="end" fill="#fff" font-size="21" font-weight="700" id="room-set">--</text>
+        <g transform="translate(204 2)"><circle r="13" fill="#2b3037" stroke="rgba(255, 255, 255,0.35)" stroke-width="1.5"/><g transform="translate(-8 -8) scale(.66)" fill="none" stroke="#f6cf5a" stroke-width="2.6" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></g></g>
       </g>
       <!-- boiler -->
       <rect x="88" y="48" width="96" height="30" rx="7" fill="#1a1d21" stroke="#e8ebee" stroke-width="4"/>
@@ -111,7 +120,9 @@
         <rect x="16" y="46" width="150" height="80" rx="14" fill="#16191d" stroke="#669ccc" stroke-width="3.5"/>
         <text x="91" y="102" text-anchor="middle" fill="#a0caee" font-size="46" font-weight="800" id="rad">--</text>
         <g transform="translate(160 52)"><circle r="15" fill="#2b3037" stroke="rgba(255, 255, 255,0.35)" stroke-width="1.5"/><g transform="translate(-9 -9) scale(.75)" fill="none" stroke="#f6cf5a" stroke-width="2.6" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></g></g>
-        <text x="91" y="182" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500"><tspan id="rad-label">zadana</tspan> <tspan fill="#fff" font-weight="700" id="rad-set">--</tspan></text>
+        <text x="91" y="180" text-anchor="middle" fill="#aeb5be" font-size="22" font-weight="500"><tspan id="rad-label">zadana</tspan> <tspan fill="#fff" font-weight="700" id="rad-set">--</tspan></text>
+        <!-- what moves the curve now: a sunny day (☀↓) and the house thermometer (⌂ ±) -->
+        <text x="91" y="204" text-anchor="middle" fill="#cfd5dc" font-size="20" font-weight="600" id="rad-marks"></text>
       </g>
       <g class="heat" stroke="#f0c033" stroke-width="5" fill="none" stroke-linecap="round"><path d="M372 180c-6-8 6-13 0-22M402 180c-6-8 6-13 0-22M432 180c-6-8 6-13 0-22"/></g>
     </svg>

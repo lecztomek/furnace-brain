@@ -2,6 +2,14 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.83.0 · 16.11.2026 19:30
+
+- Ekran główny (nowy wygląd): na obrazku między spalinami a grzejnikiem kafelek „W domu” - temperatura z termometru i zadana w domu (albo „korekta wył.”). Dotknięcie: włączanie korekty pokojowej i zadana temperatura w domu. Spaliny trochę mniejsze.
+- Pod zadaną grzejników osobna linijka z tym, co przesuwa krzywą: ☀↓ (słoneczny dzień) i ⌂±0,5 (korekta pokojowa) - mieści się też na telefonie.
+- Statystyki → nowa zakładka „Dom”: jak dom trzyma zadaną - średnio, zadana, czas w ±0,5°C, średnio od zadanej, najzimniej / najcieplej; wykres temperatury w domu na tle zadanej ±0,5°C (dziś co 5 min, z korektą krzywej na prawej osi; 7 / 30 dni i sezon dzień po dniu).
+- Historia: nowe kolumny `zadana_wewn` (zadana w domu) i `korekta_wewn` (korekta krzywej), zapisywane przy odczycie termometru; starsze pliki zostają w swoim formacie.
+- Nagłówek podstron bez temperatur (na dworze i w domu) - są tylko na ekranie głównym; z nagłówka ekranu głównego domek zniknął, bo jest na obrazku.
+
 ## 1.82.0 · 16.11.2026 18:00
 
 - Korekta pokojowa działa naprawdę (bez trybu obserwacji): włączona, przesuwa krzywą grzewczą - krzywa dodaje korektę do zadanej grzejników, a zawór jedzie do wyniku. Domyślnie WYŁĄCZONA. Wyłączona, bez modułu albo gdy moduł stanie - korekta 0, krzywa grzeje dokładnie jak dotąd. Bez odczytów termometru przez 12 h korekta wraca do 0 krok po kroku (co 3 h).

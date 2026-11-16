@@ -1,4 +1,4 @@
-// New GUI (v2) - the frame of the sub-pages: the header (title, status sign, outside, clock, ☰),
+// New GUI (v2) - the frame of the sub-pages: the header (title, status sign, clock, ☰),
 // the menu, and fitting the 1200x704 drawing to the screen. The page content stays the current
 // GUI's (same element ids, same scripts) - only the look is new.
 (function () {
@@ -38,7 +38,6 @@
       <div class="title"><b>${title}</b><span><span id="date"></span><span class="ver" id="app-ver"></span></span></div>
       <button class="sign" id="sign"><svg id="sign-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"></svg><span id="sign-text">…</span></button>
       <div class="hdr-right">
-        <span class="wx-pill"><span class="room-part" id="room-pill" hidden><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#e6e8eb" stroke-width="1.6" stroke-linejoin="round"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg><span class="outside" id="room-temp">--</span><span class="wx-sep"></span></span><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#e6e8eb" stroke-width="1.6"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.4 1.5A3.3 3.3 0 0 0 7 18z"/></svg><span class="outside" id="outside">--</span></span>
         <span class="clock" id="clock"></span>
         <button class="burger" id="burger" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="#f2f3f5" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       </div>
@@ -105,11 +104,6 @@
       $("sign-text").textContent = first ? (first.short || (problems.length ? "PROBLEM" : "UWAGA")) : "OK";
       $("sign-pop").innerHTML = [...problems.map((p) => ["bad", p]), ...warnings.map((p) => ["warn", p])]
         .map(([cls, p]) => `<p class="${cls}"><b>${p.short || ""}</b> ${p.text || ""}</p>`).join("") || "<p>Wszystko w porządku.</p>";
-      const out = (s.sensors || {}).outside_temp;
-      const room = (s.sensors || {}).room_temp;
-      $("room-pill").hidden = room == null;
-      $("room-temp").textContent = room == null ? "--" : `${num(room)}°`;
-      $("outside").textContent = out == null ? "--" : `${num(out)}${room == null ? " °C" : "°"}`;
       const app = s.app || {};
       $("app-ver").textContent = app.version ? ` • v${app.version}` : "";
     } catch (err) {

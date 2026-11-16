@@ -32,6 +32,7 @@ POWER_HIGH = 90.0          # power stability: "at full power" from this %
 POWER_LOW = 25.0           # ... and "at the minimum" up to this %
 DROP_MIN_S = 300.0         # shorter dips are not listed
 DROP_GAP_S = 120.0         # a short return above the line doesn't split a drop
+HOUSE_BAND_C = 0.5         # the house holds its temperature: within ± this of the target
 FULL_DAY_SHARE = 0.8       # days with less data - or less time burning - don't go into the models
 
 AVG_KEYS = ("boiler", "radiators", "flue", "outside", "power", "fan", "feeder", "flue_work", "room")
@@ -133,6 +134,15 @@ class DayAgg:
     # outside temperature by hour of day: [seconds, outside*s] (the hourly efficiency); days cached
     # before it have none - their hours simply show no efficiency
     hout: List[List[float]] = field(default_factory=list)
+    # the house (thermometer "w domu" against its target): seconds, |error|*s, seconds within
+    # ±HOUSE_BAND_C, target*s, warmest / coldest against the target (days cached before: zeros)
+    rm_s: float = 0.0
+    rm_abs: float = 0.0
+    rm_in: float = 0.0
+    rm_target: float = 0.0
+    rm_room: float = 0.0
+    rm_over: float = 0.0
+    rm_under: float = 0.0
 
     def avg(self, key: str) -> Optional[float]:
         w = self.weights.get(key, 0.0)
@@ -291,6 +301,17 @@ def aggregate_day(day: date, rows: List[Dict[str, str]], coal_kg: float = 0.0,
             first_of_day = prev_mode is None and ts.hour == 0 and ts.minute < 5
             work_since = ts - timedelta(days=1) if first_of_day else ts
         prev_mode = mode
+
+        room_t, room_sp = _float(r.get("temp_wewn")), _float(r.get("zadana_wewn"))
+        if room_t is not None and room_sp is not None:
+            err = room_t - room_sp
+            agg.rm_s += w
+            agg.rm_abs += abs(err) * w
+            agg.rm_in += w if abs(err) <= HOUSE_BAND_C else 0.0
+            agg.rm_target += room_sp * w
+            agg.rm_room += room_t * w
+            agg.rm_over = max(agg.rm_over, err)
+            agg.rm_under = max(agg.rm_under, -err)
 
         out_t = _float(r.get("temp_zewn"))
         if out_t is not None:
@@ -458,6 +479,27 @@ def summarize(days: List[DayAgg]) -> Dict[str, Any]:
         },
         "hourly": hourly_profile(days),
         "drops": drops_list(days),
+        "house": house_summary(days),
+    }
+
+
+def house_summary(days: List[DayAgg]) -> Optional[Dict[str, Any]]:
+    """How the house holds its temperature (the thermometer "w domu" against the target)."""
+    s = sum(getattr(d, "rm_s", 0.0) for d in days)
+    if s < 1800:
+        return None
+    within = 100 * sum(d.rm_in for d in days) / s
+    return {
+        "hours": _r(s / 3600),
+        "avg": _r(sum(d.rm_room for d in days) / s, 1),
+        "target": _r(sum(d.rm_target for d in days) / s, 1),
+        "mean_abs_error": _r(sum(d.rm_abs for d in days) / s, 2),
+        "within": _r(within),
+        "band": HOUSE_BAND_C,
+        "max_over": _r(max(d.rm_over for d in days if d.rm_s > 0), 1),
+        "max_under": _r(max(d.rm_under for d in days if d.rm_s > 0), 1),
+        "grade": ("bardzo dobrze" if within >= 80 else "dobrze" if within >= 60
+                  else "przeciętnie" if within >= 40 else "słabo"),
     }
 
 
@@ -493,6 +535,7 @@ def fine_series(rows: List[Dict[str, str]], start: datetime, end: datetime,
     plus stop=True where the boiler was in STOP (OFF) for any part of the step."""
     n = max(0, int((end - start).total_seconds() // step_s) + 1)
     sums = [[0.0, 0, 0.0, 0, 0.0, 0] for _ in range(n)]   # boiler, setpoint, power: sum and count each
+    house = [[0.0, 0, 0.0, 0, 0.0, 0] for _ in range(n)]  # the house: temp, target, correction - in any mode
     stopped = [False] * n
     last_stop: Optional[datetime] = None
     for r in rows:
@@ -508,6 +551,11 @@ def fine_series(rows: List[Dict[str, str]], start: datetime, end: datetime,
             continue
         if hit:
             stopped[i] = True
+        for k, key in enumerate(("temp_wewn", "zadana_wewn", "korekta_wewn")):
+            v = _float(r.get(key))
+            if v is not None:
+                house[i][2 * k] += v
+                house[i][2 * k + 1] += 1
         if mode != "WORK":
             continue
         b = _float(r.get("temp_pieca"))
@@ -528,9 +576,13 @@ def fine_series(rows: List[Dict[str, str]], start: datetime, end: datetime,
     out = []
     for i, (bs, bn, ss, sn, ps, pn) in enumerate(sums):
         t = start + timedelta(seconds=i * step_s)
+        hs = house[i]
         out.append({"time": t.strftime("%H:%M"), "boiler": round(bs / bn, 1) if bn else None,
                     "setpoint": round(ss / sn, 1) if sn else None, "power": round(ps / pn) if pn else None,
-                    "stop": stopped[i]})
+                    "stop": stopped[i],
+                    "room": round(hs[0] / hs[1], 2) if hs[1] else None,
+                    "room_target": round(hs[2] / hs[3], 1) if hs[3] else None,
+                    "room_offset": round(hs[4] / hs[5], 1) if hs[5] else None})
     return out
 
 
@@ -1052,6 +1104,10 @@ class Analytics:
             "power_work": _r(x.pw_sum / x.pw_s, 0) if x.pw_s >= 1800 else None,
             "power_std": _r(math.sqrt(max(0.0, x.pw_sq / x.pw_s - (x.pw_sum / x.pw_s) ** 2)), 1) if x.pw_s >= 1800 else None,
             "flue": _r(x.avg("flue_work")),
+            # the house: average, target, share within the band (when there was a thermometer)
+            "room": _r(x.rm_room / x.rm_s) if x.rm_s >= 1800 else None,
+            "room_target": _r(x.rm_target / x.rm_s) if x.rm_s >= 1800 else None,
+            "room_within": _r(100 * x.rm_in / x.rm_s) if x.rm_s >= 1800 else None,
         } for x in since(min(season_start, today - timedelta(days=CALENDAR_DAYS)))]
         eff_hours = efficiency_hours(since(today - timedelta(days=6)), hour_coal)
 

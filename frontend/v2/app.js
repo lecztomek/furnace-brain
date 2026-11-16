@@ -116,12 +116,12 @@
       up = m >= 1440 ? `${Math.floor(m / 1440)} d ${Math.floor((m % 1440) / 60)} h` : m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
     }
     $("app-ver").textContent = app.version ? ` • v${app.version}${up ? ` • ${up}` : ""}` : "";
-    // the room thermometer (WiFi) shares the weather's frame - shown only while it has a fresh reading;
-    // both then without "C", so the header fits a narrower screen
-    const room = sens.room_temp;
-    $("room-pill").hidden = room == null;
-    $("room-temp").textContent = room == null ? "--" : `${num(room)}°`;
-    $("outside").textContent = sens.outside_temp == null ? "--" : `${num(sens.outside_temp)}${room == null ? " °C" : "°"}`;
+    $("outside").textContent = sens.outside_temp == null ? "--" : `${num(sens.outside_temp)} °C`;
+    // the house tile in the picture: the thermometer "w domu", the wanted temperature, the correction
+    const house = s.house || {};
+    $("room-val").textContent = house.temp == null ? "--" : `${num(house.temp)}°`;
+    $("room-label").textContent = house.correction_on ? "zadana" : "korekta wył.";
+    $("room-set").textContent = house.target == null ? "--" : `${num(house.target)}°`;
 
     // devices
     const fan = Number(out.fan_power) || 0;
@@ -157,7 +157,8 @@
     // the house thermometer moved the curve (room correction): a house and how much
     const ro = Number(rad.room_offset) || 0;
     const roomMark = ro ? ` ⌂${ro > 0 ? "+" : "−"}${num(Math.abs(ro))}` : "";
-    $("rad-set").textContent = rad.target == null ? "--" : `${num(rad.target)}°${sun}${roomMark}`;
+    $("rad-set").textContent = rad.target == null ? "--" : `${num(rad.target)}°`;
+    $("rad-marks").textContent = `${sun}${roomMark}`.trim();
     // the fire follows the boiler temperature, as the current GUI: none below 30°C, full at 50°C
     const bt = Number(sens.boiler_temp);
     const fire = $("fire");

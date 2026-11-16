@@ -96,6 +96,19 @@ def create_state_router(
                                                              "normalnie, ale nie ma pogody, podglądu zdalnego i aktualizacji."})
         return out
 
+    def _house(s: SystemState) -> dict:
+        def cfg(key: str, default):
+            try:
+                return config_store.get_value("room_correction", key)
+            except Exception:  # pylint: disable=broad-except
+                return default
+        return {
+            "temp": room_temp(s.runtime),
+            "target": cfg("room_target", None),
+            "correction_on": bool(cfg("enabled", False)),
+            "offset": (s.runtime.get("curve") or {}).get("room_offset") or 0.0,
+        }
+
     def _serialize_state(s: SystemState) -> dict:
         sens = s.sensors
         out = s.outputs
@@ -139,6 +152,8 @@ def create_state_router(
             # radiators target in use: fixed, or from the heating curve (mixer module)
             # the valve's movement and the target from the heating curve
             "radiators": {**(s.runtime.get("mixer") or {}), **(s.runtime.get("curve") or {})},
+            # the house: thermometer "w domu", the wanted temperature, the room correction (main page tile)
+            "house": _house(s),
             # flame-out alarm (furnace stopped), until it is started again
             "flameout": s.runtime.get("flameout") or {},
             # boiler °C per 10 min (trend module), None until it has enough readings

@@ -168,3 +168,27 @@ def test_the_curve_adds_the_correction_only_when_on_and_fresh(tmp_path):
     assert rc["target"] == 27.5
     rc, _ = _curve_target(m, {"offset": -9.0, "ts": now}, now)          # nonsense: ignored
     assert rc["target"] == 27.5
+
+
+def test_the_house_in_the_state_for_the_main_page(tmp_path):
+    """/api/state/current: the house tile - thermometer, the wanted temperature, the correction."""
+    import shutil
+    from pathlib import Path
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from backend.api.state_api import create_state_router
+    from backend.core.config_store import ConfigStore
+    from backend.core.state_store import StateStore
+    mdir = tmp_path / "room_correction"
+    mdir.mkdir()
+    shutil.copy(Path("backend/modules/room_correction/schema.yaml"), mdir / "schema.yaml")
+    (mdir / "values.yaml").write_text("enabled: true\nroom_target: 21.5\n", encoding="utf-8")
+    store = StateStore()
+    now = time.time()
+    with store.locked() as st:
+        st.runtime["thermometers"] = {"roles": {"w_domu": {"temp": 20.4, "valid_until": now + 600}}}
+        st.runtime["curve"] = {"room_offset": 0.5}
+    app = FastAPI()
+    app.include_router(create_state_router(store, ConfigStore(tmp_path, ["room_correction"])), prefix="/api")
+    house = TestClient(app).get("/api/state/current").json()["house"]
+    assert house == {"temp": 20.4, "target": 21.5, "correction_on": True, "offset": 0.5}
