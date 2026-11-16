@@ -5,3 +5,7 @@ curve_slope: 0.45
 curve_min: 22.0
 curve_max: 45.0
 curve_avg_h: 12.0
+curve_back_h: 3.0
+curve_ahead_h: 9.0
+sun_from_h: 9.0
+sun_to_h: 16.0

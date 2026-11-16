@@ -1,10 +1,13 @@
 """
 Krzywa grzewcza: the radiator target. With the curve on, it follows the outside
-temperature averaged over curve_avg_h hours (the house and the water react slowly);
+temperature: the last curve_back_h hours measured and the next curve_ahead_h hours of the
+forecast (the house and the water react hours late - heat sent now is for the coming
+weather); without a forecast the last curve_avg_h hours measured;
 with it off - or with no outside temperature for a whole window - it is the fixed
 target_temp. Publishes runtime["curve"]; the mixing valve only goes to that target.
 Sunny day: when the weather forecast (Open-Meteo, hours of sunshine) gives today at least
-sun_hours of sun, the target is sun_drop lower the whole day - the sun warms the rooms.
+sun_hours of sun, the target is sun_drop lower from sun_from_h to sun_to_h o'clock - the sun
+warms the rooms (not in the evening and at night).
 After a restart the average is refilled from the history in the background.
 """
 from __future__ import annotations
@@ -36,16 +39,21 @@ class CurveConfig:
     curve_slope: float = 0.45         # C of water per C of outside temperature
     curve_min: float = 22.0
     curve_max: float = 45.0
-    curve_avg_h: float = 12.0         # outside temperature averaged over
+    curve_avg_h: float = 12.0         # without a forecast: outside temperature averaged over the last ... hours
+    curve_back_h: float = 3.0         # with a forecast: the last ... hours measured
+    curve_ahead_h: float = 9.0        # ... and the next ... hours of the forecast (0 = no forecast)
     # sunny day (curve on only): the whole day this much lower
     sun_enabled: bool = True
     sun_drop: float = 1.0
     sun_hours: float = 4.0            # a day with at least this many hours of sun is sunny
+    sun_from_h: float = 9.0           # lowered from ... o'clock
+    sun_to_h: float = 16.0            # ... to ... o'clock
 
 
 CURVE_SAMPLE_S = 60.0          # outside temperature sampled once a minute
 FLOAT_KEYS = ("target_temp", "curve_at_0", "curve_slope", "curve_min", "curve_max", "curve_avg_h",
-              "sun_drop", "sun_hours")
+              "curve_back_h", "curve_ahead_h", "sun_drop", "sun_hours", "sun_from_h", "sun_to_h")
+FORECAST_MAX_AGE_S = 12 * 3600.0   # an older forecast is not used for the curve
 # up to 1.45 these settings were the mixing valve's - taken over once (see _take_over_from_mixer)
 MIXER_KEYS = ("target_temp", "curve_enabled", "curve_at_0", "curve_slope", "curve_min", "curve_max", "curve_avg_h")
 TAKEN_OVER_MARK = ".taken_over_from_mixer"
@@ -71,6 +79,7 @@ class CurveModule(ModuleInterface):
         self._sun_on: bool = False
         self._sun_day: Optional[tuple] = None    # (date, hours of sun): decided once a day
         self._room_on: float = 0.0
+        self._outside_mode: Optional[str] = None
 
     @property
     def id(self) -> str:
@@ -88,11 +97,22 @@ class CurveModule(ModuleInterface):
         self._merge_outside(self._outside_refill.take())
         if outside is not None and (not self._outside or now_ctrl - self._outside[-1][0] >= CURVE_SAMPLE_S):
             self._outside.append((now_ctrl, float(outside)))
-        avg = self._outside_avg(now_ctrl)
+        avg, mode, past, ahead = self._effective_outside(now, now_ctrl, system_state.runtime)
         active = bool(self._config.curve_enabled) and avg is not None
         sun_h = self._sun_hours_today(now, system_state.runtime) if active and self._config.sun_enabled else None
-        sunny = sun_h is not None and sun_h >= self._config.sun_hours
+        sunny_day = sun_h is not None and sun_h >= self._config.sun_hours
+        sunny = sunny_day and self._sun_hours_now(now)
         drop = self._config.sun_drop if sunny else 0.0
+        if active and self._config.curve_enabled and mode != self._outside_mode:
+            c = self._config
+            events.append(Event(
+                ts=now, source=self.id, level=EventLevel.INFO, type="CURVE_FORECAST",
+                message=(f"Krzywa grzewcza: liczy z prognozy - {c.curve_back_h:g} h wstecz i {c.curve_ahead_h:g} h do przodu "
+                         f"(na dworze średnio {avg:.1f}°C)" if mode == "prognoza"
+                         else f"Krzywa grzewcza: bez prognozy - średnia z {c.curve_avg_h:g} h wstecz ({avg:.1f}°C)"),
+                data={"mode": mode, "outside_avg": avg, "past": past, "ahead": ahead},
+            ))
+        self._outside_mode = mode if active else None
         # the house thermometer's correction (room_correction module): only while it is on and its
         # runtime fresh - off, missing or stopped it is 0 and the curve heats exactly as before
         room = self._room_offset(now, system_state.runtime) if active else 0.0
@@ -112,7 +132,7 @@ class CurveModule(ModuleInterface):
         if sunny != self._sun_on:
             events.append(Event(
                 ts=now, source=self.id, level=EventLevel.INFO, type="CURVE_SUN",
-                message=(f"Krzywa grzewcza: słoneczny dzień (słońce {sun_h:.1f} h) - cały dzień grzejniki o {drop:g}°C chłodniej, zadana {self._target:.1f}°C"
+                message=(f"Krzywa grzewcza: słoneczny dzień (słońce {sun_h:.1f} h) - od {self._config.sun_from_h:g} do {self._config.sun_to_h:g} grzejniki o {drop:g}°C chłodniej, zadana {self._target:.1f}°C"
                          if sunny else f"Krzywa grzewcza: bez korekty słońca - zadana {self._target:.1f}°C"),
                 data={"target": self._target, "sun_hours": sun_h, "sun_drop": drop},
             ))
@@ -143,7 +163,11 @@ class CurveModule(ModuleInterface):
             "curve_enabled": bool(self._config.curve_enabled),
             "curve_active": active,
             "outside_avg": None if avg is None else round(avg, 1),
-            "outside_avg_h": self._config.curve_avg_h,
+            "outside_avg_h": (self._config.curve_back_h + self._config.curve_ahead_h) if mode == "prognoza" else self._config.curve_avg_h,
+            # where the average comes from: "prognoza" (measured back + forecast ahead) or "historia"
+            "outside_mode": mode,
+            "outside_past": None if past is None else round(past, 1),
+            "outside_ahead": None if ahead is None else round(ahead, 1),
             "sun_hours": sun_h,
             "sun_drop": drop,
             "room_offset": room,
@@ -196,16 +220,68 @@ class CurveModule(ModuleInterface):
                 old.append((t, v))
         self._outside = deque(old + list(self._outside))
 
-    def _outside_avg(self, now_ctrl: float) -> Optional[float]:
-        window = max(self._config.curve_avg_h, 0.25) * 3600.0
-        while self._outside and self._outside[0][0] < now_ctrl - window:
+    def _outside_avg(self, now_ctrl: float, hours: Optional[float] = None) -> Optional[float]:
+        keep = max(self._config.curve_avg_h, self._config.curve_back_h, 0.25) * 3600.0
+        while self._outside and self._outside[0][0] < now_ctrl - keep:
             self._outside.popleft()
+        window = max(self._config.curve_avg_h if hours is None else hours, 0.25) * 3600.0
+        values = [v for t, v in self._outside if t >= now_ctrl - window]
         # no new readings (internet down, weather service failing): the average of
         # what is left keeps working; only a whole window without data falls back
         # to the fixed target_temp
-        if not self._outside:
+        if not values:
             return None
-        return sum(v for _, v in self._outside) / len(self._outside)
+        return sum(values) / len(values)
+
+    def _effective_outside(self, now: float, now_ctrl: float, runtime: Dict[str, Any]):
+        """(the outside temperature the curve uses, "prognoza" / "historia", measured part, forecast part).
+        With a fresh forecast: the last curve_back_h hours measured and the next curve_ahead_h
+        hours forecast, weighted by their hours; without it the last curve_avg_h hours measured."""
+        c = self._config
+        history = self._outside_avg(now_ctrl)
+        if c.curve_ahead_h <= 0:
+            return history, "historia", history, None
+        ahead = self._forecast_avg(now, runtime, c.curve_ahead_h)
+        if ahead is None:
+            return history, "historia", history, None
+        past = self._outside_avg(now_ctrl, c.curve_back_h) if c.curve_back_h > 0 else None
+        if past is None:
+            return ahead, "prognoza", None, ahead
+        avg = (past * c.curve_back_h + ahead * c.curve_ahead_h) / (c.curve_back_h + c.curve_ahead_h)
+        return avg, "prognoza", past, ahead
+
+    @staticmethod
+    def _forecast_avg(now: float, runtime: Dict[str, Any], hours: float) -> Optional[float]:
+        """The average of the forecast hours from this hour on, for the next `hours`; None without a
+        fresh forecast or with too few of its hours."""
+        fc = ((runtime or {}).get("weather") or {}).get("forecast") or {}
+        try:
+            if now - float(fc.get("fetched_at") or 0) > FORECAST_MAX_AGE_S:
+                return None
+            start = datetime.fromtimestamp(now).replace(minute=0, second=0, microsecond=0)
+        except (TypeError, ValueError, OverflowError, OSError):
+            return None
+        end = datetime.fromtimestamp(now + hours * 3600.0)
+        temps = []
+        for h in fc.get("hourly") or []:
+            try:
+                t = datetime.fromisoformat(h["time"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if start <= t < end and h.get("temp") is not None:
+                temps.append(float(h["temp"]))
+        if len(temps) < max(1, int(0.7 * hours)):
+            return None
+        return sum(temps) / len(temps)
+
+    def _sun_hours_now(self, now: float) -> bool:
+        """The sunny-day lowering works only from sun_from_h to sun_to_h o'clock."""
+        try:
+            d = datetime.fromtimestamp(now)
+        except (OverflowError, OSError, ValueError):
+            return False
+        hour = d.hour + d.minute / 60.0
+        return self._config.sun_from_h <= hour < self._config.sun_to_h
 
     # ---------- settings ----------
 
@@ -265,5 +341,5 @@ class CurveModule(ModuleInterface):
 
     def _curve_settings(self) -> tuple:
         c = self._config
-        return (c.curve_at_0, c.curve_slope, c.curve_min, c.curve_max, c.curve_avg_h,
-                c.sun_enabled, c.sun_drop, c.sun_hours)
+        return (c.curve_at_0, c.curve_slope, c.curve_min, c.curve_max, c.curve_avg_h, c.curve_back_h,
+                c.curve_ahead_h, c.sun_enabled, c.sun_drop, c.sun_hours, c.sun_from_h, c.sun_to_h)

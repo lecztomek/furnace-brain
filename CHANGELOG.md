@@ -2,6 +2,12 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.85.0 · 16.11.2026 19:00
+
+- Krzywa grzewcza patrzy do przodu: średnia temperatura na dworze z ostatnich 3 h (zmierzone) i następnych 9 h prognozy. Wieczorem po ciepłym dniu krzywa widzi już zimną noc i grzeje wcześniej (np. 16.11 o 18:00: średnia 6,7°C zamiast 8,4°C → grzejniki o ~0,7°C cieplej, bez słońca o 1,7°C). Bez prognozy (brak internetu, prognoza starsza niż 12 h) - jak dawniej średnia z 12 h wstecz. Ustawienia → Krzywa grzewcza: „Z prognozą - godzin wstecz / do przodu” (0 h do przodu = bez prognozy).
+- Słoneczny dzień obniża grzejniki tylko w ciągu dnia: domyślnie od 9 do 16 (do ustawienia); wieczorem i w nocy krzywa bez obniżenia.
+- W logach: „Krzywa grzewcza: liczy z prognozy…” / „bez prognozy…” przy każdej zmianie źródła.
+
 ## 1.84.2 · 16.11.2026 17:00
 
 - Ustawienia → Korekta pokojowa: „Korekta najwyżej ±” nazywa się teraz „Maksymalna korekta ±” (z opisem pod „?”).

@@ -144,22 +144,58 @@ def _weather(date, sun_h):
     return {"forecast": {"daily": [{"date": date, "sun_h": sun_h}]}}
 
 
-def test_sunny_day_lowers_the_target_the_whole_day(tmp_path):
+def test_sunny_day_lowers_the_target_from_9_to_16(tmp_path):
     from datetime import datetime
     m = _module(tmp_path, curve_enabled=True)
     t0 = datetime(2026, 11, 9, 7, 0).timestamp()
     st = SystemState(mode=BoilerMode.WORK)
     st.runtime["weather"] = _weather("2026-11-09", 6.5)          # sunny
-    rt, types = _tick(m, t0, 0.0, st)
-    assert rt["target"] == 29.0 and rt["sun_drop"] == 1.0 and "CURVE_SUN" in types
+    rt, _ = _tick(m, t0, 0.0, st)
+    assert rt["target"] == 30.0 and rt["sun_drop"] == 0.0         # 7:00 - not yet
+    rt, types = _tick(m, t0 + 3 * 3600, 0.0, st)
+    assert rt["target"] == 29.0 and rt["sun_drop"] == 1.0 and "CURVE_SUN" in types   # 10:00
     # a later forecast with clouds: the day stays lowered
     st.runtime["weather"] = _weather("2026-11-09", 1.0)
     rt, _ = _tick(m, t0 + 6 * 3600, 0.0, st)
     assert rt["target"] == 29.0
-    # next day, cloudy: back to the curve
-    st.runtime["weather"] = _weather("2026-11-10", 1.0)
-    rt, types = _tick(m, t0 + 24 * 3600, 0.0, st)
+    rt, types = _tick(m, t0 + 10 * 3600, 0.0, st)                 # 17:00 - the evening: back
     assert rt["target"] == 30.0 and rt["sun_drop"] == 0.0 and "CURVE_SUN" in types
+    # next day, cloudy: the curve all day
+    st.runtime["weather"] = _weather("2026-11-10", 1.0)
+    rt, _ = _tick(m, t0 + 27 * 3600, 0.0, st)
+    assert rt["target"] == 30.0 and rt["sun_drop"] == 0.0
+
+
+def _forecast(t0, temps, fetched=None):
+    from datetime import datetime
+    base = datetime.fromtimestamp(t0).replace(minute=0, second=0, microsecond=0)
+    import datetime as dt
+    hourly = [{"time": (base + dt.timedelta(hours=i)).isoformat(timespec="minutes"), "temp": v} for i, v in enumerate(temps)]
+    return {"forecast": {"hourly": hourly, "daily": [], "fetched_at": t0 if fetched is None else fetched}}
+
+
+def test_the_curve_looks_ahead_with_the_forecast(tmp_path):
+    """3 h measured back + 9 h forecast ahead: a warm day before a cold night gives the
+    night's (colder) average - more heat in the evening."""
+    from datetime import datetime
+    m = _module(tmp_path, curve_enabled=True, sun_enabled=False)
+    t0 = datetime(2026, 11, 16, 18, 0).timestamp()
+    st = SystemState(mode=BoilerMode.WORK)
+    st.runtime["weather"] = _forecast(t0, [7.1, 6.7, 6.4, 6.1, 6.4, 6.5, 6.1, 5.6, 5.3, 5.0, 4.7])
+    rt, types = _tick(m, t0, 8.0, st)                               # measured now: 8 C
+    ahead = sum([7.1, 6.7, 6.4, 6.1, 6.4, 6.5, 6.1, 5.6, 5.3]) / 9
+    assert rt["outside_mode"] == "prognoza" and abs(rt["outside_ahead"] - round(ahead, 1)) < 0.06
+    expected = (3 * 8.0 + 9 * ahead) / 12
+    assert abs(rt["outside_avg"] - round(expected, 1)) < 0.06 and "CURVE_FORECAST" in types
+    # an old forecast (a day without internet): back to the measured 12 h
+    st.runtime["weather"] = _forecast(t0, [5.0] * 12, fetched=t0 - 13 * 3600)
+    rt, _ = _tick(m, t0 + 60, 8.0, st)
+    assert rt["outside_mode"] == "historia" and rt["outside_avg"] == 8.0
+    # the forecast switched off in the settings (0 h ahead): the measured 12 h as before
+    m2 = _module(tmp_path, curve_enabled=True, sun_enabled=False, curve_ahead_h=0)
+    st.runtime["weather"] = _forecast(t0, [5.0] * 12)
+    rt, _ = _tick(m2, t0, 8.0, st)
+    assert rt["outside_mode"] == "historia" and rt["outside_avg"] == 8.0
 
 
 def test_sunny_day_off_or_curve_off_or_no_forecast(tmp_path):

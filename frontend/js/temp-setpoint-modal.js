@@ -49,7 +49,8 @@
           ["curve_slope", "curve_min", "curve_max"].map((k) => apiJson(valueUrl("curve", k)).then((d) => Number(d.value)))
         );
         const t = clamp(at0 - slope * rad.outside_avg, lo, hi);
-        return `Na dworze średnio ${fmt(rad.outside_avg)}°C → zadana ${fmt(Math.round(t * 10) / 10)}°C`;
+        const how = rad.outside_mode === "prognoza" ? " (ostatnie godziny + prognoza)" : "";
+        return `Na dworze średnio${how} ${fmt(rad.outside_avg)}°C → zadana ${fmt(Math.round(t * 10) / 10)}°C`;
       },
     },
     room: {

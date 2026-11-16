@@ -76,7 +76,27 @@ fields:
   step: 0.5
   default: 12
   group: curve
-  description: Z ilu ostatnich godzin liczona jest średnia temperatura na dworze. Dom i woda w instalacji reagują wolno, więc krótkie wahania (noc/dzień) są wygładzane.
+  description: Bez prognozy pogody (np. brak internetu albo prognoza wyłączona) - z ilu ostatnich godzin liczona jest średnia temperatura na dworze.
+- key: curve_back_h
+  label: Z prognozą - godzin wstecz
+  type: number
+  unit: h
+  min: 0
+  max: 12
+  step: 1
+  default: 3
+  group: curve
+  description: Z prognozą krzywa liczy średnią z tylu ostatnich godzin zmierzonych i z godzin prognozy do przodu (ustawienie niżej).
+- key: curve_ahead_h
+  label: Z prognozą - godzin do przodu
+  type: number
+  unit: h
+  min: 0
+  max: 24
+  step: 1
+  default: 9
+  group: curve
+  description: Dom i woda reagują z opóźnieniem kilku godzin, więc ciepło puszczone teraz jest na pogodę, która dopiero będzie - wieczorem krzywa widzi już zimną noc. 0 = bez prognozy (średnia z ostatnich godzin jak dawniej).
 - key: sun_enabled
   label: Słoneczny dzień
   type: bool
@@ -84,7 +104,7 @@ fields:
   label_off: WYŁĄCZONE
   default: true
   group: sun
-  description: Gdy prognoza pogody daje na dziś dość słońca, cały dzień grzejniki chłodniej - słońce dogrzewa pokoje przez okna. Tylko przy włączonej krzywej.
+  description: Gdy prognoza pogody daje na dziś dość słońca, w ciągu dnia (godziny niżej) grzejniki chłodniej - słońce dogrzewa pokoje przez okna. Tylko przy włączonej krzywej.
 - key: sun_drop
   label: Słoneczny dzień - chłodniej o
   type: number
@@ -94,7 +114,7 @@ fields:
   step: 0.5
   default: 1
   group: sun
-  description: O ile chłodniej grzejniki przez cały słoneczny dzień.
+  description: O ile chłodniej grzejniki w słoneczny dzień (w godzinach niżej).
 - key: sun_hours
   label: Słoneczny dzień - od godzin słońca
   type: number
@@ -105,3 +125,23 @@ fields:
   default: 4
   group: sun
   description: Ile godzin słońca w prognozie na dziś robi dzień słonecznym (zimą przy czystym niebie to ok. 6-8 h, w pochmurny dzień 0-2 h).
+- key: sun_from_h
+  label: Słoneczny dzień - od godziny
+  type: number
+  unit: ":00"
+  min: 0
+  max: 23
+  step: 1
+  default: 9
+  group: sun
+  description: Od której godziny w słoneczny dzień grzejniki chłodniej.
+- key: sun_to_h
+  label: Słoneczny dzień - do godziny
+  type: number
+  unit: ":00"
+  min: 1
+  max: 24
+  step: 1
+  default: 16
+  group: sun
+  description: Do której godziny - wieczorem i w nocy krzywa bez obniżenia.
