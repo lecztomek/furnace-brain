@@ -15,12 +15,15 @@ fields:
     label_off: "WYŁĄCZONY"
     group: basic
 
-  - key: address
-    label: "Adres termometru"
-    type: text
-    default: ""
+  - key: address_last
+    label: "Termometr: koniec adresu"
+    type: number
+    min: 0
+    max: 254
+    step: 1
+    default: 245
     group: basic
-    description: "Adres w sieci domowej, np. 192.168.1.50 (Tasmota). Puste = nie ma termometru."
+    description: "Ostatnia liczba adresu termometru w sieci domowej, np. 50 dla 192.168.1.50. Pierwsze trzy liczby są takie jak sterownika. Termometr musi mieć w routerze stały adres. 0 = nie ma termometru."
 
   - key: refresh_s
     label: "Odczyt co"

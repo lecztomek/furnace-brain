@@ -6,6 +6,7 @@ history writes it (temp_wewn). Only recorded - nothing in the furnace control re
 from __future__ import annotations
 
 import json
+import socket
 import threading
 import time
 import urllib.request
@@ -26,17 +27,34 @@ VALID_MIN_C, VALID_MAX_C = -20.0, 50.0     # a reading outside this is a broken 
 @dataclass
 class RoomConfig:
     enabled: bool = True
-    address: str = ""             # e.g. 192.168.1.50 (Tasmota) or a full http:// address
+    # the last number of the thermometer's address; the first three are the controller's own
+    # (192.168.1.x) - set with buttons, the panel has no keyboard. 0 = no thermometer
+    address_last: float = 245.0
     refresh_s: float = 60.0
     max_age_min: float = 10.0     # an older reading is not used
 
 
 def reading_url(address: str) -> str:
-    """A bare address is a Tasmota device (its sensor status); a full http:// address is used as is."""
-    address = address.strip()
-    if address.startswith(("http://", "https://")):
-        return address
-    return f"http://{address.rstrip('/')}/cm?cmnd=Status%2010"
+    """The sensor status of a Tasmota device."""
+    return f"http://{address.strip()}/cm?cmnd=Status%2010"
+
+
+def own_ip() -> str:
+    """The controller's address in the home network (no packet is sent - only the route is looked up)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("10.255.255.255", 1))
+        return s.getsockname()[0]
+    finally:
+        s.close()
+
+
+def thermometer_address(last: int, ip: str) -> str:
+    """The controller's first three numbers and the thermometer's last one: 192.168.1.17 + 50 -> 192.168.1.50."""
+    parts = ip.split(".")
+    if len(parts) != 4 or ip.startswith("127."):
+        raise ValueError("sterownik nie ma adresu w sieci domowej")
+    return ".".join(parts[:3] + [str(int(last))])
 
 
 def parse_temperature(data: Any) -> float:
@@ -65,6 +83,7 @@ class RoomModule(ModuleInterface):
         base_path: Optional[Path] = None,
         data_root: Optional[Path] = None,
         fetcher: Optional[Callable[[str], float]] = None,
+        ip_finder: Optional[Callable[[], str]] = None,
     ) -> None:
         self._base_path = base_path or Path(__file__).resolve().parent
         self._schema_path = self._base_path / "schema.yaml"
@@ -73,12 +92,14 @@ class RoomModule(ModuleInterface):
         self._load_config_from_file()
 
         self._fetcher = fetcher or fetch_room_temp
+        self._own_ip = ip_finder or own_ip
         self._lock = threading.Lock()
         self._fetching = False
         self._next_attempt = 0.0          # wall clock
         self._temp: Optional[float] = None
         self._fetched_at: Optional[float] = None
         self._error: Optional[str] = None
+        self._address: Optional[str] = None
         self._pending_events: List[Event] = []
         self._problems = ProblemTracker(self.id, "Temperatura w domu")
 
@@ -90,7 +111,8 @@ class RoomModule(ModuleInterface):
         wall = time.time()
         status = system_state.modules.get(self.id) or ModuleStatus(id=self.id)
         cfg = self._config
-        if not cfg.enabled or not cfg.address.strip():
+        last = int(cfg.address_last)
+        if not cfg.enabled or not 1 <= last <= 254:
             # not set up yet - nothing to read, nothing to complain about
             return ModuleTickResult(partial_outputs=PartialOutputs(), events=[], status=status, runtime={})
 
@@ -104,15 +126,18 @@ class RoomModule(ModuleInterface):
                 "fetched_at": self._fetched_at,
                 "valid_until": (self._fetched_at or 0.0) + cfg.max_age_min * 60.0,
                 "error": self._error,
+                "address": self._address,
             }
 
         if start:
-            threading.Thread(target=self._fetch, args=(cfg.address,), daemon=True, name="room_fetch").start()
+            threading.Thread(target=self._fetch, args=(last,), daemon=True, name="room_fetch").start()
 
         return ModuleTickResult(partial_outputs=PartialOutputs(), events=events, status=status, runtime=runtime)
 
-    def _fetch(self, address: str) -> None:
+    def _fetch(self, last: int) -> None:
+        address = f"x.x.x.{last}"
         try:
+            address = thermometer_address(last, self._own_ip())
             temp = float(self._fetcher(address))
             if not VALID_MIN_C <= temp <= VALID_MAX_C:
                 raise ValueError(f"odczyt poza zakresem: {temp:.1f}°C")
@@ -126,10 +151,12 @@ class RoomModule(ModuleInterface):
                 if self._fetched_at is None:
                     self._pending_events.append(Event(
                         ts=wall, source=self.id, level=EventLevel.INFO, type="ROOM_OK",
-                        message=f"Temperatura w domu: {temp:.1f}°C", data={"temp": temp},
+                        message=f"Temperatura w domu: {temp:.1f}°C (termometr {address})",
+                        data={"temp": temp, "address": address},
                     ))
                 self._problems.ok("odczyt", "ROOM_OK")
                 self._temp, self._fetched_at, self._error = round(temp, 2), wall, None
+                self._address = address
             else:
                 self._problems.failed("odczyt", error, "ROOM_FETCH_ERROR")
                 self._error = error

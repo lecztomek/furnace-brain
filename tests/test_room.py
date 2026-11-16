@@ -8,7 +8,7 @@ import pytest
 from backend.core.room import room_temp
 from backend.core.state import BoilerMode, Sensors, SystemState
 from backend.modules.history import HistoryModule
-from backend.modules.room import RoomModule, parse_temperature, reading_url
+from backend.modules.room import RoomModule, parse_temperature, reading_url, thermometer_address
 
 TASMOTA = {"StatusSNS": {"Time": "2026-11-16T10:00:00", "DS18B20": {"Id": "01193A4B", "Temperature": 21.4},
                          "TempUnit": "C"}}
@@ -21,7 +21,9 @@ def test_reading_a_tasmota_and_an_esphome_answer():
     with pytest.raises(ValueError):
         parse_temperature({"StatusSNS": {"Time": "x"}})
     assert reading_url("192.168.1.50") == "http://192.168.1.50/cm?cmnd=Status%2010"
-    assert reading_url(" http://10.0.0.7/sensor/temperatura ") == "http://10.0.0.7/sensor/temperatura"
+    assert thermometer_address(50, "192.168.1.17") == "192.168.1.50"
+    with pytest.raises(ValueError):
+        thermometer_address(50, "127.0.1.1")
 
 
 def _tick_until_read(module, timeout=2.0):
@@ -35,17 +37,21 @@ def _tick_until_read(module, timeout=2.0):
 
 
 def test_publishes_the_room_temperature(tmp_path):
-    m = RoomModule(base_path=tmp_path, fetcher=lambda address: 21.37)
-    m.set_config_values({"address": "192.168.1.50"}, persist=False)
+    seen = []
+    m = RoomModule(base_path=tmp_path, fetcher=lambda address: seen.append(address) or 21.37,
+                   ip_finder=lambda: "192.168.1.17")
+    m.set_config_values({"address_last": 50}, persist=False)
     result = _tick_until_read(m)
-    assert result.runtime["temp"] == 21.37
+    assert result.runtime["temp"] == 21.37 and seen == ["192.168.1.50"]
+    assert result.runtime["address"] == "192.168.1.50"
     assert room_temp({"room": result.runtime}) == 21.37
     assert room_temp({"room": result.runtime}, now=time.time() + 11 * 60) is None   # too old
 
 
-def test_no_address_reads_nothing_and_says_nothing(tmp_path):
+def test_address_0_reads_nothing_and_says_nothing(tmp_path):
     calls = []
     m = RoomModule(base_path=tmp_path, fetcher=lambda address: calls.append(address) or 21.0)
+    m.set_config_values({"address_last": 0}, persist=False)
     for _ in range(3):
         r = m.tick(now=time.time(), sensors=Sensors(), system_state=SystemState())
         assert r.runtime == {} and r.events == []
@@ -54,8 +60,9 @@ def test_no_address_reads_nothing_and_says_nothing(tmp_path):
 
 
 def test_a_broken_reading_is_not_used(tmp_path):
-    m = RoomModule(base_path=tmp_path, fetcher=lambda address: 85.0)     # DS18B20 power-on value
-    m.set_config_values({"address": "192.168.1.50"}, persist=False)
+    m = RoomModule(base_path=tmp_path, fetcher=lambda address: 85.0,     # DS18B20 power-on value
+                   ip_finder=lambda: "192.168.1.17")
+    m.set_config_values({"address_last": 50}, persist=False)
     result = _tick_until_read(m)
     assert result.runtime["temp"] is None and "poza zakresem" in result.runtime["error"]
     assert any(e.type == "ROOM_FETCH_ERROR" for e in result.events) or m._problems._open

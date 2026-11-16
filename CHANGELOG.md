@@ -2,9 +2,13 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.77.1 · 16.11.2026 12:00
+
+- Temperatura w domu: adres termometru ustawia się przyciskami - tylko ostatnia liczba („Termometr: koniec adresu”, np. 50 dla 192.168.1.50); pierwsze trzy liczby sterownik bierze ze swojego adresu. Domyślnie 245; 0 = brak termometru. Pełny adres termometru widać w logach przy pierwszym odczycie.
+
 ## 1.77.0 · 16.11.2026 11:30
 
-- Nowy moduł „Temperatura w domu”: odczyt termometru WiFi (Tasmota z DS18B20) co minutę. Adres ustawiasz w Ustawienia → Temperatura w domu (np. 192.168.1.50); bez adresu moduł nic nie robi.
+- Nowy moduł „Temperatura w domu”: odczyt termometru WiFi (Tasmota z DS18B20) co minutę. Bez adresu moduł nic nie robi.
 - Temperatura w domu zapisuje się w historii (kolumna `temp_wewn`) i w średnich statystyk. Sterowanie pieca i krzywa grzewcza jej nie używają - na razie tylko zapis.
 - Nowy wygląd: w nagłówku obok pogody domek z temperaturą w domu (widoczny tylko, gdy jest odczyt). Działa też w podglądzie zdalnym.
 - Odczyt poza zakresem (np. 85°C po zaniku zasilania czujnika) jest odrzucany; błędy odczytu w logach jako „ROOM_FETCH_ERROR”.
