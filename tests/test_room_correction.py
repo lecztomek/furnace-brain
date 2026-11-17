@@ -45,7 +45,7 @@ def _run(m, t0, hours, temp_at, mode=BoilerMode.WORK):
 def _module(tmp_path, **values):
     m = RoomCorrectionModule(base_path=tmp_path, data_root=tmp_path)
     # the rule tests: a decision every 3 h of the last 3 h, no extra wait (as first designed)
-    m.set_config_values({"enabled": True, "interval_h": 3.0, "hold_h": 0.0, **values}, persist=False)
+    m.set_config_values({"enabled": True, "interval_h": 3.0, "hold_h": 0.0, "lookahead_h": 0.0, **values}, persist=False)
     for _ in range(200):                                       # no history in a test: [] quickly
         m.tick(now=0.0, sensors=Sensors(), system_state=SystemState())
         if m._refilled:
@@ -207,3 +207,16 @@ def test_checks_every_hour_but_waits_after_a_change(tmp_path):
     assert rt["offset"] == 1.5
     waits = [e for e in ev if "czekam na efekt" in e.message]
     assert waits and len(waits) <= 3                                 # logged once per wait, not every hour
+
+
+def test_looks_ahead_and_lowers_before_the_house_overshoots(tmp_path):
+    """Lookahead 3 h: the house is still fine (average ~20.6, target 21 ± 0.5) but rising fast -
+    in 3 h it would be ~22, too warm: the curve goes down now. Without the lookahead it would wait."""
+    rising = lambda t0: (lambda t: 20.0 + 0.6 * (t - t0) / 3600)
+    t0 = 1_000_000.0
+    m = _module(tmp_path, lookahead_h=3.0)
+    _, rt, ev = _run(m, t0, 2.2, rising(t0))                     # the first decision at ~2.1 h: average ~20.6
+    assert [e.data["change"] for e in ev] == [-0.5] and "za 3 h" in ev[0].message
+    m0 = _module(tmp_path / "x", lookahead_h=0.0)
+    _, rt0, ev0 = _run(m0, t0, 2.2, rising(t0))
+    assert rt0["offset"] == 0.0                                  # on the average itself: fine, stays

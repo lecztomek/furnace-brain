@@ -2,6 +2,11 @@
 
 Wszystkie wersje, od najnowszej. Wersja w `VERSION`: Z = poprawka, Y = nowa funkcja, X = duża zmiana.
 
+## 1.87.0 · 17.11.2026 12:00
+
+- Korekta pokojowa z wyprzedzeniem: decyduje po tym, ile będzie w domu za 3 h przy obecnym trendzie (średnia + trend × 3 h), a nie po samej średniej - w wolnym miejscu (termometr w holu bez grzejnika) obniża krzywą, zanim dom się przegrzeje, i podnosi, zanim się wychłodzi. Ustawienia → Korekta pokojowa → „Wyprzedzenie” (domyślnie 3 h; w pokoju z grzejnikiem lepiej 0). W logach: „za 3 h ~X°C”.
+- Model domu: przy bardzo wolnym miejscu (16 h) przestrzał +1,0 → +0,7°C, czas w ±0,5°C 63% → 86%; w szybkim pokoju (8 h) wyprzedzenie nie pomaga - stąd ustawienie.
+
 ## 1.86.0 · 16.11.2026 19:30
 
 - Korekta pokojowa sprawdza dom co godzinę (średnia krocząca i trend z ostatnich 3 h), ale po każdej zmianie krzywej czeka co najmniej 3 h na efekt - dom reaguje wolno. Ustawienia → Korekta pokojowa: „Sprawdzanie co”, „Średnia z”, „Po zmianie czekaj”.

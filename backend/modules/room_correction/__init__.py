@@ -43,6 +43,8 @@ class RoomCorrectionConfig:
     interval_h: float = 1.0           # how often it checks [h]
     avg_h: float = 3.0                # the moving average and the trend of the last ... hours [h]
     hold_h: float = 3.0               # after a change at least ... hours before the next one (the house reacts slowly)
+    lookahead_h: float = 3.0          # decides on where the house will be in ... hours (average + trend x hours);
+                                      # helps a slow place (a hall without a radiator), 0 = on the average itself
     step: float = 0.5                 # one change of the curve [°C]
     limit: float = 2.0                # the correction never beyond ± this [°C]
     trend_min: float = 0.1            # already warming / cooling from this much [°C/h]
@@ -179,10 +181,13 @@ class RoomCorrectionModule(ModuleInterface):
             skip = "krzywa grzewcza wyłączona"
         elif (system_state.runtime.get("flameout") or {}).get("at"):
             skip = "piec wygasł"
+        # where the house will be in lookahead_h hours at this trend - a slow house overshoots
+        # if it waits until it is already too warm (or too cold)
+        projected = avg + trend * max(0.0, cfg.lookahead_h)
         if skip:
             change, why = 0, skip
         else:
-            change, why = decide(avg, trend, cfg)
+            change, why = decide(projected, trend, cfg)
             if change and self._last_change is not None and now - self._last_change < cfg.hold_h * 3600.0:
                 change, why = 0, f"{why}, ale krzywa zmieniona niedawno - czekam na efekt"
         before = self._offset
@@ -191,7 +196,7 @@ class RoomCorrectionModule(ModuleInterface):
         if self._offset != before:
             self._last_change = now
         self._last_decision = now
-        self._last = {"room_avg": round(avg, 2), "trend": round(trend, 3), "decision": why,
+        self._last = {"room_avg": round(avg, 2), "trend": round(trend, 3), "projected": round(projected, 2), "decision": why,
                       "change": round(self._offset - before, 2)}
         self._save_state()
 
@@ -209,8 +214,10 @@ class RoomCorrectionModule(ModuleInterface):
         return Event(
             ts=time.time(), source=self.id, level=EventLevel.INFO, type="ROOM_CORRECTION",
             message=(f"Korekta pokojowa: w domu {num(avg, 2)}°C (zadana {num(cfg.room_target)}), "
-                     f"trend {num(trend, 2)}°C/h - {why}: {what}"),
-            data={"room_avg": round(avg, 2), "trend": round(trend, 3), "target": cfg.room_target,
+                     f"trend {num(trend, 2)}°C/h"
+                     + (f", za {cfg.lookahead_h:g} h ~{num(projected, 1)}°C" if cfg.lookahead_h > 0 else "")
+                     + f" - {why}: {what}"),
+            data={"room_avg": round(avg, 2), "trend": round(trend, 3), "projected": round(projected, 2), "target": cfg.room_target,
                   "offset": self._offset, "change": round(self._offset - before, 2), "why": why},
         )
 

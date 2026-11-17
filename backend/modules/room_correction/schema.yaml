@@ -61,6 +61,17 @@ fields:
     group: basic
     description: "Po przesunięciu krzywej co najmniej tyle godzin do następnej zmiany - dom reaguje wolno, bez tego dokładałby, zanim zadziała poprzednia zmiana."
 
+  - key: lookahead_h
+    label: "Wyprzedzenie"
+    type: number
+    unit: "h"
+    min: 0
+    max: 6
+    step: 1
+    default: 3
+    group: basic
+    description: "Decyduje po tym, ile będzie w domu za tyle godzin przy obecnym trendzie (średnia + trend × godziny) - w wolnym miejscu (hol bez grzejnika) zapobiega przestrzałom. W pokoju z grzejnikiem lepiej 0 (wtedy po samej średniej)."
+
   - key: deadband
     label: "W domu dobrze w granicy ±"
     type: number
